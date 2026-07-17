@@ -1,0 +1,202 @@
+{
+  "version": "1.0",
+  "generated_by": "engine catalog",
+  "components": [
+    {
+      "name": "TitleCard",
+      "pack": "core",
+      "when_to_use": "opening a video or a chapter with a short title or a year; cold opens; section breaks",
+      "when_not_to_use": "mid-narration emphasis (use LowerThird); any numeric fact (use a data component)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 8,
+          "required": true
+        },
+        "subtext": {
+          "type": "string",
+          "maxWords": 12
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "LowerThird",
+      "pack": "core",
+      "when_to_use": "introducing a person, place, or thing by name while narration continues (e.g. a general, a city, a ship)",
+      "when_not_to_use": "titles or chapter breaks (use TitleCard); statistics (use data components)",
+      "anchor_types": [
+        "name",
+        "place"
+      ],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 6,
+          "required": true,
+          "from_anchor": "value"
+        },
+        "subtitle": {
+          "type": "string",
+          "maxWords": 10
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "AnimatedPercentage",
+      "pack": "core",
+      "when_to_use": "the narration states a single percentage or share of a whole (e.g. '70% of factories were converted')",
+      "when_not_to_use": "multiple values compared (use ComparisonBars); vague quantities ('most', 'many'); decorative emphasis with no stated number",
+      "anchor_types": [
+        "percentage"
+      ],
+      "props": {
+        "value": {
+          "type": "number",
+          "min": 0,
+          "max": 100,
+          "required": true,
+          "from_anchor": "value"
+        },
+        "label": {
+          "type": "string",
+          "maxWords": 4,
+          "required": true
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "ComparisonBars",
+      "pack": "core",
+      "when_to_use": "the narration compares two to four named quantities (e.g. 'Germany produced 12,000 tanks; the Soviets, 29,000')",
+      "when_not_to_use": "a single value (use AnimatedPercentage); more than four values; trends over time",
+      "anchor_types": [
+        "comparison"
+      ],
+      "props": {
+        "items": {
+          "type": "array",
+          "required": true,
+          "from_anchor": "value",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "maxWords": 4
+              },
+              "value": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "unit": {
+          "type": "string",
+          "maxWords": 2
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "AnimatedMap",
+      "pack": "core",
+      "when_to_use": "the narration names a specific place, route, or front line where geography matters to understanding",
+      "when_not_to_use": "passing mentions of places that don't need locating; abstract concepts",
+      "anchor_types": [
+        "place"
+      ],
+      "props": {
+        "place_name": {
+          "type": "string",
+          "required": true,
+          "from_anchor": "value"
+        },
+        "lat": {
+          "type": "number",
+          "min": -90,
+          "max": 90,
+          "computed": "geocode"
+        },
+        "lng": {
+          "type": "number",
+          "min": -180,
+          "max": 180,
+          "computed": "geocode"
+        },
+        "label": {
+          "type": "string",
+          "maxWords": 4
+        },
+        "zoom": {
+          "enum": [
+            "city",
+            "region",
+            "country",
+            "continent"
+          ],
+          "default": "region"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3,
+        "default": 5
+      },
+      "renderer": "remotion"
+    }
+  ]
+}

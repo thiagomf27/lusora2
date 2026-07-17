@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/edit_plan.schema.json",
+  "title": "EditPlan",
+  "description": "The strict, compiled timeline. The renderer's ONLY input besides asset files. Fixed track set; richness lives in items.",
+  "type": "object",
+  "required": ["version", "video_id", "fps", "resolution", "tracks"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": "1.0" },
+    "video_id": { "type": "string", "minLength": 1 },
+    "fps": { "type": "integer", "minimum": 1, "maximum": 120 },
+    "resolution": {
+      "type": "object",
+      "required": ["width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 16 },
+        "height": { "type": "integer", "minimum": 16 }
+      }
+    },
+    "tracks": {
+      "type": "object",
+      "required": ["visual", "overlays", "captions", "audio"],
+      "additionalProperties": false,
+      "properties": {
+        "visual": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/visualItem" },
+          "description": "base items: contiguous, non-overlapping, starts at 0 (validator-enforced)"
+        },
+        "overlays": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/overlayItem" },
+          "description": "catalog component instances AND media overlays; may overlap each other and the base"
+        },
+        "captions": {
+          "type": "object",
+          "required": ["enabled", "items"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "preset": { "type": "string", "description": "caption style preset name from the theme" },
+            "items": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/captionItem" }
+            }
+          }
+        },
+        "audio": {
+          "type": "object",
+          "required": ["voiceover"],
+          "additionalProperties": false,
+          "properties": {
+            "voiceover": { "$ref": "#/$defs/voiceoverItem" },
+            "music": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/musicItem" }
+            },
+            "sfx": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/musicItem" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "required": ["source", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "source": { "enum": ["library", "stock", "ai", "upload", "manual"] },
+        "id": { "type": ["string", "null"] },
+        "provider": { "type": ["string", "null"] },
+        "license": { "type": ["string", "null"] },
+        "path": { "type": "string", "description": "relative to the video folder, e.g. clips/b12.mp4" },
+        "score": { "type": ["number", "null"] },
+        "query": { "type": ["string", "null"] }
+      }
+    },
+    "itemBase": {
+      "type": "object",
+      "required": ["id", "start_s", "end_s"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "beat_id": { "type": ["string", "null"], "description": "which beat produced this item; null for hand-added items" },
+        "locked": { "type": "boolean", "default": false, "description": "set true automatically by any manual timeline edit; per-beat recompile skips locked items" },
+        "start_s": { "type": "number", "minimum": 0 },
+        "end_s": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["none", "ken_burns"] },
+        "direction": { "enum": ["in", "out"], "default": "in" },
+        "pan": { "enum": ["center", "left", "right", "up", "down"], "default": "center" },
+        "strength": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.15 }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["cut", "crossfade", "fade", "fade_to_black"] },
+        "duration_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 3, "default": 0.5 }
+      },
+      "description": "transition OUT of this item; consumes handles, never moves narrative cuts"
+    },
+    "visualItem": {
+      "allOf": [{ "$ref": "#/$defs/itemBase" }],
+      "type": "object",
+      "required": ["id", "start_s", "end_s", "media_type", "asset"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "media_type": { "enum": ["video", "image", "avatar", "color"] },
+        "asset": { "$ref": "#/$defs/provenance" },
+        "in_offset_s": { "type": "number", "minimum": 0, "default": 0, "description": "trim start within the source file" },
+        "motion": { "$ref": "#/$defs/motion" },
+        "transition_out": { "$ref": "#/$defs/transition" },
+        "mute": { "type": "boolean", "default": true }
+      }
+    },
+    "overlayItem": {
+      "type": "object",
+      "required": ["id", "start_s", "end_s", "kind"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "kind": { "enum": ["component", "media"] },
+        "component": { "type": "string", "description": "catalog component name (kind=component)" },
+        "props": { "type": "object", "description": "full, validated semantic props (kind=component)" },
+        "asset": { "$ref": "#/$defs/provenance" },
+        "transform": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 0.35 },
+            "position": { "enum": ["top_left", "top_right", "bottom_left", "bottom_right", "center"], "default": "bottom_right" }
+          },
+          "description": "PiP transform for media overlays"
+        }
+      },
+      "allOf": [
+        { "$ref": "#/$defs/itemBase" },
+        {
+          "if": { "properties": { "kind": { "const": "component" } } },
+          "then": { "required": ["component", "props"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "media" } } },
+          "then": { "required": ["asset"] }
+        }
+      ]
+    },
+    "captionItem": {
+      "type": "object",
+      "required": ["start_s", "end_s", "text"],
+      "additionalProperties": false,
+      "properties": {
+        "start_s": { "type": "number", "minimum": 0 },
+        "end_s": { "type": "number", "exclusiveMinimum": 0 },
+        "text": { "type": "string" }
+      }
+    },
+    "voiceoverItem": {
+      "type": "object",
+      "required": ["path", "duration_s"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "duration_s": { "type": "number", "exclusiveMinimum": 0, "description": "defines total video duration; must match real audio duration" },
+        "volume": { "type": "number", "minimum": 0, "maximum": 2, "default": 1 }
+      }
+    },
+    "musicItem": {
+      "type": "object",
+      "required": ["path", "start_s"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "start_s": { "type": "number", "minimum": 0 },
+        "end_s": { "type": ["number", "null"] },
+        "volume": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.12 },
+        "loop": { "type": "boolean", "default": false },
+        "fade_in_s": { "type": "number", "minimum": 0, "default": 0 },
+        "fade_out_s": { "type": "number", "minimum": 0, "default": 0 },
+        "asset": { "$ref": "#/$defs/provenance" }
+      }
+    }
+  }
+}

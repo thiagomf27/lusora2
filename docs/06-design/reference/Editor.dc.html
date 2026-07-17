@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin:0; background:#08090c; }
+  a { color:#6ea8dc; text-decoration:none; }
+  a:hover { color:#9cc4e8; }
+  ::selection { background:#35d0a044; }
+  @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+  ::-webkit-scrollbar { height:8px; width:8px; }
+  ::-webkit-scrollbar-thumb { background:#232a36; border-radius:4px; }
+</style>
+</helmet>
+<div style="display:flex; flex-direction:column; height:100vh; background:#08090c; color:#e7eaf0; font-family:Helvetica, Arial, sans-serif; font-size:13px; overflow:hidden;">
+
+  <!-- Top bar -->
+  <header style="height:46px; flex-shrink:0; display:flex; align-items:center; gap:12px; padding:0 14px; border-bottom:1px solid #171c25; background:#0b0e13;">
+    <a href="Video.dc.html" title="Back to video" style="color:#8a93a3; font-size:15px; padding:4px 8px;">←</a>
+    <div style="width:26px; height:26px; border-radius:5px; background:repeating-linear-gradient(135deg,#131a23 0,#131a23 4px,#161e28 4px,#161e28 8px); border:1px solid #232a36;"></div>
+    <div style="font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">The Town That Vanished Overnight <span style="color:#5d6675;">· Midnight Files · v-2381</span></div>
+    <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+      <div style="display:flex; gap:2px; border:1px solid #232a36; border-radius:7px; padding:2px;">
+        <button onClick="{{ setBeats }}" style="padding:4px 12px; border-radius:5px; border:none; background:{{ beatsBg }}; color:{{ beatsColor }}; font-size:11.5px; cursor:pointer; font-family:inherit;">Beats</button>
+        <button onClick="{{ setTimeline }}" style="padding:4px 12px; border-radius:5px; border:none; background:{{ tlBg }}; color:{{ tlColor }}; font-size:11.5px; cursor:pointer; font-family:inherit;">Timeline</button>
+      </div>
+      <div style="display:flex; gap:3px; align-items:center;">
+        <sc-for list="{{ roleOptions }}" as="r" hint-placeholder-count="3">
+          <button onClick="{{ r.pick }}" style="padding:3px 9px; border-radius:5px; border:1px solid {{ r.border }}; background:{{ r.bg }}; color:{{ r.color }}; font-size:10.5px; cursor:pointer; font-family:inherit;">{{ r.label }}</button>
+        </sc-for>
+      </div>
+      <button style="padding:6px 14px; border-radius:7px; border:1px solid {{ saveBorder }}; background:{{ saveBg }}; color:{{ saveColor }}; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;">{{ saveLabel }}</button>
+    </div>
+  </header>
+
+  <!-- Middle -->
+  <div style="flex:1; display:flex; min-height:180px; overflow:hidden;">
+    <!-- Icon rail -->
+    <div style="width:46px; flex-shrink:0; border-right:1px solid #171c25; background:#0b0e13; display:flex; flex-direction:column; align-items:center; padding-top:10px; gap:4px;">
+      <sc-for list="{{ railIcons }}" as="ic" hint-placeholder-count="5">
+        <div title="{{ ic.title }}" style="width:32px; height:32px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:14px; color:{{ ic.color }}; background:{{ ic.bg }}; cursor:pointer;" style-hover="background:#161b24;">{{ ic.glyph }}</div>
+      </sc-for>
+    </div>
+
+    <!-- Assets / inspector panel -->
+    <div style="width:246px; flex-shrink:0; border-right:1px solid #171c25; background:#0d1017; display:flex; flex-direction:column; min-height:0; overflow:hidden;">
+      <div style="padding:12px 14px 10px; display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-size:11px; letter-spacing:1.4px; color:#8a93a3;">ASSETS</div>
+        <div style="display:flex; gap:2px; border:1px solid #232a36; border-radius:6px; padding:2px;">
+          <span style="padding:2px 9px; border-radius:4px; background:#1a212c; color:#e7eaf0; font-size:10.5px;">Videos</span>
+          <span style="padding:2px 9px; border-radius:4px; color:#5d6675; font-size:10.5px; cursor:pointer;">Images</span>
+        </div>
+      </div>
+      <div style="margin:0 14px 10px; display:flex; gap:6px;">
+        <div style="flex:1; border:1px solid #232a36; border-radius:7px; padding:6px 10px; color:#5d6675; font-size:12px;">aerial fog town…</div>
+        <div style="width:30px; border:1px solid #232a36; border-radius:7px; display:flex; align-items:center; justify-content:center; color:#8a93a3; cursor:pointer;">↥</div>
+      </div>
+      <div style="margin:0 14px 12px; border:1px solid #232a36; border-radius:9px; padding:10px 12px; background:#0f1319;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-size:12px; font-weight:500;">aerial-fog-04.mp4</div>
+          <span style="font-size:10px; padding:2px 7px; border-radius:5px; border:1px solid #453721; color:#e0a458; cursor:pointer;">✦ Re-roll</span>
+        </div>
+        <div style="font-size:10.5px; color:#5d6675; margin-top:3px;">Pexels · used in beat 3</div>
+        <div style="margin-top:9px; height:4px; border-radius:99px; background:#1a212c; position:relative;"><div style="position:absolute; left:28%; width:22%; height:100%; background:#6ea8dc; border-radius:99px;"></div></div>
+        <div style="display:flex; justify-content:space-between; font-family:ui-monospace, monospace; font-size:10px; color:#5d6675; margin-top:5px;"><span>In 0:22.3</span><span>Out 0:31.1</span></div>
+      </div>
+      <div style="flex:1; overflow-y:auto; padding:0 14px 14px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <sc-for list="{{ assetThumbs }}" as="t" hint-placeholder-count="8">
+            <div style="cursor:pointer;">
+              <div style="aspect-ratio:16/10; border-radius:6px; border:1px solid {{ t.border }}; background:repeating-linear-gradient(135deg, {{ t.c1 }} 0, {{ t.c1 }} 6px, {{ t.c2 }} 6px, {{ t.c2 }} 12px); position:relative;">
+                <span style="position:absolute; top:4px; left:4px; font-size:8.5px; padding:1px 5px; border-radius:3px; background:#08090cbb; color:{{ t.srcColor }};">{{ t.src }}</span>
+              </div>
+              <div style="font-size:10px; color:#8a93a3; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ t.name }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage -->
+    <div style="flex:1; min-width:0; display:flex; align-items:center; justify-content:center; padding:22px; background:#08090c; position:relative;">
+      <div style="width:min(100%, 78vh * 16 / 9); aspect-ratio:16/9; max-height:100%; background:#f4f2ec; border-radius:4px; box-shadow:0 20px 60px #000a; position:relative; overflow:hidden;">
+        <div style="position:absolute; inset:0; background:repeating-linear-gradient(135deg, #f4f2ec 0, #f4f2ec 18px, #efede6 18px, #efede6 36px);"></div>
+        <div style="position:absolute; top:18px; right:22px; font-family:ui-monospace, monospace; font-size:10px; color:#a39f92;">[ stage · beat {{ selectedBeatNum }} preview ]</div>
+        <div style="position:absolute; left:50%; bottom:12%; transform:translateX(-50%); background:#0b0e13; color:#f4f2ec; font-size:13px; padding:4px 12px; border-radius:4px; white-space:nowrap;">{{ stageCaption }}</div>
+        <sc-if value="{{ stageOverlay }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute; left:8%; top:14%; width:34%; aspect-ratio:4/3; border:2px dashed #6ea8dc; border-radius:6px; background:#6ea8dc14; display:flex; align-items:center; justify-content:center; font-family:ui-monospace, monospace; font-size:10px; color:#4a7cad;">{{ stageOverlayLabel }}</div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- Agent panel -->
+    <div style="width:272px; flex-shrink:0; border-left:1px solid #171c25; background:#0d1017; display:flex; flex-direction:column; min-height:0; overflow:hidden;">
+      <div style="padding:12px 14px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #171c25;">
+        <div style="font-size:11px; letter-spacing:1.4px; color:#8a93a3;">AGENT</div>
+        <span style="color:#5d6675; cursor:pointer;">✕</span>
+      </div>
+      <div style="flex:1; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:10px;">
+        <sc-for list="{{ chat }}" as="m" hint-placeholder-count="4">
+          <div style="align-self:{{ m.align }}; max-width:92%; display:flex; flex-direction:column; gap:5px;">
+            <div style="padding:8px 11px; border-radius:9px; background:{{ m.bg }}; border:1px solid {{ m.border }}; font-size:12px; color:{{ m.color }}; line-height:1.45; animation:{{ m.anim }};">{{ m.text }}</div>
+            <sc-if value="{{ m.hasTools }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                <sc-for list="{{ m.tools }}" as="t" hint-placeholder-count="1">
+                  <span style="font-size:10px; font-family:ui-monospace, monospace; padding:2px 8px; border-radius:5px; border:1px solid {{ t.border }}; color:{{ t.color }};">{{ t.label }}</span>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ agentLockNote }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:11px; color:#5d6675; border:1px dashed #232a36; border-radius:8px; padding:8px 10px; line-height:1.5;">🔒 Beat 3 was edited by hand and is locked — the agent won’t re-roll it unless you unlock it in the beat panel.</div>
+        </sc-if>
+      </div>
+      <div style="padding:12px 14px; border-top:1px solid #171c25; display:flex; gap:7px;">
+        <input value="{{ chatDraft }}" onChange="{{ onChatInput }}" placeholder="describe an edit…" style="flex:1; min-width:0; background:#11151c; border:1px solid #232a36; color:#e7eaf0; border-radius:8px; padding:8px 11px; font-size:12px; font-family:inherit;"></input>
+        <button onClick="{{ sendChat }}" style="width:34px; border-radius:8px; border:1px solid #453721; background:#211a0f; color:#e0a458; font-size:13px; cursor:pointer; font-family:inherit;">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom: beats / timeline -->
+  <div style="flex-shrink:0; border-top:1px solid #171c25; background:#0b0e13; max-height:44vh; display:flex; flex-direction:column; overflow:hidden;">
+    <!-- Toolbar -->
+    <div style="height:40px; flex-shrink:0; display:flex; align-items:center; gap:14px; padding:0 16px; border-bottom:1px solid #12161d;">
+      <div style="display:flex; gap:10px; color:#5d6675; font-size:13px;">
+        <span style="cursor:pointer;" title="Undo">↺</span><span style="cursor:pointer;" title="Redo">↻</span><span style="cursor:pointer;" title="Split at playhead">✂</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="cursor:pointer; color:#e7eaf0;">▶</span>
+        <span style="font-family:ui-monospace, monospace; font-size:11px; color:#8a93a3;">02:18 / 12:48</span>
+      </div>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+        <span style="font-family:ui-monospace, monospace; font-size:10.5px; color:#5d6675;">zoom ─────●──</span>
+        <button onClick="{{ toggleIssues }}" style="display:flex; align-items:center; gap:6px; padding:4px 11px; border-radius:6px; border:1px solid #4a2530; background:#241318; color:#e5646c; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit;">▲ {{ issueCount }} issues</button>
+      </div>
+    </div>
+
+    <sc-if value="{{ issuesOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:10px 16px; border-bottom:1px solid #12161d; display:flex; flex-direction:column; gap:6px; background:#0d0a0c;">
+        <sc-for list="{{ issues }}" as="iss" hint-placeholder-count="2">
+          <div onClick="{{ iss.jump }}" style="display:flex; gap:10px; align-items:baseline; font-size:12px; cursor:pointer;" style-hover="opacity:.8;">
+            <span style="font-family:ui-monospace, monospace; font-size:10px; border:1px solid {{ iss.border }}; color:{{ iss.color }}; border-radius:4px; padding:1px 6px;">{{ iss.tag }}</span>
+            <span style="color:#c7cdd8;">{{ iss.text }}</span>
+            <span style="font-family:ui-monospace, monospace; font-size:10.5px; color:#5d6675;">{{ iss.at }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- BEATS view -->
+    <sc-if value="{{ beatsMode }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; gap:10px; padding:14px 16px 16px; overflow:auto; align-items:stretch; min-height:0;">
+        <sc-for list="{{ beats }}" as="b" hint-placeholder-count="6">
+          <div onClick="{{ b.pick }}" style="width:{{ b.width }}; flex-shrink:0; border:1px solid {{ b.border }}; border-radius:10px; background:{{ b.bg }}; padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:7px;" style-hover="border-color:#3a4352;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-family:ui-monospace, monospace; font-size:10px; color:#5d6675;">{{ b.label }}</span>
+              <span style="font-size:10px; color:{{ b.badgeColor }};">{{ b.badge }}</span>
+            </div>
+            <div style="height:34px; border-radius:5px; border:1px solid {{ b.thumbBorder }}; background:repeating-linear-gradient(135deg, {{ b.c1 }} 0, {{ b.c1 }} 5px, {{ b.c2 }} 5px, {{ b.c2 }} 10px);"></div>
+            <div style="font-size:11.5px; font-weight:500; line-height:1.3;">{{ b.subject }}</div>
+            <div style="font-size:10.5px; color:#8a93a3; line-height:1.35; font-style:italic;">“{{ b.text }}”</div>
+            <sc-if value="{{ b.selected }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px; border-top:1px solid #1c222d; padding-top:9px;">
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <label style="font-size:9.5px; letter-spacing:1px; color:#5d6675;">SUBJECT</label>
+                  <input value="{{ b.subject }}" readOnly="{{ true }}" style="background:#11151c; border:1px solid #232a36; color:#e7eaf0; border-radius:6px; padding:6px 9px; font-size:11.5px; font-family:inherit;"></input>
+                  <label style="font-size:9.5px; letter-spacing:1px; color:#5d6675; margin-top:2px;">ON-SCREEN TEXT</label>
+                  <input value="{{ b.text }}" readOnly="{{ true }}" style="background:#11151c; border:1px solid #232a36; color:#e7eaf0; border-radius:6px; padding:6px 9px; font-size:11.5px; font-family:inherit;"></input>
+                </div>
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                  <button style="padding:4px 10px; border-radius:6px; border:1px solid #453721; background:#211a0f; color:#e0a458; font-size:10.5px; cursor:pointer; font-family:inherit;">✦ Re-roll asset{{ b.rerollCost }}</button>
+                  <button style="padding:4px 10px; border-radius:6px; border:1px solid #2a3240; background:#161b24; color:#c7cdd8; font-size:10.5px; cursor:pointer; font-family:inherit;">Split</button>
+                  <button style="padding:4px 10px; border-radius:6px; border:1px solid #2a3240; background:#161b24; color:#c7cdd8; font-size:10.5px; cursor:pointer; font-family:inherit;">◀ Merge</button>
+                  <sc-if value="{{ b.locked }}" hint-placeholder-val="{{ false }}">
+                    <button style="padding:4px 10px; border-radius:6px; border:1px solid #2a3240; background:#161b24; color:#8a93a3; font-size:10.5px; cursor:pointer; font-family:inherit;">🔒 Unlock</button>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ b.note }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:10px; color:{{ b.noteColor }}; line-height:1.4;">{{ b.note }}</div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- TIMELINE view -->
+    <sc-if value="{{ timelineMode }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:10px 0 14px; position:relative; overflow-x:auto;">
+        <div style="min-width:1100px; padding:0 16px; position:relative;">
+          <!-- ruler -->
+          <div style="display:flex; font-family:ui-monospace, monospace; font-size:9.5px; color:#5d6675; padding-bottom:6px;">
+            <sc-for list="{{ ruler }}" as="tick" hint-placeholder-count="7"><div style="flex:1;">{{ tick }}</div></sc-for>
+          </div>
+          <!-- captions -->
+          <div style="display:flex; gap:3px; margin-bottom:5px;">
+            <sc-for list="{{ capChips }}" as="c" hint-placeholder-count="12">
+              <div style="flex:{{ c.flex }}; min-width:0; background:#161b24; border:1px solid #232a36; border-radius:4px; padding:3px 6px; font-size:9.5px; color:#8a93a3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Aa {{ c.text }}</div>
+            </sc-for>
+          </div>
+          <!-- overlays -->
+          <div style="display:flex; gap:3px; margin-bottom:5px;">
+            <sc-for list="{{ overlayBlocks }}" as="o" hint-placeholder-count="4">
+              <div style="flex:{{ o.flex }}; min-width:0; background:{{ o.bg }}; border:1px solid {{ o.border }}; border-radius:5px; padding:5px 8px; font-size:10px; color:{{ o.color }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ o.label }}</div>
+            </sc-for>
+          </div>
+          <!-- b-roll -->
+          <div style="display:flex; gap:3px; margin-bottom:5px;">
+            <sc-for list="{{ clipBlocks }}" as="cl" hint-placeholder-count="5">
+              <div style="flex:{{ cl.flex }}; min-width:0; background:{{ cl.bg }}; border:1px solid {{ cl.border }}; border-radius:5px; padding:5px 8px; font-size:10px; color:{{ cl.color }}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">▸ {{ cl.label }}</div>
+            </sc-for>
+          </div>
+          <!-- voiceover -->
+          <div style="background:#3a1230; border:1px solid #6b2456; border-radius:5px; padding:4px 8px; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:10px; color:#d268b8;">♪ Voiceover</span>
+            <div style="flex:1; height:16px; background:repeating-linear-gradient(90deg, #d268b8 0, #d268b8 2px, transparent 2px, transparent 5px); opacity:.55; border-radius:2px; mask-image:linear-gradient(180deg, transparent 0%, black 30%, black 70%, transparent 100%);"></div>
+          </div>
+          <!-- playhead -->
+          <div style="position:absolute; top:0; bottom:0; left:38%; width:1px; background:#e7eaf0; pointer-events:none;"><div style="position:absolute; top:-1px; left:-4px; border-left:4px solid transparent; border-right:4px solid transparent; border-top:6px solid #e7eaf0;"></div></div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    role: (typeof localStorage !== 'undefined' && localStorage.getItem('lusora-role')) || 'manager',
+    mode: 'beats',
+    selectedBeat: 3,
+    issuesOpen: false,
+    chatDraft: '',
+  };
+  setRole(r) { localStorage.setItem('lusora-role', r); this.setState({ role: r }); }
+  renderVals() {
+    const { role, mode, selectedBeat, issuesOpen, chatDraft } = this.state;
+    const canManage = role !== 'editor';
+    const roleOptions = ['admin', 'manager', 'editor'].map(k => ({
+      label: k.charAt(0).toUpperCase() + k.slice(1), pick: () => this.setRole(k),
+      bg: role === k ? '#1a212c' : 'transparent', border: role === k ? '#35d0a0' : '#232a36', color: role === k ? '#e7eaf0' : '#5d6675',
+    }));
+    const railIcons = [
+      { glyph: '▤', title: 'Assets', color: '#e0a458', bg: '#211a0f' },
+      { glyph: '≣', title: 'Beats', color: '#8a93a3', bg: 'transparent' },
+      { glyph: '♪', title: 'Audio', color: '#8a93a3', bg: 'transparent' },
+      { glyph: '✂', title: 'Trims', color: '#8a93a3', bg: 'transparent' },
+      { glyph: 'Aa', title: 'Captions', color: '#8a93a3', bg: 'transparent' },
+      { glyph: '◫', title: 'Overlays', color: '#8a93a3', bg: 'transparent' },
+    ];
+    const thumbPal = [['#131a23', '#161e28'], ['#14201c', '#17251f'], ['#1d1622', '#221a28'], ['#20180f', '#261d13']];
+    const srcColors = { PEXELS: '#6ea8dc', LIB: '#35d0a0', AI: '#d268b8', YT: '#e5646c' };
+    const assetThumbs = [
+      { name: 'aerial-fog-04.mp4', src: 'PEXELS' }, { name: 'town-square-dawn.mp4', src: 'PEXELS' },
+      { name: 'valley-mist-11.mp4', src: 'LIB' }, { name: 'archive-still-1962.png', src: 'AI' },
+      { name: 'station-empty-02.mp4', src: 'LIB' }, { name: 'old-map-pan.mp4', src: 'PEXELS' },
+      { name: 'newsprint-macro.mp4', src: 'LIB' }, { name: 'road-night-06.mp4', src: 'PEXELS' },
+    ].map((t, i) => ({ ...t, srcColor: srcColors[t.src], c1: thumbPal[i % 4][0], c2: thumbPal[i % 4][1], border: '#232a36' }));
+    const beatData = [
+      { n: 1, subject: 'Cold open — the name', text: 'In 1962, a city vanished from the map…', dur: '0:14' },
+      { n: 2, subject: 'No records', text: 'No record. No witnesses. Only a name.', dur: '0:11' },
+      { n: 3, subject: 'Aerial — fog valley', text: 'This is what investigators finally found.', dur: '0:09', locked: true },
+      { n: 4, subject: 'Map: Ashwood Valley', text: 'Population 3,140 — then zero.', dur: '0:16', overlay: 'Map: Ashwood Valley' },
+      { n: 5, subject: 'Archive photo montage', text: 'The last photographs, summer 1961.', dur: '0:18' },
+      { n: 6, subject: 'The station platform', text: 'The 6:40 train never stopped again.', dur: '0:12', error: true },
+      { n: 7, subject: 'Population pictogram', text: 'Where did 3,140 people go?', dur: '0:15', overlay: 'Pictogram' },
+      { n: 8, subject: 'The lone document', text: 'One file survived the archive fire.', dur: '0:13' },
+    ];
+    const beats = beatData.map((b, i) => {
+      const sel = b.n === selectedBeat;
+      const pal = thumbPal[i % 4];
+      return {
+        label: 'BEAT ' + b.n + ' · ' + b.dur,
+        subject: b.subject, text: b.text,
+        badge: b.error ? '⚠ asset' : b.locked ? '🔒' : b.overlay ? '◫ overlay' : '',
+        badgeColor: b.error ? '#e5646c' : b.locked ? '#8a93a3' : '#6ea8dc',
+        border: b.error ? '#4a2530' : sel ? '#35d0a0' : '#1c222d',
+        bg: sel ? '#10151d' : '#0d1118',
+        thumbBorder: b.error ? '#4a2530' : '#232a36',
+        c1: b.error ? '#241318' : pal[0], c2: b.error ? '#2a161c' : pal[1],
+        width: sel ? '300px' : '176px',
+        selected: sel, locked: !!b.locked,
+        rerollCost: canManage ? ' · ~$0.02' : '',
+        note: b.error ? 'Asset unresolved — source clip was removed from the library. Re-roll or pick one manually.' :
+              b.locked ? 'Edited by hand in timeline — locked from agent re-rolls (provenance).' : '',
+        noteColor: b.error ? '#e5646c' : '#5d6675',
+        pick: () => this.setState({ selectedBeat: b.n }),
+      };
+    });
+    const selB = beatData.find(b => b.n === selectedBeat) || beatData[0];
+    const chat = [
+      { who: 'u', text: 'make the map overlay end before the caption at 02:31' },
+      { who: 'a', text: 'Done — trimmed “Map: Ashwood Valley” to end at 02:29.4, caption no longer overlaps.', tools: [{ label: 'plan.patch ×1', ok: true }, { label: 'beats.trim ×1', ok: true }] },
+      { who: 'u', text: 'add a population pictogram to beat 7' },
+      { who: 'a', text: 'Applying…', busy: true, tools: [{ label: 'running beats.insert_overlay', ok: false }] },
+    ].map(m => ({
+      align: m.who === 'u' ? 'flex-end' : 'flex-start',
+      bg: m.who === 'u' ? '#1a212c' : '#0f1319',
+      border: m.who === 'u' ? '#27303e' : '#1c222d',
+      color: m.who === 'u' ? '#e7eaf0' : '#c7cdd8',
+      anim: m.busy ? 'pulse 1.4s ease-in-out infinite' : 'none',
+      text: m.text, hasTools: !!m.tools,
+      tools: (m.tools || []).map(t => ({ label: t.label, color: t.ok ? '#35d0a0' : '#e0a458', border: t.ok ? '#1f4a3c' : '#453721' })),
+    }));
+    const issues = [
+      { tag: 'OVERLAP', text: 'Caption overlaps “Map: Ashwood Valley” overlay', at: '02:29–02:31', color: '#e0a458', border: '#453721', jump: () => this.setState({ selectedBeat: 4, mode: 'beats' }) },
+      { tag: 'ASSET', text: 'Beat 6 asset unresolved — clip removed from library', at: 'beat 6', color: '#e5646c', border: '#4a2530', jump: () => this.setState({ selectedBeat: 6, mode: 'beats' }) },
+    ];
+    const capChips = ['This is', 'what invest…', 'finally found', 'Population', '3,140 —', 'then zero', 'The last', 'photographs', 'summer 1961', 'The 6:40', 'train never', 'stopped again']
+      .map((t, i) => ({ text: t, flex: String(1 + (i % 3) * 0.3) }));
+    const overlayBlocks = [
+      { label: '◫ Map: Ashwood Valley', flex: '2.2', bg: '#14233a', border: '#2c4a72', color: '#8fb8e4' },
+      { label: '◫ Photo slideshow', flex: '2.8', bg: '#14233a', border: '#2c4a72', color: '#8fb8e4' },
+      { label: '', flex: '1.4', bg: 'transparent', border: 'transparent', color: 'transparent' },
+      { label: '◫ Pictogram', flex: '2', bg: '#14233a', border: '#2c4a72', color: '#8fb8e4' },
+    ];
+    const clipBlocks = [
+      { label: 'aerial-fog-04', flex: '1.6', bg: '#141a22', border: '#232a36', color: '#8a93a3' },
+      { label: 'town-square-dawn', flex: '2.1', bg: '#141a22', border: '#232a36', color: '#8a93a3' },
+      { label: 'archive-still-1962', flex: '1.4', bg: '#141a22', border: '#232a36', color: '#8a93a3' },
+      { label: 'station-empty-02 ⚠', flex: '1.8', bg: '#241318', border: '#4a2530', color: '#e5646c' },
+      { label: 'old-map-pan', flex: '1.5', bg: '#141a22', border: '#232a36', color: '#8a93a3' },
+    ];
+    return {
+      roleOptions, railIcons, assetThumbs, beats, chat, issues, capChips, overlayBlocks, clipBlocks,
+      ruler: ['02:00', '02:10', '02:20', '02:30', '02:40', '02:50', '03:00'],
+      beatsMode: mode === 'beats', timelineMode: mode === 'timeline',
+      setBeats: () => this.setState({ mode: 'beats' }), setTimeline: () => this.setState({ mode: 'timeline' }),
+      beatsBg: mode === 'beats' ? '#1a212c' : 'transparent', beatsColor: mode === 'beats' ? '#e7eaf0' : '#5d6675',
+      tlBg: mode === 'timeline' ? '#1a212c' : 'transparent', tlColor: mode === 'timeline' ? '#e7eaf0' : '#5d6675',
+      saveLabel: canManage ? 'Save & re-queue' : 'Save — sends back for re-render',
+      saveBg: '#123528', saveBorder: '#1f6a4e', saveColor: '#4ae0ad',
+      selectedBeatNum: selectedBeat,
+      stageCaption: selB.text,
+      stageOverlay: !!selB.overlay, stageOverlayLabel: selB.overlay || '',
+      agentLockNote: true,
+      issueCount: issues.length, issuesOpen,
+      toggleIssues: () => this.setState({ issuesOpen: !issuesOpen }),
+      chatDraft,
+      onChatInput: e => this.setState({ chatDraft: e.target.value }),
+      sendChat: () => this.setState({ chatDraft: '' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

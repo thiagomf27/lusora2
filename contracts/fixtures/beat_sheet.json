@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "video_id": "vid_fixture_001",
+  "beats": [
+    {
+      "id": "b1",
+      "kind": "timed",
+      "timing": { "start_s": 0.0, "end_s": 4.5 },
+      "visual_intent": "slow push-in on a city skyline at dawn, mist",
+      "mood": "calm",
+      "overlay": { "component": "TitleCard", "props_hint": { "text": "1943" } }
+    },
+    {
+      "id": "b2",
+      "kind": "narration",
+      "script_text": "By 1943, nearly 70% of the city's factories had been converted to produce aircraft parts.",
+      "visual_intent": "aerial view of a 1940s industrial district, smokestacks, factory floor with workers assembling aircraft wings, archival grain",
+      "mood": "grave",
+      "media_preference": "video",
+      "anchors": [
+        { "type": "percentage", "value": 70, "label": "factories converted", "source_words": "nearly 70%" }
+      ],
+      "overlay": { "component": "AnimatedPercentage", "anchor_ref": 0, "props_hint": { "label": "factories converted" } },
+      "notes": null
+    },
+    {
+      "id": "b3",
+      "kind": "narration",
+      "script_text": "The workers came from every corner of the country.",
+      "visual_intent": "crowded train platform in the 1940s, workers with suitcases arriving, black and white archival footage",
+      "mood": "grave",
+      "media_preference": "any"
+    }
+  ],
+  "music": [
+    { "start_beat": "b1", "end_beat": "b3", "intent": "dark ambient, sparse piano", "volume": "low" }
+  ]
+}

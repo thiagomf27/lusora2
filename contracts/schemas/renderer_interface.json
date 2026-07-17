@@ -1,0 +1,30 @@
+{
+  "$id": "https://lusora.dev/schemas/renderer_interface.json",
+  "title": "RendererInterface",
+  "description": "The CLI contract between worker and engine. Informational (not a validation schema): both sides are tested against the contract fixture in CI.",
+  "invocation": {
+    "command": "engine render --video-dir <folder> --renderer <auto|ffmpeg|remotion> [--outputs mp4]",
+    "cwd_independent": true,
+    "network": "forbidden",
+    "database": "forbidden"
+  },
+  "inputs": {
+    "edit_plan": "<video-dir>/edit_plan.json (validated, all asset paths filled, paths relative to video-dir)",
+    "assets": "<video-dir>/clips/*, <video-dir>/audio.mp3, music files",
+    "theme": "<video-dir>/cfg.json -> theme name -> engine theme registry",
+    "captions": "from the plan, never from the .srt"
+  },
+  "outputs": {
+    "final_mp4": "<video-dir>/final.mp4, written atomically (temp name -> rename)",
+    "stdout": "single JSON line: {\"renderer\": \"ffmpeg|remotion\", \"duration_s\": N, \"ok\": true}",
+    "exit_codes": {
+      "0": "success",
+      "nonzero": "failure with ONE actionable reason on stderr"
+    }
+  },
+  "routing": {
+    "auto": "ffmpeg iff the plan uses only: cuts, crossfade/fade/fade_to_black, Ken Burns / static stills, plain caption preset, audio mix, and no overlay components; otherwise remotion",
+    "pin_ffmpeg": "plans requiring more MUST fail with the list of offending items (capability enforcement, not degradation)",
+    "pin_remotion": "always remotion"
+  }
+}

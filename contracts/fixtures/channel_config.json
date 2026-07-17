@@ -1,0 +1,44 @@
+{
+  "channel_id": "HIST_BR_01",
+  "name": "Histórias da Guerra",
+  "language": "pt-BR",
+  "video_type": "doc",
+  "theme": "history-dark",
+  "style_pack": "doc-slow",
+  "component_pack": null,
+  "voice": { "provider": "mock", "voice_id": "default" },
+  "script": { "generator": "simple", "llm": "deepseek" },
+  "planner": { "llm": "deepseek" },
+  "captions": { "enabled": true },
+  "renderer": "auto",
+  "output": { "fps": 30, "width": 1920, "height": 1080 },
+  "budget": { "max_usd_per_video": 0.8 },
+  "retention": { "clips": "on_render", "final_mp4_days_after_posted": 30 },
+  "content_rules": "No graphic violence on screen. Neutral, factual tone. Avoid modern politics.",
+  "source_policy": {
+    "visual": {
+      "chain": [
+        {
+          "source": "library",
+          "media_types": ["video_clip", "image"],
+          "profile": "default",
+          "include_global": true,
+          "niches": ["history", "war"],
+          "tags": [],
+          "licenses": ["cc0", "cc-by", "owned"],
+          "min_score": 0.55
+        },
+        { "source": "stock", "providers": ["pexels"], "media_types": ["video"] },
+        { "source": "ai_image", "provider": "mock", "style": "archival photo, desaturated, film grain" }
+      ],
+      "max_clip_seconds": 12,
+      "orientation": "landscape"
+    },
+    "music": {
+      "enabled": true,
+      "chain": [{ "source": "audio_library", "tags": ["dark", "ambient"] }],
+      "default_volume": 0.12
+    },
+    "sfx": { "enabled": false }
+  }
+}

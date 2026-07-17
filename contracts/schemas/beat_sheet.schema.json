@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/beat_sheet.schema.json",
+  "title": "BeatSheet",
+  "description": "The creative core: N beats, each one visual intention attached to one span of the video. Produced by the beat planner agent or a human; consumed by the compiler.",
+  "type": "object",
+  "required": ["version", "video_id", "beats"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": "1.0" },
+    "video_id": { "type": "string", "minLength": 1 },
+    "beats": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/beat" }
+    },
+    "music": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/musicSpan" }
+    }
+  },
+  "$defs": {
+    "beat": {
+      "type": "object",
+      "required": ["id", "kind", "visual_intent"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^b[0-9]+$" },
+        "kind": { "enum": ["narration", "timed"] },
+        "script_text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "narration beats only: a verbatim contiguous span of the script"
+        },
+        "timing": {
+          "type": "object",
+          "required": ["start_s", "end_s"],
+          "additionalProperties": false,
+          "properties": {
+            "start_s": { "type": "number", "minimum": 0 },
+            "end_s": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "description": "timed beats only: absolute timing"
+        },
+        "visual_intent": {
+          "type": "string",
+          "minLength": 3,
+          "description": "scout-style concrete visual description; IS the library search query"
+        },
+        "mood": { "type": "string" },
+        "media_preference": { "enum": ["video", "image", "any"], "default": "any" },
+        "anchors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/anchor" }
+        },
+        "overlay": { "$ref": "#/$defs/overlay" },
+        "notes": { "type": ["string", "null"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "narration" } } },
+          "then": { "required": ["script_text"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "timed" } } },
+          "then": { "required": ["timing"] }
+        }
+      ]
+    },
+    "anchor": {
+      "type": "object",
+      "required": ["type", "source_words"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["percentage", "number", "comparison", "place", "date", "name", "quote"] },
+        "value": { "type": ["number", "string", "array", "object"] },
+        "label": { "type": "string" },
+        "source_words": {
+          "type": "string",
+          "minLength": 1,
+          "description": "verbatim words in this beat's span the anchor was detected from"
+        }
+      }
+    },
+    "overlay": {
+      "type": "object",
+      "required": ["component"],
+      "additionalProperties": false,
+      "properties": {
+        "component": { "type": "string", "description": "MUST exist in the component catalog" },
+        "anchor_ref": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "index into this beat's anchors; overlays may only reference an anchor or carry pure text"
+        },
+        "props_hint": {
+          "type": "object",
+          "description": "partial props; the compiler fills the rest from the anchor + defaults"
+        }
+      }
+    },
+    "musicSpan": {
+      "type": "object",
+      "required": ["start_beat", "end_beat", "intent"],
+      "additionalProperties": false,
+      "properties": {
+        "start_beat": { "type": "string" },
+        "end_beat": { "type": "string" },
+        "intent": { "type": "string" },
+        "volume": { "enum": ["low", "medium", "high"], "default": "low" }
+      }
+    }
+  }
+}

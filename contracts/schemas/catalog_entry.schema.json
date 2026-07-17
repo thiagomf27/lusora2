@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/catalog_entry.schema.json",
+  "title": "CatalogEntry",
+  "description": "One entry in the component catalog (the effects menu). Generated from the engine's Zod schemas by `engine catalog`; each entry is designed to be read by the planner LLM.",
+  "type": "object",
+  "required": ["name", "pack", "when_to_use", "when_not_to_use", "anchor_types", "props", "renderer"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$" },
+    "pack": { "type": "string", "description": "'core' or a named component pack" },
+    "when_to_use": { "type": "string", "minLength": 1 },
+    "when_not_to_use": { "type": "string", "minLength": 1 },
+    "anchor_types": {
+      "type": "array",
+      "items": { "enum": ["percentage", "number", "comparison", "place", "date", "name", "quote"] },
+      "description": "which beat anchors may trigger it; [] = pure text allowed"
+    },
+    "props": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/propSpec" }
+    },
+    "duration_hint_s": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": { "type": "number", "exclusiveMinimum": 0 },
+        "default": { "type": "number", "exclusiveMinimum": 0 },
+        "max": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "renderer": { "enum": ["remotion"], "description": "catalog components always require the Remotion path" }
+  },
+  "$defs": {
+    "propSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["number", "string", "boolean", "array", "object"] },
+        "enum": { "type": "array" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "maxWords": { "type": "integer", "minimum": 1 },
+        "items": { "$ref": "#/$defs/propSpec" },
+        "properties": { "type": "object", "additionalProperties": { "$ref": "#/$defs/propSpec" } },
+        "required": { "type": "boolean", "default": false },
+        "default": {},
+        "from_anchor": { "type": "string", "description": "auto-filled by the compiler from the anchor field, so the LLM cannot get it wrong" },
+        "computed": { "enum": ["geocode", "parse_date"], "description": "deterministic resolution the compiler must perform" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

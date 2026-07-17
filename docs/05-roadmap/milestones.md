@@ -1,0 +1,80 @@
+# Milestones
+
+Build order for Claude Code. Each milestone ends **demonstrable** and
+each depends only on earlier ones. Detailed per-milestone development
+prompts are the next document to write (after the open questions
+blocking M0–M1 are decided).
+
+## M0 — Skeleton (nothing runs, everything checks)
+Monorepo scaffold per Repository Structure; `contracts/` package with all
+draft schemas as real files; docker-compose with Postgres; CI: schema
+validation, typecheck, lint boundaries, empty test suites green.
+**Demo:** clone → `docker compose up` → CI green.
+
+## M1 — Control plane
+DB migrations (full schema); API: auth, roles, channels CRUD
+(schema-validated config), videos CRUD, enqueue with pre-flight +
+cfg snapshot, events/costs read endpoints. Minimal UI: login, channels,
+queue creation. **Demo:** create channel + video in the browser; row
+appears QUEUED with a cfg snapshot.
+
+## M2 — Worker walks the folder
+Worker claims QUEUED atomically, creates folder, materializes uploads,
+runs stage loop with STUB stages (touch artifacts), emits video_events +
+heartbeat; ERROR + resume path works. Pipeline screen shows it live.
+**Demo:** enqueue → watch stages tick → kill mid-run → re-queue resumes.
+
+## M3 — First real video (manual creative, real render)
+Real TTS + Whisper stages; manual beats.json accepted; compiler v1
+(narration beats → plan, SRT alignment, min/max hold enforcement);
+validators (beat + plan, collect-all); **ffmpeg renderer v1** (cuts,
+Ken Burns, crossfade, plain captions, audio mix) + fixture contract test.
+**Demo:** hand-written beat sheet → finished MP4, near-$0.
+
+## M4 — The creative core goes AI
+Beat planner agent (style pack + catalog in prompt) + repair loop; script
+agent + generator strategies; cost_events from all providers + budget
+gate; price table. **Demo:** title in → finished simple video out,
+untouched; cost visible per video.
+
+## M5 — Assets get smart
+Source policy resolution: library adapter (search, min_score, mark_used,
+license filter — includes the library's license migration), stock adapter
++ search cache, ai_image budget-gated; asset provenance into plan +
+asset_usage. **Demo:** same video, three policies → visibly different
+sourcing + costs.
+
+## M6 — Premium path
+Theme runtime; 4–5 catalog components; catalog generation + CI drift
+check; Remotion renderer (tracks, transitions/handles, caption presets);
+router (auto/pin/capability-fail). **Demo:** overlay-rich video renders
+via Remotion in the channel's theme; simple video still routes to ffmpeg.
+
+## M7 — Operate it
+Videos grid + video page (stream, review transitions, notes, assets
+used); Monitoring (events, provider health, storage, costs); Admin
+(users, grants, provider health); retention job. **Demo:** an Editor-role
+user reviews and approves on their granted channel only.
+
+## M8 — Edit it
+Beat editor (subject, overlay text, re-roll, split/merge) with per-beat
+recompile + preview; timeline v1 (trims, transforms, overlay moves) with
+lock/provenance; engine Player integration (parity preview). **Demo:**
+change beat 12's subject → only its clip changes; manual trim survives a
+beat edit.
+
+## M9 — Talk to it
+Editor chat agent (beat ops + plan patches, propose→validate→apply);
+Library screens over the library API; Panel dashboard; docker-compose
+production profile for the VPS. **Demo:** "make the middle faster and add
+a map when he mentions the route" → validated diff → apply → re-render.
+
+## Sequencing notes
+
+- M3 before M4 on purpose: the deterministic spine must produce a real
+  video before any AI touches it — every later AI failure then has a
+  working manual fallback.
+- The library service itself is EXISTING work: only its adapter (M5),
+  license migration (M5) and screens (M9) are in scope here.
+- After M4 the system already earns its keep (real videos, near-zero
+  cost); M5–M9 add quality, control and comfort in that order.

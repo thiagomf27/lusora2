@@ -1,0 +1,12 @@
+{
+  "video_id": "vid_fixture_001",
+  "channel_id": "HIST_BR_01",
+  "provider": "deepseek",
+  "operation": "llm.plan_beats",
+  "status": "completed",
+  "units": 12500,
+  "unit_price_usd": 0.00000028,
+  "usd": 0.0035,
+  "ts": "2026-07-17T12:00:00Z",
+  "details": { "model": "deepseek-chat", "input_tokens": 9800, "output_tokens": 2700 }
+}

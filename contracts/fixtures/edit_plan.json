@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "video_id": "vid_fixture_001",
+  "fps": 30,
+  "resolution": { "width": 1920, "height": 1080 },
+  "tracks": {
+    "visual": [
+      {
+        "id": "v1",
+        "beat_id": "b1",
+        "locked": false,
+        "start_s": 0,
+        "end_s": 4.5,
+        "media_type": "image",
+        "asset": { "source": "library", "id": "seg_100", "license": "cc0", "path": "clips/b1.jpg", "score": 0.8, "provider": null, "query": "city skyline dawn mist" },
+        "motion": { "type": "ken_burns", "direction": "in", "pan": "center", "strength": 0.15 },
+        "transition_out": { "type": "crossfade", "duration_s": 0.5 }
+      },
+      {
+        "id": "v2",
+        "beat_id": "b2",
+        "locked": false,
+        "start_s": 4.5,
+        "end_s": 10.2,
+        "media_type": "video",
+        "asset": { "source": "library", "id": "seg_8841", "license": "cc-by", "path": "clips/b2.mp4", "score": 0.71 },
+        "in_offset_s": 2.0,
+        "mute": true,
+        "transition_out": { "type": "cut", "duration_s": 0.1 }
+      }
+    ],
+    "overlays": [
+      {
+        "id": "o1",
+        "beat_id": "b1",
+        "locked": false,
+        "kind": "component",
+        "component": "TitleCard",
+        "props": { "text": "1943", "emphasis": "accent" },
+        "start_s": 0.5,
+        "end_s": 4.0
+      },
+      {
+        "id": "o2",
+        "beat_id": "b2",
+        "locked": false,
+        "kind": "component",
+        "component": "AnimatedPercentage",
+        "props": { "value": 70, "label": "factories converted", "emphasis": "accent" },
+        "start_s": 5.0,
+        "end_s": 9.0
+      }
+    ],
+    "captions": {
+      "enabled": true,
+      "preset": "plain",
+      "items": [
+        { "start_s": 4.5, "end_s": 10.2, "text": "By 1943, nearly 70% of the city's factories had been converted to produce aircraft parts." }
+      ]
+    },
+    "audio": {
+      "voiceover": { "path": "audio.mp3", "duration_s": 10.2, "volume": 1 },
+      "music": [
+        { "path": "clips/music_1.mp3", "start_s": 0, "end_s": 10.2, "volume": 0.12, "loop": true, "fade_in_s": 1, "fade_out_s": 2 }
+      ]
+    }
+  }
+}

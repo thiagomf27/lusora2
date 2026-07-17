@@ -1,0 +1,56 @@
+name: lusora
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lusora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lusora}
+      POSTGRES_DB: ${POSTGRES_DB:-lusora}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lusora}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  platform:
+    build:
+      context: ..
+      dockerfile: deploy/platform.Dockerfile
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-lusora}:${POSTGRES_PASSWORD:-lusora}@postgres:5432/${POSTGRES_DB:-lusora}
+      VIDEOS_ROOT: /videos-data
+    volumes:
+      - videos-data:/videos-data
+    ports:
+      - "${PLATFORM_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/worker.Dockerfile
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-lusora}:${POSTGRES_PASSWORD:-lusora}@postgres:5432/${POSTGRES_DB:-lusora}
+      VIDEOS_ROOT: /videos-data
+    volumes:
+      - videos-data:/videos-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # library:  # broll-lib-maker — enable once vendored into library/ (M5)
+  #   build: ../library
+  #   env_file: ../.env
+
+volumes:
+  pgdata:
+  videos-data:

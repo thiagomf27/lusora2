@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/cost_event.schema.json",
+  "title": "CostEvent",
+  "description": "One paid or metered operation event. Lifecycle: estimated -> reserved -> completed | failed -> (refunded). Provider adapters are REQUIRED to emit these.",
+  "type": "object",
+  "required": ["provider", "operation", "status", "units", "unit_price_usd", "usd"],
+  "additionalProperties": false,
+  "properties": {
+    "video_id": { "type": ["string", "null"] },
+    "channel_id": { "type": ["string", "null"] },
+    "provider": { "type": "string", "minLength": 1 },
+    "operation": { "type": "string", "minLength": 1, "examples": ["llm.plan_beats", "tts.narrate", "image.generate", "stock.search"] },
+    "status": { "enum": ["estimated", "reserved", "completed", "failed", "refunded"] },
+    "units": { "type": "number", "minimum": 0, "description": "tokens, characters, seconds, images…" },
+    "unit_price_usd": { "type": "number", "minimum": 0 },
+    "usd": { "type": "number", "minimum": 0 },
+    "ts": { "type": "string", "format": "date-time" },
+    "details": { "type": "object" }
+  }
+}

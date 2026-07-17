@@ -1,0 +1,18 @@
+{
+  "name": "lusora",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Automated, multi-channel YouTube video production platform",
+  "scripts": {
+    "validate:schemas": "node scripts/validate-schemas.mjs",
+    "lint:boundaries": "node scripts/lint-boundaries.mjs",
+    "typecheck": "pnpm -r --filter './contracts' --filter './engine' --filter './platform' run typecheck",
+    "test": "pnpm -r run test",
+    "ci": "pnpm run validate:schemas && pnpm run lint:boundaries && pnpm run typecheck && pnpm run test"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  },
+  "packageManager": "pnpm@11.14.0"
+}

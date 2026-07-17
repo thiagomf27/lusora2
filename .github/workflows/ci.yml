@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  contracts-and-ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Schema validation
+        run: pnpm run validate:schemas
+      - name: Boundary lint
+        run: pnpm run lint:boundaries
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: TS tests
+        run: pnpm run test
+      - name: Catalog drift check
+        run: pnpm --filter @lusora/engine run catalog:check
+
+  worker:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: lusora
+          POSTGRES_PASSWORD: lusora
+          POSTGRES_DB: lusora_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U lusora"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Py tests
+        working-directory: worker
+        env:
+          TEST_DATABASE_URL: postgres://lusora:lusora@localhost:5432/lusora_test
+        run: uv run pytest -q

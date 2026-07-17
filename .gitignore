@@ -1,0 +1,16 @@
+node_modules/
+.next/
+dist/
+build/
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.local
+*.tsbuildinfo
+.pytest_cache/
+.ruff_cache/
+data/
+videos-data/
+coverage/
+.DS_Store

@@ -1,0 +1,19 @@
+{
+  "name": "doc-slow",
+  "pacing": {
+    "avg_hold_seconds": 4.0,
+    "min_hold": 2.5,
+    "max_hold": 8.0,
+    "arc": "three_act"
+  },
+  "overlays": {
+    "density": "normal",
+    "allowed_components": ["AnimatedPercentage", "AnimatedMap", "TitleCard", "LowerThird"]
+  },
+  "transitions": {
+    "allowed": ["cut", "crossfade", "fade_to_black"],
+    "default": "cut"
+  },
+  "script_persona": "Grave, precise documentary narrator. Short sentences. No exclamations.",
+  "visual_language": "Archival, desaturated, wide establishing shots; avoid modern footage."
+}

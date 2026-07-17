@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/theme.schema.json",
+  "title": "Theme",
+  "description": "Appearance tokens, consumed by the ENGINE only. The AI never sees this. Final token list: OQ-10 (draft).",
+  "type": "object",
+  "required": ["name", "colors", "typography"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "colors": {
+      "type": "object",
+      "required": ["bg", "text", "accent", "neutral"],
+      "additionalProperties": false,
+      "properties": {
+        "bg": { "$ref": "#/$defs/color" },
+        "text": { "$ref": "#/$defs/color" },
+        "accent": { "$ref": "#/$defs/color" },
+        "neutral": { "$ref": "#/$defs/color" }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "required": ["display", "body", "caption_preset"],
+      "additionalProperties": false,
+      "properties": {
+        "display": { "type": "string", "description": "packaged fonts only, by name" },
+        "body": { "type": "string" },
+        "caption_preset": { "type": "string", "description": "one of the engine's caption presets" }
+      }
+    },
+    "motion_feel": {
+      "enum": ["slow_heavy", "neutral", "fast_light"],
+      "default": "neutral",
+      "description": "maps to easing/duration scales in components"
+    },
+    "grain": {
+      "enum": ["none", "archival", "film"],
+      "default": "none",
+      "description": "optional post-look (Remotion path)"
+    }
+  },
+  "$defs": {
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+  }
+}
