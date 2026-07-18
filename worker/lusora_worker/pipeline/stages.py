@@ -36,11 +36,11 @@ STAGES: list[Stage] = [
     Stage("narration", steps.run_narration, artifact="audio.mp3"),
     Stage("transcript", steps.run_transcript, artifact="subtitles.srt"),
     Stage("plan_beats", steps.run_plan_beats, artifact="beats.json"),
-    Stage("compile_plan", steps.run_compile_plan, artifact="edit_plan.json"),
+    Stage("compile_plan", steps.run_compile_plan, is_done=steps.plan_compiled_and_fresh),
     Stage("resolve_assets", steps.run_resolve_assets, is_done=steps.assets_resolved),
     Stage("validate", steps.run_validate),  # always runs
-    Stage("render", steps.run_render, artifact="final.mp4"),
-    Stage("finalize", steps.run_finalize, artifact="metadata.txt"),
+    Stage("render", steps.run_render, is_done=steps.render_fresh),
+    Stage("finalize", steps.run_finalize, is_done=steps.finalize_fresh),
 ]
 
 

@@ -80,6 +80,8 @@ Measure: minutes of audio per real-time minute on the target VPS.
 **OQ-19 — Lock semantics detail.** Which timeline actions set `locked`
 (recommendation: any manual change to timing/asset/transform; NOT volume
 tweaks); UI affordance to unlock/relock a beat's items.
+*(M8 implements the recommendation as written: set_timing / set_transform /
+move_overlay lock; set_music_volume does not. Unlock UI still to design.)*
 
 **OQ-20 — UI language.** pt-BR, en, or i18n from day 1
 (recommendation: hardcode ONE language now, extract strings later).

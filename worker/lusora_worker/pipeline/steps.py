@@ -151,6 +151,16 @@ def _sentence_timings(ctx: StageContext) -> list[dict]:
     ]
 
 
+def plan_compiled_and_fresh(ctx: StageContext) -> bool:
+    """The plan is done only if it exists AND is not older than beats.json —
+    an edited beat sheet triggers per-beat recompilation (D14)."""
+    if not ctx.has("edit_plan.json"):
+        return False
+    if not ctx.has("beats.json"):
+        return True
+    return ctx.artifact("edit_plan.json").stat().st_mtime >= ctx.artifact("beats.json").stat().st_mtime
+
+
 def run_compile_plan(ctx: StageContext) -> None:
     beats_doc = ctx.read_json("beats.json")
     audio_duration = probe_duration("compile_plan", ctx.artifact("audio.mp3"))
@@ -163,6 +173,15 @@ def run_compile_plan(ctx: StageContext) -> None:
             raise StageError("compile_plan", "beats.json invalid: " + "; ".join(violations[:8]))
 
     plan = compile_plan(beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration)
+
+    # per-beat recompile (D14): locked items and still-valid resolutions survive
+    if ctx.has("edit_plan.json"):
+        old_plan = ctx.read_json("edit_plan.json")
+        beats_by_id = {b["id"]: b for b in beats_doc.get("beats", [])}
+        merged = _merge_recompiled(old_plan, plan, beats_by_id)
+        plan = merged
+        ctx.log("per-beat recompile: locked items kept, unchanged beats keep their assets")
+
     structural = validate_plan(plan, ctx.folder, ctx.cfg, audio_duration, require_assets=False)
     if structural:
         raise StageError(
@@ -172,6 +191,42 @@ def run_compile_plan(ctx: StageContext) -> None:
     ctx.write_json("edit_plan.json", plan)
     ctx.log(f"plan compiled: {len(plan['tracks']['visual'])} visual items, "
             f"{len(plan['tracks']['overlays'])} overlays")
+
+
+def _merge_recompiled(old_plan: dict, new_plan: dict, beats_by_id: dict) -> dict:
+    """Merge rules (D14): a locked old item always wins over its recompiled
+    counterpart; an unlocked item whose beat's visual_intent is unchanged
+    keeps its resolved asset (no pointless re-sourcing); hand-added items
+    (beat_id null) are preserved."""
+    for track in ("visual", "overlays"):
+        old_by_id = {i["id"]: i for i in old_plan["tracks"][track]}
+        merged_items = []
+        for item in new_plan["tracks"][track]:
+            old = old_by_id.get(item["id"])
+            if old is None:
+                merged_items.append(item)
+                continue
+            if old.get("locked"):
+                merged_items.append(old)
+                continue
+            # carry the resolved asset when the beat's intent didn't change
+            beat = beats_by_id.get(str(item.get("beat_id")))
+            old_query = ((old.get("asset") or {}).get("query") or "")[:200]
+            new_intent = (str((beat or {}).get("visual_intent") or ""))[:200]
+            if old_query and new_intent and old_query == new_intent and (old.get("asset") or {}).get("path"):
+                item["asset"] = old["asset"]
+                item["media_type"] = old.get("media_type", item["media_type"])
+                if "motion" in old:
+                    item["motion"] = old["motion"]
+            merged_items.append(item)
+        # hand-added items survive every recompile
+        for item in old_plan["tracks"][track]:
+            if item.get("beat_id") is None and item["id"] not in {i["id"] for i in merged_items}:
+                merged_items.append(item)
+        key = "start_s"
+        merged_items.sort(key=lambda i: float(i[key]))
+        new_plan["tracks"][track] = merged_items
+    return new_plan
 
 
 # ---------------- resolve_assets ----------------
@@ -233,6 +288,18 @@ def run_validate(ctx: StageContext) -> None:
 
 
 # ---------------- render ----------------
+
+
+def render_fresh(ctx: StageContext) -> bool:
+    if not ctx.has("final.mp4"):
+        return False
+    return ctx.artifact("final.mp4").stat().st_mtime >= ctx.artifact("edit_plan.json").stat().st_mtime
+
+
+def finalize_fresh(ctx: StageContext) -> bool:
+    if not ctx.has("metadata.txt") or not ctx.has("final.mp4"):
+        return False
+    return ctx.artifact("metadata.txt").stat().st_mtime >= ctx.artifact("final.mp4").stat().st_mtime
 
 
 def run_render(ctx: StageContext) -> None:

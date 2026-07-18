@@ -145,6 +145,27 @@ export async function enqueueVideo(
   const pf = await preflight(video);
   if (!pf.ok) return { ok: false, problems: pf.problems };
 
+  // Re-runs use the existing snapshot (Core Principle 7) — later channel
+  // edits never retroactively change a video.
+  const existing = video.cfg as unknown as Record<string, unknown> | null;
+  if (existing && existing.channel_id) {
+    const folder = videoFolder(video.id);
+    mkdirSync(folder, { recursive: true });
+    if (!existsSync(join(folder, "cfg.json"))) {
+      writeFileSync(join(folder, "cfg.json"), JSON.stringify(existing, null, 2));
+    }
+    await query(
+      `UPDATE videos SET status = 'queued', folder_path = $2, error_reason = NULL, updated_at = now() WHERE id = $1`,
+      [video.id, folder]
+    );
+    await query(
+      `INSERT INTO video_events (video_id, stage, status, message)
+       VALUES ($1, 'enqueue', 'done', 're-queued with existing snapshot')`,
+      [video.id]
+    );
+    return { ok: true };
+  }
+
   const channel = await one<{ config: ChannelConfig }>(
     "SELECT config FROM channels WHERE id = $1",
     [video.channel_id]
