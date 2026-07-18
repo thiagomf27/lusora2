@@ -3,4 +3,5 @@ packages:
   - engine
   - platform
 allowBuilds:
+  esbuild: true
   sharp: true

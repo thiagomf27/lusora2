@@ -19,7 +19,7 @@ function Root() {
   return (
     <Composition
       id="video"
-      component={VideoComposition as React.ComponentType<Record<string, unknown>>}
+      component={VideoComposition as unknown as React.ComponentType<Record<string, unknown>>}
       durationInFrames={Math.max(Math.ceil(totalDuration(plan) * plan.fps), 1)}
       fps={plan.fps}
       width={plan.resolution.width}
