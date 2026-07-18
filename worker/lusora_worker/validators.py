@@ -17,6 +17,29 @@ import lusora_contracts
 from .textsplit import normalize
 
 
+def check_prop_value(spec: dict[str, Any], name: str, value: Any) -> str | None:
+    """One catalog prop value against its spec. Returns an error or None.
+    Catches the classic LLM failure of echoing the spec as the value."""
+    t = spec.get("type")
+    if t == "string" and not isinstance(value, str):
+        return f"prop '{name}' must be a string, got {type(value).__name__}"
+    if t == "number" and not isinstance(value, (int, float)):
+        return f"prop '{name}' must be a number, got {type(value).__name__}"
+    if t == "boolean" and not isinstance(value, bool):
+        return f"prop '{name}' must be a boolean"
+    if t == "array" and not isinstance(value, list):
+        return f"prop '{name}' must be an array"
+    if "enum" in spec and value not in spec["enum"]:
+        return f"prop '{name}'={value!r} not in {spec['enum']}"
+    if spec.get("min") is not None and isinstance(value, (int, float)) and value < spec["min"]:
+        return f"prop '{name}'={value} below min {spec['min']}"
+    if spec.get("max") is not None and isinstance(value, (int, float)) and value > spec["max"]:
+        return f"prop '{name}'={value} above max {spec['max']}"
+    if spec.get("maxWords") and isinstance(value, str) and len(value.split()) > spec["maxWords"]:
+        return f"prop '{name}' exceeds {spec['maxWords']} words"
+    return None
+
+
 def _schema_errors(name: str, data: Any) -> list[str]:
     validator = jsonschema.Draft202012Validator(lusora_contracts.load_schema(name))
     return [
@@ -86,6 +109,18 @@ def validate_beat_sheet(
             violations.append(
                 f"beat {b.get('id')}: component '{name}' not in style pack allowed_components {allowed}"
             )
+        # props_hint must contain VALUES (the spec-echo failure is common)
+        for pname, pvalue in (overlay.get("props_hint") or {}).items():
+            spec = entry["props"].get(pname)
+            if spec is None:
+                violations.append(f"beat {b.get('id')}: overlay prop '{pname}' unknown for {name}")
+            else:
+                err = check_prop_value(spec, pname, pvalue)
+                if err:
+                    violations.append(
+                        f"beat {b.get('id')}: overlay props_hint {err} — props_hint carries "
+                        "concrete values, never the prop schema itself"
+                    )
         ref = overlay.get("anchor_ref")
         anchors = b.get("anchors") or []
         if entry["anchor_types"]:
@@ -189,15 +224,9 @@ def validate_plan(
                 if spec.get("required") and pname not in props:
                     violations.append(f"overlay {item['id']}: missing required prop '{pname}'")
                 if pname in props:
-                    v = props[pname]
-                    if spec.get("type") == "number" and not isinstance(v, (int, float)):
-                        violations.append(f"overlay {item['id']}: prop '{pname}' must be a number")
-                    if "enum" in spec and v not in spec["enum"]:
-                        violations.append(f"overlay {item['id']}: prop '{pname}'={v!r} not in {spec['enum']}")
-                    if spec.get("min") is not None and isinstance(v, (int, float)) and v < spec["min"]:
-                        violations.append(f"overlay {item['id']}: prop '{pname}'={v} below min {spec['min']}")
-                    if spec.get("max") is not None and isinstance(v, (int, float)) and v > spec["max"]:
-                        violations.append(f"overlay {item['id']}: prop '{pname}'={v} above max {spec['max']}")
+                    err = check_prop_value(spec, pname, props[pname])
+                    if err:
+                        violations.append(f"overlay {item['id']}: {err}")
             unknown = [p for p in props if p not in entry["props"]]
             if unknown:
                 violations.append(f"overlay {item['id']}: unknown props {unknown}")

@@ -1,0 +1,11 @@
+{
+  "name": "breakdown-fast",
+  "pacing": { "avg_hold_seconds": 2.6, "min_hold": 1.6, "max_hold": 5.0, "arc": "linear" },
+  "overlays": {
+    "density": "high",
+    "allowed_components": ["TitleCard", "LowerThird", "AnimatedPercentage", "ComparisonBars", "AnimatedMap"]
+  },
+  "transitions": { "allowed": ["cut", "crossfade"], "default": "cut" },
+  "script_persona": "Energetic analyst. Short punchy sentences. Numbers up front.",
+  "visual_language": "Dynamic close-ups, data-rich shots, quick context establishing shots."
+}

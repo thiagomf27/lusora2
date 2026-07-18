@@ -107,9 +107,11 @@ def test_omitted_source_is_forbidden(tmp_path):
 def test_library_min_score_fallthrough(tmp_path, monkeypatch):
     ctx = make_ctx(tmp_path)
     def fake_get(url, **kw):
-        return httpx.Response(200, json={"results": [{"id": "seg_1", "score": 0.30,
-                                                      "media_type": "image", "license": "cc0"}]},
-                              request=httpx.Request("GET", url))
+        if url.endswith("/channels") or url.endswith("/niches"):
+            body = []
+        else:
+            body = [{"id": "seg_1", "score": 0.30, "media_type": "image", "license": "cc0"}]
+        return httpx.Response(200, json=body, request=httpx.Request("GET", url))
     monkeypatch.setattr(sources.httpx, "get", fake_get)
     adapter = sources.LibraryAdapter()
     item = {"id": "v1", "beat_id": "b1"}

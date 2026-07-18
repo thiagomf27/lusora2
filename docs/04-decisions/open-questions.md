@@ -21,7 +21,7 @@ per deployment for platform + worker; var list documented in `.env.example`.
 
 **OQ-7 — Worker wake-up.** ✅ DECIDED (D27): poll every 3–5s.
 
-## Blocking the creative core (M4–M6)
+## Blocking the creative core (M4–M6) — ALL DECIDED 2026-07-18 (D28–D34)
 
 **OQ-8 — Beat schema edges.** Confirm the `timed` beat variant; decide
 whether music-bar-relative beats enter v1 (recommendation: NO — defer
@@ -59,7 +59,7 @@ which channels?
 4–5 the FIRST channel actually needs; every component must earn its
 maintenance.
 
-## Blocking polish (M7+)
+## Blocking polish (M7+) — DECIDED 2026-07-18 (D35–D40) except OQ-21
 
 **OQ-15 — Price table source + values.** Collect current prices for the
 chosen providers (LLM per-token, TTS per-char, image per-unit); decide
@@ -86,6 +86,10 @@ move_overlay lock; set_music_volume does not. Unlock UI still to design.)*
 **OQ-20 — UI language.** pt-BR, en, or i18n from day 1
 (recommendation: hardcode ONE language now, extract strings later).
 
-**OQ-21 — VPS sizing.** Pick target specs (CPU cores drive ffmpeg and
-Remotion concurrency; RAM drives Whisper); one render worker or N.
-Measure with M3's fixture before buying.
+**OQ-21 — VPS sizing.** STILL OPEN (the only one). Pick target specs
+(CPU cores drive ffmpeg and Remotion concurrency; RAM drives Whisper);
+one render worker or N. Measure with M3's fixture on the candidate VPS
+before buying — this is a measurement, not a design decision.
+
+All other open questions (OQ-1..20) are closed — see D21–D40 in the
+Decision Log.

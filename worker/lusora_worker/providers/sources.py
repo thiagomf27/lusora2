@@ -37,25 +37,51 @@ class SourceAdapter(Protocol):
 
 
 class LibraryAdapter:
+    """Adapter over broll-lib-maker's HTTP API (api.py):
+    GET /search?q=…  (score included), GET /clips/{id} (bytes),
+    POST /segments/{id}/mark_used. Niches/channels are lookup tables in
+    the library — names resolve to ids via /niches and /channels."""
+
+    def _lookup_ids(self, base: str, endpoint: str, names: list[str]) -> list[str]:
+        try:
+            rows = httpx.get(f"{base}/{endpoint}", timeout=15).json()
+        except (httpx.HTTPError, ValueError):
+            return []
+        norm = lambda s: "".join(str(s).lower().split()).replace("-", "")  # noqa: E731
+        by_name = {norm(r.get("normalized_name") or r.get("name", "")): str(r["id"]) for r in rows}
+        return [by_name[norm(n)] for n in names if norm(n) in by_name]
+
     def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None:
-        base = ctx.config.library_api_url if ctx.config else os.environ.get("LIBRARY_API_URL", "")
+        base = (ctx.config.library_api_url if ctx.config else os.environ.get("LIBRARY_API_URL", "")).rstrip("/")
         if not base:
             ctx.db.provider_health("library", False, "LIBRARY_API_URL not set")
             return None
-        params: dict[str, Any] = {"query": query, "limit": 5}
-        for key in ("tags", "niches", "media_types", "licenses"):
-            if source_cfg.get(key):
-                params[key] = ",".join(source_cfg[key])
-        if source_cfg.get("profile"):
+        params: dict[str, Any] = {"q": query, "top_k": 5, "project_id": ctx.video_id}
+        if source_cfg.get("tags"):
+            params["tags"] = ",".join(source_cfg["tags"])
+        if source_cfg.get("licenses"):
+            params["licenses"] = ",".join(source_cfg["licenses"])
+        if source_cfg.get("profile") and source_cfg["profile"] != "default":
             params["profile"] = source_cfg["profile"]
-        if source_cfg.get("include_global") is not None:
-            params["include_global"] = str(bool(source_cfg["include_global"])).lower()
-        params["channel_id"] = ctx.channel_id
+        media_types = source_cfg.get("media_types") or []
+        if len(media_types) == 1:
+            params["media_type"] = media_types[0]
+        if source_cfg.get("niches"):
+            niche_ids = self._lookup_ids(base, "niches", source_cfg["niches"])
+            if niche_ids:
+                params["niches"] = ",".join(niche_ids)
+        lib_channel = self._lookup_ids(base, "channels", [ctx.channel_id])
+        if lib_channel:
+            params["channel_id"] = lib_channel[0]
+            params["include_global"] = str(bool(source_cfg.get("include_global", True))).lower()
+        max_clip = ((ctx.cfg.get("source_policy") or {}).get("visual") or {}).get("max_clip_seconds")
+        if max_clip:
+            params["max_duration"] = float(max_clip)
 
         try:
-            resp = httpx.get(f"{base}/search", params=params, timeout=30)
+            resp = httpx.get(f"{base}/search", params=params, timeout=60)
             resp.raise_for_status()
-            results = resp.json().get("results", [])
+            results = resp.json()
         except httpx.HTTPError as e:
             ctx.db.provider_health("library", False, f"search failed: {e}")
             return None
@@ -65,15 +91,22 @@ class LibraryAdapter:
         if not best or float(best.get("score", 0)) < min_score:
             return None  # honest fallthrough — the library always returns *something*
 
-        seg_id = str(best.get("id") or best.get("segment_id"))
-        ext = "mp4" if best.get("media_type") == "video_clip" else "jpg"
+        seg_id = str(best.get("id"))
+        is_video = best.get("media_type") == "video_clip"
+        ext = "mp4" if is_video else "jpg"
         out_rel = f"clips/{item['id']}.{ext}"
         try:
-            clip = httpx.get(f"{base}/segments/{seg_id}/download", timeout=120)
-            clip.raise_for_status()
-            (ctx.folder / out_rel).write_bytes(clip.content)
-            httpx.post(f"{base}/segments/{seg_id}/mark_used",
-                       json={"channel_id": ctx.channel_id, "project_id": ctx.video_id}, timeout=30)
+            with httpx.stream("GET", f"{base}/clips/{seg_id}", timeout=180) as clip:
+                clip.raise_for_status()
+                with open(ctx.folder / out_rel, "wb") as f:
+                    for chunk in clip.iter_bytes():
+                        f.write(chunk)
+            httpx.post(
+                f"{base}/segments/{seg_id}/mark_used",
+                json={"project_id": ctx.video_id,
+                      "channel_id": lib_channel[0] if lib_channel else ctx.channel_id},
+                timeout=30,
+            )
         except httpx.HTTPError as e:
             ctx.db.provider_health("library", False, f"acquire failed for {seg_id}: {e}")
             return None
@@ -83,7 +116,7 @@ class LibraryAdapter:
             source="library", id=seg_id, provider=None,
             license=best.get("license"), path=out_rel,
             score=float(best.get("score", 0)), query=query[:200],
-            media_type="video" if ext == "mp4" else "image",
+            media_type="video" if is_video else "image",
         )
 
 

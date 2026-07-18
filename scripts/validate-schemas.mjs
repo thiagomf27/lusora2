@@ -73,6 +73,7 @@ for (const entry of catalog.components) {
 const prices = JSON.parse(readFileSync(join(root, "contracts/prices.json"), "utf8"));
 for (const [provider, ops] of Object.entries(prices.prices)) {
   for (const [op, spec] of Object.entries(ops)) {
+    if (op === "comment") continue;
     if (typeof spec.unit_price_usd !== "number" || spec.unit_price_usd < 0)
       fail(`prices: ${provider}.${op} has invalid unit_price_usd`);
   }

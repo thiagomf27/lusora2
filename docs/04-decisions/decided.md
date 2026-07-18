@@ -32,3 +32,16 @@ the reason.
 | D25 | Auth = cookie sessions + bcrypt, single-tenant (closes OQ-5) | Simple, enough for local/VPS; JWT only if external consumers appear |
 | D26 | One shared `.env` for platform + worker per deployment (closes OQ-6) | Fewer files to drift; secrets never in DB (D18) |
 | D27 | Worker wake-up = poll every 3–5s (closes OQ-7) | Dead simple; LISTEN/NOTIFY trivial to add later |
+| D28 | Beat schema: `timed` variant confirmed; music-bar-relative beats NOT in v1; sub-sentence beats only via manual split (closes OQ-8) | As recommended — no music-driven channel exists yet |
+| D29 | Models per role: planner + script default `deepseek` (cheap); chat agent deepseek (anthropic optional via env); per-channel override stays (closes OQ-9) | Cheap by default; eval revisit once real usage accumulates |
+| D30 | Theme tokens frozen at the draft list: colors(4), typography(2+caption preset), motion_feel, grain (closes OQ-10) | Every token is forever; nothing yet earned an addition |
+| D31 | ffmpeg caption capability = ONE plain preset; anything styled routes to Remotion (closes OQ-11) | Each addition is filter-graph work; Remotion covers styled cheaply |
+| D32 | Pacing numbers per video type (see style-packs/): doc 4.0/2.5/8.0 normal, explainer 3.2/2.0/6.0 normal, breakdown 2.6/1.6/5.0 high, listicle 2.2/1.4/4.5 high (closes OQ-12) | Starting numbers from the OpenMontage tone table scale; tune per channel with real videos |
+| D33 | License vocabulary cc0/cc-by/cc-by-sa/owned/stock-licensed/unknown; library migration shipped (column+ingest capture+search filter); `unknown` is excluded unless a channel lists it explicitly (closes OQ-13) | Omission = forbidden matches source-policy semantics (D12) |
+| D34 | Initial catalog = 5 components: TitleCard, LowerThird, AnimatedPercentage, ComparisonBars, AnimatedMap; QuoteCard/TimelineStrip deferred until a channel needs them (closes OQ-14) | Every component must earn its maintenance |
+| D35 | Price table = contracts/prices.json, versioned in git, updated manually when a provider/rate changes; ai33 charges opaque credits — recorded in cost details, per-char USD estimated (closes OQ-15) | Unknown provider+operation stays a hard error |
+| D36 | Local TTS tier = ffmpeg flite (en, $0); other languages (incl. pt-BR) via the ai33 aggregator's edge/minimax voices (closes OQ-16) | flite ships inside ffmpeg — zero extra install; ai33 already integrated |
+| D37 | Whisper = faster-whisper on CPU, optional dep, used only for human-provided audio without SRT (closes OQ-17) | TTS adapters emit exact timings, so Whisper is the exception path |
+| D38 | Retention numbers: final.mp4 30 days after POSTED; storage warning threshold 20 GB on Monitoring (closes OQ-18) | Draft confirmed |
+| D39 | Lock semantics as recommended: timing/asset/transform edits lock; volume tweaks don't (closes OQ-19) | Implemented in M8 |
+| D40 | UI language: English hardcoded; extract strings when a second language is actually needed (closes OQ-20) | i18n now is pure cost |

@@ -68,6 +68,8 @@ def _build_prompt(ctx: StageContext, script: str, audio_duration_s: float) -> tu
         "comparison, place, date, name, quote). source_words must appear in the span exactly.\n"
         "4. An overlay may ONLY reference one of its beat's anchors (anchor_ref = index) or, for "
         "TitleCard, carry pure text. Never invent numbers — they come from the anchor.\n"
+        "   props_hint carries concrete VALUES only (e.g. {\"text\": \"1943\"}), never the prop "
+        "schema — anything shaped like {\"type\": …} is invalid.\n"
         "5. Use overlays sparingly and only where the rules below say they help.\n\n"
         f"COMPONENT MENU (the only components that exist):\n{_catalog_menu(allowed)}\n"
     )

@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.config/
+# throwaway-account cookie exports — never commit
+cookies.txt
+*.cookies.txt

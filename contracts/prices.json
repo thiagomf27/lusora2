@@ -13,6 +13,10 @@
       "tts.narrate": { "unit": "char", "unit_price_usd": 0 },
       "whisper.transcribe": { "unit": "second", "unit_price_usd": 0 }
     },
+    "ai33": {
+      "comment": "aggregator at api.ai33.pro; charges internal credits (recorded in details) — per-char USD is an estimate until a real rate is known (OQ-15)",
+      "tts.narrate": { "unit": "char", "unit_price_usd": 0.00001 }
+    },
     "deepseek": {
       "llm.generate_script": { "unit": "token", "unit_price_usd": 0.00000028 },
       "llm.plan_beats": { "unit": "token", "unit_price_usd": 0.00000028 },
