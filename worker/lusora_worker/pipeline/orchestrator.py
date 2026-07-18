@@ -60,12 +60,37 @@ def process_video(db: Db, config: WorkerConfig, video: dict) -> None:
         traceback.print_exc()
 
 
+def retention_sweep(db: Db, config: WorkerConfig) -> None:
+    """D19: final.mp4 deleted N days after POSTED; beats/plan/cfg/logs/costs
+    kept forever (kilobytes; re-render and audit stay possible)."""
+    rows = db.conn.execute(
+        """
+        SELECT id, folder_path,
+               COALESCE((cfg->'retention'->>'final_mp4_days_after_posted')::int, 30) AS days
+        FROM videos
+        WHERE status = 'posted' AND folder_path IS NOT NULL
+          AND updated_at < now() - make_interval(days =>
+              COALESCE((cfg->'retention'->>'final_mp4_days_after_posted')::int, 30))
+        """
+    ).fetchall()
+    for row in rows:
+        final = config.videos_root / str(row["id"]) / "final.mp4"
+        if final.exists():
+            final.unlink()
+            db.event(str(row["id"]), "retention", "done",
+                     f"final.mp4 removed {row['days']} days after posted")
+
+
 def run_forever(config: WorkerConfig) -> None:
     db = Db(config.database_url)
     print(f"[{config.worker_id}] polling every {config.poll_seconds}s — videos root {config.videos_root}")
+    last_sweep = 0.0
     while True:
         try:
             db.heartbeat(config.worker_id, None)
+            if time.time() - last_sweep > 600:
+                retention_sweep(db, config)
+                last_sweep = time.time()
             video = db.claim_next(config.worker_id)
             if video is not None:
                 print(f"[{config.worker_id}] claimed {video['id']}")
