@@ -1,0 +1,16 @@
+{
+  "name": "clean-plain",
+  "colors": {
+    "bg": "#101216",
+    "text": "#e8eaf0",
+    "accent": "#4a90c8",
+    "neutral": "#8a8f9a"
+  },
+  "typography": {
+    "display": "Inter",
+    "body": "Inter",
+    "caption_preset": "plain"
+  },
+  "motion_feel": "neutral",
+  "grain": "none"
+}

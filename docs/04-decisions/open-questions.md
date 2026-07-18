@@ -67,7 +67,9 @@ update cadence.
 
 **OQ-16 — Local TTS tier.** Piper vs Kokoro as the free voice tier;
 per-language voice availability for pt-BR must be tested before
-promising it.
+promising it. *(Interim, M3: ffmpeg's built-in flite filter is the
+`local` provider — offline, $0, English only. Piper/Kokoro still the
+candidates for pt-BR.)*
 
 **OQ-17 — Whisper hosting.** CPU (slow, free) vs small GPU on the VPS.
 Measure: minutes of audio per real-time minute on the target VPS.

@@ -116,6 +116,14 @@
     "overrides": {
       "type": "object",
       "description": "per-video override slot (style pack fields like overlay density ride here in the snapshot)"
+    },
+    "style_pack_doc": {
+      "type": "object",
+      "description": "full style pack document embedded at enqueue (snapshot, Core Principle 7)"
+    },
+    "theme_doc": {
+      "type": "object",
+      "description": "full theme document embedded at enqueue (snapshot)"
     }
   },
   "$defs": {

@@ -153,6 +153,21 @@ export async function enqueueVideo(
     channel!.config as unknown as Record<string, unknown>,
     overrides
   );
+
+  // embed the referenced style pack + theme documents (snapshot at enqueue)
+  for (const [field, dir, name] of [
+    ["style_pack_doc", "style-packs", snapshot.style_pack],
+    ["theme_doc", "themes", snapshot.theme],
+  ] as const) {
+    const docPath = join(repoRoot(), "contracts", dir, `${name}.json`);
+    if (!existsSync(docPath)) {
+      return { ok: false, problems: [`${dir}/${name}.json not found in contracts — create it or fix the channel config`] };
+    }
+    if (snapshot[field] === undefined) {
+      snapshot[field] = JSON.parse(readFileSync(docPath, "utf8"));
+    }
+  }
+
   const check = validateAgainst("channel_config", snapshot);
   if (!check.ok) {
     return { ok: false, problems: check.errors.map((e) => `merged cfg: ${e}`) };

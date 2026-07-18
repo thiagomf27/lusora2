@@ -175,7 +175,8 @@
       "additionalProperties": false,
       "properties": {
         "path": { "type": "string" },
-        "duration_s": { "type": "number", "exclusiveMinimum": 0, "description": "defines total video duration; must match real audio duration" },
+        "start_s": { "type": "number", "minimum": 0, "default": 0, "description": "voiceover start offset (leading timed beats / cold opens)" },
+        "duration_s": { "type": "number", "exclusiveMinimum": 0, "description": "must match real audio duration; start_s + duration_s defines total video duration" },
         "volume": { "type": "number", "minimum": 0, "maximum": 2, "default": 1 }
       }
     },

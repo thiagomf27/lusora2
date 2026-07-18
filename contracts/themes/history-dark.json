@@ -1,0 +1,16 @@
+{
+  "name": "history-dark",
+  "colors": {
+    "bg": "#0e0d0b",
+    "text": "#e8e2d4",
+    "accent": "#c8a24a",
+    "neutral": "#6b675e"
+  },
+  "typography": {
+    "display": "Playfair Display",
+    "body": "Inter",
+    "caption_preset": "serif-lower-third"
+  },
+  "motion_feel": "slow_heavy",
+  "grain": "archival"
+}

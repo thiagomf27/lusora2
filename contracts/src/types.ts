@@ -121,6 +121,7 @@ export interface CaptionItem {
 
 export interface VoiceoverItem {
   path: string;
+  start_s?: number;
   duration_s: number;
   volume?: number;
 }
@@ -230,6 +231,8 @@ export interface ChannelConfig {
     sfx?: { enabled?: boolean };
   };
   overrides?: Record<string, unknown>;
+  style_pack_doc?: StylePack;
+  theme_doc?: Theme;
 }
 
 // ---------- catalog ----------
