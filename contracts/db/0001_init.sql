@@ -115,8 +115,3 @@ CREATE TABLE worker_heartbeat (
   last_seen        TIMESTAMPTZ NOT NULL DEFAULT now(),
   current_video_id TEXT REFERENCES videos(id) ON DELETE SET NULL
 );
-
-CREATE TABLE schema_migrations (
-  version    TEXT PRIMARY KEY,
-  applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
