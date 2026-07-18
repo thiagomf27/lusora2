@@ -9,17 +9,15 @@ deterministic fallbacks so the pipeline runs end to end at $0.
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 
 from ..agents import planner as planner_agent
 from ..agents import script as script_agent
 from ..compiler import compile_plan
 from ..context import StageContext
-from ..costs import budget_gate
 from ..errors import StageError
 from ..media import extract_audio, probe_duration, run_ffmpeg
-from ..providers import tts, whisper
+from ..providers import sources, tts, whisper
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
@@ -208,7 +206,7 @@ def run_resolve_assets(ctx: StageContext) -> None:
             continue  # human-provided or already resolved
         beat = beats.get(str(item.get("beat_id")))
         query = str((beat or {}).get("visual_intent") or ctx.video.get("title") or "establishing shot")
-        resolved = _resolve_one(ctx, item, query, chain)
+        resolved = sources.resolve_item(ctx, item, query, chain)
         if not resolved:
             raise StageError(
                 "resolve_assets",
@@ -220,64 +218,6 @@ def run_resolve_assets(ctx: StageContext) -> None:
     if changed:
         ctx.write_json("edit_plan.json", plan)
     ctx.log("assets resolved for all visual items")
-
-
-def _resolve_one(ctx: StageContext, item: dict, query: str, chain: list[dict]) -> bool:
-    for source in chain:
-        kind = source.get("source")
-        if kind == "library":
-            # M5: real library adapter. Until vendored, record and fall through.
-            ctx.db.provider_health("library", False, "library service not vendored yet (M5)")
-            continue
-        if kind == "stock":
-            ctx.db.provider_health("stock.pexels", False, "stock adapter arrives in M5")
-            continue
-        if kind == "ai_image":
-            provider = str(source.get("provider") or "mock")
-            if provider != "mock":
-                ctx.db.provider_health(f"ai_image.{provider}", False, "only 'mock' ai_image exists before M5")
-                continue
-            _mock_image(ctx, item, query, str(source.get("style") or ""))
-            ctx.db.asset_usage(ctx.video_id, str(item.get("beat_id") or ""), "ai", None, "owned", "mock")
-            ctx.db.provider_health("ai_image.mock", True)
-            return True
-    return False
-
-
-def _mock_image(ctx: StageContext, item: dict, query: str, style: str) -> None:
-    """$0 'generation': a styled slate carrying the visual intent text —
-    an honest stand-in until M5 wires real sources."""
-    with budget_gate(
-        ctx, stage="resolve_assets", provider="mock", operation="image.generate",
-        estimated_units=1, details={"query": query[:120]},
-    ):
-        out_rel = f"clips/{item['id']}.jpg"
-        out = ctx.folder / out_rel
-        text = re.sub(r"[^\w\s,.-]", "", query)[:90]
-        wrapped = "\n".join(text[i : i + 45] for i in range(0, len(text), 45))
-        res = ctx.cfg.get("output") or {}
-        w, h = int(res.get("width", 1920)), int(res.get("height", 1080))
-        run_ffmpeg("resolve_assets", [
-            "-f", "lavfi",
-            "-i", f"color=c=0x14161c:s={w}x{h}",
-            "-vf",
-            (
-                "drawbox=x=0:y=ih*0.42:w=iw:h=ih*0.16:color=0x000000@0.35:t=fill,"
-                f"drawtext=font='DejaVu Sans':fontsize={h // 22}:fontcolor=0xcbd2e0:"
-                f"x=(w-text_w)/2:y=(h-text_h)/2:text='{_esc(wrapped)}'"
-            ),
-            "-frames:v", "1", "-q:v", "3", str(out),
-        ])
-        item["media_type"] = "image"
-        item["asset"] = {
-            "source": "ai", "provider": "mock", "id": None, "license": "owned",
-            "path": out_rel, "score": None, "query": query[:200],
-        }
-        item.setdefault("motion", {"type": "ken_burns", "direction": "in", "pan": "center", "strength": 0.12})
-
-
-def _esc(text: str) -> str:
-    return text.replace("\\", "").replace("'", "").replace(":", "\\:").replace("%", "\\%")
 
 
 # ---------------- validate (full, always runs) ----------------

@@ -5,21 +5,24 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "bin": {
-    "engine": "./dist/cli.js"
-  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "catalog": "node --experimental-strip-types src/catalog/generate.ts write",
     "catalog:check": "node --experimental-strip-types src/catalog/generate.ts check"
   },
   "dependencies": {
-    "@lusora/contracts": "workspace:*"
+    "@lusora/contracts": "workspace:*",
+    "@remotion/bundler": "^4.0.245",
+    "@remotion/renderer": "^4.0.245",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.245",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.6.0"
   }
 }

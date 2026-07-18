@@ -53,11 +53,10 @@ async function main() {
     renderer = "remotion";
   }
 
-  if (renderer === "remotion") {
-    fail("remotion renderer not implemented yet (M6); re-run with a plan that routes to ffmpeg");
-  }
-
-  const result = await renderFfmpeg(plan, videoDir);
+  const result =
+    renderer === "remotion"
+      ? await (await import("./renderers/remotion/render.ts")).renderRemotion(plan, videoDir)
+      : await renderFfmpeg(plan, videoDir);
   console.log(JSON.stringify({ renderer, duration_s: result.duration_s, ok: true }));
 }
 
