@@ -1,7 +1,10 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import type { BeatSheet, Beat, EditPlan } from "@lusora/contracts";
+import dynamic from "next/dynamic";
+import type { BeatSheet, Beat, EditPlan, Theme } from "@lusora/contracts";
+
+const PlanPreview = dynamic(() => import("@/components/PlanPreview"), { ssr: false });
 
 interface ChatMsg {
   role: "user" | "agent";
@@ -13,9 +16,10 @@ interface ChatMsg {
 
 export default function EditorPage() {
   const { id } = useParams<{ id: string }>();
-  const [tab, setTab] = useState<"beats" | "timeline" | "chat">("beats");
+  const [tab, setTab] = useState<"beats" | "timeline" | "preview" | "chat">("beats");
   const [beats, setBeats] = useState<BeatSheet | null>(null);
   const [plan, setPlan] = useState<EditPlan | null>(null);
+  const [theme, setTheme] = useState<Theme | null>(null);
   const [status, setStatus] = useState<string>("");
   const [message, setMessage] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -31,7 +35,11 @@ export default function EditorPage() {
     ]);
     if (b.ok) setBeats(await b.json());
     if (p.ok) setPlan(await p.json());
-    if (v.ok) setStatus((await v.json()).status);
+    if (v.ok) {
+      const row = await v.json();
+      setStatus(row.status);
+      setTheme(row.cfg?.theme_doc ?? null);
+    }
   }, [id]);
 
   useEffect(() => {
@@ -170,9 +178,9 @@ export default function EditorPage() {
       {message && <div className="panel" style={{ fontSize: 13 }}>{message}</div>}
 
       <div style={{ display: "flex", gap: 8 }}>
-        {(["beats", "timeline", "chat"] as const).map((t) => (
+        {(["beats", "timeline", "preview", "chat"] as const).map((t) => (
           <button key={t} className={tab === t ? "primary" : ""} onClick={() => setTab(t)}>
-            {t === "beats" ? "Beat panel" : t === "timeline" ? "Timeline" : "Chat"}
+            {t === "beats" ? "Beat panel" : t === "timeline" ? "Timeline" : t === "preview" ? "Preview" : "Chat"}
           </button>
         ))}
         {tab === "beats" && (
@@ -235,7 +243,12 @@ export default function EditorPage() {
               </thead>
               <tbody>
                 {plan.tracks.visual.map((v) => (
-                  <TimelineRow key={v.id} item={v} onSave={(vals) => patchPlan([{ op: "set_timing", id: v.id, ...vals }])} />
+                  <TimelineRow
+                    key={v.id}
+                    item={v}
+                    onSave={(vals) => patchPlan([{ op: "set_timing", id: v.id, ...vals }])}
+                    onToggleLock={() => patchPlan([{ op: "set_lock", id: v.id, locked: !v.locked }])}
+                  />
                 ))}
               </tbody>
             </table>
@@ -251,6 +264,7 @@ export default function EditorPage() {
                     item={o}
                     onMove={(s, e) => patchPlan([{ op: "move_overlay", id: o.id, start_s: s, end_s: e }])}
                     onRemove={() => patchPlan([{ op: "remove_overlay", id: o.id }])}
+                    onToggleLock={() => patchPlan([{ op: "set_lock", id: o.id, locked: !o.locked }])}
                   />
                 ))}
                 {plan.tracks.overlays.length === 0 && (
@@ -259,6 +273,16 @@ export default function EditorPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {tab === "preview" && (
+        <div className="panel" style={{ display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            Live parity preview — the current edit plan rendered by the same composition the
+            Remotion renderer uses. Edits show here before a re-render.
+          </div>
+          <PlanPreview videoId={id} plan={plan} theme={theme} />
         </div>
       )}
 
@@ -302,12 +326,26 @@ export default function EditorPage() {
   );
 }
 
+function LockToggle({ locked, onToggle }: { locked?: boolean; onToggle: () => void }) {
+  return (
+    <button
+      title={locked ? "Unlock — recompile may replace this item again" : "Lock — recompile keeps this item as-is"}
+      style={{ padding: "2px 6px" }}
+      onClick={onToggle}
+    >
+      {locked ? "🔒" : "🔓"}
+    </button>
+  );
+}
+
 function TimelineRow({
   item,
   onSave,
+  onToggleLock,
 }: {
   item: EditPlan["tracks"]["visual"][number];
   onSave: (vals: { start_s: number; end_s: number; in_offset_s?: number }) => void;
+  onToggleLock: () => void;
 }) {
   const [start, setStart] = useState(String(item.start_s));
   const [end, setEnd] = useState(String(item.end_s));
@@ -317,7 +355,7 @@ function TimelineRow({
   return (
     <tr>
       <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-        {item.id} {item.locked ? "🔒" : ""}
+        {item.id} <LockToggle locked={item.locked} onToggle={onToggleLock} />
       </td>
       <td>{item.beat_id ?? "manual"}</td>
       <td><input style={{ width: 70 }} value={start} onChange={(e) => setStart(e.target.value)} /></td>
@@ -340,17 +378,19 @@ function OverlayRow({
   item,
   onMove,
   onRemove,
+  onToggleLock,
 }: {
   item: EditPlan["tracks"]["overlays"][number];
   onMove: (s: number, e: number) => void;
   onRemove: () => void;
+  onToggleLock: () => void;
 }) {
   const [start, setStart] = useState(String(item.start_s));
   const [end, setEnd] = useState(String(item.end_s));
   const changed = Number(start) !== item.start_s || Number(end) !== item.end_s;
   return (
     <tr>
-      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{item.id} {item.locked ? "🔒" : ""}</td>
+      <td style={{ fontFamily: "monospace", fontSize: 12 }}>{item.id} <LockToggle locked={item.locked} onToggle={onToggleLock} /></td>
       <td>{item.kind === "component" ? item.component : "media (PiP)"}</td>
       <td><input style={{ width: 70 }} value={start} onChange={(e) => setStart(e.target.value)} /></td>
       <td><input style={{ width: 70 }} value={end} onChange={(e) => setEnd(e.target.value)} /></td>

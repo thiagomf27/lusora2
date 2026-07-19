@@ -18,12 +18,18 @@ QUEUE     POST /videos                  (create draft; multipart uploads:
 VIDEOS    GET /videos?channel&status&…  GET /videos/:id
           GET /videos/:id/events        GET /videos/:id/assets
           GET /videos/:id/stream        (final.mp4 range requests)
+          GET /videos/:id/files/*path   (any video-folder artifact, range
+                                         requests; the editor's Player
+                                         preview loads clips/audio here)
           POST /videos/:id/transition   {to: approved|sent_back|posted|queued}
           POST /videos/:id/notes
 
 EDITOR    GET/PUT /videos/:id/beats     (beats.json through the API; PUT
                                          validates + triggers per-beat recompile)
-          GET/PATCH /videos/:id/plan    (JSON-patch ops; validates; sets locked)
+          GET/PATCH /videos/:id/plan    (validated ops; timing/asset/transform
+                                         edits set locked; set_lock toggles
+                                         it explicitly — unlock lets the next
+                                         recompile replace the item)
           POST /videos/:id/beats/:beatId/reroll   (re-run resolution for one beat)
           POST /videos/:id/chat         (editor agent: returns proposed ops +
                                          validation result; apply is a second call)

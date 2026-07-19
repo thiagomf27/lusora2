@@ -55,7 +55,12 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
     codec: "h264",
     outputLocation: tmpOut,
     inputProps,
-    concurrency: null,
+    // low-RAM machines: too many tabs + an unbounded OffthreadVideo frame
+    // cache stall frame extraction until delayRender times out
+    concurrency: Number(process.env.REMOTION_CONCURRENCY ?? 2),
+    offthreadVideoCacheSizeInBytes: Number(
+      process.env.REMOTION_OFFTHREADVIDEO_CACHE_BYTES ?? 512 * 1024 * 1024
+    ),
     // large stock clips can take far longer than the 28s default to seek/decode
     timeoutInMilliseconds: 180000,
   });

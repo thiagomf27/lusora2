@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
-import { emphasisColor, fontStack, motionScale } from "../../themes/runtime.ts";
+import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../themes/runtime.ts";
 
 export const ComparisonBarsProps = z.object({
   items: z.array(z.object({ label: z.string(), value: z.number() })).min(2).max(4),
@@ -17,7 +17,7 @@ export function ComparisonBars({ props, theme }: { props: ComparisonBarsProps; t
   const max = Math.max(...props.items.map((i) => i.value), 1);
   const opacity = interpolate(
     frame,
-    [0, fps * 0.3, durationInFrames - fps * 0.4, durationInFrames],
+    fadeInOutRange(durationInFrames, fps * 0.3, fps * 0.4),
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );

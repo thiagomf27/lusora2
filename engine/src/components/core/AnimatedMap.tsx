@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
-import { emphasisColor, fontStack } from "../../themes/runtime.ts";
+import { emphasisColor, fadeInOutRange, fontStack } from "../../themes/runtime.ts";
 
 export const AnimatedMapProps = z.object({
   place_name: z.string(),
@@ -25,7 +25,7 @@ export function AnimatedMap({ props, theme }: { props: AnimatedMapProps; theme: 
   const accent = emphasisColor(theme, props.emphasis);
   const opacity = interpolate(
     frame,
-    [0, fps * 0.4, durationInFrames - fps * 0.4, durationInFrames],
+    fadeInOutRange(durationInFrames, fps * 0.4),
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );

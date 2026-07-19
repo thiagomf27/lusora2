@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@lusora/contracts": "workspace:*",
+    "@lusora/engine": "workspace:*",
+    "@remotion/player": "4.0.490",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "bcryptjs": "^2.4.3",

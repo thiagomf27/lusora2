@@ -88,18 +88,40 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 
 ## Known gaps (intentional, small)
 
-1. **Remotion Player parity preview** in the editor UI — the editor
-   currently previews via the rendered final.mp4 + tables. The engine
-   exports everything needed (`COMPONENTS`, theme runtime,
-   `VideoComposition`); wiring `@remotion/player` into
-   `platform/src/app/(app)/editor/[id]` is the remaining work.
-2. **Unlock/relock UI affordance** for locked items (D39 note).
+1. ~~Remotion Player parity preview~~ **DONE (2026-07-19)** — "Preview"
+   tab in the editor mounts the SAME `VideoComposition` via
+   `@remotion/player` (`platform/src/components/PlanPreview.tsx`). Plan
+   asset paths are rebased onto the new
+   `GET /api/videos/{id}/files/{...path}` route (range support) so
+   `staticFile()` resolves in the browser. Verified via typecheck +
+   page compile + files route; not yet eyeballed in a browser.
+2. ~~Unlock/relock UI affordance~~ **DONE (2026-07-19)** — `set_lock`
+   plan op (planEdit.ts) + 🔒/🔓 toggle on timeline/overlay rows; the
+   chat agent prompt documents it too.
 3. **ai_image `openai`** adapter written but never run (no key).
-4. **Chat agent** implemented and validated end-to-end at the API level,
-   but not yet exercised against a live LLM in the UI.
+4. ~~Chat agent vs live LLM~~ **verified (2026-07-19)** against live
+   DeepSeek at the API level (correct overlay targeted, valid op
+   proposed); the UI calls the same endpoint.
 5. **OQ-21**: measure render/Whisper throughput on the target VPS with
    an M3 fixture before choosing specs.
 6. Deploy Dockerfiles exist but were never built here (no docker).
+
+## Render stability on low-RAM machines (2026-07-19 fixes)
+
+Two real bugs surfaced finishing `vid_bf49becb0547`:
+
+- **Non-monotonic interpolate ranges**: overlay components computed
+  `[0, in, dur-in, dur]` fade windows; a short overlay + `slow_heavy`
+  theme (durationMul 1.4) made `in > dur/2` → Remotion threw
+  `inputRange must be strictly monotonically increasing`. All five core
+  components now use `fadeInOutRange()` from `themes/runtime.ts`,
+  which shrinks fades to fit.
+- **delayRender timeouts on perfectly good clips**: on this 7.5G
+  machine (swap full), default concurrency (cores/2 = 4 tabs) plus an
+  unbounded OffthreadVideo frame cache stalled frame extraction for
+  minutes. `renderRemotion` now defaults to concurrency 2 and a 512MB
+  compositor cache — override with `REMOTION_CONCURRENCY` /
+  `REMOTION_OFFTHREADVIDEO_CACHE_BYTES`.
 
 ## Deviations from the draft contracts (already reflected in schemas)
 
@@ -111,6 +133,9 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
   `contracts/themes/`.
 - The library API gained `licenses` filters and
   `POST /segments/{id}/mark_used` (documented library changes, OQ-13).
+- Platform API gained `GET /api/videos/{id}/files/{...path}` (video
+  folder artifacts for the editor's Player preview) and the `set_lock`
+  plan op.
 - Cut transitions in the ffmpeg xfade chain render as an imperceptible
   0.08s blend when mixed with fades; all-cut plans use exact concat.
 

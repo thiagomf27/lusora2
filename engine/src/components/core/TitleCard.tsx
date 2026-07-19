@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
-import { emphasisColor, fontStack, motionScale } from "../../themes/runtime.ts";
+import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../themes/runtime.ts";
 
 export const TitleCardProps = z.object({
   text: z.string(),
@@ -15,7 +15,7 @@ export function TitleCard({ props, theme }: { props: TitleCardProps; theme: Them
   const { fps, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const inDur = Math.round(fps * 0.6 * durationMul);
-  const opacity = interpolate(frame, [0, inDur, durationInFrames - inDur, durationInFrames], [0, 1, 1, 0], {
+  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

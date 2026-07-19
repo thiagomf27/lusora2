@@ -13,7 +13,8 @@ export type PlanOp =
   | { op: "set_transform"; id: string; scale?: number; position?: "top_left" | "top_right" | "bottom_left" | "bottom_right" | "center" }
   | { op: "move_overlay"; id: string; start_s: number; end_s: number }
   | { op: "set_music_volume"; index: number; volume: number }
-  | { op: "remove_overlay"; id: string };
+  | { op: "remove_overlay"; id: string }
+  | { op: "set_lock"; id: string; locked: boolean };
 
 export interface ApplyResult {
   ok: boolean;
@@ -81,6 +82,16 @@ export function applyPlanOps(plan: EditPlan, ops: PlanOp[]): ApplyResult {
           break;
         }
         next.tracks.overlays.splice(idx, 1);
+        touched.push(op.id);
+        break;
+      }
+      case "set_lock": {
+        const item = findVisual(op.id) ?? findOverlay(op.id);
+        if (!item) {
+          errors.push(`set_lock: item ${op.id} not found`);
+          break;
+        }
+        item.locked = op.locked;
         touched.push(op.id);
         break;
       }

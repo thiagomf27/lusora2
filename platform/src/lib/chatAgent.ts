@@ -45,6 +45,7 @@ Plan ops (precise timeline changes; they LOCK the touched items):
 - {"op":"set_transform","id":"o_x","scale":0.4,"position":"bottom_right"}
 - {"op":"remove_overlay","id":"o_b2"}
 - {"op":"set_music_volume","index":0,"volume":0.08}
+- {"op":"set_lock","id":"v_b2","locked":false} (unlock so the next recompile may replace the item; true re-locks)
 
 Rules: overlays may only use catalog components and must attach to an existing anchor of a matching type (anchor_ref is an index into that beat's anchors). An overlay with no matching anchor is invalid — propose none instead. Prefer beat ops for creative changes, plan ops for timing precision. Propose the SMALLEST set of ops that fulfils the request.
 

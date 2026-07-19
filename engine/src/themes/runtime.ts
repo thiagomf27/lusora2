@@ -25,6 +25,22 @@ export function motionScale(theme: Theme): { durationMul: number; springDamping:
   }
 }
 
+/**
+ * Monotonic [0, inEnd, outStart, end] inputRange for fade in/out.
+ * Shrinks the fades when the overlay is shorter than in+out frames —
+ * Remotion's interpolate() throws on non-monotonic ranges.
+ */
+export function fadeInOutRange(
+  durationInFrames: number,
+  inFrames: number,
+  outFrames = inFrames
+): [number, number, number, number] {
+  const inEnd = Math.max(1, Math.min(inFrames, Math.floor(durationInFrames / 2)));
+  const outStart = Math.max(inEnd + 1, durationInFrames - outFrames);
+  const end = Math.max(outStart + 1, durationInFrames);
+  return [0, inEnd, outStart, end];
+}
+
 /** packaged font name -> CSS stack (files-only: system fallbacks) */
 export function fontStack(name: string): string {
   const serifs = ["Playfair Display", "Georgia", "Times New Roman", "Merriweather", "Lora"];

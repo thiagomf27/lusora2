@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
-import { emphasisColor, fontStack, motionScale } from "../../themes/runtime.ts";
+import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../themes/runtime.ts";
 
 export const LowerThirdProps = z.object({
   title: z.string(),
@@ -18,7 +18,7 @@ export function LowerThird({ props, theme }: { props: LowerThirdProps; theme: Th
   const slide = interpolate(frame, [0, inDur], [-width * 0.3, 0], { extrapolateRight: "clamp" });
   const opacity = interpolate(
     frame,
-    [0, inDur, durationInFrames - inDur, durationInFrames],
+    fadeInOutRange(durationInFrames, inDur),
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );

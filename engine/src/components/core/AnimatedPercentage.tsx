@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
-import { emphasisColor, fontStack, motionScale } from "../../themes/runtime.ts";
+import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../themes/runtime.ts";
 
 export const AnimatedPercentageProps = z.object({
   value: z.number().min(0).max(100),
@@ -23,7 +23,7 @@ export function AnimatedPercentage({ props, theme }: { props: AnimatedPercentage
   const shown = Math.round(props.value * progress);
   const opacity = interpolate(
     frame,
-    [0, fps * 0.3, durationInFrames - fps * 0.4, durationInFrames],
+    fadeInOutRange(durationInFrames, fps * 0.3, fps * 0.4),
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
