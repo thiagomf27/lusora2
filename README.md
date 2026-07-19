@@ -6,6 +6,8 @@ renders and delivers a finished video — cheaply, reproducibly, and with
 human review points. Runs on one machine via docker-compose.
 
 Full documentation: [docs/](docs/) (start at [CLAUDE.md](CLAUDE.md)).
+**Resuming work? Read [docs/00-status.md](docs/00-status.md) first** —
+everything (M0–M9) is built; that file says how to run it and what's left.
 
 ## Layout
 

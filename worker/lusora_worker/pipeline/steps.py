@@ -268,10 +268,15 @@ def run_resolve_assets(ctx: StageContext) -> None:
                 f"source chain exhausted for beat {item.get('beat_id')} (item {item['id']}) — "
                 f"query was: {query!r}; add sources, lower min_score, or edit the beat",
             )
+        # checkpoint after every item so a killed worker resumes without
+        # re-downloading what it already has
+        ctx.write_json("edit_plan.json", plan)
         changed = True
 
     if changed:
-        ctx.write_json("edit_plan.json", plan)
+        ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                     f"{sum(1 for v in plan['tracks']['visual'] if v['asset'].get('path'))} of "
+                     f"{len(plan['tracks']['visual'])} items resolved")
     ctx.log("assets resolved for all visual items")
 
 

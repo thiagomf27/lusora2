@@ -1,9 +1,13 @@
 # Milestones
 
+> **STATUS 2026-07-19: ALL MILESTONES M0–M9 ARE BUILT AND DEMONSTRATED**
+> (one commit each — see `git log`). Real-provider E2E verified:
+> deepseek script+planner, ai33 narration, library+Pexels+AI sourcing,
+> ffmpeg AND Remotion renders. See [00-status.md](../00-status.md) for
+> how to run everything and the short list of remaining gaps.
+
 Build order for Claude Code. Each milestone ends **demonstrable** and
-each depends only on earlier ones. Detailed per-milestone development
-prompts are the next document to write (after the open questions
-blocking M0–M1 are decided).
+each depends only on earlier ones.
 
 ## M0 — Skeleton (nothing runs, everything checks)
 Monorepo scaffold per Repository Structure; `contracts/` package with all

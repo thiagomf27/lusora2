@@ -56,6 +56,8 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
     outputLocation: tmpOut,
     inputProps,
     concurrency: null,
+    // large stock clips can take far longer than the 28s default to seek/decode
+    timeoutInMilliseconds: 180000,
   });
   renameSync(tmpOut, join(videoDir, "final.mp4"));
 

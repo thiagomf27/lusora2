@@ -12,6 +12,11 @@ docker-compose.
 
 ## Reading order
 
+### 00 — Status ★ read first when resuming work
+- [Implementation Status](00-status.md) — what is BUILT (all of M0–M9),
+  how to run it on this machine, providers wired, gotchas, known gaps.
+  The docs below describe the design; that file describes reality.
+
 ### 01 — Architecture
 - [Overview](01-architecture/overview.md) — the five parts and the one diagram
 - [Core Principles](01-architecture/core-principles.md) — 7 rules everything follows

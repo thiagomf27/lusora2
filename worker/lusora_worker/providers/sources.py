@@ -182,12 +182,48 @@ class PexelsAdapter:
             ctx.db.provider_health("stock.pexels", False, f"download failed: {e}")
             return None
 
+        if ext == "mp4":
+            normalize_video(ctx, ctx.folder / out_rel)
         ctx.db.provider_health("stock.pexels", True)
         return Resolution(
             source="stock", id=asset_id, provider="pexels", license="stock-licensed",
             path=out_rel, score=None, query=query[:200],
             media_type="video" if ext == "mp4" else "image",
         )
+
+
+def normalize_video(ctx: StageContext, path) -> None:
+    """Transcode oversized stock footage down to the channel's output
+    resolution. Raw 4K sources stall Remotion's frame extraction and slow
+    ffmpeg renders; a proxy at plan size loses nothing (renders never
+    upscale) and is dramatically cheaper to decode."""
+    import subprocess
+    from pathlib import Path
+
+    path = Path(path)
+    target_h = int(((ctx.cfg.get("output") or {}).get("height")) or 1080)
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0",
+         "-show_entries", "stream=height", "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True,
+    )
+    try:
+        height = int(probe.stdout.strip().splitlines()[0])
+    except (ValueError, IndexError):
+        return  # unreadable probe — leave the file as-is; validate will judge it
+    if height <= target_h:
+        return
+    tmp = path.with_suffix(".norm.mp4")
+    proc = subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", str(path),
+         "-vf", f"scale=-2:{target_h}", "-c:v", "libx264", "-preset", "veryfast",
+         "-crf", "22", "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", str(tmp)],
+        capture_output=True, text=True,
+    )
+    if proc.returncode == 0:
+        tmp.replace(path)
+    else:
+        tmp.unlink(missing_ok=True)  # keep the original; renderer may still cope
 
 
 # ---------------- ai image (budget-gated generation) ----------------

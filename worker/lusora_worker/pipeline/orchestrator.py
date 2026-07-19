@@ -81,9 +81,28 @@ def retention_sweep(db: Db, config: WorkerConfig) -> None:
                      f"final.mp4 removed {row['days']} days after posted")
 
 
+def reclaim_orphans(db: Db) -> None:
+    """A killed worker leaves its video stuck in 'producing'. Any producing
+    video not held by a live worker (heartbeat < 60s) goes back to 'queued' —
+    the artifact-driven resume makes this free."""
+    rows = db.conn.execute(
+        """
+        UPDATE videos SET status = 'queued', updated_at = now()
+        WHERE status = 'producing' AND id NOT IN (
+          SELECT current_video_id FROM worker_heartbeat
+          WHERE current_video_id IS NOT NULL AND last_seen > now() - interval '60 seconds'
+        )
+        RETURNING id
+        """
+    ).fetchall()
+    for row in rows:
+        db.event(str(row["id"]), "claim", "progress", "orphaned claim re-queued (worker died mid-run)")
+
+
 def run_forever(config: WorkerConfig) -> None:
     db = Db(config.database_url)
     print(f"[{config.worker_id}] polling every {config.poll_seconds}s — videos root {config.videos_root}")
+    reclaim_orphans(db)
     last_sweep = 0.0
     while True:
         try:
