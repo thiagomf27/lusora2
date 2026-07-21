@@ -8,7 +8,8 @@
     "lint:boundaries": "node scripts/lint-boundaries.mjs",
     "typecheck": "pnpm -r --filter './contracts' --filter './engine' --filter './platform' run typecheck",
     "test": "pnpm -r run test",
-    "ci": "pnpm run validate:schemas && pnpm run lint:boundaries && pnpm run typecheck && pnpm run test"
+    "catalog:check": "pnpm --filter @lusora/engine run catalog:check",
+    "ci": "pnpm run validate:schemas && pnpm run lint:boundaries && pnpm run typecheck && pnpm run test && pnpm run catalog:check"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

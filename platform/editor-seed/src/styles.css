@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  /* between neutral-900 and 950 — the editor chrome panels */
+  --color-neutral-925: #121214;
+}
+
+/* Dark editor chrome. The Player canvas is black on its own. */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-neutral-950 text-neutral-200 antialiased;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  overscroll-behavior: none;
+}
+
+::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded bg-neutral-700;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}

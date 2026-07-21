@@ -9,12 +9,18 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "catalog": "node --experimental-strip-types src/catalog/generate.ts write",
-    "catalog:check": "node --experimental-strip-types src/catalog/generate.ts check"
+    "catalog:check": "node --experimental-strip-types src/catalog/generate.ts check",
+    "fixture": "bash scripts/make-fixture.sh",
+    "preview": "node scripts/preview-overlay.mjs",
+    "render": "node --experimental-strip-types src/cli.ts render",
+    "studio": "remotion studio src/renderers/remotion/root.tsx"
   },
   "dependencies": {
     "@lusora/contracts": "workspace:*",
     "@remotion/bundler": "^4.0.245",
+    "@remotion/media-parser": "^4.0.245",
     "@remotion/renderer": "^4.0.245",
+    "@remotion/transitions": "^4.0.245",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "remotion": "^4.0.245",

@@ -10,6 +10,7 @@ import { LowerThird } from "./core/LowerThird.tsx";
 import { AnimatedPercentage } from "./core/AnimatedPercentage.tsx";
 import { ComparisonBars } from "./core/ComparisonBars.tsx";
 import { AnimatedMap } from "./core/AnimatedMap.tsx";
+import { ChapterTitle } from "./core/ChapterTitle.tsx";
 
 export interface OverlayComponentProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +24,7 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
   AnimatedPercentage,
   ComparisonBars,
   AnimatedMap,
+  ChapterTitle,
 };
 
-export { TitleCard, LowerThird, AnimatedPercentage, ComparisonBars, AnimatedMap };
+export { TitleCard, LowerThird, AnimatedPercentage, ComparisonBars, AnimatedMap, ChapterTitle };

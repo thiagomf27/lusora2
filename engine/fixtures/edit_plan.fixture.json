@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "video_id": "vid_fixture_engine",
+  "fps": 30,
+  "resolution": { "width": 1280, "height": 720 },
+  "tracks": {
+    "visual": [
+      {
+        "id": "v1",
+        "beat_id": "b1",
+        "locked": false,
+        "start_s": 0,
+        "end_s": 4,
+        "media_type": "image",
+        "asset": { "source": "manual", "id": "fixture-forest", "path": "clips/forest.png", "license": "cc0" },
+        "motion": { "type": "ken_burns", "direction": "in", "pan": "left", "strength": 0.15 },
+        "transition_out": { "type": "crossfade", "duration_s": 0.5 }
+      },
+      {
+        "id": "v2",
+        "beat_id": "b2",
+        "locked": false,
+        "start_s": 4,
+        "end_s": 8,
+        "media_type": "video",
+        "asset": { "source": "manual", "id": "fixture-town", "path": "clips/town.mp4", "license": "cc0" },
+        "in_offset_s": 0,
+        "mute": true,
+        "speed": 1.5,
+        "transition_out": { "type": "cut" }
+      }
+    ],
+    "overlays": [
+      {
+        "id": "o1",
+        "beat_id": "b1",
+        "locked": false,
+        "kind": "component",
+        "component": "ChapterTitle",
+        "props": { "text": "PART ONE", "position": "center", "emphasis": "accent" },
+        "start_s": 0.4,
+        "end_s": 3.2
+      }
+    ],
+    "captions": {
+      "enabled": true,
+      "preset": "plain",
+      "items": [
+        { "start_s": 0.2, "end_s": 3.8, "text": "In 1987, a small town made a choice.", "in_effect": "fade", "out_effect": "fade" },
+        { "start_s": 4.2, "end_s": 7.8, "text": "The forest around it was dying.", "in_effect": "slide_up", "out_effect": "fade" }
+      ]
+    },
+    "audio": {
+      "voiceover": { "path": "audio.mp3", "start_s": 0, "duration_s": 8, "volume": 1 },
+      "music": [
+        { "path": "library/ambient.mp3", "start_s": 0, "end_s": 8, "volume": 0.12, "loop": true, "fade_in_s": 1, "fade_out_s": 2 }
+      ]
+    }
+  }
+}

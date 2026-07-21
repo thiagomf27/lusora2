@@ -12,5 +12,7 @@ __pycache__/
 .ruff_cache/
 data/
 videos-data/
+engine/fixtures/video-dir/
+engine/fixtures/preview/
 coverage/
 .DS_Store

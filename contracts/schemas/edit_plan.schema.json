@@ -125,7 +125,8 @@
         "in_offset_s": { "type": "number", "minimum": 0, "default": 0, "description": "trim start within the source file" },
         "motion": { "$ref": "#/$defs/motion" },
         "transition_out": { "$ref": "#/$defs/transition" },
-        "mute": { "type": "boolean", "default": true }
+        "mute": { "type": "boolean", "default": true },
+        "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "playback rate multiplier for video assets; 1.0 = normal speed (Remotion path only — ffmpeg profile rejects speed != 1)" }
       }
     },
     "overlayItem": {
@@ -166,7 +167,9 @@
       "properties": {
         "start_s": { "type": "number", "minimum": 0 },
         "end_s": { "type": "number", "exclusiveMinimum": 0 },
-        "text": { "type": "string" }
+        "text": { "type": "string" },
+        "in_effect": { "enum": ["fade", "pop", "slide_up", null], "default": null, "description": "per-item entrance animation (Remotion path only)" },
+        "out_effect": { "enum": ["fade", "pop", "slide_down", null], "default": null, "description": "per-item exit animation (Remotion path only)" }
       }
     },
     "voiceoverItem": {

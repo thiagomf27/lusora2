@@ -7,6 +7,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EditPlan, Theme } from "@lusora/contracts";
 import { DEFAULT_THEME } from "../../themes/runtime.ts";
+import { buildAssetManifest } from "./manifest.ts";
 
 export interface RenderResult {
   duration_s: number;
@@ -38,15 +39,22 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
   const { renderMedia, selectComposition } = await import("@remotion/renderer");
 
   const theme = loadTheme(videoDir);
+  // Probe visual assets node-side (durations for the freeze/handle math);
+  // passed to the composition so the browser bundle does no file probing.
+  const assets = await buildAssetManifest(videoDir, plan);
   const entryPoint = join(dirname(fileURLToPath(import.meta.url)), "root.tsx");
-  const inputProps = { plan, theme } as unknown as Record<string, unknown>;
+  const inputProps = { plan, theme, assets } as unknown as Record<string, unknown>;
 
   const serveUrl = await bundle({
     entryPoint,
     publicDir: videoDir, // staticFile("clips/…"), staticFile("audio.mp3")
   });
 
-  const composition = await selectComposition({ serveUrl, id: "video", inputProps });
+  // Files-only boundary: point at a preinstalled browser so the render never
+  // reaches out to download one. Unset falls back to Remotion's managed browser.
+  const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE || null;
+
+  const composition = await selectComposition({ serveUrl, id: "video", inputProps, browserExecutable });
 
   const tmpOut = join(videoDir, "final.tmp.mp4");
   await renderMedia({
@@ -55,6 +63,7 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
     codec: "h264",
     outputLocation: tmpOut,
     inputProps,
+    browserExecutable,
     // low-RAM machines: too many tabs + an unbounded OffthreadVideo frame
     // cache stall frame extraction until delayRender times out
     concurrency: Number(process.env.REMOTION_CONCURRENCY ?? 2),

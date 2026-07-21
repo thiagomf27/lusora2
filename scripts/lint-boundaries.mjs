@@ -21,7 +21,9 @@ const rules = [
 ];
 
 const exts = new Set([".ts", ".tsx", ".mts", ".py"]);
-const skipDirs = new Set(["node_modules", ".next", "dist", "build", "__pycache__", ".venv", ".git"]);
+// editor-seed is a parked M8 reference (platform/editor-seed/README.md): not
+// built, not imported, and deliberately kept out of typecheck/build/lint.
+const skipDirs = new Set(["node_modules", ".next", "dist", "build", "__pycache__", ".venv", ".git", "editor-seed"]);
 
 function* walk(dir) {
   let entries;

@@ -26,6 +26,7 @@
         "asset": { "source": "library", "id": "seg_8841", "license": "cc-by", "path": "clips/b2.mp4", "score": 0.71 },
         "in_offset_s": 2.0,
         "mute": true,
+        "speed": 1.5,
         "transition_out": { "type": "cut", "duration_s": 0.1 }
       }
     ],
@@ -55,7 +56,7 @@
       "enabled": true,
       "preset": "plain",
       "items": [
-        { "start_s": 4.5, "end_s": 10.2, "text": "By 1943, nearly 70% of the city's factories had been converted to produce aircraft parts." }
+        { "start_s": 4.5, "end_s": 10.2, "text": "By 1943, nearly 70% of the city's factories had been converted to produce aircraft parts.", "in_effect": "fade", "out_effect": "fade" }
       ]
     },
     "audio": {

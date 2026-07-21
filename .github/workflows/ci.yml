@@ -18,6 +18,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Install ffmpeg
+        # engine fixture builder + ffmpeg renderer contract test + ffprobe assertions
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Schema validation
         run: pnpm run validate:schemas
       - name: Boundary lint
@@ -25,6 +28,10 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
       - name: TS tests
+        # The Remotion end-to-end render uses the runner's preinstalled Chrome
+        # (files-only, no browser download); it self-skips if none is present.
+        env:
+          REMOTION_BROWSER_EXECUTABLE: /usr/bin/google-chrome
         run: pnpm run test
       - name: Catalog drift check
         run: pnpm --filter @lusora/engine run catalog:check

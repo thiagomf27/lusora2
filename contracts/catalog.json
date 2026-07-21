@@ -197,6 +197,39 @@
         "default": 5
       },
       "renderer": "remotion"
+    },
+    {
+      "name": "ChapterTitle",
+      "pack": "core",
+      "when_to_use": "marking a new section or chapter mid-video with a short heading — either full-screen (center) or as a lower third while narration continues",
+      "when_not_to_use": "the opening title or cold open (use TitleCard); introducing a named person or place (use LowerThird); any numeric fact (use a data component)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 8,
+          "required": true
+        },
+        "position": {
+          "enum": [
+            "center",
+            "lower_third"
+          ],
+          "default": "center"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3
+      },
+      "renderer": "remotion"
     }
   ]
 }

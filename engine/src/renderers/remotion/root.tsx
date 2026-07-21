@@ -1,8 +1,9 @@
-/** Remotion entry point: registered root reading plan + theme from inputProps. */
+/** Remotion entry point: registered root reading plan + theme + assets from inputProps. */
 import { Composition, getInputProps, registerRoot } from "remotion";
 import type { EditPlan, Theme } from "@lusora/contracts";
 import { DEFAULT_THEME } from "../../themes/runtime.ts";
 import { VideoComposition, type VideoInput } from "./Composition.tsx";
+import { fallbackAssets } from "./timeline.ts";
 
 function totalDuration(plan: EditPlan): number {
   const vo = plan.tracks.audio.voiceover;
@@ -13,9 +14,10 @@ function totalDuration(plan: EditPlan): number {
 }
 
 function Root() {
-  const input = getInputProps() as unknown as VideoInput;
-  const plan = input.plan;
-  const theme = input.theme ?? DEFAULT_THEME;
+  const input = getInputProps() as unknown as Partial<VideoInput>;
+  const plan = input.plan as EditPlan;
+  const theme = (input.theme as Theme) ?? DEFAULT_THEME;
+  const assets = input.assets ?? fallbackAssets(plan);
   return (
     <Composition
       id="video"
@@ -24,7 +26,7 @@ function Root() {
       fps={plan.fps}
       width={plan.resolution.width}
       height={plan.resolution.height}
-      defaultProps={{ plan, theme } as unknown as Record<string, unknown>}
+      defaultProps={{ plan, theme, assets } as unknown as Record<string, unknown>}
     />
   );
 }

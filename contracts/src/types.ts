@@ -95,6 +95,8 @@ export interface VisualItem {
   motion?: Motion;
   transition_out?: Transition;
   mute?: boolean;
+  /** Playback rate multiplier for video assets; 1.0 = normal (Remotion path only). */
+  speed?: number;
 }
 
 export interface OverlayItem {
@@ -113,10 +115,15 @@ export interface OverlayItem {
   };
 }
 
+export type CaptionInEffect = "fade" | "pop" | "slide_up";
+export type CaptionOutEffect = "fade" | "pop" | "slide_down";
+
 export interface CaptionItem {
   start_s: number;
   end_s: number;
   text: string;
+  in_effect?: CaptionInEffect | null;
+  out_effect?: CaptionOutEffect | null;
 }
 
 export interface VoiceoverItem {

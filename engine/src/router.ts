@@ -31,6 +31,9 @@ export function routePlan(plan: EditPlan): RouteResult {
     if (t && !FFMPEG_TRANSITIONS.has(t)) {
       reasons.push(`visual ${item.id}: transition ${t}`);
     }
+    if (item.speed !== undefined && item.speed !== 1) {
+      reasons.push(`visual ${item.id}: speed ${item.speed} (playbackRate is Remotion-only)`);
+    }
   }
 
   const captions = plan.tracks.captions;
