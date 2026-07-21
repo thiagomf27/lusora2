@@ -76,6 +76,70 @@ def test_misaligned_beat_fails_loud():
         compile_plan(doc, st, CFG, 3.0)
 
 
+def test_alignment_tolerates_asr_punctuation_and_caption_straddling():
+    """Real failure modes hit in production: (1) a caption/ASR chunk
+    boundary that cuts across a script sentence boundary, (2) the
+    ASR/caption text using commas where the script uses periods. Neither
+    is a real divergence — only the words matter for alignment."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "The floor was old.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "Oil stained the boards.", "visual_intent": "b"},
+    )
+    # one caption straddles the sentence boundary, and uses a comma instead of the script's period
+    st = timings(
+        ("The floor was old, oil stained the", 0.0, 3.5),
+        ("boards.", 3.5, 4.0),
+    )
+    plan = compile_plan(doc, st, CFG, 4.0)
+    visual = plan["tracks"]["visual"]
+    assert [v["beat_id"] for v in visual] == ["b1", "b2"]
+    assert visual[0]["start_s"] == 0.0
+    assert visual[1]["end_s"] == 4.0
+
+
+def test_alignment_tolerates_one_stray_asr_word():
+    """A mis-heard/hallucinated word inserted by the ASR shouldn't break
+    alignment as long as the real script words are found shortly after."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "He named the boat Alcedo.", "visual_intent": "a"},
+    )
+    st = timings(("He named the boat Wood Alcedo.", 0.0, 3.0))
+    plan = compile_plan(doc, st, CFG, 3.0)
+    assert plan["tracks"]["visual"][0]["beat_id"] == "b1"
+
+
+def test_alignment_still_fails_on_a_real_word_substitution():
+    """A genuine wording divergence (not punctuation, not a number-format
+    difference, not an insertion) must still fail loud — this isn't a
+    license to accept anything."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "He read the letter aloud.", "visual_intent": "a"},
+    )
+    st = timings(("He burned the letter aloud.", 0.0, 2.0))
+    with pytest.raises(CompileError, match="read"):
+        compile_plan(doc, st, CFG, 2.0)
+
+
+@pytest.mark.parametrize(
+    "script_words,narration_words",
+    [
+        ("Fifty feet away.", "50 feet away."),  # simple cardinal, spoken -> digit
+        ("Lot forty-seven sold.", "Lot 47 sold."),  # hyphenated compound -> digit
+        ("A 1950s trawler.", "A nineteen-fifties trawler."),  # digit -> century-decade compound
+        ("Back in the fifties.", "Back in the 50s."),  # bare decade plural -> digit decade
+    ],
+)
+def test_alignment_tolerates_number_word_digit_equivalence(script_words, narration_words):
+    """Whisper (and hand-authored captions) render numbers however they
+    like — digits, spelled out, hyphenated compounds, decades — while the
+    script may use a different convention. None of that is a real content
+    divergence."""
+    doc = beats({"id": "b1", "kind": "narration", "script_text": script_words, "visual_intent": "a"})
+    st = timings((narration_words, 0.0, 2.0))
+    plan = compile_plan(doc, st, CFG, 2.0)
+    assert plan["tracks"]["visual"][0]["beat_id"] == "b1"
+
+
 def test_uncovered_narration_fails_loud():
     doc = beats({"id": "b1", "kind": "narration", "script_text": "First.", "visual_intent": "x"})
     st = timings(("First.", 0.0, 2.0), ("Uncovered tail.", 2.0, 4.0))

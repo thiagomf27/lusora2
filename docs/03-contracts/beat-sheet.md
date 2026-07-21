@@ -48,7 +48,13 @@ emphasize). Everything computable (timings) or identity-bound
 - `kind: narration` — the default. `script_text` MUST be a verbatim
   contiguous span of the script; beats must cover the entire script in
   order without overlap (validator-enforced). Timing comes later from SRT
-  alignment.
+  alignment — word-level, punctuation-insensitive, tolerant of a few
+  stray ASR-inserted words and of number-word/digit formatting
+  differences ("fifty" ↔ "50", "nineteen-fifties" ↔ "1950s"). The SRT
+  (Whisper transcript, hand-authored captions, or TTS timings) is a
+  TIMING source only — `script_text` stays the source of truth; a
+  genuine wording mismatch (wrong word, not just formatting) still fails
+  loud. See `compiler/core.py::_align_beats`.
 - `kind: timed` — for spans with no narration (cold opens, music-only
   outros, montage inserts). Carries absolute `timing`. (Music-bar-relative
   beats: deferred, OQ-8.)
