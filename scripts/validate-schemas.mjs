@@ -4,7 +4,7 @@
  * fixture in contracts/fixtures validates against its schema.
  * Also checks catalog.json entries against catalog_entry.schema.json.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -66,6 +66,32 @@ for (const entry of catalog.components) {
     console.log(`✓ catalog entry ${entry.name} valid`);
   } else {
     fail(`catalog entry ${entry.name} invalid: ${ajv.errorsText(validators.catalog_entry.errors)}`);
+  }
+}
+
+// 3b. data-only component packs validate, declare their own filename, and do
+//     not shadow a name the engine registry already owns
+const packsDir = join(root, "contracts/component-packs");
+const coreNames = new Set(catalog.components.map((c) => c.name));
+const packFiles = existsSync(packsDir)
+  ? readdirSync(packsDir).filter((f) => f.endsWith(".json"))
+  : [];
+for (const file of packFiles) {
+  const pack = JSON.parse(readFileSync(join(packsDir, file), "utf8"));
+  const stem = file.replace(/\.json$/, "");
+  if (pack.pack !== stem) fail(`component pack ${file}: 'pack' is ${JSON.stringify(pack.pack)}, expected "${stem}"`);
+  if (stem === "core") fail(`component pack ${file}: 'core' is generated from the engine registry`);
+  for (const entry of pack.components ?? []) {
+    if (!validators.catalog_entry(entry)) {
+      fail(`${file}: entry ${entry.name} invalid: ${ajv.errorsText(validators.catalog_entry.errors)}`);
+      continue;
+    }
+    if (entry.pack !== stem) fail(`${file}: entry ${entry.name} declares pack ${JSON.stringify(entry.pack)}`);
+    if (coreNames.has(entry.name)) fail(`${file}: ${entry.name} already defined in catalog.json`);
+    else {
+      coreNames.add(entry.name);
+      console.log(`✓ pack entry ${entry.name} (${stem}) valid`);
+    }
   }
 }
 

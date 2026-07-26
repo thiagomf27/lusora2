@@ -20,6 +20,10 @@
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/propSpec" }
     },
+    "template": {
+      "enum": ["card", "lower_third", "big_number", "bullet_list", "statement"],
+      "description": "code-free path: drawn by the engine's TemplateOverlay from these props instead of a React component in engine/src/components/core. Entries in the generated core pack never set this."
+    },
     "duration_hint_s": {
       "type": "object",
       "additionalProperties": false,
@@ -46,7 +50,7 @@
         "required": { "type": "boolean", "default": false },
         "default": {},
         "from_anchor": { "type": "string", "description": "auto-filled by the compiler from the anchor field, so the LLM cannot get it wrong" },
-        "computed": { "enum": ["geocode", "parse_date"], "description": "deterministic resolution the compiler must perform" },
+        "computed": { "enum": ["geocode", "parse_date", "geocode_stops"], "description": "deterministic resolution the compiler must perform" },
         "description": { "type": "string" }
       }
     }

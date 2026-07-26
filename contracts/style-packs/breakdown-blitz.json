@@ -1,0 +1,29 @@
+{
+  "name": "breakdown-blitz",
+  "pacing": { "avg_hold_seconds": 2.4, "min_hold": 1.4, "max_hold": 4.5, "arc": "linear" },
+  "overlays": {
+    "density": { "per_minute": 9 },
+    "allowed_components": [
+      "KineticTitle",
+      "ChapterCard",
+      "HammerStatement",
+      "CalloutArrow",
+      "AnimatedCounter",
+      "StatTag",
+      "BarChart",
+      "ComparisonSplit",
+      "RankLabel",
+      "BulletList",
+      "DefinitionCard",
+      "FactCard",
+      "NamePlate",
+      "DateStamp",
+      "SatelliteLocate",
+      "QuoteBlock",
+      "HighlightedPassage"
+    ]
+  },
+  "transitions": { "allowed": ["cut", "crossfade"], "default": "cut" },
+  "script_persona": "Rapid analyst. One idea per sentence, numbers up front, no wind-up. Every second earns the next.",
+  "visual_language": "Tight close-ups, mechanisms and hands, hard cuts between scales; avoid slow establishing drone shots."
+}

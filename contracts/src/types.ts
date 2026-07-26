@@ -108,6 +108,8 @@ export interface OverlayItem {
   kind: "component" | "media";
   component?: string;
   props?: Record<string, unknown>;
+  /** template kind, compiled in from the catalog entry when it has no React component */
+  template?: TemplateKind;
   asset?: AssetProvenance;
   transform?: {
     scale?: number;
@@ -255,9 +257,12 @@ export interface CatalogPropSpec {
   required?: boolean;
   default?: unknown;
   from_anchor?: string;
-  computed?: "geocode" | "parse_date";
+  computed?: "geocode" | "parse_date" | "geocode_stops";
   description?: string;
 }
+
+/** Layouts the engine can draw from data alone (engine/src/components/templates). */
+export type TemplateKind = "card" | "lower_third" | "big_number" | "bullet_list" | "statement";
 
 export interface CatalogEntry {
   name: string;
@@ -266,6 +271,8 @@ export interface CatalogEntry {
   when_not_to_use: string;
   anchor_types: AnchorType[];
   props: Record<string, CatalogPropSpec>;
+  /** set instead of shipping a React component: TemplateOverlay draws it */
+  template?: TemplateKind;
   duration_hint_s?: { min?: number; default?: number; max?: number };
   renderer: "remotion";
 }

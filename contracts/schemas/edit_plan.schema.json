@@ -137,6 +137,10 @@
         "kind": { "enum": ["component", "media"] },
         "component": { "type": "string", "description": "catalog component name (kind=component)" },
         "props": { "type": "object", "description": "full, validated semantic props (kind=component)" },
+        "template": {
+          "enum": ["card", "lower_third", "big_number", "bullet_list", "statement"],
+          "description": "template kind copied from the catalog entry at compile time (kind=component with no React implementation)"
+        },
         "asset": { "$ref": "#/$defs/provenance" },
         "transform": {
           "type": "object",

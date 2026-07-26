@@ -36,7 +36,7 @@
         "beat_id": "b1",
         "locked": false,
         "kind": "component",
-        "component": "TitleCard",
+        "component": "KineticTitle",
         "props": { "text": "1943", "emphasis": "accent" },
         "start_s": 0.5,
         "end_s": 4.0
@@ -46,7 +46,7 @@
         "beat_id": "b2",
         "locked": false,
         "kind": "component",
-        "component": "AnimatedPercentage",
+        "component": "AnimatedCounter",
         "props": { "value": 70, "label": "factories converted", "emphasis": "accent" },
         "start_s": 5.0,
         "end_s": 9.0

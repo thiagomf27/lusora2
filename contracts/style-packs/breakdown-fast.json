@@ -1,11 +1,37 @@
 {
   "name": "breakdown-fast",
-  "pacing": { "avg_hold_seconds": 2.6, "min_hold": 1.6, "max_hold": 5.0, "arc": "linear" },
+  "pacing": {
+    "avg_hold_seconds": 2.6,
+    "min_hold": 1.6,
+    "max_hold": 5.0,
+    "arc": "linear"
+  },
   "overlays": {
     "density": "high",
-    "allowed_components": ["TitleCard", "LowerThird", "AnimatedPercentage", "ComparisonBars", "AnimatedMap"]
+    "allowed_components": [
+      "KineticTitle",
+      "HammerStatement",
+      "CalloutArrow",
+      "AnimatedCounter",
+      "StatTag",
+      "BarChart",
+      "ComparisonSplit",
+      "StepFlow",
+      "FactSheet",
+      "FactCard",
+      "HighlightedPassage",
+      "NamePlate",
+      "SatelliteLocate",
+      "DefinitionCard"
+    ]
   },
-  "transitions": { "allowed": ["cut", "crossfade"], "default": "cut" },
+  "transitions": {
+    "allowed": [
+      "cut",
+      "crossfade"
+    ],
+    "default": "cut"
+  },
   "script_persona": "Energetic analyst. Short punchy sentences. Numbers up front.",
   "visual_language": "Dynamic close-ups, data-rich shots, quick context establishing shots."
 }

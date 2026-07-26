@@ -1,11 +1,35 @@
 {
   "name": "listicle-fast",
-  "pacing": { "avg_hold_seconds": 2.2, "min_hold": 1.4, "max_hold": 4.5, "arc": "listicle" },
+  "pacing": {
+    "avg_hold_seconds": 2.2,
+    "min_hold": 1.4,
+    "max_hold": 4.5,
+    "arc": "listicle"
+  },
   "overlays": {
     "density": "high",
-    "allowed_components": ["TitleCard", "LowerThird", "AnimatedPercentage", "ComparisonBars"]
+    "allowed_components": [
+      "AnimatedCounter",
+      "BarChart",
+      "BulletList",
+      "CalloutArrow",
+      "ComparisonSplit",
+      "FactCard",
+      "HammerStatement",
+      "KineticTitle",
+      "NamePlate",
+      "RankLabel",
+      "StatTag"
+    ]
   },
-  "transitions": { "allowed": ["cut", "crossfade", "fade_to_black"], "default": "cut" },
+  "transitions": {
+    "allowed": [
+      "cut",
+      "crossfade",
+      "fade_to_black"
+    ],
+    "default": "cut"
+  },
   "script_persona": "Upbeat countdown narrator. Each item opens with its rank and a hook.",
   "visual_language": "Punchy hero shots per item; consistent framing between items."
 }

@@ -1,11 +1,39 @@
 {
   "name": "explainer-medium",
-  "pacing": { "avg_hold_seconds": 3.2, "min_hold": 2.0, "max_hold": 6.0, "arc": "three_act" },
+  "pacing": {
+    "avg_hold_seconds": 3.2,
+    "min_hold": 2.0,
+    "max_hold": 6.0,
+    "arc": "three_act"
+  },
   "overlays": {
     "density": "normal",
-    "allowed_components": ["TitleCard", "LowerThird", "AnimatedPercentage", "ComparisonBars", "AnimatedMap"]
+    "allowed_components": [
+      "AnimatedCounter",
+      "BarChart",
+      "BulletList",
+      "CalloutArrow",
+      "ChapterCard",
+      "ComparisonSplit",
+      "DefinitionCard",
+      "FactCard",
+      "FactSheet",
+      "KineticTitle",
+      "LineChart",
+      "NamePlate",
+      "SatelliteLocate",
+      "StatTag",
+      "StepFlow",
+      "Timeline"
+    ]
   },
-  "transitions": { "allowed": ["cut", "crossfade"], "default": "cut" },
+  "transitions": {
+    "allowed": [
+      "cut",
+      "crossfade"
+    ],
+    "default": "cut"
+  },
   "script_persona": "Clear, friendly explainer. Concrete examples. One idea per sentence.",
   "visual_language": "Clean, bright, illustrative footage; diagrams welcome; avoid clutter."
 }

@@ -8,10 +8,26 @@
   },
   "overlays": {
     "density": "normal",
-    "allowed_components": ["AnimatedPercentage", "AnimatedMap", "TitleCard", "LowerThird"]
+    "allowed_components": [
+      "ChapterCard",
+      "NamePlate",
+      "DateStamp",
+      "SatelliteLocate",
+      "QuoteBlock",
+      "DocumentCard",
+      "FramedExhibit",
+      "ArchivalFrame",
+      "AnimatedCounter",
+      "FactCard",
+      "Timeline"
+    ]
   },
   "transitions": {
-    "allowed": ["cut", "crossfade", "fade_to_black"],
+    "allowed": [
+      "cut",
+      "crossfade",
+      "fade_to_black"
+    ],
     "default": "cut"
   },
   "script_persona": "Grave, precise documentary narrator. Short sentences. No exclamations.",

@@ -3,20 +3,276 @@
   "generated_by": "engine catalog",
   "components": [
     {
-      "name": "TitleCard",
+      "name": "AnimatedCounter",
       "pack": "core",
-      "when_to_use": "opening a video or a chapter with a short title or a year; cold opens; section breaks",
-      "when_not_to_use": "mid-narration emphasis (use LowerThird); any numeric fact (use a data component)",
-      "anchor_types": [],
+      "when_to_use": "the narration lands a single figure worth dwelling on — a count, a total, a percentage ('29,000 tanks', '70% of factories')",
+      "when_not_to_use": "two or more values being compared (ComparisonSplit for two, BarChart for three or more); a figure that should sit in the corner while the shot continues (StatTag); a position in a ranking (RankLabel)",
+      "anchor_types": [
+        "number",
+        "percentage"
+      ],
       "props": {
-        "text": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "from_anchor": "value"
+        },
+        "label": {
           "type": "string",
           "maxWords": 8,
           "required": true
         },
-        "subtext": {
+        "prefix": {
           "type": "string",
-          "maxWords": 12
+          "maxWords": 2,
+          "description": "e.g. a currency symbol"
+        },
+        "suffix": {
+          "type": "string",
+          "maxWords": 3,
+          "description": "e.g. '%', 'tons'"
+        },
+        "decimals": {
+          "type": "number",
+          "min": 0,
+          "max": 2,
+          "default": 0
+        },
+        "approximate": {
+          "type": "boolean",
+          "default": false,
+          "description": "prefixes the settled value with '~'"
+        },
+        "position": {
+          "enum": [
+            "center",
+            "left",
+            "right"
+          ],
+          "default": "center"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "ArchivalFrame",
+      "pack": "core",
+      "when_to_use": "presenting the shot itself as archival footage — grain, gate flicker and an optional slate line over a period clip",
+      "when_not_to_use": "a still photograph that should read as an exhibit with a caption (FramedExhibit); a paper document (DocumentCard); any shot where the underlying footage should stay clean",
+      "anchor_types": [],
+      "props": {
+        "image": {
+          "type": "string",
+          "description": "path to a still under the video dir; leave unset unless a real file exists — the component draws a procedural plate when absent"
+        },
+        "slate": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "date": {
+          "type": "string",
+          "maxWords": 4
+        },
+        "treatment": {
+          "enum": [
+            "auto",
+            "archival",
+            "film",
+            "none"
+          ],
+          "default": "auto",
+          "description": "'auto' follows the theme's grain"
+        },
+        "flicker": {
+          "type": "boolean",
+          "default": true
+        },
+        "sprocket": {
+          "type": "boolean",
+          "default": false
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "BarChart",
+      "pack": "core",
+      "when_to_use": "the narration compares three to seven named quantities of the same kind ('Germany 12,000; the Soviets 29,000; the Americans 49,000')",
+      "when_not_to_use": "exactly two values, where the split reads better (ComparisonSplit); one value (AnimatedCounter); a quantity changing over time (LineChart); dated events (Timeline)",
+      "anchor_types": [
+        "comparison"
+      ],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 8
+        },
+        "series": {
+          "type": "array",
+          "required": true,
+          "from_anchor": "value",
+          "min": 2,
+          "max": 7,
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "maxWords": 3
+              },
+              "value": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "unit": {
+          "type": "string",
+          "maxWords": 3
+        },
+        "orientation": {
+          "enum": [
+            "vertical",
+            "horizontal"
+          ],
+          "default": "vertical"
+        },
+        "highlight_index": {
+          "type": "number",
+          "min": 0,
+          "max": 6,
+          "description": "index of the one bar that takes the accent"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 5.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "BulletList",
+      "pack": "core",
+      "when_to_use": "the narration enumerates two to five short parallel claims, reasons or consequences in sequence",
+      "when_not_to_use": "stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 8
+        },
+        "items": {
+          "type": "array",
+          "required": true,
+          "min": 2,
+          "max": 5,
+          "items": {
+            "type": "string",
+            "maxWords": 15
+          }
+        },
+        "marker": {
+          "enum": [
+            "dot",
+            "rule",
+            "number",
+            "none"
+          ],
+          "default": "rule"
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center"
+          ],
+          "default": "left"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 6
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "CalloutArrow",
+      "pack": "core",
+      "when_to_use": "pointing at something already visible in the footage and naming it ('this is the breach in the hull')",
+      "when_not_to_use": "the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 10,
+          "required": true
+        },
+        "target": {
+          "enum": [
+            "top_left",
+            "top_center",
+            "top_right",
+            "center_left",
+            "center",
+            "center_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right"
+          ],
+          "default": "center",
+          "description": "which ninth of the frame the arrow points at"
+        },
+        "from": {
+          "enum": [
+            "left",
+            "right",
+            "above",
+            "below"
+          ],
+          "default": "left"
+        },
+        "style": {
+          "enum": [
+            "curved",
+            "straight",
+            "elbow"
+          ],
+          "default": "curved"
         },
         "emphasis": {
           "enum": [
@@ -33,59 +289,39 @@
       "renderer": "remotion"
     },
     {
-      "name": "LowerThird",
+      "name": "ChapterCard",
       "pack": "core",
-      "when_to_use": "introducing a person, place, or thing by name while narration continues (e.g. a general, a city, a ship)",
-      "when_not_to_use": "titles or chapter breaks (use TitleCard); statistics (use data components)",
-      "anchor_types": [
-        "name",
-        "place"
-      ],
+      "when_to_use": "a full-screen act break between sections of the video — numbered chapter, title, optional subtitle",
+      "when_not_to_use": "the opening title of the video or a stylised statement (KineticTitle); a heading that should not stop the narration; a person's name (NamePlate)",
+      "anchor_types": [],
       "props": {
+        "chapter_label": {
+          "type": "string",
+          "maxWords": 4,
+          "description": "e.g. 'Part', 'Chapter'"
+        },
+        "chapter_number": {
+          "type": "number",
+          "min": 1,
+          "max": 99
+        },
         "title": {
           "type": "string",
-          "maxWords": 6,
-          "required": true,
-          "from_anchor": "value"
+          "maxWords": 10,
+          "required": true
         },
         "subtitle": {
           "type": "string",
-          "maxWords": 10
+          "maxWords": 7
         },
-        "emphasis": {
+        "rule": {
           "enum": [
-            "accent",
-            "neutral"
+            "over",
+            "under",
+            "both",
+            "none"
           ],
-          "default": "neutral"
-        }
-      },
-      "duration_hint_s": {
-        "min": 2.5,
-        "default": 4
-      },
-      "renderer": "remotion"
-    },
-    {
-      "name": "AnimatedPercentage",
-      "pack": "core",
-      "when_to_use": "the narration states a single percentage or share of a whole (e.g. '70% of factories were converted')",
-      "when_not_to_use": "multiple values compared (use ComparisonBars); vague quantities ('most', 'many'); decorative emphasis with no stated number",
-      "anchor_types": [
-        "percentage"
-      ],
-      "props": {
-        "value": {
-          "type": "number",
-          "min": 0,
-          "max": 100,
-          "required": true,
-          "from_anchor": "value"
-        },
-        "label": {
-          "type": "string",
-          "maxWords": 4,
-          "required": true
+          "default": "both"
         },
         "emphasis": {
           "enum": [
@@ -102,34 +338,202 @@
       "renderer": "remotion"
     },
     {
-      "name": "ComparisonBars",
+      "name": "ComparisonSplit",
       "pack": "core",
-      "when_to_use": "the narration compares two to four named quantities (e.g. 'Germany produced 12,000 tanks; the Soviets, 29,000')",
-      "when_not_to_use": "a single value (use AnimatedPercentage); more than four values; trends over time",
+      "when_to_use": "the narration sets exactly two quantities of the same kind against each other and the contrast is the point ('eleven ships lost against two')",
+      "when_not_to_use": "three or more values (BarChart); one value (AnimatedCounter); two things compared qualitatively rather than numerically (FactSheet)",
       "anchor_types": [
         "comparison"
       ],
       "props": {
-        "items": {
-          "type": "array",
+        "left": {
+          "type": "object",
           "required": true,
-          "from_anchor": "value",
-          "items": {
-            "type": "object",
-            "properties": {
-              "label": {
-                "type": "string",
-                "maxWords": 4
-              },
-              "value": {
-                "type": "number"
-              }
+          "from_anchor": "value[0]",
+          "properties": {
+            "label": {
+              "type": "string",
+              "maxWords": 4
+            },
+            "value": {
+              "type": "number"
+            },
+            "note": {
+              "type": "string",
+              "maxWords": 4
+            }
+          }
+        },
+        "right": {
+          "type": "object",
+          "required": true,
+          "from_anchor": "value[1]",
+          "properties": {
+            "label": {
+              "type": "string",
+              "maxWords": 4
+            },
+            "value": {
+              "type": "number"
+            },
+            "note": {
+              "type": "string",
+              "maxWords": 4
             }
           }
         },
         "unit": {
           "type": "string",
+          "maxWords": 3
+        },
+        "caption": {
+          "type": "string",
+          "maxWords": 10
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3,
+        "default": 5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "DateStamp",
+      "pack": "core",
+      "when_to_use": "establishing when (and optionally where) a shot happens, as a corner slug the narration runs underneath",
+      "when_not_to_use": "several dates in sequence (Timeline); a date that is itself the subject of the beat (AnimatedCounter for a year figure); locating a place (SatelliteLocate)",
+      "anchor_types": [
+        "date"
+      ],
+      "props": {
+        "date": {
+          "type": "string",
+          "maxWords": 4,
+          "required": true,
+          "from_anchor": "value",
+          "description": "pre-formatted for the language of the video, e.g. '31 January 1943'"
+        },
+        "place": {
+          "type": "string",
+          "maxWords": 4
+        },
+        "position": {
+          "enum": [
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "default": "top_left"
+        },
+        "variant": {
+          "enum": [
+            "stamped",
+            "typed"
+          ],
+          "default": "stamped"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "DefinitionCard",
+      "pack": "core",
+      "when_to_use": "the narration introduces a technical term or piece of jargon the viewer is unlikely to know, and defines it",
+      "when_not_to_use": "a claim or statistic rather than a term (FactCard); a person's name and role (NamePlate); a quoted line (QuoteBlock)",
+      "anchor_types": [],
+      "props": {
+        "term": {
+          "type": "string",
+          "maxWords": 5,
+          "required": true
+        },
+        "pronunciation": {
+          "type": "string",
+          "maxWords": 4
+        },
+        "part_of_speech": {
+          "type": "string",
           "maxWords": 2
+        },
+        "definition": {
+          "type": "string",
+          "maxWords": 28,
+          "required": true
+        },
+        "origin": {
+          "type": "string",
+          "maxWords": 10
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3,
+        "default": 5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "DocumentCard",
+      "pack": "core",
+      "when_to_use": "reproducing a written source as paper — an order, a telegram, a signed note — while the narration reads or discusses it",
+      "when_not_to_use": "a spoken line (QuoteBlock); marking phrases inside a passage (HighlightedPassage); a photograph (FramedExhibit); a list of the video's own claims (BulletList)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "lines": {
+          "type": "array",
+          "required": true,
+          "min": 1,
+          "max": 6,
+          "items": {
+            "type": "string",
+            "maxWords": 15
+          }
+        },
+        "stamp": {
+          "type": "string",
+          "maxWords": 2,
+          "description": "e.g. 'SECRET'"
+        },
+        "signature": {
+          "type": "string",
+          "maxWords": 5
+        },
+        "variant": {
+          "enum": [
+            "typed",
+            "telegram",
+            "handwritten"
+          ],
+          "default": "typed"
         },
         "emphasis": {
           "enum": [
@@ -141,21 +545,704 @@
       },
       "duration_hint_s": {
         "min": 3.5,
+        "default": 6
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "FactCard",
+      "pack": "core",
+      "when_to_use": "one claim that needs a sentence of explanation and, ideally, a source — the workhorse side panel",
+      "when_not_to_use": "a bare number (AnimatedCounter or StatTag); a defined term (DefinitionCard); several parallel claims (BulletList); a blunt one-line statement (HammerStatement)",
+      "anchor_types": [],
+      "props": {
+        "headline": {
+          "type": "string",
+          "maxWords": 10,
+          "required": true
+        },
+        "body": {
+          "type": "string",
+          "maxWords": 35,
+          "required": true
+        },
+        "source": {
+          "type": "string",
+          "maxWords": 8
+        },
+        "position": {
+          "enum": [
+            "left",
+            "right",
+            "center"
+          ],
+          "default": "right"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 5.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "FactSheet",
+      "pack": "core",
+      "when_to_use": "a dossier on one subject — two to six label/value rows about the same ship, aircraft, person or place",
+      "when_not_to_use": "values compared across subjects (BarChart or ComparisonSplit); prose claims (BulletList); dated events (Timeline)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 8,
+          "required": true
+        },
+        "rows": {
+          "type": "array",
+          "required": true,
+          "min": 2,
+          "max": 6,
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "maxWords": 4
+              },
+              "value": {
+                "type": "string",
+                "maxWords": 6
+              }
+            }
+          }
+        },
+        "footnote": {
+          "type": "string",
+          "maxWords": 13
+        },
+        "position": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "left"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 4,
+        "default": 6
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "FramedExhibit",
+      "pack": "core",
+      "when_to_use": "presenting a photograph or artefact as an exhibit, with a caption and optional credit",
+      "when_not_to_use": "treating the whole shot as archival footage (ArchivalFrame); a written document (DocumentCard); a caption over live footage with nothing to frame (FactCard)",
+      "anchor_types": [],
+      "props": {
+        "image": {
+          "type": "string",
+          "description": "path to a still under the video dir; leave unset unless a real file exists — the component draws a procedural plate when absent"
+        },
+        "caption": {
+          "type": "string",
+          "maxWords": 20,
+          "required": true
+        },
+        "credit": {
+          "type": "string",
+          "maxWords": 8
+        },
+        "frame_style": {
+          "enum": [
+            "museum",
+            "polaroid",
+            "hairline"
+          ],
+          "default": "museum"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3,
         "default": 5
       },
       "renderer": "remotion"
     },
     {
-      "name": "AnimatedMap",
+      "name": "HammerStatement",
       "pack": "core",
-      "when_to_use": "the narration names a specific place, route, or front line where geography matters to understanding",
-      "when_not_to_use": "passing mentions of places that don't need locating; abstract concepts",
+      "when_to_use": "one blunt line that is the point of the section, filling the frame — a turn, a verdict, a reveal",
+      "when_not_to_use": "a claim that needs explaining (FactCard); a section heading (ChapterCard); the video's title (KineticTitle); anything someone actually said (QuoteBlock)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 15,
+          "required": true
+        },
+        "kicker": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center"
+          ],
+          "default": "left"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "HighlightedPassage",
+      "pack": "core",
+      "when_to_use": "a passage of quoted text where specific phrases are being picked apart — the marks land on the words as the narration reaches them",
+      "when_not_to_use": "a quote presented whole with no phrase singled out (QuoteBlock); paper documents (DocumentCard); pointing at the footage (CalloutArrow)",
+      "anchor_types": [
+        "quote"
+      ],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 32,
+          "required": true,
+          "from_anchor": "value"
+        },
+        "marks": {
+          "type": "array",
+          "max": 3,
+          "default": [],
+          "description": "phrases must appear verbatim in `text`; unmatched ones are skipped",
+          "items": {
+            "type": "object",
+            "properties": {
+              "phrase": {
+                "type": "string",
+                "maxWords": 6
+              },
+              "style": {
+                "enum": [
+                  "highlight",
+                  "circle",
+                  "underline",
+                  "box",
+                  "bracket",
+                  "strike"
+                ],
+                "default": "highlight"
+              }
+            }
+          }
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 6
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "KineticTitle",
+      "pack": "core",
+      "when_to_use": "the video's opening title or a cold-open line, assembling word by word",
+      "when_not_to_use": "a mid-video section break (ChapterCard); a claim being argued (HammerStatement); a name (NamePlate)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 11,
+          "required": true
+        },
+        "unit": {
+          "enum": [
+            "word",
+            "char"
+          ],
+          "default": "word"
+        },
+        "entrance": {
+          "enum": [
+            "rise",
+            "mask",
+            "scale"
+          ],
+          "default": "mask"
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center"
+          ],
+          "default": "center"
+        },
+        "emphasize_last": {
+          "type": "boolean",
+          "default": false
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "LineChart",
+      "pack": "core",
+      "when_to_use": "a quantity changing across an ordered sequence — production by year, losses by month — for up to three series",
+      "when_not_to_use": "values at one moment (BarChart); a single figure (AnimatedCounter); events rather than measurements (Timeline)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 8
+        },
+        "series": {
+          "type": "array",
+          "required": true,
+          "min": 1,
+          "max": 3,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxWords": 3
+              },
+              "points": {
+                "type": "array",
+                "min": 2,
+                "max": 24,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "string",
+                      "maxWords": 2,
+                      "description": "a label plotted at equal spacing ('1941', 'Q3'), not a date"
+                    },
+                    "y": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "y_label": {
+          "type": "string",
+          "maxWords": 3
+        },
+        "x_label": {
+          "type": "string",
+          "maxWords": 3
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 4,
+        "default": 6.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "NamePlate",
+      "pack": "core",
+      "when_to_use": "introducing a person by name while the narration continues — role and lifespan optional",
+      "when_not_to_use": "a place (SatelliteLocate); a term (DefinitionCard); a section heading (ChapterCard); quoting what the person said (QuoteBlock)",
+      "anchor_types": [
+        "name"
+      ],
+      "props": {
+        "name": {
+          "type": "string",
+          "maxWords": 6,
+          "required": true,
+          "from_anchor": "value"
+        },
+        "role": {
+          "type": "string",
+          "maxWords": 9
+        },
+        "lifespan": {
+          "type": "string",
+          "maxWords": 2,
+          "description": "e.g. '1896–1974'"
+        },
+        "side": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "left"
+        },
+        "variant": {
+          "enum": [
+            "bar",
+            "boxed",
+            "underline"
+          ],
+          "default": "bar"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "QuoteBlock",
+      "pack": "core",
+      "when_to_use": "a line someone actually said or wrote, presented whole with attribution",
+      "when_not_to_use": "specific phrases inside the quote are being dissected (HighlightedPassage); the source is a document being shown as paper (DocumentCard); the video's own assertion (HammerStatement)",
+      "anchor_types": [
+        "quote"
+      ],
+      "props": {
+        "quote": {
+          "type": "string",
+          "maxWords": 30,
+          "required": true,
+          "from_anchor": "value"
+        },
+        "attribution": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "context": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "where or when it was said"
+        },
+        "variant": {
+          "enum": [
+            "mark",
+            "rule",
+            "boxed"
+          ],
+          "default": "mark"
+        },
+        "align": {
+          "enum": [
+            "left",
+            "center"
+          ],
+          "default": "left"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 6
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "RankLabel",
+      "pack": "core",
+      "when_to_use": "a countdown or ranked list, marking which entry this is ('#3 of 20')",
+      "when_not_to_use": "any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)",
+      "anchor_types": [
+        "number"
+      ],
+      "props": {
+        "rank": {
+          "type": "number",
+          "min": 1,
+          "max": 999,
+          "required": true,
+          "from_anchor": "value"
+        },
+        "title": {
+          "type": "string",
+          "maxWords": 7,
+          "required": true
+        },
+        "subtitle": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "total": {
+          "type": "number",
+          "min": 1,
+          "description": "renders 'of N'"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "RegionHighlight",
+      "pack": "core",
+      "when_to_use": "a territory whose EXTENT matters — occupied ground, an empire, a front — outlined and filled on a map",
+      "when_not_to_use": "a single point on the map (SatelliteLocate); a journey between points (RouteMap); a place mentioned in passing. Requires a border polygon supplied by hand — nothing derives one, so this is placed in the editor, never chosen by the planner",
+      "anchor_types": [],
+      "props": {
+        "region_name": {
+          "type": "string",
+          "maxWords": 6,
+          "required": true
+        },
+        "polygon": {
+          "type": "array",
+          "required": true,
+          "min": 3,
+          "max": 64,
+          "description": "border vertices; must be supplied — there is no gazetteer of polygons",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lat": {
+                "type": "number",
+                "min": -90,
+                "max": 90
+              },
+              "lng": {
+                "type": "number",
+                "min": -180,
+                "max": 180
+              }
+            }
+          }
+        },
+        "label": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "annotation": {
+          "type": "string",
+          "maxWords": 6,
+          "description": "record the source and effective date of a contested border here"
+        },
+        "plate": {
+          "type": "object",
+          "description": "equirectangular map image and its bbox; omitted draws a schematic plate",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "west": {
+              "type": "number",
+              "min": -180,
+              "max": 180
+            },
+            "south": {
+              "type": "number",
+              "min": -90,
+              "max": 90
+            },
+            "east": {
+              "type": "number",
+              "min": -180,
+              "max": 180
+            },
+            "north": {
+              "type": "number",
+              "min": -90,
+              "max": 90
+            }
+          }
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 6
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "RouteMap",
+      "pack": "core",
+      "when_to_use": "a journey or advance between two to six named places, drawn stop by stop",
+      "when_not_to_use": "one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know",
+      "anchor_types": [
+        "place"
+      ],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "stops": {
+          "type": "array",
+          "required": true,
+          "computed": "geocode_stops",
+          "min": 2,
+          "max": 6,
+          "description": "name each stop; the compiler fills lat/lng from the gazetteer",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxWords": 4
+              },
+              "lat": {
+                "type": "number",
+                "min": -90,
+                "max": 90
+              },
+              "lng": {
+                "type": "number",
+                "min": -180,
+                "max": 180
+              },
+              "date": {
+                "type": "string",
+                "maxWords": 3
+              }
+            }
+          }
+        },
+        "mode": {
+          "enum": [
+            "march",
+            "flight",
+            "sea"
+          ],
+          "default": "march"
+        },
+        "plate": {
+          "type": "object",
+          "description": "equirectangular map image and its bbox; omitted draws a schematic plate",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "west": {
+              "type": "number",
+              "min": -180,
+              "max": 180
+            },
+            "south": {
+              "type": "number",
+              "min": -90,
+              "max": 90
+            },
+            "east": {
+              "type": "number",
+              "min": -180,
+              "max": 180
+            },
+            "north": {
+              "type": "number",
+              "min": -90,
+              "max": 90
+            }
+          }
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 4,
+        "default": 6.5
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "SatelliteLocate",
+      "pack": "core",
+      "when_to_use": "the narration names a specific place and the viewer needs to know where it is — a crosshair lands on the coordinate",
+      "when_not_to_use": "a territory's extent (RegionHighlight); a route between places (RouteMap); places mentioned in passing that need no locating; a place already established in the same section",
       "anchor_types": [
         "place"
       ],
       "props": {
         "place_name": {
           "type": "string",
+          "maxWords": 6,
           "required": true,
           "from_anchor": "value"
         },
@@ -173,6 +1260,10 @@
         },
         "label": {
           "type": "string",
+          "maxWords": 6
+        },
+        "country": {
+          "type": "string",
           "maxWords": 4
         },
         "zoom": {
@@ -183,6 +1274,42 @@
             "continent"
           ],
           "default": "region"
+        },
+        "framing": {
+          "enum": [
+            "full",
+            "panel"
+          ],
+          "default": "full"
+        },
+        "plate": {
+          "type": "object",
+          "description": "equirectangular satellite image and its bbox; omitted draws a schematic plate",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "west": {
+              "type": "number",
+              "min": -180,
+              "max": 180
+            },
+            "south": {
+              "type": "number",
+              "min": -90,
+              "max": 90
+            },
+            "east": {
+              "type": "number",
+              "min": -180,
+              "max": 180
+            },
+            "north": {
+              "type": "number",
+              "min": -90,
+              "max": 90
+            }
+          }
         },
         "emphasis": {
           "enum": [
@@ -199,35 +1326,160 @@
       "renderer": "remotion"
     },
     {
-      "name": "ChapterTitle",
+      "name": "StatTag",
       "pack": "core",
-      "when_to_use": "marking a new section or chapter mid-video with a short heading — either full-screen (center) or as a lower third while narration continues",
-      "when_not_to_use": "the opening title or cold open (use TitleCard); introducing a named person or place (use LowerThird); any numeric fact (use a data component)",
-      "anchor_types": [],
+      "when_to_use": "a figure that should sit quietly in a corner while the footage carries the shot — a rate, a total, a share",
+      "when_not_to_use": "the number is the point of the beat and deserves the frame (AnimatedCounter); several numbers (BarChart or FactSheet); a rank (RankLabel)",
+      "anchor_types": [
+        "number",
+        "percentage"
+      ],
       "props": {
-        "text": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "from_anchor": "value"
+        },
+        "unit": {
+          "type": "string",
+          "maxWords": 3
+        },
+        "label": {
           "type": "string",
           "maxWords": 8,
           "required": true
         },
         "position": {
           "enum": [
-            "center",
-            "lower_third"
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
           ],
-          "default": "center"
+          "default": "top_right"
         },
         "emphasis": {
           "enum": [
             "accent",
             "neutral"
           ],
-          "default": "neutral"
+          "default": "accent"
         }
       },
       "duration_hint_s": {
-        "min": 2,
-        "default": 3
+        "min": 2.5,
+        "default": 4
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "StepFlow",
+      "pack": "core",
+      "when_to_use": "two to five stages of a process in order, where each step leads to the next — how a thing was built, decided or executed",
+      "when_not_to_use": "unordered parallel claims (BulletList); events fixed to dates (Timeline); a comparison (BarChart)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 6
+        },
+        "steps": {
+          "type": "array",
+          "required": true,
+          "min": 2,
+          "max": 5,
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "maxWords": 4
+              },
+              "detail": {
+                "type": "string",
+                "maxWords": 9
+              }
+            }
+          }
+        },
+        "direction": {
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
+          "default": "horizontal"
+        },
+        "numbered": {
+          "type": "boolean",
+          "default": true
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 4,
+        "default": 6
+      },
+      "renderer": "remotion"
+    },
+    {
+      "name": "Timeline",
+      "pack": "core",
+      "when_to_use": "two to six dated events strung in order, where the dates themselves matter — a campaign, an escalation",
+      "when_not_to_use": "one date (DateStamp); stages with no dates (StepFlow); measurements over time (LineChart); unordered claims (BulletList)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 5
+        },
+        "events": {
+          "type": "array",
+          "required": true,
+          "min": 2,
+          "max": 6,
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string",
+                "maxWords": 3
+              },
+              "label": {
+                "type": "string",
+                "maxWords": 8
+              }
+            }
+          }
+        },
+        "orientation": {
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
+          "default": "horizontal"
+        },
+        "highlight_index": {
+          "type": "number",
+          "min": 0,
+          "max": 5
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 4,
+        "default": 6.5
       },
       "renderer": "remotion"
     }
