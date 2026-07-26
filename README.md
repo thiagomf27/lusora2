@@ -13,7 +13,7 @@ everything (M0–M9) is built; that file says how to run it and what's left.
 
 | dir | what |
 |---|---|
-| `contracts/` | THE source of truth: JSON Schemas, DB migrations, catalog, prices, API types (TS + Py) |
+| `contracts/` | THE source of truth: JSON Schemas, DB migrations, component catalog + packs, themes, style packs, prices, API types (TS + Py) |
 | `platform/` | Next.js web UI + HTTP API + auth/roles + DB queue |
 | `worker/` | Python stage pipeline (script → TTS → beats → compile → resolve → validate → render) |
 | `engine/` | ffmpeg + Remotion renderers, component catalog, themes; CLI + npm package |

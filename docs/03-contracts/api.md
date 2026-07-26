@@ -34,6 +34,22 @@ EDITOR    GET/PUT /videos/:id/beats     (beats.json through the API; PUT
           POST /videos/:id/chat         (editor agent: returns proposed ops +
                                          validation result; apply is a second call)
 
+CATALOG   GET /catalog                  (merged core + data packs, each entry
+                                         flagged implemented / unimplemented)
+          POST /catalog                 GET/PUT/DELETE /catalog/:name
+          PUT /catalog/:name/style-packs        (per-style-pack overrides)
+          GET/POST /catalog/packs       (list packs w/ counts; import a whole
+                                         pack atomically — all entries valid
+                                         or nothing is written)
+          GET/PUT/DELETE /catalog/packs/:pack   (round-trip a pack as a file)
+
+THEMES    GET/POST /themes              GET/PUT /themes/:name
+
+CONFIG    GET /config-options           (enumerable channel-config values read
+                                         from the contracts data files: themes,
+                                         style packs, component packs)
+          GET /users                    (id/email/name/role for team pickers)
+
 LIBRARY   Proxied 1:1 to the broll library API under /library/*
           (search, segments, clips, thumbs, jobs, uploads, profiles)
 
@@ -54,3 +70,12 @@ ADMIN     GET/POST /admin/users          PATCH /admin/users/:id
   gate.
 - File uploads at creation are the manual-first path: any artifact
   provided is materialized into the folder and its stage auto-skips.
+- Catalog and theme writes go to the contracts data files, not the DB:
+  they are the same artifacts the engine and worker read, so an edit in
+  the UI is an edit to the contract. Reads are open to any signed-in
+  user; every write requires `manager`.
+- Component packs are the extension seam — core ships in the engine,
+  everything else is a data pack under `contracts/component-packs/`.
+  An entry may be catalogued before it is implemented; `/catalog`
+  reports which, so the planner never proposes a component the
+  renderer cannot draw.

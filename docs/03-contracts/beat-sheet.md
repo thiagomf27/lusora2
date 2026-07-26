@@ -25,7 +25,7 @@ emphasize). Everything computable (timings) or identity-bound
       "anchors": [
         { "type": "percentage", "value": 70, "label": "factories converted", "source_words": "nearly 70%" }
       ],
-      "overlay": { "component": "AnimatedPercentage", "anchor_ref": 0, "props_hint": { "label": "factories converted" } },
+      "overlay": { "component": "AnimatedCounter", "anchor_ref": 0, "props_hint": { "label": "factories converted", "suffix": "%" } },
       "notes": null
     },
     {
@@ -34,7 +34,7 @@ emphasize). Everything computable (timings) or identity-bound
       "timing": { "start_s": 0.0, "end_s": 4.5 },
       "visual_intent": "slow push-in on a city skyline at dawn, mist",
       "mood": "calm",
-      "overlay": { "component": "TitleCard", "props_hint": { "text": "1943" } }
+      "overlay": { "component": "KineticTitle", "props_hint": { "text": "1943" } }
     }
   ],
   "music": [
@@ -60,7 +60,7 @@ emphasize). Everything computable (timings) or identity-bound
   beats: deferred, OQ-8.)
 - `anchors` — structured facts detected in the span (percentage, number,
   comparison, place, date, name). **An overlay may only reference an
-  anchor** (`anchor_ref`) or carry pure text (`TitleCard`); this is what
+  anchor** (`anchor_ref`) or carry pure text (`KineticTitle`); this is what
   prevents decorative effects glued anywhere.
 - `overlay.component` MUST exist in the catalog; `props_hint` is partial —
   the compiler fills the rest from the anchor + defaults, and deterministic

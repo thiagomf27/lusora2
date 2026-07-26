@@ -36,7 +36,9 @@ pacing:
   arc: three_act                # setup 30% / turn 40% / release 30%
 overlays:
   density: normal               # low|normal|high or {per_minute: N}
-  allowed_components: [AnimatedPercentage, AnimatedMap, TitleCard, LowerThird]
+  allowed_components: [ChapterCard, NamePlate, DateStamp, SatelliteLocate, QuoteBlock,
+                       DocumentCard, FramedExhibit, ArchivalFrame, AnimatedCounter,
+                       FactCard, Timeline]
 transitions:
   allowed: [cut, crossfade, fade_to_black]
   default: cut

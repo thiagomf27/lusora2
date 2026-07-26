@@ -13,7 +13,7 @@ providers. Sample runs that exist in `data/videos/`:
 - ffmpeg path: flite ($0) narration → mock images → captions → final.mp4
 - Remotion path: DeepSeek script + planner (repair loop observed fixing
   real violations) → ai33 narration → library photos + Pexels stock +
-  mock fallthrough → themed overlays (TitleCard, AnimatedPercentage) →
+  mock fallthrough → themed overlays (KineticTitle, AnimatedCounter) →
   final.mp4 at ~$0.01–0.02/video
 
 All open questions are DECIDED except OQ-21 (VPS sizing — a measurement,
@@ -136,6 +136,43 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
 - Platform API gained `GET /api/videos/{id}/files/{...path}` (video
   folder artifacts for the editor's Player preview) and the `set_lock`
   plan op.
+- Platform API gained `GET|POST /api/themes` and
+  `GET|PUT /api/themes/{name}` — the Themes screen reads and writes
+  `contracts/themes/*.json` directly (no themes table); writes are
+  manager+ and validate against `theme.schema.json`. PUT cannot rename
+  (the name is the filename channels reference); an edit only affects
+  future enqueues, since queued videos carry their own `theme_doc`
+  snapshot.
+- The catalog is now `contracts/catalog.json` (generated `core`) PLUS the
+  data-only packs in `contracts/component-packs/*.json`, merged by
+  `lusora_contracts.load_catalog()` and `platform/src/lib/catalog.ts`
+  (duplicate names raise). The Overlays screen reads that merged list and
+  writes the pack files: `GET|POST /api/catalog`,
+  `GET|PUT|DELETE /api/catalog/{name}` (data packs only — core is
+  generated), `PUT /api/catalog/{name}/style-packs` for
+  `overlays.allowed_components`, and `GET|POST /api/catalog/packs` +
+  `GET|PUT|DELETE /api/catalog/packs/{pack}` for whole-pack
+  import/export/replace/delete (import is all-or-nothing). Style-pack
+  writes splice only that array so hand-formatted contract files are not
+  reserialized.
+- `load_catalog()` is no longer permanently memoized: it re-reads when
+  catalog.json or any pack file changes (mtime+size signature). The worker
+  is a `run_forever` poller, so the old `lru_cache` meant a component added
+  in the UI stayed invisible until the process restarted.
+- `channel_config.component_pack` is still stored-but-unread: the planner
+  menu and the validator gate on the style pack's `allowed_components`
+  only, so a pack name is organisational today.
+- `engine/src/catalog/sample-props.json` holds the representative props per
+  component, shared by `engine/preview-all.mjs` and the Overlays screen's
+  live preview (`engine/src/renderers/remotion/OverlaySolo.tsx`).
+- **Overlay templates** (`engine/src/components/templates/`): an entry may set
+  `template: card|lower_third|big_number|bullet_list|statement` instead of
+  shipping a React component, and `TemplateOverlay` draws it from the theme
+  runtime. `catalog_entry.schema.json` and `edit_plan.schema.json` both gained
+  the optional field; the compiler copies the kind into the plan item so the
+  renderer needs no catalog access; `preview-overlay.mjs --template <kind>`
+  renders one from the CLI. This is what makes an overlay authored in the UI
+  usable in the next video without a code change.
 - Cut transitions in the ffmpeg xfade chain render as an imperceptible
   0.08s blend when mixed with fades; all-cut plans use exact concat.
 

@@ -31,6 +31,30 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
 - **Channels** — table + create/edit: identity, language, voice, video
   type, theme, style pack, source policy, component pack (by name),
   budget cap; team tab (grants); channel cost + video list.
+- **Themes** — the theme documents in `contracts/themes/` (the files the
+  engine resolves, snapshotted at enqueue): list, a rendered preview of
+  the selected one (mock 16:9 frame, colour tokens, type specimens,
+  motion feel, grain) built from the engine's theme runtime so the page
+  can't drift from a render, schema violations surfaced per theme, which
+  channels reference it. Create and edit in place — the preview doubles
+  as the live preview of the draft; the name is fixed after creation
+  (it is the filename that channels reference).
+- **Overlays** — the component catalog, browsable: every pack, each entry's
+  selection rules (`when_to_use` / `when_not_to_use`), anchors, props table
+  (nested specs flattened, with `from_anchor` / `computed` / word caps) and
+  duration hints, plus a **live Remotion preview** of the selected component
+  (the engine's OverlaySolo composition in `@remotion/player`, seeded at a
+  settled frame, with an editable props JSON and a theme picker). Entries in
+  data packs (`contracts/component-packs/`) can be created, edited and
+  deleted here; `core` is read-only because it is generated from the engine
+  registry. Style-pack allowances (`overlays.allowed_components`) are
+  toggled from the same page. An entry can be pointed at an engine
+  **template** (card / lower third / big number / bullet list / statement),
+  which fills its props block and makes it renderable with no code —
+  entries with neither a template nor a component are flagged *no renderer*
+  with both routes spelled out. Whole packs can be imported (paste or
+  upload the pack file), exported and deleted, so a pack moves between
+  installs in one action.
 - **Editor** — two levels over the same video: beat panel (Kinema-style:
   subject, on-screen text, re-roll asset, split/merge) and timeline
   (precise trims, transforms, overlay moves) rendered with the engine's
