@@ -19,11 +19,11 @@ export default function MonitoringPage() {
     return () => clearInterval(t);
   }, []);
 
-  if (!data) return <div>Loading…</div>;
+  if (!data) return <div className="page">Loading…</div>;
   const maxUsd = Math.max(...data.costsByDay.map((d) => d.usd), 0.0001);
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="page" style={{ display: "grid", gap: 16 }}>
       <h1 style={{ margin: 0 }}>Monitoring</h1>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

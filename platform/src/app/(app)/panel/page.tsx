@@ -18,7 +18,7 @@ export default async function PanelPage() {
   const order = ["draft", "queued", "producing", "rendered", "in_review", "approved", "sent_back", "posted", "error"];
 
   return (
-    <div style={{ display: "grid", gap: 20 }}>
+    <div className="page" style={{ display: "grid", gap: 20 }}>
       <h1 style={{ margin: 0 }}>Panel</h1>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         {order.map((s) => (

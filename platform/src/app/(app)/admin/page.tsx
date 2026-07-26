@@ -54,10 +54,10 @@ export default function AdminPage() {
     load();
   }
 
-  if (forbidden) return <div className="panel">Admin role required.</div>;
+  if (forbidden) return <div className="page"><div className="panel">Admin role required.</div></div>;
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="page" style={{ display: "grid", gap: 16 }}>
       <h1 style={{ margin: 0 }}>Admin — users & grants</h1>
 
       <form onSubmit={create} className="panel" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>

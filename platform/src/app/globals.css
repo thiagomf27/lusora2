@@ -1,12 +1,28 @@
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --border: #2a2f3a;
-  --text: #e6e8ee;
-  --muted: #9aa3b2;
-  --accent: #c8a24a;
-  --danger: #e05252;
-  --ok: #4ac87a;
+  /* Adopted from the Claude Design redesign — navy surfaces + teal accent.
+     Token names are unchanged so existing screens inherit the new look. */
+  --bg: #0b0e13;          /* app background */
+  --bg-2: #0d1017;        /* sidebar / deepest surface */
+  --panel: #11151c;       /* cards, composer */
+  --panel-2: #0f1319;     /* table / inset surface */
+  --border: #232a36;      /* default border */
+  --border-2: #1c222d;    /* subtle divider */
+  --text: #e7eaf0;
+  --muted: #8a93a3;
+  --muted-2: #5d6675;     /* dim labels, captions */
+  --accent: #35d0a0;      /* teal */
+  --accent-ink: #06231b;  /* text on accent fills */
+  --danger: #e5646c;
+  --warn: #e0a458;
+  --ok: #35d0a0;
+  --field: #161b24;       /* form control background */
+  --field-border: #2a3240;
+
+  /* Layout — single source of truth for the shell dimensions.
+     The sidebar width and the page gutter used to be magic numbers
+     duplicated across modules; keep them here. */
+  --sidebar-w: 216px;
+  --gutter: 32px;
 }
 
 * { box-sizing: border-box; }
@@ -15,8 +31,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 15px;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 14px;
 }
 
 a { color: var(--accent); text-decoration: none; }
@@ -25,14 +41,14 @@ a:hover { text-decoration: underline; }
 input, select, textarea, button {
   font: inherit;
   color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  background: var(--field);
+  border: 1px solid var(--field-border);
+  border-radius: 8px;
   padding: 8px 10px;
 }
 
 button { cursor: pointer; }
-button.primary { background: var(--accent); color: #14120a; border-color: var(--accent); font-weight: 600; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 table { border-collapse: collapse; width: 100%; }
@@ -42,9 +58,17 @@ th { color: var(--muted); font-weight: 500; font-size: 13px; }
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 16px;
 }
+
+/* Shared page container — plain pages wrap their content in this so they
+   get a consistent gutter inside the shell's padding-less <main>. The
+   mockup-ported full-bleed pages (queue/video/editor) do NOT use this. */
+.page { padding: 26px var(--gutter) 40px; max-width: 1200px; }
+.pageHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.pageTitle { margin: 0; font-size: 22px; font-weight: 600; }
+.pageSub { color: var(--muted); font-size: 13px; margin-top: 5px; }
 
 .badge {
   display: inline-block;
@@ -54,8 +78,8 @@ th { color: var(--muted); font-weight: 500; font-size: 13px; }
   border: 1px solid var(--border);
   color: var(--muted);
 }
-.badge.queued { color: #7ab8ff; border-color: #7ab8ff44; }
-.badge.producing { color: var(--accent); border-color: #c8a24a44; }
-.badge.rendered, .badge.approved { color: var(--ok); border-color: #4ac87a44; }
-.badge.error { color: var(--danger); border-color: #e0525244; }
-.badge.in_review, .badge.sent_back { color: #d8a1ff; border-color: #d8a1ff44; }
+.badge.queued { color: #6ea8dc; border-color: #6ea8dc44; }
+.badge.producing { color: var(--accent); border-color: #35d0a044; }
+.badge.rendered, .badge.approved { color: var(--ok); border-color: #35d0a044; }
+.badge.error { color: var(--danger); border-color: #e5646c44; }
+.badge.in_review, .badge.sent_back { color: var(--warn); border-color: #e0a45844; }

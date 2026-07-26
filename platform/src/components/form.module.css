@@ -1,0 +1,64 @@
+/* Shared form styles for the contract-document editors (themes, catalog
+   entries): field labels in mono, one column, no framework. */
+
+.form { display: grid; gap: 9px; align-content: start; }
+.formLabel {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  color: var(--muted-2);
+  margin-top: 8px;
+}
+.field { display: grid; gap: 4px; }
+.fieldLabel {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.hint { font-size: 11px; color: var(--muted-2); }
+
+.colorRow { display: flex; gap: 8px; }
+.colorPicker {
+  width: 38px;
+  height: 34px;
+  padding: 2px;
+  background: var(--field);
+  border: 1px solid var(--field-border);
+  border-radius: 8px;
+}
+.hexInput {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+.invalid { border-color: var(--danger); }
+
+/* Longer text + structured fields (catalog entries) */
+.textarea {
+  min-height: 62px;
+  resize: vertical;
+  line-height: 1.5;
+  font-size: 12.5px;
+}
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  min-height: 150px;
+}
+.checks { display: flex; flex-wrap: wrap; gap: 6px; }
+.check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--muted);
+  background: var(--field);
+  border: 1px solid var(--field-border);
+  border-radius: 999px;
+  padding: 3px 9px 3px 7px;
+  cursor: pointer;
+}
+.checkOn { color: var(--text); border-color: var(--accent); }
+.check input { margin: 0; width: 12px; height: 12px; accent-color: var(--accent); padding: 0; }
+.triple { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.error { color: var(--danger); font-size: 11.5px; }

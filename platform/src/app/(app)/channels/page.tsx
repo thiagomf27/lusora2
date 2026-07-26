@@ -1,5 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { ChannelConfig } from "@lusora/contracts";
+import ChannelConfigForm, { defaultChannelConfig } from "@/components/ChannelConfigForm";
+import s from "./channels.module.css";
 
 interface ChannelRow {
   id: string;
@@ -11,160 +15,207 @@ interface ChannelRow {
   active: boolean;
 }
 
-const TEMPLATE = {
-  channel_id: "MY_CHANNEL_01",
-  name: "My Channel",
-  language: "pt-BR",
-  video_type: "doc",
-  theme: "history-dark",
-  style_pack: "doc-slow",
-  component_pack: null,
-  voice: { provider: "mock", voice_id: "default" },
-  script: { generator: "simple", llm: "mock" },
-  planner: { llm: "mock" },
-  captions: { enabled: true },
-  renderer: "auto",
-  output: { fps: 30, width: 1920, height: 1080 },
-  budget: { max_usd_per_video: 0.8 },
-  retention: { clips: "on_render", final_mp4_days_after_posted: 30 },
-  content_rules: "",
-  source_policy: {
-    visual: {
-      chain: [
-        {
-          source: "library",
-          media_types: ["video_clip", "image"],
-          include_global: true,
-          niches: [],
-          tags: [],
-          licenses: ["cc0", "cc-by", "owned"],
-          min_score: 0.55,
-        },
-      ],
-      max_clip_seconds: 12,
-      orientation: "landscape",
-    },
-    music: { enabled: false },
-    sfx: { enabled: false },
-  },
-};
+interface VideoRow {
+  id: string;
+  status: string;
+  price_usd: number | null;
+  error_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Rollup {
+  loaded: boolean;
+  videoCount: number;
+  last5: string[]; // statuses, newest first
+  queued: number;
+  costMonth: number;
+  failure: string | null;
+}
+
+/** Region subtag of a BCP-47 tag ("en-US" → "US") → flag emoji, else a globe. */
+function flagFor(language: string): string {
+  const region = language.split("-")[1];
+  if (!region || region.length !== 2) return "🌐";
+  const base = 0x1f1e6;
+  return String.fromCodePoint(
+    ...region.toUpperCase().split("").map((c) => base + c.charCodeAt(0) - 65)
+  );
+}
+
+function dotClass(status: string): string {
+  if (status === "posted" || status === "approved") return s.dotOk;
+  if (status === "error" || status === "sent_back") return s.dotBad;
+  if (status === "rendered" || status === "in_review") return s.dotWarn;
+  return s.dotMuted; // draft, queued, producing
+}
 
 export default function ChannelsPage() {
+  const router = useRouter();
   const [channels, setChannels] = useState<ChannelRow[]>([]);
+  const [rollups, setRollups] = useState<Record<string, Rollup>>({});
   const [showCreate, setShowCreate] = useState(false);
-  const [draft, setDraft] = useState(JSON.stringify(TEMPLATE, null, 2));
+  const [config, setConfig] = useState<ChannelConfig>(defaultChannelConfig);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch("/api/channels");
-    if (res.ok) setChannels(await res.json());
+    if (!res.ok) return;
+    const rows: ChannelRow[] = await res.json();
+    setChannels(rows);
+    // Roll up per-channel health/cost. Small channel counts — a per-row
+    // fan-out is fine; each resolves independently so rows fill in as ready.
+    for (const c of rows) {
+      void loadRollup(c.id);
+    }
   }
+
+  async function loadRollup(id: string) {
+    const [vRes, cRes] = await Promise.all([
+      fetch(`/api/videos?channel=${encodeURIComponent(id)}`),
+      fetch(`/api/channels/${encodeURIComponent(id)}/costs`),
+    ]);
+    const videos: VideoRow[] = vRes.ok ? await vRes.json() : [];
+    const costs = cRes.ok ? await cRes.json() : { byMonth: [] };
+    const now = new Date();
+    const monthRow = (costs.byMonth ?? []).find((m: { month: string; usd: number }) => {
+      const d = new Date(m.month);
+      return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth();
+    });
+    const failed = videos.find((v) => v.status === "error");
+    setRollups((prev) => ({
+      ...prev,
+      [id]: {
+        loaded: true,
+        videoCount: videos.length,
+        last5: videos.slice(0, 5).map((v) => v.status),
+        queued: videos.filter((v) => v.status === "queued").length,
+        costMonth: Number(monthRow?.usd ?? 0),
+        failure: failed ? failed.error_reason ?? "render failed" : null,
+      },
+    }));
+  }
+
   useEffect(() => {
     load();
   }, []);
 
+  function openCreate() {
+    setConfig(defaultChannelConfig());
+    setError(null);
+    setShowCreate(true);
+  }
+
   async function create() {
     setError(null);
-    let body: unknown;
-    try {
-      body = JSON.parse(draft);
-    } catch {
-      setError("invalid JSON");
-      return;
-    }
-    const res = await fetch(editing ? `/api/channels/${editing}/config` : "/api/channels", {
-      method: editing ? "PUT" : "POST",
+    const res = await fetch("/api/channels", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(config),
     });
     if (res.ok) {
       setShowCreate(false);
-      setEditing(null);
       load();
     } else setError((await res.json()).error ?? "failed");
   }
 
-  async function edit(id: string) {
-    const res = await fetch(`/api/channels/${id}/config`);
-    if (res.ok) {
-      setDraft(JSON.stringify(await res.json(), null, 2));
-      setEditing(id);
-      setShowCreate(true);
-    }
-  }
+  const languages = new Set(channels.map((c) => c.language));
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ margin: 0 }}>Channels</h1>
-        <button
-          className="primary"
-          onClick={() => {
-            setEditing(null);
-            setDraft(JSON.stringify(TEMPLATE, null, 2));
-            setShowCreate(!showCreate);
-          }}
-        >
-          {showCreate ? "Close" : "New channel"}
+    <div className="page">
+      <div className="pageHead">
+        <div>
+          <h1 className="pageTitle">Channels</h1>
+          <div className="pageSub">
+            {channels.length} channel{channels.length === 1 ? "" : "s"} · {languages.size} language
+            {languages.size === 1 ? "" : "s"} · health of the last 5 videos
+          </div>
+        </div>
+        <button className="primary" onClick={openCreate}>
+          New channel
         </button>
       </div>
 
+      <div className={s.filters}>
+        <span className={s.count}>
+          {channels.length} of {channels.length} channels
+        </span>
+      </div>
+
+      <div className={s.table}>
+        <div className={s.thead}>
+          <div>CHANNEL</div>
+          <div>LANGUAGE · TYPE</div>
+          <div>LAST 5</div>
+          <div>QUEUE</div>
+          <div>COST · MONTH</div>
+          <div>LAST FAILURE</div>
+        </div>
+
+        {channels.map((c) => {
+          const r = rollups[c.id];
+          return (
+            <div key={c.id} className={s.rowWrap}>
+              <div className={s.trow} onClick={() => router.push(`/channels/${c.id}`)}>
+                <div className={s.channel}>
+                  <div className={s.flag}>{flagFor(c.language)}</div>
+                  <div className={s.channelMeta}>
+                    <div className={s.channelName}>{c.name}</div>
+                    <div className={s.channelSub}>
+                      {r ? `${r.videoCount} video${r.videoCount === 1 ? "" : "s"}` : "…"}
+                      {!c.active && " · inactive"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={s.langMode}>
+                  <span className={s.lang}>{c.language}</span>
+                  <span className={s.modeBadge}>{c.video_type}</span>
+                </div>
+
+                <div className={s.dots}>
+                  {r
+                    ? (r.last5.length
+                        ? r.last5.map((st, i) => <span key={i} className={`${s.dot} ${dotClass(st)}`} />)
+                        : <span className={s.numDim}>—</span>)
+                    : <span className={s.numDim}>…</span>}
+                </div>
+
+                <div className={`${s.num} ${r?.queued ? "" : s.numDim}`}>{r ? (r.queued || "—") : "…"}</div>
+
+                <div className={`${s.cost} ${r?.costMonth ? "" : s.numDim}`}>
+                  {r ? `$${r.costMonth.toFixed(2)}` : "…"}
+                </div>
+
+                <div className={`${s.failure} ${r?.failure ? s.failureBad : ""}`}>
+                  {r ? (r.failure ?? "no recent failures") : "…"}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {channels.length === 0 && <div className={s.empty}>No channels yet.</div>}
+      </div>
+
       {showCreate && (
-        <div className="panel" style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>
-            {editing ? `Editing config of ${editing}` : "Channel config document (schema-validated on save)"}
+        <div className={s.overlay} onClick={() => setShowCreate(false)}>
+          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.modalHead}>
+              <div className={s.modalTitle}>New channel</div>
+              <button onClick={() => setShowCreate(false)}>Close</button>
+            </div>
+            <ChannelConfigForm value={config} onChange={setConfig} mode="create" />
+            {error && <div style={{ color: "var(--danger)", fontSize: 13 }}>{error}</div>}
+            <div className={s.modalActions}>
+              <button onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="primary" onClick={create}>
+                Create channel
+              </button>
+            </div>
           </div>
-          <textarea
-            rows={20}
-            style={{ fontFamily: "monospace", fontSize: 13 }}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          {error && <div style={{ color: "var(--danger)", fontSize: 13 }}>{error}</div>}
-          <button className="primary" onClick={create} style={{ justifySelf: "start" }}>
-            {editing ? "Save config" : "Create channel"}
-          </button>
         </div>
       )}
-
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Language</th>
-            <th>Type</th>
-            <th>Theme</th>
-            <th>Style pack</th>
-            <th>Active</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {channels.map((c) => (
-            <tr key={c.id}>
-              <td>{c.id}</td>
-              <td>{c.name}</td>
-              <td>{c.language}</td>
-              <td>{c.video_type}</td>
-              <td>{c.theme}</td>
-              <td>{c.style_pack}</td>
-              <td>{c.active ? "✓" : "—"}</td>
-              <td>
-                <button onClick={() => edit(c.id)}>Edit config</button>
-              </td>
-            </tr>
-          ))}
-          {channels.length === 0 && (
-            <tr>
-              <td colSpan={8} style={{ color: "var(--muted)" }}>
-                No channels yet.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
     </div>
   );
 }

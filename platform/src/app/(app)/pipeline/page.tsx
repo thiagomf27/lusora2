@@ -51,7 +51,7 @@ export default function PipelinePage() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="page" style={{ display: "grid", gap: 16 }}>
       <h1 style={{ margin: 0 }}>Pipeline</h1>
       <table>
         <thead>

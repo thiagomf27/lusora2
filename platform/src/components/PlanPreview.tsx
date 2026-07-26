@@ -4,8 +4,8 @@
  * mounted in @remotion/player. Plan asset paths are rebased onto the
  * per-video files API so staticFile() resolves in the browser.
  */
-import { useMemo } from "react";
-import { Player } from "@remotion/player";
+import { useEffect, useMemo, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
 import type { EditPlan, Theme, AssetProvenance } from "@lusora/contracts";
 import { VideoComposition } from "@lusora/engine/src/renderers/remotion/Composition.tsx";
 import { DEFAULT_THEME } from "@lusora/engine/src/themes/runtime.ts";
@@ -47,18 +47,35 @@ export default function PlanPreview({
   videoId,
   plan,
   theme,
+  onTime,
+  controlRef,
 }: {
   videoId: string;
   plan: EditPlan;
   theme?: Theme | null;
+  /** Called with the playhead position in seconds as playback advances. */
+  onTime?: (seconds: number) => void;
+  /** Populated with the underlying player so callers can seek. */
+  controlRef?: { current: PlayerRef | null };
 }) {
   const rebased = useMemo(() => rebasePlan(plan, videoId), [plan, videoId]);
   const inputProps = useMemo(
     () => ({ plan: rebased, theme: theme ?? DEFAULT_THEME }),
     [rebased, theme]
   );
+  const ref = useRef<PlayerRef>(null);
+  const fps = plan.fps;
+  useEffect(() => {
+    const p = ref.current;
+    if (!p) return;
+    if (controlRef) controlRef.current = p;
+    const handler = (e: { detail: { frame: number } }) => onTime?.(e.detail.frame / fps);
+    p.addEventListener("frameupdate", handler);
+    return () => p.removeEventListener("frameupdate", handler);
+  }, [onTime, controlRef, fps]);
   return (
     <Player
+      ref={ref}
       component={VideoComposition}
       inputProps={inputProps}
       durationInFrames={Math.max(Math.ceil(totalDuration(plan) * plan.fps), 1)}
@@ -66,7 +83,7 @@ export default function PlanPreview({
       compositionWidth={plan.resolution.width}
       compositionHeight={plan.resolution.height}
       controls
-      style={{ width: "100%", aspectRatio: `${plan.resolution.width} / ${plan.resolution.height}` }}
+      style={{ width: "100%", height: "100%" }}
     />
   );
 }

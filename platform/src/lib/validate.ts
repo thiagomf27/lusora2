@@ -2,14 +2,20 @@
  * Ajv validators over the contracts schemas. Collect ALL violations
  * (Core Principle 5) — callers surface the full list.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import type { ValidateFunction } from "ajv";
 import { repoRoot } from "./env.ts";
 
-const g = globalThis as unknown as { __lusoraAjv?: Map<string, ValidateFunction> };
+interface CachedValidator {
+  validate: ValidateFunction;
+  /** mtime+size of the schema file the validator was compiled from. */
+  stamp: string;
+}
+
+const g = globalThis as unknown as { __lusoraAjv?: Map<string, CachedValidator> };
 const cache = (g.__lusoraAjv ??= new Map());
 
 function ajv() {
@@ -22,16 +28,27 @@ function ajv() {
   return instance;
 }
 
+/**
+ * Compiled validator for a schema, recompiled when the file changes.
+ *
+ * The cache used to be keyed on the name alone, which meant a long-running
+ * process (a `next dev` server, or a deployed platform) kept validating against
+ * whatever the schema said when it started. Editing a contract then produced
+ * "must NOT have additional properties" for a field that plainly exists in the
+ * file — a confusing failure that a restart "fixed". One stat() per validation
+ * is cheaper than that.
+ */
 export function getValidator(schemaName: string): ValidateFunction {
-  let v = cache.get(schemaName);
-  if (!v) {
-    const schema = JSON.parse(
-      readFileSync(join(repoRoot(), "contracts/schemas", `${schemaName}.schema.json`), "utf8")
-    );
-    v = ajv().compile(schema);
-    cache.set(schemaName, v);
-  }
-  return v;
+  const path = join(repoRoot(), "contracts/schemas", `${schemaName}.schema.json`);
+  const st = statSync(path);
+  const stamp = `${st.mtimeMs}:${st.size}`;
+
+  const hit = cache.get(schemaName);
+  if (hit && hit.stamp === stamp) return hit.validate;
+
+  const validate = ajv().compile(JSON.parse(readFileSync(path, "utf8")));
+  cache.set(schemaName, { validate, stamp });
+  return validate;
 }
 
 export interface ValidationResult {

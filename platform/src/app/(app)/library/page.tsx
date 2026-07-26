@@ -52,7 +52,7 @@ export default function LibraryPage() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div className="page" style={{ display: "grid", gap: 16 }}>
       <h1 style={{ margin: 0 }}>Library</h1>
 
       <form onSubmit={search} style={{ display: "flex", gap: 8 }}>

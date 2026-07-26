@@ -1,0 +1,89 @@
+/* Channel config form — grouped controls over the channel_config schema. */
+
+.form { display: grid; gap: 22px; }
+
+.section { display: grid; gap: 12px; }
+.sectionTitle {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.field { display: grid; gap: 5px; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.label { font-size: 12px; color: var(--muted); }
+.hint { font-size: 11px; color: var(--muted-2); }
+.field input,
+.field select,
+.field textarea { width: 100%; }
+
+.checkRow { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.checkRow input { width: auto; }
+
+.checkGroup { display: flex; flex-wrap: wrap; gap: 6px; }
+.chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.chk input { width: auto; margin: 0; }
+.chkOn { border-color: var(--accent); color: var(--text); background: #131c19; }
+
+/* Visual source chain */
+.chain { display: grid; gap: 12px; }
+.source {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+.sourceHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sourceTag {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--muted-2);
+  text-transform: uppercase;
+}
+.rm {
+  border: 1px solid #4a2530;
+  background: #241318;
+  color: var(--danger);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 7px;
+}
+.rm:disabled { opacity: 0.4; }
+.addBtn {
+  border: 1px dashed var(--field-border);
+  background: transparent;
+  color: var(--muted);
+  padding: 9px;
+  border-radius: 9px;
+  font-size: 13px;
+  justify-self: start;
+}
+.addBtn:hover { border-color: var(--accent); color: var(--text); }
