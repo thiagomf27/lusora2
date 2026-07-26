@@ -157,7 +157,7 @@ def test_overlay_props_from_anchor_and_defaults():
             "anchors": [
                 {"type": "percentage", "value": 70, "label": "converted", "source_words": "70%"}
             ],
-            "overlay": {"component": "AnimatedPercentage", "anchor_ref": 0},
+            "overlay": {"component": "AnimatedCounter", "anchor_ref": 0},
         },
     )
     st = timings(("Nearly 70% converted.", 0.0, 5.0))
@@ -179,7 +179,7 @@ def test_geocode_fills_map_props():
             "script_text": "The push toward Stalingrad began.",
             "visual_intent": "map",
             "anchors": [{"type": "place", "value": "Stalingrad", "source_words": "Stalingrad"}],
-            "overlay": {"component": "AnimatedMap", "anchor_ref": 0},
+            "overlay": {"component": "SatelliteLocate", "anchor_ref": 0},
         },
     )
     st = timings(("The push toward Stalingrad began.", 0.0, 5.0))
@@ -198,7 +198,7 @@ def test_unknown_place_fails_loud():
             "script_text": "The town of Xyzzyville fell.",
             "visual_intent": "map",
             "anchors": [{"type": "place", "value": "Xyzzyville", "source_words": "Xyzzyville"}],
-            "overlay": {"component": "AnimatedMap", "anchor_ref": 0},
+            "overlay": {"component": "SatelliteLocate", "anchor_ref": 0},
         },
     )
     st = timings(("The town of Xyzzyville fell.", 0.0, 4.0))
@@ -221,3 +221,103 @@ def test_leading_timed_beat_offsets_voiceover():
     visual = plan["tracks"]["visual"]
     assert visual[0]["beat_id"] == "b1"
     assert visual[-1]["end_s"] == 5.0
+
+
+def _dated_beat(position: str | None):
+    """One beat carrying a date anchor and a DateStamp, optionally pre-positioned."""
+    overlay: dict = {"component": "DateStamp", "anchor_ref": 0}
+    if position is not None:
+        overlay["props_hint"] = {"position": position}
+    return beats(
+        {
+            "id": "b1",
+            "kind": "narration",
+            "script_text": "On 31 January 1943 the guns stopped.",
+            "visual_intent": "ruined city",
+            "anchors": [
+                {"type": "date", "value": "31 January 1943", "source_words": "31 January 1943"}
+            ],
+            "overlay": overlay,
+        },
+    )
+
+
+def _compile_dated(position, *, captions):
+    cfg = {**CFG, "captions": {"enabled": captions}}
+    st = timings(("On 31 January 1943 the guns stopped.", 0.0, 5.0))
+    plan = compile_plan(_dated_beat(position), st, cfg, 5.0)
+    return plan["tracks"]["overlays"][0]["props"]
+
+
+@pytest.mark.parametrize(
+    "asked,expected",
+    [("bottom_left", "top_left"), ("bottom_right", "top_right")],
+)
+def test_captions_push_corner_overlays_off_the_bottom(asked, expected):
+    # captions own the bottom strip: a bottom corner would land on top of them
+    assert _compile_dated(asked, captions=True)["position"] == expected
+
+
+def test_bottom_corner_kept_when_captions_are_off():
+    assert _compile_dated("bottom_left", captions=False)["position"] == "bottom_left"
+
+
+def test_top_corner_and_catalog_default_are_left_alone():
+    assert _compile_dated("top_right", captions=True)["position"] == "top_right"
+    assert _compile_dated(None, captions=True)["position"] == "top_left"  # catalog default
+
+
+def test_overlay_holds_across_a_short_beats_cut():
+    # A 1.5s beat cannot contain a DefinitionCard (catalog min 3s). The overlay
+    # holds across the cut instead of being starved down to the beat length.
+    doc = beats(
+        {
+            "id": "b1",
+            "kind": "narration",
+            "script_text": "Call it flutter.",
+            "visual_intent": "bridge deck",
+            "overlay": {
+                "component": "DefinitionCard",
+                "props_hint": {"term": "flutter", "definition": "Self-feeding oscillation driven by airflow."},
+            },
+        },
+        {
+            "id": "b2",
+            "kind": "narration",
+            "script_text": "It destroyed the deck.",
+            "visual_intent": "twisting roadway",
+        },
+    )
+    st = timings(("Call it flutter.", 0.0, 1.5), ("It destroyed the deck.", 1.5, 8.0))
+    plan = compile_plan(doc, st, CFG, 8.0)
+    overlay = plan["tracks"]["overlays"][0]
+    assert overlay["end_s"] - overlay["start_s"] >= 3.0, "catalog minimum hold must be honoured"
+    assert overlay["end_s"] > 1.5, "overlay is allowed to outlive its own beat"
+
+
+def test_overlays_never_overlap_each_other():
+    doc = beats(
+        {
+            "id": "b1",
+            "kind": "narration",
+            "script_text": "Ninety one dampers went in.",
+            "visual_intent": "dampers",
+            "anchors": [{"type": "number", "value": 91, "label": "dampers", "source_words": "Ninety one"}],
+            "overlay": {"component": "AnimatedCounter", "anchor_ref": 0},
+        },
+        {
+            "id": "b2",
+            "kind": "narration",
+            "script_text": "The deck settled down.",
+            "visual_intent": "calm bridge",
+            "anchors": [{"type": "number", "value": 5, "label": "millimetres", "source_words": "settled"}],
+            "overlay": {"component": "StatTag", "anchor_ref": 0},
+        },
+    )
+    st = timings(("Ninety one dampers went in.", 0.0, 2.0), ("The deck settled down.", 2.0, 9.0))
+    plan = compile_plan(doc, st, CFG, 9.0)
+    first, second = plan["tracks"]["overlays"]
+    assert first["end_s"] <= second["start_s"], "graphics must not be on screen together"
+    assert plan["tracks"]["overlays"] == sorted(
+        plan["tracks"]["overlays"], key=lambda o: o["start_s"]
+    )

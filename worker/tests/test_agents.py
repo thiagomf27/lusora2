@@ -69,7 +69,7 @@ def good_beats():
              "visual_intent": "dock workers unloading sacks, archival",
              "anchors": [{"type": "percentage", "value": 70, "label": "of grain",
                           "source_words": "Nearly 70%"}],
-             "overlay": {"component": "AnimatedPercentage", "anchor_ref": 0}},
+             "overlay": {"component": "AnimatedCounter", "anchor_ref": 0}},
         ],
     }
 
@@ -101,7 +101,7 @@ def test_repair_loop_feeds_violations_back(tmp_path):
     assert len(calls) == 2
     assert "GlitterBomb" in calls[1]           # ALL violations fed back
     assert "REJECTED" in calls[1]
-    assert doc["beats"][1]["overlay"]["component"] == "AnimatedPercentage"
+    assert doc["beats"][1]["overlay"]["component"] == "AnimatedCounter"
 
 
 def test_gives_up_after_max_attempts(tmp_path):

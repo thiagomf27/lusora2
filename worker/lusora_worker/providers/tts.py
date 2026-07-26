@@ -32,6 +32,12 @@ from ..textsplit import split_sentences
 
 STAGE = "narration"
 
+# ai33 is a busy aggregator in front of other vendors: it answers 429 when we
+# poll too fast and 5xx when a backend hiccups. Both are weather, not errors —
+# failing the stage on one throws away a run that has already been paid for
+# (earlier sentences are synthesized) and that a retry would complete.
+_AI33_RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
+
 
 def synthesize(ctx: StageContext, script: str) -> None:
     provider = str(((ctx.cfg.get("voice") or {}).get("provider")) or "mock")
@@ -119,21 +125,7 @@ def _ai33(ctx: StageContext, sentences: list[str]) -> float:
         durations: list[float] = []
         files: list[Path] = []
         for i, sentence in enumerate(sentences):
-            try:
-                resp = httpx.post(
-                    f"{base}/v3/text-to-speech", headers=headers,
-                    files={
-                        "text": (None, sentence),
-                        "voice_id": (None, voice),
-                        "speed": (None, "1"),
-                        "with_transcript": (None, "false"),
-                    },
-                    timeout=60,
-                )
-                resp.raise_for_status()
-                body = resp.json()
-            except httpx.HTTPError as e:
-                raise StageError(STAGE, f"ai33 synthesis request failed (sentence {i + 1}): {e}")
+            body = _ai33_submit(base, headers, voice, sentence, i + 1)
             if not body.get("success") or not body.get("task_id"):
                 raise StageError(STAGE, f"ai33 rejected sentence {i + 1}: {body.get('message', body)}")
 
@@ -163,18 +155,61 @@ def _ai33(ctx: StageContext, sentences: list[str]) -> float:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
+def _ai33_submit(
+    base: str, headers: dict, voice: str, sentence: str, n: int, attempts: int = 5
+) -> dict:
+    """Queue one sentence, riding out transient aggregator failures."""
+    delay = 2.0
+    last = ""
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = httpx.post(
+                f"{base}/v3/text-to-speech", headers=headers,
+                files={
+                    "text": (None, sentence),
+                    "voice_id": (None, voice),
+                    "speed": (None, "1"),
+                    "with_transcript": (None, "false"),
+                },
+                timeout=60,
+            )
+            if resp.status_code in _AI33_RETRYABLE_STATUS:
+                last = f"HTTP {resp.status_code}"
+            else:
+                resp.raise_for_status()
+                return resp.json()
+        except httpx.TransportError as e:
+            last = str(e) or type(e).__name__
+        except httpx.HTTPError as e:
+            raise StageError(STAGE, f"ai33 synthesis request failed (sentence {n}): {e}")
+        if attempt < attempts:
+            time.sleep(min(delay, 20))
+            delay *= 1.8
+    raise StageError(
+        STAGE,
+        f"ai33 synthesis request failed (sentence {n}) after {attempts} attempts; last response {last}",
+    )
+
+
 def _ai33_wait(base: str, headers: dict, task_id: str, n: int, timeout_s: float = 300) -> tuple[str, float]:
     deadline = time.time() + timeout_s
     delay = 2.0
+    last_transient = ""
     while time.time() < deadline:
         try:
             resp = httpx.get(f"{base}/v3/task/{task_id}", headers=headers, timeout=30)
-            if resp.status_code == 429:  # polling rate limit — back off, not a failure
+            if resp.status_code in _AI33_RETRYABLE_STATUS:
+                last_transient = f"HTTP {resp.status_code}"
                 time.sleep(min(delay, 15))
                 delay *= 1.6
                 continue
             resp.raise_for_status()
             data = resp.json().get("data") or {}
+        except httpx.TransportError as e:  # reset/timeout mid-poll: the task is still running
+            last_transient = str(e) or type(e).__name__
+            time.sleep(min(delay, 15))
+            delay *= 1.6
+            continue
         except httpx.HTTPError as e:
             raise StageError(STAGE, f"ai33 task poll failed (sentence {n}): {e}")
         status = str(data.get("status") or "")
@@ -187,7 +222,11 @@ def _ai33_wait(base: str, headers: dict, task_id: str, n: int, timeout_s: float 
             raise StageError(STAGE, f"ai33 task {task_id} failed: {data.get('error') or data}")
         time.sleep(min(delay, 10))
         delay *= 1.3
-    raise StageError(STAGE, f"ai33 task {task_id} timed out after {timeout_s:.0f}s (sentence {n})")
+    raise StageError(
+        STAGE,
+        f"ai33 task {task_id} timed out after {timeout_s:.0f}s (sentence {n})"
+        + (f"; last transient response was {last_transient}" if last_transient else ""),
+    )
 
 
 def _mock(ctx: StageContext, sentences: list[str]) -> None:

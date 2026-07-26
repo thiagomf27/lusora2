@@ -38,7 +38,7 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         ctx, stage=STAGE, provider=provider, operation="llm.generate_script",
         estimated_units=est_tokens, details={"title": title[:80]},
     ) as cost:
-        result = chat_fn(provider, cfg_script.get("model"), system, user, 2000)
+        result = chat_fn(provider, cfg_script.get("model"), system, user, 8000)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                           "output_tokens": result.output_tokens})
     ctx.db.provider_health(f"llm.{provider}", True)

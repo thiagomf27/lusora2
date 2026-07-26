@@ -11,7 +11,7 @@ CFG = {
     "style_pack_doc": {
         "name": "test",
         "pacing": {"avg_hold_seconds": 4.0, "min_hold": 2.0, "max_hold": 8.0},
-        "overlays": {"density": "normal", "allowed_components": ["AnimatedPercentage", "TitleCard"]},
+        "overlays": {"density": "normal", "allowed_components": ["AnimatedCounter", "KineticTitle"]},
         "transitions": {"allowed": ["cut"], "default": "cut"},
     },
 }
@@ -32,7 +32,7 @@ def good_sheet():
                 "anchors": [
                     {"type": "percentage", "value": 70, "label": "converted", "source_words": "nearly 70%"}
                 ],
-                "overlay": {"component": "AnimatedPercentage", "anchor_ref": 0},
+                "overlay": {"component": "AnimatedCounter", "anchor_ref": 0},
             },
             {
                 "id": "b2",
@@ -65,7 +65,7 @@ def test_component_not_in_style_pack_allowed():
     sheet["beats"][1]["anchors"] = [
         {"type": "place", "value": "Berlin", "source_words": "country"}
     ]
-    sheet["beats"][1]["overlay"] = {"component": "AnimatedMap", "anchor_ref": 0}
+    sheet["beats"][1]["overlay"] = {"component": "SatelliteLocate", "anchor_ref": 0}
     violations = validate_beat_sheet(sheet, SCRIPT, CFG, 10.0)
     assert any("allowed_components" in v for v in violations)
 

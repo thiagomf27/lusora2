@@ -93,18 +93,24 @@ def compile_plan(
     _make_contiguous(visual, total_end=vo_start + audio_duration_s)
 
     # ---- overlays ----
+    # captions_enabled is read here, not in the caption block below: it decides
+    # where a corner overlay is allowed to sit (see _avoid_caption_band)
+    captions_enabled = bool((cfg.get("captions") or {}).get("enabled", True))
     overlays: list[dict[str, Any]] = []
     for b in timed_beats:
-        item = _compile_overlay(b, float(b["timing"]["start_s"]), float(b["timing"]["end_s"]))
+        item = _compile_overlay(
+            b, float(b["timing"]["start_s"]), float(b["timing"]["end_s"]), captions_enabled
+        )
         if item:
             overlays.append(item)
     for beat, (start, end, _s) in aligned:
-        item = _compile_overlay(beat, start, end)
+        item = _compile_overlay(beat, start, end, captions_enabled)
         if item:
             overlays.append(item)
+    overlays.sort(key=lambda o: o["start_s"])
+    _trim_overlay_holds(overlays, total_end=vo_start + audio_duration_s)
 
     # ---- captions ----
-    captions_enabled = bool((cfg.get("captions") or {}).get("enabled", True))
     theme = cfg.get("theme_doc") or {}
     preset = str(((theme.get("typography") or {}).get("caption_preset")) or "plain")
     caption_items = [
@@ -388,7 +394,70 @@ def _visual_item(
     return item
 
 
-def _compile_overlay(beat: dict[str, Any], start: float, end: float) -> dict[str, Any] | None:
+_ANCHOR_INDEXED = re.compile(r"^([a-z_]+)\[(\d+)\]$")
+
+
+def _anchor_field(anchor: dict[str, Any], ref: str) -> Any:
+    """Resolve a catalog `from_anchor` reference against an anchor.
+
+    Plain field name ("value", "label"), or one element of a list-valued field
+    ("value[0]") for components taking one prop per compared item — a
+    comparison anchor's value is a list, and ComparisonSplit wants its two
+    entries as separate `left` / `right` props. Without this the LLM would have
+    to retype the numbers, which is exactly what from_anchor exists to prevent.
+    """
+    match = _ANCHOR_INDEXED.match(ref)
+    if match is None:
+        return anchor.get(ref)
+    field, index = match.group(1), int(match.group(2))
+    seq = anchor.get(field)
+    if isinstance(seq, list) and index < len(seq):
+        return seq[index]
+    return None
+
+
+def _trim_overlay_holds(
+    overlays: list[dict[str, Any]], total_end: float, gap: float = 0.2
+) -> None:
+    """Bound each overlay's hold, in place, on a start-sorted list.
+
+    An overlay may cross a visual cut, but never another overlay: two graphics
+    on screen at once is a mess, and at high density the next one is close.
+    Floor of 0.5s keeps a squeezed overlay from collapsing to nothing.
+    """
+    for i, item in enumerate(overlays):
+        ceiling = total_end
+        if i + 1 < len(overlays):
+            ceiling = min(ceiling, float(overlays[i + 1]["start_s"]) - gap)
+        end = min(float(item["end_s"]), ceiling)
+        item["end_s"] = round(max(end, float(item["start_s"]) + 0.5), 3)
+
+
+# A caption sits in the bottom strip of the frame, so an overlay parked in a
+# bottom corner lands on top of it. Where a component offers the same slot along
+# the top edge, take it — deterministic placement, code's job not the AI's.
+_ABOVE_THE_CAPTIONS = {
+    "bottom_left": "top_left",
+    "bottom_right": "top_right",
+    "bottom_center": "top_center",
+}
+
+
+def _avoid_caption_band(entry: dict[str, Any], props: dict[str, Any]) -> None:
+    """Move any bottom-edge enum choice to its top-edge twin, in place."""
+    for prop_name, spec in entry["props"].items():
+        choices = spec.get("enum")
+        current = props.get(prop_name)
+        if not choices or not isinstance(current, str):
+            continue
+        alternative = _ABOVE_THE_CAPTIONS.get(current)
+        if alternative is not None and alternative in choices:
+            props[prop_name] = alternative
+
+
+def _compile_overlay(
+    beat: dict[str, Any], start: float, end: float, captions_enabled: bool = False
+) -> dict[str, Any] | None:
     overlay = beat.get("overlay")
     if not overlay:
         return None
@@ -419,7 +488,7 @@ def _compile_overlay(beat: dict[str, Any], start: float, end: float) -> dict[str
         if prop_name in props:
             continue
         if anchor is not None and spec.get("from_anchor"):
-            value = anchor.get(spec["from_anchor"])
+            value = _anchor_field(anchor, spec["from_anchor"])
             if value is not None:
                 props[prop_name] = value
                 continue
@@ -438,17 +507,47 @@ def _compile_overlay(beat: dict[str, Any], start: float, end: float) -> dict[str
     if anchor is not None and "label" in entry["props"] and "label" not in props and anchor.get("label"):
         props["label"] = anchor["label"]
 
+    # geocode_stops runs AFTER the loop above, not inside it: the list itself
+    # comes from the LLM (it names the places), so the prop is already present
+    # and the loop skips it — only the coordinates are ours to fill.
+    for prop_name, spec in entry["props"].items():
+        if spec.get("computed") != "geocode_stops":
+            continue
+        stops = props.get(prop_name)
+        if not isinstance(stops, list):
+            raise CompileError(f"beat {beat['id']}: {name}.{prop_name} must be a list of places")
+        for stop in stops:
+            if not isinstance(stop, dict):
+                raise CompileError(f"beat {beat['id']}: {name}.{prop_name} entries must be objects")
+            if stop.get("lat") is not None and stop.get("lng") is not None:
+                continue
+            coords = geo.lookup(str(stop.get("name", "")))
+            if coords is None:
+                raise CompileError(
+                    f"beat {beat['id']}: cannot geocode stop '{stop.get('name')}' for {name} — "
+                    "add it to the gazetteer or change the beat"
+                )
+            stop["lat"], stop["lng"] = coords
+
+    if captions_enabled:
+        _avoid_caption_band(entry, props)
+
     missing = [p for p, s in entry["props"].items() if s.get("required") and p not in props]
     if missing:
         raise CompileError(f"beat {beat['id']}: {name} missing required props {missing}")
 
     hint = entry.get("duration_hint_s") or {}
     want = float(hint.get("default", 4.0))
+    minimum = float(hint.get("min", 1.0))
     o_start = round(start + 0.4, 3)
-    o_end = round(min(end, o_start + want), 3)
-    if o_end - o_start < float(hint.get("min", 1.0)):
-        o_end = round(min(end, o_start + float(hint.get("min", 1.0))), 3)
-    return {
+    # An overlay is NOT bound to its beat's cut — graphics routinely hold across
+    # one, and editors expect that. Clamping the end to the beat (as this used to)
+    # silently starved every component at fast pacing: a 1.4s beat gave a
+    # DefinitionCard 1.3s on screen, well under the 3s the catalog says it needs
+    # to be readable. Hold for the catalog's own duration; compile_plan then
+    # trims against the next overlay and the end of the video.
+    o_end = round(o_start + max(want, minimum), 3)
+    item: dict[str, Any] = {
         "id": f"o_{beat['id']}",
         "beat_id": str(beat["id"]),
         "locked": False,
@@ -458,3 +557,8 @@ def _compile_overlay(beat: dict[str, Any], start: float, end: float) -> dict[str
         "start_s": o_start,
         "end_s": max(o_end, o_start + 0.5),
     }
+    # Template-backed entries have no React component; copy the kind into the
+    # plan so the renderer draws them without reading the catalog.
+    if entry.get("template"):
+        item["template"] = entry["template"]
+    return item

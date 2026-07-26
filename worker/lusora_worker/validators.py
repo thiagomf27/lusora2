@@ -7,6 +7,7 @@ reaches a renderer.
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,28 @@ def check_prop_value(spec: dict[str, Any], name: str, value: Any) -> str | None:
         return f"prop '{name}'={value} above max {spec['max']}"
     if spec.get("maxWords") and isinstance(value, str) and len(value.split()) > spec["maxWords"]:
         return f"prop '{name}' exceeds {spec['maxWords']} words"
+
+    # Structured props are checked all the way down. Without this a component
+    # taking objects (ComparisonSplit's left/right) accepts a bare number and
+    # renders blanks: the shape is wrong but every scalar rule above passes.
+    if t == "object":
+        if not isinstance(value, dict):
+            return f"prop '{name}' must be an object, got {type(value).__name__}"
+        declared = spec.get("properties") or {}
+        for key, sub in declared.items():
+            if key in value:
+                err = check_prop_value(sub, f"{name}.{key}", value[key])
+                if err:
+                    return err
+        if declared:
+            unknown = [k for k in value if k not in declared]
+            if unknown:
+                return f"prop '{name}' has unknown keys {unknown}"
+    if t == "array" and isinstance(value, list) and spec.get("items"):
+        for i, item in enumerate(value):
+            err = check_prop_value(spec["items"], f"{name}[{i}]", item)
+            if err:
+                return err
     return None
 
 
@@ -91,6 +114,29 @@ def validate_beat_sheet(
                 violations.append(
                     f"beat {b.get('id')}: anchor[{i}] source_words {anchor.get('source_words')!r} not found in its span"
                 )
+            # A comparison anchor feeds components that want one labelled item per
+            # compared quantity (BarChart.series, ComparisonSplit.left/right). A bare
+            # list of numbers carries no labels and lands in the plan as a malformed
+            # prop, so pin the shape here where the planner can still repair it.
+            if anchor.get("type") == "comparison":
+                items = anchor.get("value")
+                well_formed = (
+                    isinstance(items, list)
+                    and len(items) >= 2
+                    and all(
+                        isinstance(it, dict)
+                        and isinstance(it.get("label"), str)
+                        and isinstance(it.get("value"), (int, float))
+                        and not isinstance(it.get("value"), bool)
+                        for it in items
+                    )
+                )
+                if not well_formed:
+                    violations.append(
+                        f"beat {b.get('id')}: anchor[{i}] of type 'comparison' must carry value as a "
+                        'list of {"label": "…", "value": number} objects (one per compared quantity), '
+                        f"got {json.dumps(items)[:80]}"
+                    )
 
     # overlays: catalog existence + allowed_components + anchor types
     allowed = (style.get("overlays") or {}).get("allowed_components")

@@ -65,9 +65,11 @@ def _build_prompt(ctx: StageContext, script: str, audio_duration_s: float) -> tu
         "Example: 'aerial view of a 1940s industrial district, smokestacks, workers assembling "
         "aircraft wings, archival grain'. Never abstract ('the concept of change').\n"
         "3. anchors: structured facts found VERBATIM in the beat's span (percentage, number, "
-        "comparison, place, date, name, quote). source_words must appear in the span exactly.\n"
+        "comparison, place, date, name, quote). source_words must appear in the span exactly. "
+        "A 'comparison' anchor's value is a LIST of {\"label\": \"…\", \"value\": number} "
+        "objects, one per compared quantity — never a bare list of numbers.\n"
         "4. An overlay may ONLY reference one of its beat's anchors (anchor_ref = index) or, for "
-        "TitleCard, carry pure text. Never invent numbers — they come from the anchor.\n"
+        "KineticTitle, carry pure text. Never invent numbers — they come from the anchor.\n"
         "   props_hint carries concrete VALUES only (e.g. {\"text\": \"1943\"}), never the prop "
         "schema — anything shaped like {\"type\": …} is invalid.\n"
         "5. Use overlays sparingly and only where the rules below say they help.\n\n"
@@ -105,9 +107,10 @@ def plan_beats(
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
             ctx, stage=STAGE, provider=provider, operation="llm.plan_beats",
-            estimated_units=4000, details={"attempt": attempt},
+            estimated_units=12000, details={"attempt": attempt},
         ) as cost:
-            result = chat_fn(provider, model, system, user, 6000)
+            # reasoning models spend 4-9k tokens thinking before the JSON starts
+            result = chat_fn(provider, model, system, user, 16000)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens,
                                               "attempt": attempt})

@@ -19,7 +19,7 @@ from ..errors import StageError
 
 # provider -> (kind, base_url, default_model, env var)
 PROVIDERS: dict[str, tuple[str, str, str, str]] = {
-    "deepseek": ("openai", "https://api.deepseek.com/v1", "deepseek-chat", "DEEPSEEK_API_KEY"),
+    "deepseek": ("openai", "https://api.deepseek.com/v1", "deepseek-v4-pro", "DEEPSEEK_API_KEY"),
     "openai": ("openai", "https://api.openai.com/v1", "gpt-4o-mini", "OPENAI_API_KEY"),
     "anthropic": ("anthropic", "https://api.anthropic.com/v1", "claude-haiku-4-5-20251001", "ANTHROPIC_API_KEY"),
 }
@@ -74,8 +74,23 @@ def chat(provider: str, model: str | None, system: str, user: str, max_tokens: i
             resp.raise_for_status()
             data = resp.json()
             usage = data.get("usage") or {}
+            choice = data["choices"][0]
+            # Reasoning models (deepseek-v4-*) spend part of max_tokens thinking
+            # before the answer starts, so a budget that used to be generous now
+            # truncates mid-JSON. Say so here: the caller only sees unparseable
+            # output and would report "the model returned no JSON object".
+            if choice.get("finish_reason") == "length":
+                reasoning = int(
+                    (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)
+                )
+                raise StageError(
+                    "llm",
+                    f"{provider} hit the {max_tokens}-token ceiling before finishing "
+                    f"({usage.get('completion_tokens', 0)} completion tokens, {reasoning} of them "
+                    "reasoning) — the output is truncated. Raise the caller's token budget.",
+                )
             return LLMResult(
-                text=data["choices"][0]["message"]["content"],
+                text=choice["message"]["content"] or "",
                 input_tokens=int(usage.get("prompt_tokens", 0)),
                 output_tokens=int(usage.get("completion_tokens", 0)),
             )

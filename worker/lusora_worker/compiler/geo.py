@@ -1,4 +1,4 @@
-"""Deterministic geocoding for AnimatedMap props (AI does judgment, code
+"""Deterministic geocoding for SatelliteLocate props (AI does judgment, code
 does arithmetic — the LLM names the place, code finds the coordinates).
 
 v1: a small offline gazetteer + fail-loud for unknown places (an online
