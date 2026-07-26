@@ -117,7 +117,7 @@ test("CLI: --renderer ffmpeg is rejected on a plan that needs remotion", () => {
     const result = runCli(dir, "ffmpeg", null);
     assert.notEqual(result.status, 0, "ffmpeg pin must exit non-zero");
     assert.match(result.stderr, /ffmpeg/i);
-    assert.match(result.stderr, /speed|ChapterTitle/, "names an offending item");
+    assert.match(result.stderr, /speed|ChapterCard/, "names an offending item");
     assert.ok(!existsSync(join(dir, "final.mp4")), "no final.mp4 on capability failure");
   } finally {
     rmSync(dir, { recursive: true, force: true });

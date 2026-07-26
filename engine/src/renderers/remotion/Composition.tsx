@@ -22,6 +22,8 @@ import {
 } from "remotion";
 import type { EditPlan, Theme, CaptionItem, OverlayItem } from "@lusora/contracts";
 import { COMPONENTS } from "../../components/index.ts";
+import { TemplateOverlay } from "../../components/templates/TemplateOverlay.tsx";
+import { isTemplateKind } from "../../components/templates/registry.ts";
 import { captionStyle } from "../../themes/runtime.ts";
 import { BaseTrack } from "./BaseTrack.tsx";
 import { audioVolumeAt } from "./audioVolume.ts";
@@ -48,7 +50,17 @@ function Overlays({ plan, theme }: { plan: EditPlan; theme: Theme }) {
         const durFrames = Math.max(Math.round((item.end_s - item.start_s) * fps), 1);
         if (item.kind === "component" && item.component) {
           const Component = COMPONENTS[item.component];
-          if (!Component) return null;
+          // A registered component wins; failing that, a template-backed entry
+          // carries its layout in the plan (compiled in from the catalog), so
+          // an overlay authored as data still draws.
+          if (!Component) {
+            if (!item.template || !isTemplateKind(item.template)) return null;
+            return (
+              <Sequence key={item.id} from={from} durationInFrames={durFrames}>
+                <TemplateOverlay template={item.template} props={item.props ?? {}} theme={theme} />
+              </Sequence>
+            );
+          }
           return (
             <Sequence key={item.id} from={from} durationInFrames={durFrames}>
               <Component props={item.props ?? {}} theme={theme} />
@@ -92,17 +104,44 @@ function Overlays({ plan, theme }: { plan: EditPlan; theme: Theme }) {
   );
 }
 
+/**
+ * Captions yield to graphics. The compiler already keeps corner overlays out of
+ * the bottom strip (_avoid_caption_band), but a component whose whole layout
+ * lives down there — a lower third, a chart's own caption line — cannot be moved
+ * by a prop, and nothing in the plan says which zone a component occupies. So
+ * the rule is positional and needs no per-component knowledge: while any
+ * component overlay is on screen, the caption steps up out of the extreme bottom.
+ *
+ * The lift is deliberately ONE caption-height, not more. The lower third is
+ * contested from both sides: components put their own caption/credit lines at
+ * the very bottom (~94% down), while lower-third footers — QuoteBlock's
+ * attribution, NamePlate's role — sit around 66%. Lifting further clears the
+ * first and lands on the second, which is exactly the collision this replaced.
+ * A zone declared per component in the catalog would let the caption place
+ * itself properly; until that exists, this threads between the two.
+ */
+const CAPTION_BOTTOM = 0.06;
+const CAPTION_BOTTOM_LIFTED = 0.13;
+
 function Captions({ plan, theme }: { plan: EditPlan; theme: Theme }) {
   const { fps } = useVideoConfig();
   const captions = plan.tracks.captions;
   if (!captions.enabled) return null;
+  const graphics = plan.tracks.overlays.filter((o) => o.kind === "component");
   return (
     <>
       {captions.items.map((c, i) => {
         const durFrames = Math.max(Math.round((c.end_s - c.start_s) * fps), 1);
+        const overlapped = graphics.some((o) => c.start_s < o.end_s && c.end_s > o.start_s);
         return (
           <Sequence key={i} from={Math.round(c.start_s * fps)} durationInFrames={durFrames}>
-            <Caption item={c} theme={theme} preset={captions.preset ?? "plain"} durationInFrames={durFrames} />
+            <Caption
+              item={c}
+              theme={theme}
+              preset={captions.preset ?? "plain"}
+              durationInFrames={durFrames}
+              bottomFraction={overlapped ? CAPTION_BOTTOM_LIFTED : CAPTION_BOTTOM}
+            />
           </Sequence>
         );
       })}
@@ -115,11 +154,13 @@ function Caption({
   theme,
   preset,
   durationInFrames,
+  bottomFraction,
 }: {
   item: CaptionItem;
   theme: Theme;
   preset: string;
   durationInFrames: number;
+  bottomFraction: number;
 }) {
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
@@ -130,7 +171,7 @@ function Caption({
     <div
       style={{
         position: "absolute",
-        bottom: height * 0.06,
+        bottom: height * bottomFraction,
         left: 0,
         right: 0,
         display: "flex",

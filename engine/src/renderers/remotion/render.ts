@@ -54,7 +54,22 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
   // reaches out to download one. Unset falls back to Remotion's managed browser.
   const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE || null;
 
-  const composition = await selectComposition({ serveUrl, id: "video", inputProps, browserExecutable });
+  // GPU-less machines (this laptop, any VPS, CI) crash the Chrome renderer
+  // process on the default ANGLE/SwANGLE backend: the page dies mid-handshake
+  // and every render fails with a "waiting for root component" timeout that
+  // names nothing. SwiftShader is pure software and always available; override
+  // with REMOTION_GL on a box with a real GPU.
+  const chromiumOptions = {
+    gl: (process.env.REMOTION_GL || "swiftshader") as "swiftshader" | "swangle" | "angle" | "egl",
+  };
+
+  const composition = await selectComposition({
+    serveUrl,
+    id: "video",
+    inputProps,
+    browserExecutable,
+    chromiumOptions,
+  });
 
   const tmpOut = join(videoDir, "final.tmp.mp4");
   await renderMedia({
@@ -64,6 +79,7 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
     outputLocation: tmpOut,
     inputProps,
     browserExecutable,
+    chromiumOptions,
     // low-RAM machines: too many tabs + an unbounded OffthreadVideo frame
     // cache stall frame extraction until delayRender times out
     concurrency: Number(process.env.REMOTION_CONCURRENCY ?? 2),

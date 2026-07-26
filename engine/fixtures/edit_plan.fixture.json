@@ -36,8 +36,8 @@
         "beat_id": "b1",
         "locked": false,
         "kind": "component",
-        "component": "ChapterTitle",
-        "props": { "text": "PART ONE", "position": "center", "emphasis": "accent" },
+        "component": "ChapterCard",
+        "props": { "title": "PART ONE", "rule": "both", "emphasis": "accent" },
         "start_s": 0.4,
         "end_s": 3.2
       }

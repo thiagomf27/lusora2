@@ -8,7 +8,7 @@
  * Usage:
  *   node scripts/preview-overlay.mjs <Component> '<propsJSON>' [--theme <name>] [--dur <s>] [--at <0..1>]
  * Example:
- *   node scripts/preview-overlay.mjs AnimatedPercentage '{"value":42,"label":"share of imports"}'
+ *   node scripts/preview-overlay.mjs AnimatedCounter '{"value":42,"label":"share of imports","suffix":"%"}'
  *
  * Needs ffmpeg on PATH and a browser (set REMOTION_BROWSER_EXECUTABLE to skip
  * the one-time Chrome download).
@@ -23,7 +23,7 @@ const engineRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const component = args[0];
 if (!component || component.startsWith("--")) {
-  console.error("usage: preview-overlay.mjs <Component> '<propsJSON>' [--theme n] [--dur s] [--at 0..1]");
+  console.error("usage: preview-overlay.mjs <Component> '<propsJSON>' [--theme n] [--dur s] [--at 0..1] [--template kind]");
   process.exit(1);
 }
 const propsJson = args[1] && !args[1].startsWith("--") ? args[1] : "{}";
@@ -34,6 +34,9 @@ const flag = (name, def) => {
 const theme = flag("theme", "history-dark");
 const dur = Number(flag("dur", "5"));
 const at = Number(flag("at", "0.66"));
+// A template-backed catalog entry has no React component; the plan carries the
+// kind and TemplateOverlay draws it.
+const template = flag("template", null);
 
 let props;
 try {
@@ -67,7 +70,17 @@ try {
         { id: "v1", start_s: 0, end_s: dur, media_type: "image", asset: { source: "manual", path: "clips/bg.png" } },
       ],
       overlays: [
-        { id: "o1", kind: "component", component, props, start_s: 0.3, end_s: Math.max(dur - 0.3, 0.6) },
+        {
+          id: "o1",
+          kind: "component",
+          component,
+          props,
+          start_s: 0.3,
+          end_s: Math.max(dur - 0.3, 0.6),
+          // template-backed entries carry the layout in the plan, exactly as
+          // the compiler emits it (see --template)
+          ...(template ? { template } : {}),
+        },
       ],
       captions: { enabled: false, items: [] },
       audio: { voiceover: { path: "audio.mp3", start_s: 0, duration_s: dur, volume: 1 } },
@@ -76,7 +89,7 @@ try {
   writeFileSync(join(work, "edit_plan.json"), JSON.stringify(plan, null, 2));
   writeFileSync(join(work, "cfg.json"), JSON.stringify({ channel_id: "PREVIEW", name: "Preview", theme, editing: { captions: false } }, null, 2));
 
-  console.log(`rendering ${component} (${dur}s, theme=${theme})...`);
+  console.log(`rendering ${component} (${dur}s, theme=${theme}${template ? `, template=${template}` : ""})...`);
   const render = spawnSync(
     process.execPath,
     ["--experimental-strip-types", join(engineRoot, "src", "cli.ts"), "render", "--video-dir", work, "--renderer", "remotion", "--outputs", "mp4"],

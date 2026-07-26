@@ -88,12 +88,12 @@ test("pinned ffmpeg fails loudly on a plan that needs remotion", () => {
     resolution: { width: 640, height: 360 },
     tracks: {
       visual: [{ id: "v1", start_s: 0, end_s: 2, media_type: "image", asset: { source: "manual", path: "a.jpg" } }],
-      overlays: [{ id: "o1", kind: "component", component: "TitleCard", props: { text: "Hi" }, start_s: 0, end_s: 2 }],
+      overlays: [{ id: "o1", kind: "component", component: "KineticTitle", props: { text: "Hi" }, start_s: 0, end_s: 2 }],
       captions: { enabled: false, items: [] },
       audio: { voiceover: { path: "audio.mp3", duration_s: 2 } },
     },
   } as unknown as EditPlan;
   const route = routePlan(plan);
   assert.equal(route.renderer, "remotion");
-  assert.ok(route.reasons.some((r) => r.includes("TitleCard")));
+  assert.ok(route.reasons.some((r) => r.includes("KineticTitle")));
 });
