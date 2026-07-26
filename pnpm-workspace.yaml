@@ -2,6 +2,17 @@ packages:
   - contracts
   - engine
   - platform
+# Pin the whole Remotion family to one version — the caret ranges otherwise
+# resolved to a mix of 4.0.490 and 4.0.494, which breaks @remotion/player
+# ("Multiple versions of Remotion detected") in the editor live preview.
+overrides:
+  remotion: 4.0.494
+  '@remotion/bundler': 4.0.494
+  '@remotion/renderer': 4.0.494
+  '@remotion/media-parser': 4.0.494
+  '@remotion/media-utils': 4.0.494
+  '@remotion/transitions': 4.0.494
+  '@remotion/player': 4.0.494
 allowBuilds:
   esbuild: true
   sharp: true

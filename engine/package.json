@@ -18,8 +18,10 @@
   "dependencies": {
     "@lusora/contracts": "workspace:*",
     "@remotion/bundler": "^4.0.245",
+    "@remotion/layout-utils": "4.0.494",
     "@remotion/media-parser": "^4.0.245",
     "@remotion/renderer": "^4.0.245",
+    "@remotion/rough-notation": "4.0.494",
     "@remotion/transitions": "^4.0.245",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
