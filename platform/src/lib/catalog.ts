@@ -227,13 +227,38 @@ export function findItem(name: string): CatalogItem | null {
   return loadMergedCatalog().items.find((i) => i.entry.name === name) ?? null;
 }
 
-/** Merged component menu for the editor chat agent's prompt. */
-export function componentMenu(): string {
+/**
+ * Merged component menu for the editor chat agent's prompt.
+ *
+ * Same shape as the planner's menu (agents/planner.py `_catalog_menu`), on
+ * purpose: the chat agent used to get names and `when_to_use` only, so it was
+ * choosing components with less information than the planner about the same
+ * catalog — and `when_not_to_use` is exactly the field that disambiguates
+ * sibling components.
+ */
+export function componentMenu(allowed?: string[] | null): string {
   return loadMergedCatalog()
-    .items.map(
-      ({ entry }) =>
-        `- ${entry.name} (anchors: ${entry.anchor_types.join("/") || "pure text"}): ${entry.when_to_use}`
-    )
+    .items.filter(({ entry }) => !allowed || allowed.includes(entry.name))
+    .map(({ entry }) => {
+      const props = Object.fromEntries(
+        Object.entries(entry.props ?? {})
+          .filter(([, spec]) => !spec.from_anchor && !spec.computed)
+          .map(([name, spec]) => [
+            name,
+            Object.fromEntries(
+              (["type", "enum", "maxWords", "min", "max", "required"] as const)
+                .filter((k) => spec[k] !== undefined)
+                .map((k) => [k, spec[k]])
+            ),
+          ])
+      );
+      return [
+        `- ${entry.name} (anchor types: ${entry.anchor_types.join("/") || "none — pure text allowed"})`,
+        `  when to use: ${entry.when_to_use}`,
+        `  when NOT to use: ${entry.when_not_to_use}`,
+        `  props you may hint: ${JSON.stringify(props)}`,
+      ].join("\n");
+    })
     .join("\n");
 }
 

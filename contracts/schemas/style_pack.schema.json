@@ -60,6 +60,30 @@
       }
     },
     "script_persona": { "type": "string", "description": "persona/style text for the script agent" },
-    "visual_language": { "type": "string", "description": "visual guidance text for the beat planner" }
+    "visual_language": { "type": "string", "description": "visual guidance text for the beat planner" },
+    "script": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "narration shape (D45): length lives with the pacing numbers it interacts with, and is overridable per video like overlays.density",
+      "properties": {
+        "target_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "target seconds of speech; the script prompt receives it as {{target_seconds}}"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25,
+          "description": "accepted deviation, as a fraction of target_seconds"
+        },
+        "prompt": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "prompt pack name carrying this pack's voice — layer 3 of the D44 resolution order"
+        }
+      }
+    }
   }
 }

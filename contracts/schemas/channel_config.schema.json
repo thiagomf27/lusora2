@@ -28,14 +28,45 @@
       "additionalProperties": false,
       "properties": {
         "generator": { "type": "string", "default": "simple" },
-        "llm": { "type": "string" }
+        "llm": { "type": "string" },
+        "model": { "type": "string", "description": "provider model id; the agents already read it" },
+        "prompt": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "prompt pack name (contracts/prompts/script/<name>.json) — layer 2 of the D44 resolution order"
+        },
+        "target_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "D45 per-video/per-channel override of style_pack.script.target_seconds"
+        }
       }
     },
     "planner": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "llm": { "type": "string" }
+        "llm": { "type": "string" },
+        "model": { "type": "string", "description": "provider model id; the agents already read it" },
+        "prompt": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "prompt pack name (contracts/prompts/planner/<name>.json)"
+        }
+      }
+    },
+    "chat": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "editor chat agent (D15); the platform reads it from the video's cfg snapshot",
+      "properties": {
+        "llm": { "type": "string" },
+        "model": { "type": "string" },
+        "prompt": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "prompt pack name (contracts/prompts/chat/<name>.json)"
+        }
       }
     },
     "captions": {
@@ -124,9 +155,35 @@
     "theme_doc": {
       "type": "object",
       "description": "full theme document embedded at enqueue (snapshot)"
+    },
+    "prompts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "resolved prompt TEXT per role, embedded at enqueue (D44). Editing a prompt afterwards never changes this video; a re-run reproduces the same words.",
+      "properties": {
+        "script": { "$ref": "#/$defs/resolvedPrompt" },
+        "planner": { "$ref": "#/$defs/resolvedPrompt" },
+        "chat": { "$ref": "#/$defs/resolvedPrompt" }
+      }
     }
   },
   "$defs": {
+    "resolvedPrompt": {
+      "type": "object",
+      "required": ["name", "source", "system"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "source": {
+          "enum": ["video", "channel", "style_pack", "default"],
+          "description": "which layer of the D44 ladder won"
+        },
+        "system": { "type": "string", "description": "editable half only; the welded block is appended at call time" },
+        "user": { "type": "string" },
+        "model_hint": { "type": ["string", "null"] },
+        "max_tokens": { "type": ["integer", "null"] }
+      }
+    },
     "visualSource": {
       "type": "object",
       "required": ["source"],

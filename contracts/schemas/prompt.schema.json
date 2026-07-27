@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/prompt.schema.json",
+  "title": "Prompt",
+  "description": "The EDITABLE half of one agent's prompt (D42/D43): voice, craft guidance, structure. The contract half — output shape, hard rules, component menu, op vocabulary — lives in contracts/prompts/welded/ and is appended by code, never edited here. One file per prompt, at contracts/prompts/<role>/<name>.json.",
+  "type": "object",
+  "required": ["name", "role", "system"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "also the filename; lowercase slug"
+    },
+    "role": {
+      "enum": ["script", "planner", "chat"],
+      "description": "must match the containing directory; decides the variable set and the welded block"
+    },
+    "video_type": {
+      "enum": ["doc", "explainer", "breakdown", "listicle"],
+      "description": "advisory, like style_pack.video_type: narrows the picker, never read by the pipeline"
+    },
+    "description": {
+      "type": "string",
+      "description": "one line, shown in the Prompts list"
+    },
+    "system": {
+      "type": "string",
+      "minLength": 1,
+      "description": "editable system half; {{variables}} and {{#optional}}blocks{{/optional}} per contracts/prompts/roles.json"
+    },
+    "user": {
+      "type": "string",
+      "description": "editable user half; may be empty when the whole user turn is contract (chat)"
+    },
+    "model_hint": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "advisory model name; channel config still wins"
+    },
+    "max_tokens": {
+      "type": ["integer", "null"],
+      "minimum": 256,
+      "default": null,
+      "description": "overrides the agent's default budget when the prompt needs more room"
+    }
+  }
+}

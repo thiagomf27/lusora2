@@ -33,6 +33,8 @@ interface ConfigOptions {
   themes: string[];
   stylePacks: StylePackOption[];
   componentPacks: string[];
+  /** Prompt pack names per role (D42) — layer 2 of the resolution ladder. */
+  prompts: { script: string[]; planner: string[]; chat: string[] };
 }
 
 /** A schema-valid starting point for a brand-new channel. */
@@ -120,7 +122,12 @@ export default function ChannelConfigForm({
   onChange: (next: ChannelConfig) => void;
   mode: "create" | "edit";
 }) {
-  const [opts, setOpts] = useState<ConfigOptions>({ themes: [], stylePacks: [], componentPacks: [] });
+  const [opts, setOpts] = useState<ConfigOptions>({
+    themes: [],
+    stylePacks: [],
+    componentPacks: [],
+    prompts: { script: [], planner: [], chat: [] },
+  });
 
   useEffect(() => {
     fetch("/api/config-options")
@@ -263,6 +270,47 @@ export default function ChannelConfigForm({
               options={LLMS}
               onChange={(v) => up({ planner: { ...(value.planner ?? {}), llm: v } })}
             />
+          </label>
+          {/* D44 layer 2. Empty = fall through to the style pack, then to the
+              built-in default; the resolved text is snapshotted at enqueue. */}
+          <label className={s.field}>
+            <span className={s.label}>Script prompt</span>
+            <Select
+              value={value.script?.prompt ?? ""}
+              options={["", ...opts.prompts.script]}
+              onChange={(v) =>
+                up({ script: { ...(value.script ?? {}), prompt: v || undefined } })
+              }
+            />
+            <span className={s.hint}>Blank = style pack&apos;s prompt, else the default.</span>
+          </label>
+          <label className={s.field}>
+            <span className={s.label}>Planner prompt</span>
+            <Select
+              value={value.planner?.prompt ?? ""}
+              options={["", ...opts.prompts.planner]}
+              onChange={(v) =>
+                up({ planner: { ...(value.planner ?? {}), prompt: v || undefined } })
+              }
+            />
+          </label>
+          <label className={s.field}>
+            <span className={s.label}>Narration target (s)</span>
+            <input
+              type="number"
+              min={10}
+              value={value.script?.target_seconds ?? ""}
+              placeholder="style pack"
+              onChange={(e) =>
+                up({
+                  script: {
+                    ...(value.script ?? {}),
+                    target_seconds: e.target.value ? Number(e.target.value) : undefined,
+                  },
+                })
+              }
+            />
+            <span className={s.hint}>Blank = the style pack&apos;s length (D45).</span>
           </label>
           <div className={s.field}>
             <span className={s.label}>Captions</span>

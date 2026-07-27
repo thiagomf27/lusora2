@@ -1,0 +1,217 @@
+/* Prompts — roles and their packs on the left, the editable half beside the
+   composed preview on the right. Same shape as the Style Packs screen; inside
+   the shared .page container.
+
+   The preview is the point of the screen: the editable text and the welded
+   contract block are shown in one column, visually distinct, because what the
+   model receives is their concatenation. */
+
+.layout {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.list { display: grid; gap: 8px; }
+.groupLabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--muted-2);
+  margin: 12px 0 -2px 2px;
+}
+.groupLabel:first-child { margin-top: 0; }
+.listItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px 10px;
+}
+.listItem:hover { background: #121721; }
+.listActive { border-color: var(--accent); background: #121a20; }
+.itemName { font-size: 13.5px; font-weight: 500; }
+.itemSub { font-size: 11.5px; color: var(--muted-2); margin-top: 2px; }
+.itemBad { color: var(--danger); }
+
+.detail {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+.detailHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.detailTitle { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 9px; }
+.headActions { display: flex; gap: 8px; flex-shrink: 0; }
+.badge {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.dirty { composes: badge; color: var(--warn); border-color: #e0a45855; }
+.notice {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-left: 2px solid var(--accent);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.editGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.section { display: grid; gap: 8px; }
+.sectionLabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--muted-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.field { display: grid; gap: 5px; }
+.fieldLabel { font-size: 11.5px; color: var(--muted); }
+.input,
+.area {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: inherit;
+  font-size: 12.5px;
+}
+.area {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 150px;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+/* Variable palette: click to insert at the cursor. Required ones are marked —
+   dropping one is the mistake the CI gate exists to catch. */
+.vars { display: flex; flex-wrap: wrap; gap: 6px; }
+.varChip {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  padding: 3px 9px;
+  color: var(--muted);
+}
+.varChip:hover { border-color: var(--accent); color: var(--text); }
+.varRequired { border-color: var(--accent); color: var(--text); }
+.varUsed { background: #121a20; }
+
+.preview {
+  background: #0b0f16;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+}
+.previewHalf { border-top: 1px solid var(--border-2); }
+.previewHalf:first-child { border-top: 0; }
+.previewHead {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--muted-2);
+  padding: 7px 11px;
+  background: var(--panel-2);
+}
+.previewBody {
+  margin: 0;
+  padding: 11px;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 380px;
+  overflow: auto;
+}
+/* The welded half reads as quoted material, not as something you can change. */
+.welded { color: var(--muted); border-left: 2px solid var(--border-2); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 11.5px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: var(--muted);
+}
+.errors {
+  font-size: 12px;
+  color: var(--danger);
+  border: 1px solid #e5646c55;
+  border-radius: 8px;
+  padding: 9px 12px;
+  display: grid;
+  gap: 3px;
+}
+.runOut {
+  background: #0b0f16;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow: auto;
+}
+.runMeta { font-size: 11.5px; color: var(--muted-2); }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #05070bcc;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 20;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  width: min(760px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  display: grid;
+  gap: 14px;
+}
+.modalHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modalTitle { font-size: 15px; font-weight: 600; }
+.modalActions { display: flex; justify-content: flex-end; gap: 8px; }
+.formError {
+  font-size: 12px;
+  color: var(--danger);
+  border: 1px solid #e5646c55;
+  border-radius: 8px;
+  padding: 8px 11px;
+}

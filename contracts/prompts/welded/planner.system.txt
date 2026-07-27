@@ -1,0 +1,10 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. Each beat's script_text must be a VERBATIM contiguous span of the script. Together, in order, the beats must cover the ENTIRE script with no overlap and no gaps.
+2. anchors: structured facts found VERBATIM in the beat's span (percentage, number, comparison, place, date, name, quote). source_words must appear in the span exactly. A 'comparison' anchor's value is a LIST of {"label": "…", "value": number} objects, one per compared quantity — never a bare list of numbers.
+3. An overlay may ONLY reference one of its beat's anchors (anchor_ref = index) or, for a pure-text component, carry text. Never invent numbers — they come from the anchor.
+4. props_hint carries concrete VALUES only (e.g. {"text": "1943"}), never the prop schema — anything shaped like {"type": …} is invalid.
+
+COMPONENT MENU (the only components that exist):
+{{component_menu}}

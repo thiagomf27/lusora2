@@ -15,6 +15,11 @@ videofarm/
       catalog_entry.schema.json
       renderer_interface.json
       cost_event.schema.json
+      prompt.schema.json
+    prompts/                  # agent prompts as data (D42): roles.json (the
+      roles.json              #   variable contract), welded/ (the contract
+      welded/                 #   halves, code-appended, never UI-editable),
+      script/ planner/ chat/  #   and one editable document per prompt
     db/                       # SQL migrations (the DB schema IS a contract)
     api/                      # OpenAPI spec / shared API types
   platform/                   # TypeScript

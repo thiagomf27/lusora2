@@ -24,6 +24,7 @@ SCHEMA_NAMES = [
     "channel_config",
     "catalog_entry",
     "cost_event",
+    "prompt",
 ]
 
 # Mirrors contracts/src/status.ts — keep in sync (tested by fixture in CI).

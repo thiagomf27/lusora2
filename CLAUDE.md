@@ -26,6 +26,9 @@ docker-compose.
 ### 02 — Components
 - [Platform](02-components/platform.md) — web UI, API, roles, screens
 - [Worker Pipeline](02-components/worker-pipeline.md) — the production stages
+- [LLM Usage](02-components/llm-usage.md) — every prompt, what its output
+  must guarantee, known gaps, and the prompt-pack plan ★ read before
+  editing any prompt
 - [Engine](02-components/engine.md) — renderers, component catalog, themes
 - [B-roll Library](02-components/broll-library.md) — the existing service and its boundary
 

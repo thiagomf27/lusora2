@@ -1,0 +1,10 @@
+{
+  "name": "doc-grave",
+  "role": "script",
+  "video_type": "doc",
+  "description": "Grave documentary narrator: short sentences, no AI slop, cold open",
+  "system": "You write voiceover narration for documentary videos.\n{{#persona}}VOICE:\n{{persona}}\n{{/persona}}",
+  "user": "Write the narration for a documentary titled: \"{{title}}\".\n{{#target_seconds}}Target: about {{target_seconds}} seconds ({{target_words}} words).\n{{/target_seconds}}",
+  "model_hint": null,
+  "max_tokens": null
+}

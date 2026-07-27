@@ -53,10 +53,28 @@ PACKS                                    channels; create a pack file)
                                          change; DELETE refuses while a
                                          channel still references it)
 
+PROMPTS   GET/POST /prompts             (list every role's packs with schema +
+                                         variable errors, the welded contract
+                                         blocks, and who references each;
+                                         create a pack file)
+          GET/PUT/DELETE /prompts/:role/:name
+                                        (PUT replaces the editable document —
+                                         role and name are the path and cannot
+                                         change; DELETE refuses while a channel
+                                         or style pack references it, and
+                                         always refuses `default`)
+          POST /prompts/preview         ({doc, video_id?} → the COMPOSED system
+                                         and user text, editable half + welded
+                                         half, rendered with a real video's
+                                         data or a built-in sample.
+                                         {run:true} also calls the provider —
+                                         manager-only, recorded as a cost event)
+
 CONFIG    GET /config-options           (enumerable channel-config values read
                                          from the contracts data files: themes,
                                          style packs — with the video_type each
-                                         declares — and component packs)
+                                         declares — component packs, and prompt
+                                         pack names per role)
           GET /users                    (id/email/name/role for team pickers)
 
 LIBRARY   Proxied 1:1 to the broll library API under /library/*

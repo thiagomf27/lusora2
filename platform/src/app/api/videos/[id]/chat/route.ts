@@ -29,7 +29,12 @@ export const POST = handler(async (req: Request, ctx: Ctx) => {
   const plan = readPlan(id);
 
   if (body.message) {
-    const proposal = await propose(beats, plan, body.message);
+    const proposal = await propose(
+      beats,
+      plan,
+      body.message,
+      video.cfg as Parameters<typeof propose>[3]
+    );
     // dry-run validation of the proposal
     const problems: string[] = [];
     let previewBeats = beats;

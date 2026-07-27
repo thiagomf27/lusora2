@@ -136,3 +136,76 @@ def test_unknown_provider_price_is_hard_error(tmp_path):
     ctx = make_ctx(tmp_path, cfg)
     with pytest.raises(StageError, match="no price"):
         planner.plan_beats(ctx, SCRIPT, 8.0, chat_fn=lambda *a: reply(good_beats()))
+
+
+# ---------- prompt packs in the agents (D42-D45) ----------
+
+
+def test_planner_uses_the_snapshotted_prompt_and_still_welds_the_contract(tmp_path):
+    """The editable half comes from cfg.prompts; the HARD RULES and the JSON
+    shape are composed from the CURRENT contracts, never from the snapshot —
+    they encode what validate_beat_sheet is about to enforce."""
+    cfg = json.loads(json.dumps(CFG))
+    cfg["prompts"] = {
+        "planner": {
+            "name": "house",
+            "source": "channel",
+            "system": "HOUSE VOICE: terse.",
+            "user": "SCRIPT:\n{{script}}",
+        }
+    }
+    ctx = make_ctx(tmp_path, cfg)
+    seen = {}
+
+    def chat_fn(provider, model, system, user, max_tokens):
+        seen["system"], seen["user"] = system, user
+        return reply(good_beats())
+
+    planner.plan_beats(ctx, SCRIPT, 8.0, chat_fn=chat_fn)
+    assert seen["system"].startswith("HOUSE VOICE: terse.")
+    assert "HARD RULES" in seen["system"]
+    assert "COMPONENT MENU" in seen["system"]
+    assert SCRIPT in seen["user"]
+    assert "Respond with the JSON object only." in seen["user"]
+
+
+def test_repair_prompt_does_not_accumulate_across_attempts(tmp_path):
+    """Attempt 3 must carry attempt 2's violations only: appending to the
+    previous user message would re-send already-fixed complaints and grow the
+    bill every round."""
+    ctx = make_ctx(tmp_path)
+    bad = good_beats()
+    bad["beats"][0]["script_text"] = "Never in the script."
+    users = []
+
+    def chat_fn(provider, model, system, user, max_tokens):
+        users.append(user)
+        return reply(bad)
+
+    with pytest.raises(StageError):
+        planner.plan_beats(ctx, SCRIPT, 8.0, chat_fn=chat_fn)
+
+    assert len(users) == 3
+    rejected = "YOUR PREVIOUS ATTEMPT WAS REJECTED"
+    assert users[0].count(rejected) == 0
+    assert users[1].count(rejected) == 1
+    assert users[2].count(rejected) == 1  # not 2
+    assert len(users[2]) <= len(users[1]) + 200
+
+
+def test_planner_prompt_max_tokens_overrides_the_default(tmp_path):
+    cfg = json.loads(json.dumps(CFG))
+    cfg["prompts"] = {
+        "planner": {"name": "big", "source": "channel", "system": "x", "user": "{{script}}",
+                    "max_tokens": 24000, "model_hint": "deepseek-v4-pro"}
+    }
+    ctx = make_ctx(tmp_path, cfg)
+    seen = {}
+
+    def chat_fn(provider, model, system, user, max_tokens):
+        seen["max_tokens"], seen["model"] = max_tokens, model
+        return reply(good_beats())
+
+    planner.plan_beats(ctx, SCRIPT, 8.0, chat_fn=chat_fn)
+    assert seen["max_tokens"] == 24000
+    assert seen["model"] == "deepseek-v4-pro"  # channel config still wins when set

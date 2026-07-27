@@ -73,6 +73,26 @@ Library screens over the library API; Panel dashboard; docker-compose
 production profile for the VPS. **Demo:** "make the middle faster and add
 a map when he mentions the route" → validated diff → apply → re-render.
 
+## M10 — Say it better (prompt packs) ✅ BUILT 2026-07-27
+Prompts became data: `contracts/prompts/` + schema + CI gate + mirrored
+loaders, the editable/welded split, resolution order (video → channel →
+style pack → default) with the resolved text snapshotted into `cfg.json`;
+Prompts screen (list, editor with variable palette, composed preview,
+costed test run); the two component menus reconciled; script target
+length into the style pack (D45). **Demo:** two channels, same pipeline,
+visibly different narration voice — changed in the UI, no deploy.
+
+Deferred out of M10: the catalog `when_to_use` copy pass (a taste job on
+28 components, not plumbing — do it on the Overlays screen now that the
+chat agent reads the same text).
+
+Candidates queued behind it, in value order (see
+[LLM Usage](../02-components/llm-usage.md#7-beyond-prompts--more-stages-not-more-autonomy)):
+beat sheet v1.1 (`queries[]`, `preferred_sources[]`, `hero`), a metadata
+stage, a review pass, a research stage, and `planner.llm = agent` as an
+alternative planner strategy (agent-authored beat sheet, same validator,
+same pipeline — D2 intact).
+
 ## Sequencing notes
 
 - M3 before M4 on purpose: the deterministic spine must produce a real

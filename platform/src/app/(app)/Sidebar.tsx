@@ -15,6 +15,7 @@ const NAV_GROUPS: { label: string; items: [string, string][] }[] = [
       ["/channels", "Channels"],
       ["/themes", "Themes"],
       ["/style-packs", "Style Packs"],
+      ["/prompts", "Prompts"],
       ["/overlays", "Overlays"],
     ],
   },

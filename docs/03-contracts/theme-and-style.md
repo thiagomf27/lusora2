@@ -47,6 +47,10 @@ script_persona: |
   Grave, precise documentary narrator. Short sentences. No exclamations.
 visual_language: |
   Archival, desaturated, wide establishing shots; avoid modern footage.
+script:                           # D45, lands in M10
+  target_seconds: 90              # per-video overridable, like overlays.density
+  tolerance: 0.25
+  prompt: doc-grave               # optional: the prompt pack matching this voice
 ```
 
 - `pacing` numbers are CONSTRAINTS: the prompt derives target beat count
@@ -61,6 +65,14 @@ visual_language: |
 - Video-type presets (doc / explainer / breakdown / listicle) are just
   named style packs with different numbers. Initial numbers per type:
   OQ-12 (needs your taste, not a technical decision).
+- `script.target_seconds` is where narration length lives (D45, closes
+  OQ-23): length is part of a pack's shape, next to the pacing numbers it
+  interacts with, and a long-form channel becomes a new pack rather than
+  a code change. Per-video overridable like `overlays.density`. Until M10
+  ships it, the 60–120 s target is hardcoded in the script prompt.
+- `script.prompt` names the prompt pack that carries this pack's voice —
+  layer 3 of the resolution order in D44 (video override → channel →
+  style pack → default). See [LLM Usage](../02-components/llm-usage.md).
 - `video_type` is how a pack says which preset it implements. It is
   optional — a pack without one suits any type — and it is advisory: the
   channel's own `video_type` is what the pipeline reads, and the field

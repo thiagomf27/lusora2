@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "comment": "Role definitions for prompt packs (D42-D44). The variable set is a contract: a prompt may only use these names, and `required` ones must survive into the composed text. Both the worker (lusora_contracts) and the platform (lib/prompts.ts) read this file — no mirrored list to drift.",
+  "roles": {
+    "script": {
+      "description": "Narration writer. Output is spoken verbatim by TTS and quoted verbatim by the planner.",
+      "welded": { "system": true, "user": false },
+      "variables": {
+        "persona": { "required": false, "source": "style_pack.script_persona" },
+        "language": { "required": true, "source": "cfg.language" },
+        "title": { "required": true, "source": "video.title" },
+        "target_seconds": { "required": false, "source": "style_pack.script.target_seconds (D45)" },
+        "target_words": { "required": false, "source": "derived from target_seconds at 2.5 words/second" },
+        "content_rules": { "required": false, "source": "cfg.content_rules" },
+        "instructions": { "required": false, "source": "cfg.overrides.instructions" }
+      }
+    },
+    "planner": {
+      "description": "Script + style pack + catalog -> beat sheet JSON. Output is schema- and validator-checked, then repaired up to 3 times.",
+      "welded": { "system": true, "user": true },
+      "variables": {
+        "script": { "required": true, "source": "script.txt" },
+        "audio_duration_s": { "required": true, "source": "probed audio.mp3 duration" },
+        "target_beats": { "required": false, "source": "derived: audio_duration_s / avg_hold" },
+        "avg_hold": { "required": false, "source": "style_pack.pacing.avg_hold_seconds" },
+        "min_hold": { "required": false, "source": "style_pack.pacing.min_hold" },
+        "max_hold": { "required": false, "source": "style_pack.pacing.max_hold" },
+        "arc": { "required": false, "source": "style_pack.pacing.arc" },
+        "density": { "required": false, "source": "style_pack.overlays.density" },
+        "visual_language": { "required": false, "source": "style_pack.visual_language" },
+        "content_rules": { "required": false, "source": "cfg.content_rules" },
+        "instructions": { "required": false, "source": "cfg.overrides.instructions" },
+        "component_menu": { "required": true, "source": "catalog, filtered by allowed_components" },
+        "video_id": { "required": true, "source": "the video id" }
+      }
+    },
+    "chat": {
+      "description": "Editor request -> proposed beat ops + plan ops. Never applies anything (D15).",
+      "welded": { "system": true, "user": true },
+      "variables": {
+        "component_menu": { "required": true, "source": "merged catalog" },
+        "beats": { "required": true, "source": "beats.json" },
+        "plan_tracks": { "required": true, "source": "edit_plan.json tracks" },
+        "message": { "required": true, "source": "the editor's request" }
+      }
+    }
+  }
+}

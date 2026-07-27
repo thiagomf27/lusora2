@@ -10,6 +10,7 @@ import { ApiError } from "./auth.ts";
 import { deepMerge } from "./merge.ts";
 import { validateAgainst } from "./validate.ts";
 import { loadEnv, repoRoot } from "./env.ts";
+import { PROMPT_ROLES, resolvePrompt } from "./prompts.ts";
 
 export function videosRoot(): string {
   loadEnv();
@@ -187,6 +188,20 @@ export async function enqueueVideo(
     if (snapshot[field] === undefined) {
       snapshot[field] = JSON.parse(readFileSync(docPath, "utf8"));
     }
+  }
+
+  // Resolve each agent's prompt and embed its TEXT (D44). The style pack layer
+  // reads style_pack_doc, so this has to run after the embed above. The welded
+  // contract half is NOT snapshotted: it must match the validator that will
+  // judge the output, not the one that existed at enqueue.
+  if (snapshot.prompts === undefined) {
+    const prompts: Record<string, unknown> = {};
+    for (const role of PROMPT_ROLES) {
+      const result = resolvePrompt(snapshot, role, overrides);
+      if ("problem" in result) return { ok: false, problems: [result.problem] };
+      prompts[role] = result.resolved;
+    }
+    snapshot.prompts = prompts;
   }
 
   const check = validateAgainst("channel_config", snapshot);

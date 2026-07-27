@@ -44,6 +44,7 @@ const fixtureToSchema = {
   "style_pack.json": "style_pack",
   "channel_config.json": "channel_config",
   "cost_event.json": "cost_event",
+  "prompt.json": "prompt",
 };
 for (const [fixture, schemaName] of Object.entries(fixtureToSchema)) {
   const validate = validators[schemaName];
@@ -91,6 +92,65 @@ for (const file of packFiles) {
     else {
       coreNames.add(entry.name);
       console.log(`✓ pack entry ${entry.name} (${stem}) valid`);
+    }
+  }
+}
+
+// 3c. prompt packs (D42): schema-valid, role matches the directory, name
+//     matches the filename, every {{variable}} is one the role declares, and
+//     the required ones survive into the composed (editable + welded) text.
+//     A prompt that silently drops {{script}} would produce garbage that the
+//     planner's repair loop cannot fix.
+const promptsRoot = join(root, "contracts/prompts");
+const VAR_RE = /\{\{[#/]?([a-z_][a-z0-9_]*)\}\}/g;
+const usedVars = (text) => new Set([...String(text ?? "").matchAll(VAR_RE)].map((m) => m[1]));
+
+if (existsSync(promptsRoot)) {
+  const roles = JSON.parse(readFileSync(join(promptsRoot, "roles.json"), "utf8")).roles;
+  const weldedText = (role, half) => {
+    const path = join(promptsRoot, "welded", `${role}.${half}.txt`);
+    return existsSync(path) ? readFileSync(path, "utf8") : "";
+  };
+
+  for (const [role, def] of Object.entries(roles)) {
+    const known = new Set(Object.keys(def.variables));
+    const dir = join(promptsRoot, role);
+    if (!existsSync(dir)) {
+      fail(`prompts: role '${role}' has no directory`);
+      continue;
+    }
+    // welded blocks may only use declared variables too
+    for (const half of ["system", "user"]) {
+      for (const v of usedVars(weldedText(role, half))) {
+        if (!known.has(v)) fail(`prompts/welded/${role}.${half}.txt: unknown variable {{${v}}}`);
+      }
+    }
+    const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
+    if (!files.includes("default.json")) fail(`prompts/${role}: no default.json (last layer of the D44 ladder)`);
+
+    for (const file of files) {
+      const doc = JSON.parse(readFileSync(join(dir, file), "utf8"));
+      const where = `prompts/${role}/${file}`;
+      if (!validators.prompt(doc)) {
+        fail(`${where}: ${ajv.errorsText(validators.prompt.errors)}`);
+        continue;
+      }
+      if (doc.role !== role) fail(`${where}: role is ${JSON.stringify(doc.role)}, expected "${role}"`);
+      if (doc.name !== file.replace(/\.json$/, "")) fail(`${where}: name ${JSON.stringify(doc.name)} does not match the filename`);
+
+      const editable = new Set([...usedVars(doc.system), ...usedVars(doc.user)]);
+      for (const v of editable) {
+        if (!known.has(v)) fail(`${where}: unknown variable {{${v}}} (role '${role}' declares ${[...known].join(", ")})`);
+      }
+      const composed = new Set([
+        ...editable,
+        ...usedVars(weldedText(role, "system")),
+        ...usedVars(weldedText(role, "user")),
+      ]);
+      for (const [name, spec] of Object.entries(def.variables)) {
+        if (spec.required && !composed.has(name)) fail(`${where}: required variable {{${name}}} is never used`);
+      }
+      console.log(`✓ ${where} valid`);
     }
   }
 }

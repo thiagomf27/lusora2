@@ -1,0 +1,9 @@
+BEAT SHEET:
+{{beats}}
+
+EDIT PLAN (tracks only):
+{{plan_tracks}}
+
+USER REQUEST: {{message}}
+
+Respond with the JSON object only.

@@ -188,6 +188,36 @@ export interface StylePack {
   transitions: { allowed: TransitionType[]; default: TransitionType };
   script_persona?: string;
   visual_language?: string;
+  /** D45: narration length lives with the pacing numbers it interacts with,
+   *  and is overridable per video like overlays.density. */
+  script?: { target_seconds?: number; tolerance?: number; prompt?: string };
+}
+
+// ---------- prompts (D42-D44) ----------
+
+export type PromptRole = "script" | "planner" | "chat";
+
+/** The EDITABLE half of an agent prompt; the welded contract half lives in
+ *  contracts/prompts/welded/ and is appended by code at call time. */
+export interface Prompt {
+  name: string;
+  role: PromptRole;
+  video_type?: VideoType;
+  description?: string;
+  system: string;
+  user?: string;
+  model_hint?: string | null;
+  max_tokens?: number | null;
+}
+
+/** What the cfg snapshot carries per role: text, not a name (D44). */
+export interface ResolvedPrompt {
+  name: string;
+  source: "video" | "channel" | "style_pack" | "default";
+  system: string;
+  user?: string;
+  model_hint?: string | null;
+  max_tokens?: number | null;
 }
 
 // ---------- channel config ----------
@@ -223,8 +253,15 @@ export interface ChannelConfig {
   style_pack: string;
   component_pack?: string | null;
   voice: { provider: string; voice_id?: string };
-  script?: { generator?: string; llm?: string };
-  planner?: { llm?: string };
+  script?: {
+    generator?: string;
+    llm?: string;
+    model?: string;
+    prompt?: string;
+    target_seconds?: number;
+  };
+  planner?: { llm?: string; model?: string; prompt?: string };
+  chat?: { llm?: string; model?: string; prompt?: string };
   captions?: { enabled?: boolean };
   renderer?: "auto" | "ffmpeg" | "remotion";
   output?: { fps?: number; width?: number; height?: number };
@@ -247,6 +284,8 @@ export interface ChannelConfig {
   overrides?: Record<string, unknown>;
   style_pack_doc?: StylePack;
   theme_doc?: Theme;
+  /** Resolved prompt text per role, snapshotted at enqueue (D44). */
+  prompts?: Partial<Record<PromptRole, ResolvedPrompt>>;
 }
 
 // ---------- catalog ----------

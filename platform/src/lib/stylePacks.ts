@@ -24,6 +24,8 @@ export interface StylePackRow {
   name: string;
   /** undefined = the pack allows every catalog component. */
   allowed?: string[];
+  /** D44 layer 3: the script prompt this pack's voice implies. */
+  scriptPrompt?: string;
 }
 
 /** The name is also the filename, so it must be a safe slug. */
@@ -57,7 +59,11 @@ export function listStylePacks(): StylePackRow[] {
     .sort()
     .map((file) => {
       const doc = JSON.parse(readFileSync(join(d, file), "utf8")) as StylePack;
-      return { name: file.replace(/\.json$/, ""), allowed: doc.overlays?.allowed_components };
+      return {
+        name: file.replace(/\.json$/, ""),
+        allowed: doc.overlays?.allowed_components,
+        scriptPrompt: doc.script?.prompt,
+      };
     });
 }
 

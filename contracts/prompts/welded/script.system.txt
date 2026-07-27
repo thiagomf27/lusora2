@@ -1,0 +1,2 @@
+Output ONLY the narration text — no headings, no scene directions, no markdown, no speaker labels, no stage cues, no emoji. Plain sentences that will be read aloud.
+Write the ENTIRE script in {{language}}.

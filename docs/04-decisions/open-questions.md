@@ -91,5 +91,20 @@ move_overlay lock; set_music_volume does not. Unlock UI still to design.)*
 one render worker or N. Measure with M3's fixture on the candidate VPS
 before buying — this is a measurement, not a design decision.
 
-All other open questions (OQ-1..20) are closed — see D21–D40 in the
-Decision Log.
+All other open questions (OQ-1..20, OQ-22..23) are closed — see D21–D45
+in the Decision Log.
+
+## Blocking prompt packs (M10) — ALL DECIDED 2026-07-27 (D42–D45)
+
+**OQ-22 — Prompt pack structure.** ✅ DECIDED as recommended, all four
+sub-questions: (a) **one file per prompt, typed by role** (D42);
+(b) **files** in `contracts/prompts/`, not DB rows (D42); (c) **yes** —
+only the voice/creative half is editable, the contract half is welded
+into the code (D43); (d) snapshot the resolved **text** into `cfg.json`
+(D44). Resolution order and the per-role variable list are settled with
+them — see
+[LLM Usage §6](../02-components/llm-usage.md#6-prompt-packs--decided-d42d45).
+
+**OQ-23 — Script length as data.** ✅ DECIDED (D45): **style pack**, with
+a per-video override, mirroring `overlays.density`. Unblocks long-form
+channels.

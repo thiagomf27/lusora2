@@ -105,6 +105,19 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 5. **OQ-21**: measure render/Whisper throughput on the target VPS with
    an M3 fixture before choosing specs.
 6. Deploy Dockerfiles exist but were never built here (no docker).
+7. ~~Prompts are hardcoded strings~~ **DONE (2026-07-27, M10)** — prompt
+   packs (D42–D45): `contracts/prompts/`, the editable/welded split, the
+   resolution ladder with the resolved text snapshotted into `cfg.prompts`,
+   a `/prompts` screen with a composed preview and a costed test run.
+   Inventory and invariants: [LLM Usage](02-components/llm-usage.md).
+   **Not yet exercised against a live DB**: `pnpm run ci`, the platform
+   build and both test suites pass, but the screen and the enqueue path
+   were never opened in a browser here (the dev Postgres on :5433 was
+   down and starting it needs sudo). First run: check `/prompts` loads,
+   then enqueue one video and confirm `cfg.json` carries `prompts`.
+8. ~~`script.model` / `planner.model` missing from the channel config
+   schema~~ **DONE (M10)** — both added, alongside `prompt` and
+   `script.target_seconds`.
 
 ## Render stability on low-RAM machines (2026-07-19 fixes)
 

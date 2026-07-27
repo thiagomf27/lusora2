@@ -5,6 +5,7 @@ import type { StylePack, VideoType } from "@lusora/contracts";
 import { handler, requireUser } from "@/lib/auth";
 import { packNames } from "@/lib/catalog";
 import { repoRoot } from "@/lib/env";
+import { PROMPT_ROLES, listPrompts } from "@/lib/prompts";
 import { stylePacksDir } from "@/lib/stylePacks";
 
 /** Enumerable channel-config options sourced from the contracts data files:
@@ -56,9 +57,16 @@ export const GET = handler(async () => {
   } catch {
     componentPacks = [];
   }
+  // Prompt names per role (D42): layer 2 of the resolution ladder is a channel
+  // field, so the channel form needs the list.
+  const prompts = Object.fromEntries(
+    PROMPT_ROLES.map((role) => [role, listPrompts(role).map((p) => p.name)])
+  ) as Record<(typeof PROMPT_ROLES)[number], string[]>;
+
   return NextResponse.json({
     themes: listNames("themes"),
     stylePacks: stylePackOptions(),
     componentPacks,
+    prompts,
   });
 });

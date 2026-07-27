@@ -51,6 +51,21 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
   its formulas. New packs start from an existing one, which is how a
   video type is added. The name is fixed after creation (it is the
   filename channels reference).
+- **Prompts** — the editable half of each agent prompt
+  (`contracts/prompts/<role>/`, D42–D44): list per role (script, planner,
+  chat) with who references each, create, edit, delete while unreferenced.
+  The centre of the screen is the **composed preview**: the editable text
+  plus the welded contract block, rendered with a real video's data (or a
+  sample) through the same renderer the agents use, so what you read is
+  what the model reads. The welded half is shown but never editable — it
+  encodes what the validator is about to enforce. A variable palette
+  inserts only the names the role declares; unknown or dropped-required
+  variables are refused on save and in CI. **Test run** calls the provider
+  with the composed prompt and records a cost event, so an experiment is
+  costed like production. Prompts are chosen per channel (Channels
+  screen), per style pack, or per video at enqueue; the resolved text is
+  snapshotted, so editing here never changes a video already in
+  production.
 - **Overlays** — the component catalog, browsable: every pack, each entry's
   selection rules (`when_to_use` / `when_not_to_use`), anchors, props table
   (nested specs flattened, with `from_anchor` / `computed` / word caps) and
