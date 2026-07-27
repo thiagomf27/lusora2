@@ -1,6 +1,13 @@
 /**
- * Style pack documents (contracts/style-packs/*.json) — read here, and written
- * only through `setComponentAllowance`.
+ * Style pack documents (contracts/style-packs/*.json) — one .json per name,
+ * like themes, and the same files the worker snapshots into cfg.json as
+ * `style_pack_doc` at enqueue. There is no style_packs table; these helpers
+ * plus the /api/style-packs routes are the whole storage layer.
+ *
+ * Two write paths, deliberately: the Style Packs screen replaces a whole
+ * document (`serializeStylePack`), while `setComponentAllowance` below splices
+ * a single array in place so toggling one component from the Overlays screen
+ * never reformats four unrelated packs.
  *
  * `overlays.allowed_components` is both the planner's menu filter and a
  * validate rule, so a new component that no pack lists can never appear in a
@@ -17,6 +24,25 @@ export interface StylePackRow {
   name: string;
   /** undefined = the pack allows every catalog component. */
   allowed?: string[];
+}
+
+/** The name is also the filename, so it must be a safe slug. */
+export const STYLE_PACK_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+export const STYLE_PACK_NAME_HINT =
+  "name must be lowercase letters, digits and dashes (e.g. doc-slow)";
+
+export function stylePacksDir(): string {
+  return dir();
+}
+
+export function stylePackPath(name: string): string {
+  if (!STYLE_PACK_NAME_RE.test(name)) throw new Error(STYLE_PACK_NAME_HINT);
+  return join(dir(), `${name}.json`);
+}
+
+export function serializeStylePack(pack: unknown): string {
+  return JSON.stringify(pack, null, 2) + "\n";
 }
 
 function dir(): string {

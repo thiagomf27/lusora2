@@ -1,5 +1,6 @@
 {
   "name": "breakdown-fast",
+  "video_type": "breakdown",
   "pacing": {
     "avg_hold_seconds": 2.6,
     "min_hold": 1.6,

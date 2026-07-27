@@ -1,14 +1,23 @@
 /* Shared form styles for the contract-document editors (themes, catalog
    entries): field labels in mono, one column, no framework. */
 
-.form { display: grid; gap: 9px; align-content: start; }
+/* min-width: 0 all the way down, because these forms sit in a fixed-width
+   grid track beside a preview. A grid/flex item's floor is min-content, and
+   an <input> without an explicit width reports ~20ch — so without this the
+   form silently overflows its column and paints over the preview. */
+.form { display: grid; gap: 9px; align-content: start; min-width: 0; }
 .formLabel {
   font-size: 10px;
   letter-spacing: 1.4px;
   color: var(--muted-2);
   margin-top: 8px;
 }
-.field { display: grid; gap: 4px; }
+.field { display: grid; gap: 4px; min-width: 0; }
+/* min-width only — grid items already stretch to their track. Setting a width
+   here would override the sized controls below (.colorPicker). */
+.field input,
+.field select,
+.field textarea { min-width: 0; }
 .fieldLabel {
   font-size: 11.5px;
   color: var(--muted);
@@ -60,5 +69,5 @@
 }
 .checkOn { color: var(--text); border-color: var(--accent); }
 .check input { margin: 0; width: 12px; height: 12px; accent-color: var(--accent); padding: 0; }
-.triple { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.triple { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .error { color: var(--danger); font-size: 11.5px; }

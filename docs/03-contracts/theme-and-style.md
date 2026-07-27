@@ -29,6 +29,7 @@ consistency is enforced by construction. Final token list: OQ-10.
 
 ```yaml
 # style-packs/doc-slow.yaml
+video_type: doc                 # optional; the preset this pack implements
 pacing:
   avg_hold_seconds: 4.0
   min_hold: 2.5
@@ -60,3 +61,9 @@ visual_language: |
 - Video-type presets (doc / explainer / breakdown / listicle) are just
   named style packs with different numbers. Initial numbers per type:
   OQ-12 (needs your taste, not a technical decision).
+- `video_type` is how a pack says which preset it implements. It is
+  optional — a pack without one suits any type — and it is advisory: the
+  channel's own `video_type` is what the pipeline reads, and the field
+  only narrows the picker on the Channels screen. Adding a video type is
+  therefore duplicating a pack and retuning it, on the Style Packs
+  screen, with no deploy.

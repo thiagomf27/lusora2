@@ -39,6 +39,18 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
   channels reference it. Create and edit in place — the preview doubles
   as the live preview of the draft; the name is fixed after creation
   (it is the filename that channels reference).
+- **Style Packs** — the style pack documents in `contracts/style-packs/`
+  (the behavior half of personalization, snapshotted at enqueue): list,
+  create, edit in place, delete while unreferenced. Fields are pacing
+  (min/avg/max hold, arc), overlay density, `allowed_components`,
+  transitions, `script_persona` and `visual_language`, plus the
+  `video_type` the pack implements. The preview is not a render — a pack
+  is behavior — but the numbers made concrete: a one-minute rhythm strip,
+  shots and overlays per minute, and the overlay budget and beat-count
+  range the worker's validator will enforce on a 10-minute video, using
+  its formulas. New packs start from an existing one, which is how a
+  video type is added. The name is fixed after creation (it is the
+  filename channels reference).
 - **Overlays** — the component catalog, browsable: every pack, each entry's
   selection rules (`when_to_use` / `when_not_to_use`), anchors, props table
   (nested specs flattened, with `from_anchor` / `computed` / word caps) and

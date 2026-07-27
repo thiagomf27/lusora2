@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import type { ChannelConfig, VisualSource, LicenseKind } from "@lusora/contracts";
+import { useEffect, useMemo, useState } from "react";
+import type { ChannelConfig, VideoType, VisualSource, LicenseKind } from "@lusora/contracts";
 import s from "./ChannelConfigForm.module.css";
 
 const VIDEO_TYPES = ["doc", "explainer", "breakdown", "listicle"] as const;
@@ -22,9 +22,16 @@ const LANGUAGES = [
   "en-US", "en-GB", "pt-BR", "pt-PT", "es-ES", "es-MX", "de-DE", "fr-FR", "it-IT", "ja-JP",
 ] as const;
 
+/** Style packs arrive with the video type they implement (Style Packs screen),
+ *  so the picker can put the packs built for this channel's type first. */
+interface StylePackOption {
+  name: string;
+  video_type?: VideoType;
+}
+
 interface ConfigOptions {
   themes: string[];
-  stylePacks: string[];
+  stylePacks: StylePackOption[];
   componentPacks: string[];
 }
 
@@ -122,6 +129,20 @@ export default function ChannelConfigForm({
       .catch(() => {});
   }, []);
 
+  // Packs built for this video type first, then the ones that declare no type
+  // (they suit any), then the rest — never hidden, a channel may legitimately
+  // point at a pack from another type.
+  const stylePackNames = useMemo(() => {
+    const rank = (p: StylePackOption) =>
+      p.video_type === value.video_type ? 0 : p.video_type === undefined ? 1 : 2;
+    return [...opts.stylePacks].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
+      .map((p) => p.name);
+  }, [opts.stylePacks, value.video_type]);
+
+  const chosenPack = opts.stylePacks.find((p) => p.name === value.style_pack);
+  const packMismatch =
+    chosenPack?.video_type !== undefined && chosenPack.video_type !== value.video_type;
+
   const up = (partial: Partial<ChannelConfig>) => onChange({ ...value, ...partial });
   const sp = value.source_policy;
   const visual = sp.visual;
@@ -178,7 +199,12 @@ export default function ChannelConfigForm({
           </label>
           <label className={s.field}>
             <span className={s.label}>Style pack</span>
-            <Select value={value.style_pack} options={opts.stylePacks} onChange={(v) => up({ style_pack: v })} />
+            <Select value={value.style_pack} options={stylePackNames} onChange={(v) => up({ style_pack: v })} />
+            <span className={s.hint}>
+              {packMismatch
+                ? `${value.style_pack} is a ${chosenPack?.video_type} pack`
+                : "pacing, density and persona — edit on Style Packs"}
+            </span>
           </label>
         </div>
       </section>

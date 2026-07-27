@@ -1,5 +1,6 @@
 {
   "name": "explainer-medium",
+  "video_type": "explainer",
   "pacing": {
     "avg_hold_seconds": 3.2,
     "min_hold": 2.0,

@@ -677,7 +677,8 @@ export default function OverlaysPage() {
                 </div>
                 <div className={s.sideHint}>
                   A pack that does not list a component will not be offered it, and the validator
-                  rejects it in a plan — this is step 4 of adding an overlay.
+                  rejects it in a plan — this is step 4 of adding an overlay. Edit a pack&apos;s
+                  pacing and density on <a href="/style-packs">Style Packs</a>.
                 </div>
               </div>
 

@@ -143,6 +143,25 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   (the name is the filename channels reference); an edit only affects
   future enqueues, since queued videos carry their own `theme_doc`
   snapshot.
+- Style packs are editable the same way: `GET|POST /api/style-packs` and
+  `GET|PUT|DELETE /api/style-packs/{name}` back the Style Packs screen,
+  writing `contracts/style-packs/*.json` (no table). PUT cannot rename;
+  DELETE refuses while a channel references the pack. A whole-document
+  PUT reserializes the file, so a pack saved from the screen is
+  normalized once (`4.0` → `4`) — the Overlays screen's allowance toggle
+  still splices only `allowed_components`, so it never carries that
+  diff noise.
+- `style_pack.video_type` (optional, same enum as
+  `channel_config.video_type`) records which preset a pack implements.
+  Advisory only: the pipeline still reads the channel's `video_type`, and
+  the field just orders the style-pack picker on the Channels screen.
+  `GET /api/config-options` therefore returns `stylePacks` as
+  `{name, video_type?}[]` rather than plain names.
+- `platform/src/lib/pacing.ts` mirrors the density map, overlay cap and
+  beat-count range from `worker/lusora_worker/validators.py` so the Style
+  Packs preview shows the budget the validator will actually enforce.
+  Guarded by `platform/test/stylePacks.test.ts`; if the worker's rules
+  move, move these too.
 - The catalog is now `contracts/catalog.json` (generated `core`) PLUS the
   data-only packs in `contracts/component-packs/*.json`, merged by
   `lusora_contracts.load_catalog()` and `platform/src/lib/catalog.ts`

@@ -171,8 +171,13 @@ export interface Theme {
 
 export type OverlayDensity = "low" | "normal" | "high" | { per_minute: number };
 
+export type VideoType = "doc" | "explainer" | "breakdown" | "listicle";
+
 export interface StylePack {
   name: string;
+  /** The video-type preset this pack implements — a video type IS a style pack
+   *  with different numbers, so the channel's video_type picks among packs. */
+  video_type?: VideoType;
   pacing: {
     avg_hold_seconds: number;
     min_hold: number;
@@ -213,7 +218,7 @@ export interface ChannelConfig {
   channel_id: string;
   name: string;
   language: string;
-  video_type: "doc" | "explainer" | "breakdown" | "listicle";
+  video_type: VideoType;
   theme: string;
   style_pack: string;
   component_pack?: string | null;

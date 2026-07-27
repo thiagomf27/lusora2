@@ -45,9 +45,18 @@ CATALOG   GET /catalog                  (merged core + data packs, each entry
 
 THEMES    GET/POST /themes              GET/PUT /themes/:name
 
+STYLE     GET/POST /style-packs         (list w/ schema errors + referencing
+PACKS                                    channels; create a pack file)
+          GET/PUT/DELETE /style-packs/:name
+                                        (PUT replaces the whole document —
+                                         the name is the filename and cannot
+                                         change; DELETE refuses while a
+                                         channel still references it)
+
 CONFIG    GET /config-options           (enumerable channel-config values read
                                          from the contracts data files: themes,
-                                         style packs, component packs)
+                                         style packs — with the video_type each
+                                         declares — and component packs)
           GET /users                    (id/email/name/role for team pickers)
 
 LIBRARY   Proxied 1:1 to the broll library API under /library/*

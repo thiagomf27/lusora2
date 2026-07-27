@@ -8,6 +8,10 @@
   "additionalProperties": false,
   "properties": {
     "name": { "type": "string", "minLength": 1 },
+    "video_type": {
+      "enum": ["doc", "explainer", "breakdown", "listicle"],
+      "description": "the video-type preset this pack implements; a channel's video_type picks among packs. Same enum as channel_config.video_type"
+    },
     "pacing": {
       "type": "object",
       "required": ["avg_hold_seconds", "min_hold", "max_hold"],

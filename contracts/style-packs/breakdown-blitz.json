@@ -1,5 +1,6 @@
 {
   "name": "breakdown-blitz",
+  "video_type": "breakdown",
   "pacing": { "avg_hold_seconds": 2.4, "min_hold": 1.4, "max_hold": 4.5, "arc": "linear" },
   "overlays": {
     "density": { "per_minute": 9 },
