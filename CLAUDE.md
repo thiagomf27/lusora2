@@ -50,6 +50,10 @@ docker-compose.
 ### 05 — Roadmap
 - [Milestones](05-roadmap/milestones.md) — build order for Claude Code
 
+### 07 — Authoring
+- [Authoring Guide](07-authoring.md) — ready-made prompts for adding a
+  component, a theme or a style pack, with the files to attach as models
+
 ## Conventions
 
 - **Decided** — settled in the Decision Log; changing it requires a new entry.
