@@ -7,7 +7,15 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 export const StepFlowProps = z.object({
   title: z.string().max(40).optional(),
@@ -24,11 +32,15 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "StepFlow",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade", // its frame did not move before D46
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
+  const surface = surfaceStyle(theme, { radius: 8, alpha: "e6" });
 
   const stagger = Math.min(
     Math.round(fps * 0.4 * durationMul),
@@ -57,6 +69,9 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
         justifyContent: "center",
         padding: `0 ${width * 0.05}px`,
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       {props.title ? (
@@ -97,7 +112,7 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
           const enter = interpolate(frame, [start, start + boxDur], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           });
           // Connector into this step starts midway through the previous box.
           const connStart = start - boxDur * 0.5;
@@ -168,9 +183,9 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
               <div
                 style={{
                   width: boxW,
-                  background: `${theme.colors.bg}e6`,
+                  background: surface.background,
                   border: `1px solid ${theme.colors.neutral}66`,
-                  borderRadius: 8,
+                  borderRadius: surface.borderRadius,
                   padding: `${height * 0.022}px ${width * 0.014}px`,
                   display: "flex",
                   flexDirection: "column",

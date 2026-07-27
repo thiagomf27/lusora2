@@ -9,7 +9,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const DateStampProps = z.object({
   /** Pre-formatted for the language of the video, e.g. "31 January 1943". */
@@ -27,11 +34,14 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "DateStamp",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade", // its frame did not move before D46
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   const top = props.position.startsWith("top");
   const left = props.position.endsWith("left");
@@ -50,6 +60,9 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
         flexDirection: "column",
         alignItems: left ? "flex-start" : "flex-end",
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
         rotate: stamped ? "-2.5deg" : "0deg",
       }}
     >
@@ -62,7 +75,7 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
           width: interpolate(frame, [0, ruleDur], [0, width * 0.12], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           }),
         }}
       />
@@ -86,7 +99,7 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
           translate: `0 ${interpolate(frame, [ruleDur * 0.5, ruleDur * 0.5 + fps * 0.45], [height * 0.014, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })}px`,
         }}
       >

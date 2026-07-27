@@ -93,6 +93,18 @@ stage, a review pass, a research stage, and `planner.llm = agent` as an
 alternative planner strategy (agent-authored beat sheet, same validator,
 same pipeline — D2 intact).
 
+## M11 — Look it different (presentation tokens) ✅ BUILT 2026-07-27
+Theme gains `surface` + `motion` (D46): schema, resolvers in the theme
+runtime, `TemplateOverlay` converted first, then core components in
+clusters; per-component motion overrides; theme + style-pack file import
+in the UI, copying the `PackImport` pattern. **Demo:** one channel, one
+catalog, one style pack, two themes — the same FactCard slides in with
+square corners for the serious cut and pops in rounded for the punchy
+one, changed in the UI with no deploy.
+
+Deferred out of M11: motion roles (D47 — build when two themes carry
+override maps longer than ~6 entries).
+
 ## Sequencing notes
 
 - M3 before M4 on purpose: the deterministic spine must produce a real

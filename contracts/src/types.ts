@@ -161,12 +161,29 @@ export interface EditPlan {
 
 // ---------- theme & style pack ----------
 
+/** D46 — how an overlay arrives. A request: components degrade to "fade". */
+export type Entrance = "fade" | "rise" | "slide" | "pop" | "wipe" | "typewriter";
+
 export interface Theme {
   name: string;
   colors: { bg: string; text: string; accent: string; neutral: string };
   typography: { display: string; body: string; caption_preset: string };
   motion_feel?: "slow_heavy" | "neutral" | "fast_light";
   grain?: "none" | "archival" | "film";
+  /** D46 — the shape of an overlay. Omitted tokens keep the pre-D46 look. */
+  surface?: {
+    radius?: "square" | "soft" | "rounded";
+    fill?: "solid" | "translucent" | "none";
+    /** Omitted keeps each component's own placement. */
+    accent_rule?: "top" | "left" | "none";
+  };
+  /** D46 — how an overlay arrives. Duration scaling stays in motion_feel. */
+  motion?: {
+    entrance?: Entrance;
+    easing?: "smooth" | "snap" | "spring" | "linear";
+    /** Keyed by catalog component name. Sparse by design (D47). */
+    per_component?: Record<string, Entrance>;
+  };
 }
 
 export type OverlayDensity = "low" | "normal" | "high" | { per_minute: number };

@@ -17,7 +17,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const LineChartProps = z.object({
   title: z.string().max(48).optional(),
@@ -44,11 +51,14 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "LineChart",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   const seriesColor = [accent, theme.colors.text, theme.colors.neutral];
   const plotW = width * 0.72;
@@ -72,7 +82,7 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
   const axisIn = interpolate(frame, [0, axisDur], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: curve,
   });
 
   return (
@@ -85,6 +95,9 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
         alignItems: "center",
         justifyContent: "center",
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       {props.title ? (

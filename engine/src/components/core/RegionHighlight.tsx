@@ -16,7 +16,14 @@
 import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 const plateSchema = z.object({
   src: z.string().max(120),
@@ -45,11 +52,14 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.5 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "RegionHighlight",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.5,
   });
+  const { opacity, inDur } = entrance;
 
   const lats = props.polygon.map((p) => p.lat);
   const lngs = props.polygon.map((p) => p.lng);
@@ -127,7 +137,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
   const grainSeed = Math.floor(frame / 2) % 12;
 
   return (
-    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity }}>
+    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
       <div style={{ position: "relative", width: plateW, height: plateH, overflow: "hidden", background: theme.colors.bg }}>
         {props.plate ? (
           <Img src={staticFile(props.plate.src)} style={{ width: "100%", height: "100%", objectFit: "fill" }} />
@@ -179,7 +189,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
             strokeDashoffset={leaderLen * (1 - interpolate(frame, [labelStart, labelStart + fps * 0.35 * durationMul], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             }))}
           />
           <circle cx={centroid.x} cy={centroid.y} r={plateH * 0.008} fill={accent} fillOpacity={outline} />
@@ -197,7 +207,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
             clipPath: `inset(0 ${interpolate(frame, [labelStart + 6, labelStart + 6 + fps * 0.4 * durationMul], [100, 0], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             })}% 0 0)`,
           }}
         >

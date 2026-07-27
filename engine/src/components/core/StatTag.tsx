@@ -9,7 +9,15 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 export const StatTagProps = z.object({
   value: z.number(),
@@ -26,18 +34,23 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.35 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "StatTag",
+    supported: PANEL_ENTRANCES,
+    fallback: "pop",  // the corner tag has always popped in
+    seconds: 0.35,
   });
+  const { opacity, inDur } = entrance;
+  const surface = surfaceStyle(theme, { radius: 10, alpha: "d9", accentRule: "top" });
+  const rule = Math.max(3, height * 0.006);
 
   const countDur = Math.round(fps * 1.0 * durationMul);
   const shown = Math.round(
     interpolate(frame, [0, countDur], [0, props.value], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      easing: curve,
     }),
   );
 
@@ -55,16 +68,23 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
         display: "flex",
         flexDirection: "column",
         alignItems: left ? "flex-start" : "flex-end",
-        background: `${theme.colors.bg}d9`,
-        borderRadius: 10,
-        borderTop: `${Math.max(3, height * 0.006)}px solid ${accent}`,
+        background: surface.background,
+        borderRadius: surface.borderRadius,
+        borderTop: surface.accentRule === "top" ? `${rule}px solid ${accent}` : undefined,
+        borderLeft: surface.accentRule === "left" ? `${rule}px solid ${accent}` : undefined,
         padding: `${height * 0.022}px ${width * 0.024}px`,
         opacity,
-        scale: `${interpolate(frame, [0, inDur], [0.8, 1], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-          easing: Easing.bezier(0.34, 1.56, 0.64, 1),
-        })}`,
+        // A pop keeps its own overshoot curve — that overshoot IS the pop.
+        scale:
+          entrance.kind === "pop"
+            ? `${interpolate(frame, [0, inDur], [0.8, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+                easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+              })}`
+            : "1",
+        translate: entrance.translate,
+        clipPath: entrance.clipPath,
         transformOrigin: `${left ? "left" : "right"} ${top ? "top" : "bottom"}`,
       }}
     >

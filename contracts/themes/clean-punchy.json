@@ -1,0 +1,28 @@
+{
+  "name": "clean-punchy",
+  "colors": {
+    "bg": "#0b1220",
+    "text": "#f2f5fa",
+    "accent": "#3ddc97",
+    "neutral": "#7b8798"
+  },
+  "typography": {
+    "display": "Inter",
+    "body": "Inter",
+    "caption_preset": "boxed"
+  },
+  "motion_feel": "fast_light",
+  "grain": "none",
+  "surface": {
+    "radius": "rounded",
+    "fill": "solid",
+    "accent_rule": "top"
+  },
+  "motion": {
+    "entrance": "pop",
+    "easing": "spring",
+    "per_component": {
+      "ChapterCard": "typewriter"
+    }
+  }
+}

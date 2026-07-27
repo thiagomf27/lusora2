@@ -7,6 +7,7 @@ import StylePackFields, {
   stylePackProblems,
   type CatalogChoice,
 } from "@/components/StylePackFields";
+import DocImport from "@/components/DocImport";
 import {
   RhythmStrip,
   StylePackLanguage,
@@ -31,6 +32,7 @@ export default function StylePacksPage() {
   const [createDraft, setCreateDraft] = useState<StylePack | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   async function load(select?: string) {
     const res = await fetch("/api/style-packs");
@@ -169,15 +171,18 @@ export default function StylePacksPage() {
             different numbers
           </div>
         </div>
-        <button
-          className="primary"
-          onClick={() => {
-            setError(null);
-            setCreateDraft(newStylePack());
-          }}
-        >
-          New style pack
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => { setError(null); setImporting(true); }}>Import…</button>
+          <button
+            className="primary"
+            onClick={() => {
+              setError(null);
+              setCreateDraft(newStylePack());
+            }}
+          >
+            New style pack
+          </button>
+        </div>
       </div>
 
       <div className={s.layout}>
@@ -342,6 +347,25 @@ export default function StylePacksPage() {
           )}
         </div>
       </div>
+
+      {importing && (
+        <div className={s.overlay} onClick={() => setImporting(false)}>
+          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.modalHead}>
+              <div className={s.modalTitle}>Import style pack</div>
+              <button onClick={() => setImporting(false)}>Close</button>
+            </div>
+            <DocImport
+              kind="style-pack"
+              onClose={() => setImporting(false)}
+              onImported={(name) => {
+                setImporting(false);
+                void load(name);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {createDraft && (
         <div className={s.overlay} onClick={() => setCreateDraft(null)}>

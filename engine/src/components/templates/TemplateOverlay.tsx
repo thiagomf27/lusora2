@@ -5,10 +5,22 @@
  * sizes relative to useVideoConfig(), exactly like the hand-written components
  * in ../core. Props arrive already validated against the entry's own spec, so
  * this only has to fall back for the optional ones.
+ *
+ * D46: shape comes from `surfaceStyle` and the entrance from `useEntrance`, so
+ * a theme restyles every UI-authored overlay without touching this file. Each
+ * layout passes the values it used BEFORE D46 as its fallbacks — an untouched
+ * theme renders exactly what it rendered before.
  */
-import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  TEXT_ENTRANCES,
+  emphasisColor,
+  fontStack,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
+import { useVideoConfig } from "remotion";
 import { TEMPLATES, type TemplateKind } from "./registry.ts";
 
 type Props = Record<string, unknown>;
@@ -19,70 +31,110 @@ const num = (v: unknown): number | undefined => (typeof v === "number" && !Numbe
 const list = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 
+/**
+ * What each template could draw before D46, and what it can draw now. The
+ * `entrance` here is the no-theme fallback, so these values are the pre-D46
+ * behaviour written down: the card slid in, the lower third and statement rose,
+ * the big number popped, the bullet list slid its title.
+ */
+const TEMPLATE_MOTION: Record<
+  TemplateKind,
+  { entrance: "slide" | "rise" | "pop"; supported: readonly string[] }
+> = {
+  card: { entrance: "slide", supported: TEXT_ENTRANCES },
+  lower_third: { entrance: "rise", supported: TEXT_ENTRANCES },
+  // the figure counts up; typing a number fights that, so panel entrances only
+  big_number: { entrance: "pop", supported: PANEL_ENTRANCES },
+  // items already stagger; a typewriter on top would read as a stutter
+  bullet_list: { entrance: "slide", supported: PANEL_ENTRANCES },
+  statement: { entrance: "rise", supported: TEXT_ENTRANCES },
+};
+
 export function TemplateOverlay({
   template,
+  component,
   props,
   theme,
 }: {
   template: TemplateKind;
+  /** Catalog entry name, so `motion.per_component` can target this overlay. */
+  component?: string;
   props: Props;
   theme: Theme;
 }) {
-  const frame = useCurrentFrame();
-  const { fps, width, height, durationInFrames } = useVideoConfig();
-  const { durationMul } = motionScale(theme);
+  const { width, height } = useVideoConfig();
   const accent = emphasisColor(
     theme,
     props.emphasis === "neutral" ? "neutral" : "accent"
   );
 
-  const inDur = Math.round(fps * 0.45 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  /** 0 → 1 over the entrance, eased out. */
-  const rise = interpolate(frame, [0, inDur], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
-  });
-  /** 0 → 1 for something that lands `delay` frames after the entrance. */
-  const after = (delayFrames: number, seconds = 0.4) =>
-    interpolate(frame, [inDur + delayFrames, inDur + delayFrames + fps * seconds * durationMul], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
-    });
-
   const display = fontStack(theme.typography.display);
   const body = fontStack(theme.typography.body);
   const rule = Math.max(3, height * 0.006);
 
-  const frameStyle: React.CSSProperties = { position: "absolute", inset: 0, opacity };
+  // Slide direction is the card's `position` prop — semantic, so it stays a
+  // prop and only the DISTANCE is handed to the entrance resolver.
+  const cardPosition =
+    props.position === "left" ? "left" : props.position === "center" ? "center" : "right";
+  const slideDistance =
+    template === "card"
+      ? cardPosition === "center"
+        ? 0
+        : cardPosition === "left"
+          ? -width * 0.06
+          : width * 0.06
+      : template === "bullet_list"
+        ? -width * 0.02
+        : undefined;
+
+  const motion = TEMPLATE_MOTION[template];
+  const entrance = useEntrance(theme, {
+    component: component ?? template,
+    supported: motion.supported as never,
+    fallback: motion.entrance,
+    slide: slideDistance,
+    rise: template === "lower_third" ? height * 0.02 : height * 0.015,
+    popFrom: template === "big_number" ? 0.94 : undefined,
+  });
+  const { after, progress: rise, typed } = entrance;
+  /** The big number's own clock: twice the entrance, whatever the entrance is. */
+  const countUp = entrance.ramp(entrance.inDur * 2);
+
+  const frameStyle: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    opacity: entrance.opacity,
+  };
+  /** Panel transform + clip, applied to whatever box the layout considers "the panel". */
+  const panel: React.CSSProperties = {
+    translate: entrance.translate,
+    scale: `${entrance.scale}`,
+    clipPath: entrance.clipPath,
+  };
 
   if (template === "card") {
-    const position = props.position === "left" ? "left" : props.position === "center" ? "center" : "right";
-    const center = position === "center";
-    const slide = center ? 0 : position === "left" ? -width * 0.06 : width * 0.06;
+    const center = cardPosition === "center";
+    const surface = surfaceStyle(theme, { radius: 12, alpha: "e6", accentRule: "left" });
     return (
       <div
         style={{
           ...frameStyle,
           display: "flex",
           alignItems: "center",
-          justifyContent: center ? "center" : position === "left" ? "flex-start" : "flex-end",
+          justifyContent: center ? "center" : cardPosition === "left" ? "flex-start" : "flex-end",
           padding: `0 ${width * 0.06}px`,
         }}
       >
         <div
           style={{
+            ...panel,
             width: center ? width * 0.62 : width * 0.38,
-            background: `${theme.colors.bg}e6`,
-            borderRadius: 12,
-            borderLeft: `${rule}px solid ${accent}`,
+            background: surface.background,
+            borderRadius: surface.borderRadius,
+            borderLeft:
+              surface.accentRule === "left" ? `${rule}px solid ${accent}` : undefined,
+            borderTop: surface.accentRule === "top" ? `${rule}px solid ${accent}` : undefined,
             padding: `${height * 0.04}px ${width * 0.028}px`,
-            translate: `${slide * (1 - rise)}px 0px`,
           }}
         >
           <div
@@ -95,7 +147,7 @@ export function TemplateOverlay({
               overflowWrap: "anywhere",
             }}
           >
-            {str(props.title) ?? ""}
+            {typed(str(props.title) ?? "")}
           </div>
           {str(props.body) ? (
             <div
@@ -138,6 +190,20 @@ export function TemplateOverlay({
 
   if (template === "lower_third") {
     const right = props.side === "right";
+    const surface = surfaceStyle(theme, { radius: 8, alpha: "e0", accentRule: "left" });
+    // The bar's SIDE stays the `side` prop (semantic); the theme only gets to
+    // remove it, via surface.accent_rule = "none".
+    const bar = surface.accentRule !== "none" && (
+      <div
+        style={{
+          width: rule,
+          background: accent,
+          borderRadius: 2,
+          scale: `1 ${rise}`,
+          transformOrigin: "bottom center",
+        }}
+      />
+    );
     return (
       <div
         style={{
@@ -149,23 +215,13 @@ export function TemplateOverlay({
         }}
       >
         <div style={{ display: "flex", alignItems: "stretch", gap: width * 0.014 }}>
-          {!right && (
-            <div
-              style={{
-                width: rule,
-                background: accent,
-                borderRadius: 2,
-                scale: `1 ${rise}`,
-                transformOrigin: "bottom center",
-              }}
-            />
-          )}
+          {!right && bar}
           <div
             style={{
-              background: `${theme.colors.bg}e0`,
+              ...panel,
+              background: surface.background,
               padding: `${height * 0.022}px ${width * 0.022}px`,
-              borderRadius: 8,
-              translate: `0px ${height * 0.02 * (1 - rise)}px`,
+              borderRadius: surface.borderRadius,
               textAlign: right ? "right" : "left",
             }}
           >
@@ -178,7 +234,7 @@ export function TemplateOverlay({
                 lineHeight: 1.2,
               }}
             >
-              {str(props.text) ?? ""}
+              {typed(str(props.text) ?? "")}
             </div>
             {str(props.subtext) ? (
               <div
@@ -194,17 +250,7 @@ export function TemplateOverlay({
               </div>
             ) : null}
           </div>
-          {right && (
-            <div
-              style={{
-                width: rule,
-                background: accent,
-                borderRadius: 2,
-                scale: `1 ${rise}`,
-                transformOrigin: "bottom center",
-              }}
-            />
-          )}
+          {right && bar}
         </div>
       </div>
     );
@@ -212,12 +258,10 @@ export function TemplateOverlay({
 
   if (template === "big_number") {
     const target = num(props.value) ?? 0;
-    // count up over the entrance, then hold the settled value
-    const shown = interpolate(frame, [0, Math.max(inDur * 2, 1)], [0, target], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
-    });
+    // Count up over twice the entrance, then hold the settled value. Driven by
+    // `countUp` rather than `progress` so the figure keeps counting even when
+    // the theme picks an instant entrance like `fade`.
+    const shown = target * countUp;
     const decimals = Number.isInteger(target) ? 0 : 1;
     return (
       <div
@@ -231,6 +275,7 @@ export function TemplateOverlay({
       >
         <div
           style={{
+            ...panel,
             display: "flex",
             alignItems: "baseline",
             gap: width * 0.006,
@@ -238,7 +283,6 @@ export function TemplateOverlay({
             color: accent,
             fontWeight: 700,
             lineHeight: 1,
-            scale: `${0.94 + 0.06 * rise}`,
           }}
         >
           {str(props.prefix) ? <span style={{ fontSize: height * 0.06 }}>{str(props.prefix)}</span> : null}
@@ -278,7 +322,7 @@ export function TemplateOverlay({
   if (template === "bullet_list") {
     const items = list(props.items).slice(0, 6);
     const marker = props.marker === "number" ? "number" : props.marker === "rule" ? "rule" : "dot";
-    const stagger = Math.round(fps * 0.22 * durationMul);
+    const stagger = entrance.frames(0.22);
     return (
       <div
         style={{
@@ -292,12 +336,12 @@ export function TemplateOverlay({
         {str(props.title) ? (
           <div
             style={{
+              ...panel,
               fontFamily: display,
               fontSize: height * 0.056,
               fontWeight: 700,
               color: theme.colors.text,
               marginBottom: height * 0.035,
-              translate: `${-width * 0.02 * (1 - rise)}px 0px`,
             }}
           >
             {str(props.title)}
@@ -391,16 +435,16 @@ export function TemplateOverlay({
       ) : null}
       <div
         style={{
+          ...panel,
           fontFamily: display,
           fontSize: height * 0.085,
           fontWeight: 700,
           lineHeight: 1.12,
           color: theme.colors.text,
-          translate: `0px ${height * 0.015 * (1 - rise)}px`,
           overflowWrap: "anywhere",
         }}
       >
-        {str(props.text) ?? ""}
+        {typed(str(props.text) ?? "")}
       </div>
       <div
         style={{

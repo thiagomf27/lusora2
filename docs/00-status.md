@@ -164,6 +164,42 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   normalized once (`4.0` → `4`) — the Overlays screen's allowance toggle
   still splices only `allowed_components`, so it never carries that
   diff noise.
+- **Theme `surface` + `motion` tokens (D46, M11).** `theme.schema.json`
+  gained six optional enums: `surface.{radius,fill,accent_rule}` and
+  `motion.{entrance,easing,per_component}`. Resolved by
+  `engine/src/themes/runtime.ts` (`surfaceStyle`, `easingCurve`,
+  `entranceFor` — all Remotion-free, so the platform can import them) and
+  `engine/src/themes/entrance.ts` (`useEntrance`, the frame-aware half).
+  All 26 catalog components and all 5 template layouts read them;
+  `engine/test/themes.test.ts` pins that a theme with none of these tokens
+  resolves to exactly the pre-D46 values, which is what made the
+  component-at-a-time migration safe.
+  - `entrance` is a REQUEST: a component declares which entrances it can
+    draw (`PANEL_ENTRANCES` / `TEXT_ENTRANCES`) and anything else degrades
+    to `fade` rather than rendering wrong.
+  - Absent ≠ any value. `accent_rule` and `entrance` have no schema
+    default: omitted means each component keeps its own choice. Most
+    components' fallback is `fade`, because pre-D46 most animated their
+    internals rather than their frame — the theme now ADDS a frame-level
+    entrance on top.
+  - `KineticTitle`'s `entrance` PROP still works and maps into the token
+    vocabulary (mask→wipe, scale→pop); the theme wins where set. The prop
+    is a deprecation candidate (appearance is not the planner's job) but
+    removing it changes the catalog entry the planner reads.
+  - Only 8 components take `surface` — the rest draw no panel. Bar
+    rounding and dot geometry are deliberately NOT surface tokens.
+  - Zero ffmpeg cost: any overlay already forces the Remotion route.
+  - `contracts/themes/clean-punchy.json` is the seed second look.
+  - `QuoteCard.tsx` is unconverted and is NOT in the `COMPONENTS` map —
+    dead code, renders nothing; delete or register it.
+- Themes and style packs can be IMPORTED as whole documents:
+  `platform/src/components/DocImport.tsx` (one component, both kinds)
+  posts to the existing `POST /api/themes` / `POST /api/style-packs`,
+  which already schema-validate and 409 on an existing name. The Themes
+  screen also plays the entrance (`ThemeEntrance`) — motion is
+  unjudgeable from a still. Those CSS keyframes are a second
+  implementation of `useEntrance`'s transforms, accepted over booting a
+  Remotion Player for a 12-frame gesture.
 - `style_pack.video_type` (optional, same enum as
   `channel_config.video_type`) records which preset a pack implements.
   Advisory only: the pipeline still reads the channel's `video_type`, and

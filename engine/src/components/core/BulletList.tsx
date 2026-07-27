@@ -9,7 +9,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const BulletListProps = z.object({
   title: z.string().max(48).optional(),
@@ -26,11 +33,15 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "BulletList",
+    supported: PANEL_ENTRANCES,
+    fallback: "rise",
+    rise: height * 0.02, // the title's pre-D46 lift
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   // Clamp the stagger so the last item always lands by 55% of the shot.
   const stagger = Math.min(
@@ -75,11 +86,9 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             }),
-            translate: `0 ${interpolate(frame, [0, inDur], [height * 0.02, 0], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
-            })}px`,
+            translate: entrance.translate,
+            scale: `${entrance.scale}`,
+            clipPath: entrance.clipPath,
           }}
         >
           {props.title}
@@ -99,7 +108,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
           const enter = interpolate(frame, [start, start + itemDur], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           });
           return (
             <div
@@ -133,7 +142,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
                         scale: `${interpolate(frame, [start, start + Math.round(fps * 0.3 * durationMul)], [0, 1], {
                           extrapolateLeft: "clamp",
                           extrapolateRight: "clamp",
-                          easing: Easing.bezier(0.16, 1, 0.3, 1),
+                          easing: curve,
                         })} 1`,
                         transformOrigin: "left center",
                       }}

@@ -8,8 +8,8 @@
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import type { Entrance, Theme } from "../theme.ts";
+import { easingCurve, emphasisColor, fontStack, motionScale, useEntrance } from "../theme.ts";
 
 export const KineticTitleProps = z.object({
   text: z.string().max(70),
@@ -21,16 +21,36 @@ export const KineticTitleProps = z.object({
 });
 export type KineticTitleProps = z.infer<typeof KineticTitleProps>;
 
+/**
+ * The `entrance` PROP predates D46 and is chosen by the planner; the theme's
+ * `motion` tokens are chosen by a human. The theme wins where it is set and the
+ * prop is the fallback, so existing plans render exactly as before while a
+ * themed channel gets one consistent title motion. (The prop is a candidate for
+ * deprecation — appearance is not the LLM's job — but removing it would change
+ * the catalog entry the planner reads, so that is its own decision.)
+ */
+const PROP_ENTRANCE: Record<KineticTitleProps["entrance"], Entrance> = {
+  mask: "wipe",
+  rise: "rise",
+  scale: "pop",
+};
+
+/** Per-token entrances this title can draw. `slide` reads wrong word by word. */
+const SUPPORTED: readonly Entrance[] = ["fade", "rise", "pop", "wipe", "typewriter"];
+
 export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme: Theme }) {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  // Only the frame-level opacity and the resolved kind come from the hook: the
+  // per-token stagger below is this component's whole point and stays bespoke.
+  const { opacity, kind } = useEntrance(theme, {
+    component: "KineticTitle",
+    supported: SUPPORTED,
+    fallback: PROP_ENTRANCE[props.entrance],
+    seconds: 0.4,
   });
 
   const words = props.text.split(" ").filter(Boolean);
@@ -78,8 +98,10 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
           const enter = interpolate(frame, [start, start + tokenDur], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
+            // A `pop` keeps its overshoot regardless of the theme curve — that
+            // overshoot IS the pop; every other kind takes the theme's easing.
             easing:
-              props.entrance === "scale" ? Easing.bezier(0.34, 1.56, 0.64, 1) : Easing.bezier(0.16, 1, 0.3, 1),
+              kind === "pop" ? Easing.bezier(0.34, 1.56, 0.64, 1) : Easing.bezier(...easingCurve(theme)),
           });
           const isEmphasized =
             props.emphasize_last && (props.unit === "word" ? i === lastWordIndex : i >= lastWordStart);
@@ -101,20 +123,22 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
                 color,
                 whiteSpace: "pre",
                 translate:
-                  props.entrance === "mask"
+                  kind === "wipe"
                     ? `0 ${interpolate(enter, [0, 1], [110, 0])}%`
-                    : props.entrance === "rise"
+                    : kind === "rise"
                       ? `0 ${interpolate(enter, [0, 1], [height * 0.03, 0])}px`
                       : "0 0",
-                scale: props.entrance === "scale" ? `${interpolate(enter, [0, 1], [0.86, 1])}` : "1",
-                opacity: props.entrance === "mask" ? 1 : enter,
+                scale: kind === "pop" ? `${interpolate(enter, [0, 1], [0.86, 1])}` : "1",
+                // A wipe reveals through its slot, so the glyph itself stays
+                // opaque; a typewriter is all-or-nothing per token.
+                opacity: kind === "wipe" ? 1 : kind === "typewriter" ? Math.round(enter) : enter,
               }}
             >
               {token}
             </span>
           );
 
-          return props.entrance === "mask" ? (
+          return kind === "wipe" ? (
             <span key={i} style={{ overflow: "hidden", display: "block", paddingBottom: size * 0.08 }}>
               {glyph}
             </span>

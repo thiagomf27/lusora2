@@ -5,7 +5,15 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 export const FactCardProps = z.object({
   headline: z.string().max(60),
@@ -22,16 +30,19 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.45 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
   const center = props.position === "center";
   const fromLeft = props.position === "left";
   const slideFrom = center ? 0 : fromLeft ? -width * 0.06 : width * 0.06;
   const outStart = durationInFrames - Math.round(fps * 0.5 * durationMul);
+
+  const surface = surfaceStyle(theme, { radius: 12, alpha: "e6", accentRule: "top" });
+  const entrance = useEntrance(theme, {
+    component: "FactCard",
+    supported: PANEL_ENTRANCES,
+    fallback: "slide", // the pre-D46 horizontal slide, direction from `position`
+    slide: slideFrom,
+  });
+  const { opacity, inDur } = entrance;
 
   return (
     <div
@@ -48,35 +59,43 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
       <div
         style={{
           width: center ? width * 0.62 : width * 0.38,
-          background: `${theme.colors.bg}e6`,
-          borderRadius: 12,
+          background: surface.background,
+          borderRadius: surface.borderRadius,
+          borderLeft:
+            surface.accentRule === "left"
+              ? `${Math.max(3, height * 0.006)}px solid ${accent}`
+              : undefined,
           padding: `${height * 0.04}px ${width * 0.028}px`,
-          translate: `${interpolate(frame, [0, inDur], [slideFrom, 0], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
-          })}px ${interpolate(frame, [outStart, durationInFrames], [0, height * 0.012], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: Easing.bezier(0.45, 0, 0.55, 1),
-          })}px`,
-        }}
-      >
-        {/* Accent rule draws across the top of the card. */}
-        <div
-          style={{
-            height: Math.max(3, height * 0.006),
-            background: accent,
-            borderRadius: 2,
-            marginBottom: height * 0.028,
-            scale: `${interpolate(frame, [inDur * 0.4, inDur * 0.4 + fps * 0.5 * durationMul], [0, 1], {
+          scale: `${entrance.scale}`,
+          clipPath: entrance.clipPath,
+          // The entrance transform, plus the exit drop this card has always had.
+          translate: `${entrance.translateX}px ${
+            entrance.translateY +
+            interpolate(frame, [outStart, durationInFrames], [0, height * 0.012], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
-            })} 1`,
-            transformOrigin: "left center",
-          }}
-        />
+              easing: Easing.bezier(0.45, 0, 0.55, 1),
+            })
+          }px`,
+        }}
+      >
+        {/* Accent rule draws across the top of the card, unless the theme moved it. */}
+        {surface.accentRule === "top" ? (
+          <div
+            style={{
+              height: Math.max(3, height * 0.006),
+              background: accent,
+              borderRadius: 2,
+              marginBottom: height * 0.028,
+              scale: `${interpolate(frame, [inDur * 0.4, inDur * 0.4 + fps * 0.5 * durationMul], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+                easing: Easing.bezier(...easingCurve(theme)),
+              })} 1`,
+              transformOrigin: "left center",
+            }}
+          />
+        ) : null}
         <div
           style={{
             fontFamily: fontStack(theme.typography.display),

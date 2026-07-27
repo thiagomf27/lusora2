@@ -9,7 +9,15 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 export const DocumentCardProps = z.object({
   title: z.string().max(40).optional(),
@@ -27,11 +35,15 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.6 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "DocumentCard",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade", // its frame did not move before D46
+    seconds: 0.6,
   });
+  const { opacity, inDur } = entrance;
+  const surface = surfaceStyle(theme, { radius: 3 });
 
   const stagger = Math.min(
     Math.round(fps * 0.35 * durationMul),
@@ -58,6 +70,9 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
         alignItems: "center",
         justifyContent: "center",
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       <div
@@ -67,13 +82,13 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
           height: plateH,
           overflow: "hidden",
           background: `${theme.colors.text}f2`,
-          borderRadius: 3,
+          borderRadius: surface.borderRadius,
           boxShadow: "0 18px 60px rgba(0,0,0,0.55)",
           rotate: "-1.2deg",
           scale: `${interpolate(frame, [0, inDur], [1.03, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })}`,
         }}
       >

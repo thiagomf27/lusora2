@@ -8,7 +8,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const RankLabelProps = z.object({
   rank: z.number().int().min(1).max(999),
@@ -26,11 +33,14 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.35 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "RankLabel",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade", // its frame did not move before D46
+    seconds: 0.35,
   });
+  const { opacity, inDur } = entrance;
 
   const settleDur = Math.round(fps * 0.8 * durationMul);
   const from = props.total ?? props.rank + 4;
@@ -40,7 +50,7 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
       interpolate(frame, [0, settleDur], [Math.max(from, props.rank), props.rank], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
-        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        easing: curve,
       }),
     ),
   );
@@ -51,7 +61,7 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
   const sweep = interpolate(frame, [0, settleDur], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: curve,
   });
   const wipeStart = settleDur * 0.5;
 
@@ -66,6 +76,9 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
         gap: width * 0.028,
         padding: `0 ${width * 0.08}px`,
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       <div style={{ position: "relative", flexShrink: 0, width: R * 2.5, height: R * 2.5 }}>
@@ -116,7 +129,7 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
           clipPath: `inset(0 ${interpolate(frame, [wipeStart, wipeStart + fps * 0.4 * durationMul], [100, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })}% 0 0)`,
         }}
       >

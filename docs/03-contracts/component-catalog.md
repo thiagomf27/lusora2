@@ -59,6 +59,19 @@ is designed to be read by the planner LLM.
 RegionHighlight is placed in the editor, never chosen by the planner: it
 needs a border polygon and nothing derives one.
 
+## A pack is a menu, not a look (D46)
+
+Add a pack when you need a component that does not exist — a finance
+channel's CandlestickChart, a recipe channel's IngredientList. Do NOT add
+one to restyle components that already exist: entrance animation, corner
+radius, easing and duration scaling are theme tokens
+([Theme & Style Packs](theme-and-style.md)), because the renderer
+receives `{ plan, theme, assets }` and no catalog at all.
+
+The test: **if the props are identical, it is a theme.** One `FactCard`
+under two themes is two looks; a card that also carries a photo is a new
+component.
+
 ## Adding a component
 
 Four lists must move together — a name missing from any of them fails

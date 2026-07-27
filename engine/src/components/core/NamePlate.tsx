@@ -9,7 +9,16 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { captionStyle, emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  captionStyle,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 export const NamePlateProps = z.object({
   name: z.string().max(36),
@@ -28,11 +37,15 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.3 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "NamePlate",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade", // its frame did not move before D46
+    seconds: 0.3,
   });
+  const { opacity, inDur } = entrance;
+  const surface = surfaceStyle(theme, { radius: 6 });
 
   const left = props.side === "left";
   const barDur = Math.round(fps * 0.3 * durationMul);
@@ -44,7 +57,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
   const openPct = interpolate(frame, [wipeStart, wipeStart + wipeDur], [100, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: curve,
   });
   const closePct = interpolate(frame, [outStart, durationInFrames], [0, 100], {
     extrapolateLeft: "clamp",
@@ -66,6 +79,9 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
         flexDirection: left ? "row" : "row-reverse",
         alignItems: "stretch",
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       {props.variant === "bar" ? (
@@ -77,7 +93,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
             scale: `1 ${interpolate(frame, [0, barDur], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             })}`,
             transformOrigin: "bottom center",
           }}
@@ -90,7 +106,10 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
           border: props.variant === "boxed" ? `1px solid ${accent}66` : "none",
           borderBottom: props.variant === "underline" ? `${Math.max(3, height * 0.006)}px solid ${accent}` : undefined,
           padding: `${height * 0.018}px ${width * 0.022}px`,
-          borderRadius: props.variant === "bar" ? "0 6px 6px 0" : 6,
+          borderRadius:
+            props.variant === "bar"
+              ? `0 ${surface.borderRadius}px ${surface.borderRadius}px 0`
+              : surface.borderRadius,
           clipPath: left
             ? `inset(0 ${Math.max(openPct, closePct)}% 0 0)`
             : `inset(0 0 0 ${Math.max(openPct, closePct)}%)`,

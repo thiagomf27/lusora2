@@ -9,7 +9,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 const side = z.object({
   label: z.string().max(24),
@@ -32,11 +39,14 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "ComparisonSplit",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   const dividerDur = Math.round(fps * 0.4 * durationMul);
   const outStart = durationInFrames - Math.round(fps * 0.4 * durationMul);
@@ -44,7 +54,7 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
     interpolate(frame, [0, dividerDur], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      easing: curve,
     }),
     interpolate(frame, [outStart, durationInFrames], [1, 0], {
       extrapolateLeft: "clamp",
@@ -61,19 +71,19 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
   ];
 
   return (
-    <div style={{ position: "absolute", inset: 0, opacity }}>
+    <div style={{ position: "absolute", inset: 0, opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center" }}>
         {halves.map(({ data, isLeft, start }) => {
           const wipe = interpolate(frame, [start, start + fps * 0.5 * durationMul], [100, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           });
           const shown = Math.round(
             interpolate(frame, [start, start + countDur], [0, data.value], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             }),
           );
           const wins = data.value >= (isLeft ? props.right.value : props.left.value);

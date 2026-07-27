@@ -34,10 +34,15 @@ manual split, not planner output).
 mid-tier. Needs a small eval once M4 runs: 10 scripts → beat sheets →
 count repair loops per model.
 
-**OQ-10 — Theme token final list.** The draft has colors(4), typography
-(2+caption preset), motion_feel, grain. Decide: gradient/secondary
-accent? lower-third background style? logo/watermark slot? Keep the list
-SHORT — every token is forever.
+**OQ-10 — Theme token final list.** ✅ DECIDED twice. First at the draft
+list (D30, 2026-07-18: colors(4), typography(2+caption preset),
+motion_feel, grain — "nothing yet earned an addition"). **Reopened and
+re-closed 2026-07-27 (D46)**: presentation style earned it. The theme
+gains `surface` (radius, fill, accent_rule) and `motion` (entrance,
+easing, per_component) — six optional enums, defaults equal to today's
+hardcoded values. Still open in spirit and still answered "no": gradient
+/ secondary accent, logo/watermark slot. See
+[Theme & Style Packs](../03-contracts/theme-and-style.md).
 
 **OQ-11 — Exact ffmpeg capability boundary.** Draft: cuts, crossfade,
 fade-to-black, Ken Burns, static, plain caption preset, audio mix.
@@ -91,7 +96,7 @@ move_overlay lock; set_music_volume does not. Unlock UI still to design.)*
 one render worker or N. Measure with M3's fixture on the candidate VPS
 before buying — this is a measurement, not a design decision.
 
-All other open questions (OQ-1..20, OQ-22..23) are closed — see D21–D45
+All other open questions (OQ-1..20, OQ-22..23) are closed — see D21–D47
 in the Decision Log.
 
 ## Blocking prompt packs (M10) — ALL DECIDED 2026-07-27 (D42–D45)

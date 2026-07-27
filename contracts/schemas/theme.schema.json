@@ -38,9 +38,55 @@
       "enum": ["none", "archival", "film"],
       "default": "none",
       "description": "optional post-look (Remotion path)"
+    },
+    "surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D46 — the SHAPE of an overlay. Every token optional; omitted means the value components hardcoded before D46, so an untouched theme renders identically.",
+      "properties": {
+        "radius": {
+          "enum": ["square", "soft", "rounded"],
+          "default": "soft",
+          "description": "corner radius scale; the engine owns the pixels"
+        },
+        "fill": {
+          "enum": ["solid", "translucent", "none"],
+          "default": "translucent",
+          "description": "panel background: opaque bg, bg at ~90%, or nothing"
+        },
+        "accent_rule": {
+          "enum": ["top", "left", "none"],
+          "description": "where the accent bar sits. No default on purpose: omitted keeps each component's own choice (FactCard draws it on top, the card template on the left)."
+        }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D46 — HOW an overlay arrives. Duration scaling stays in motion_feel.",
+      "properties": {
+        "entrance": {
+          "$ref": "#/$defs/entrance",
+          "description": "a REQUEST, not a guarantee: a component that cannot honor it (typewriter on a chart) degrades to fade. No default on purpose: omitted keeps each component's own entrance, so an untouched theme is unchanged."
+        },
+        "easing": {
+          "enum": ["smooth", "snap", "spring", "linear"],
+          "default": "smooth",
+          "description": "smooth is the pre-D46 curve, bezier(0.16, 1, 0.3, 1)"
+        },
+        "per_component": {
+          "type": "object",
+          "description": "per-catalog-name entrance override. Exceptions only — a map approaching one entry per component is the trigger for motion roles (D47).",
+          "propertyNames": { "pattern": "^[A-Z][A-Za-z0-9]*$" },
+          "additionalProperties": { "$ref": "#/$defs/entrance" }
+        }
+      }
     }
   },
   "$defs": {
-    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "entrance": {
+      "enum": ["fade", "rise", "slide", "pop", "wipe", "typewriter"]
+    }
   }
 }

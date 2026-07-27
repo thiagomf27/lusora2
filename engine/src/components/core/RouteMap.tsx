@@ -17,7 +17,14 @@
 import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 const plateSchema = z.object({
   src: z.string().max(120),
@@ -52,11 +59,14 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.5 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "RouteMap",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.5,
   });
+  const { opacity, inDur } = entrance;
 
   // Bounds from the stops, padded 20%, then widened to the frame aspect so the
   // plate fills the shot without distorting the projection.
@@ -145,7 +155,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
   const dot = plateH * 0.014;
 
   return (
-    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity }}>
+    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
       <div style={{ position: "relative", width: plateW, height: plateH, overflow: "hidden", background: theme.colors.bg }}>
         {props.plate ? (
           <Img src={staticFile(props.plate.src)} style={{ width: "100%", height: "100%", objectFit: "fill" }} />

@@ -5,11 +5,23 @@
  * (themes/runtime.ts) and theme.schema.json — neither has an API.
  */
 import type { Theme } from "@lusora/contracts";
+import {
+  ACCENT_RULES,
+  EASINGS,
+  ENTRANCES,
+  FILLS,
+  RADII,
+  UNSET,
+  formatPerComponent,
+  mergeTokenGroup,
+  parsePerComponent,
+} from "@/lib/themeTokens";
 import s from "./form.module.css";
 
 export const CAPTION_PRESETS = ["plain", "serif-lower-third", "boxed"] as const;
 export const MOTION_FEELS = ["slow_heavy", "neutral", "fast_light"] as const;
 export const GRAINS = ["none", "archival", "film"] as const;
+
 export const FONTS = [
   "Inter",
   "Playfair Display",
@@ -92,6 +104,80 @@ function SelectField({
   );
 }
 
+
+/**
+ * A select whose empty choice means "leave the token out of the document".
+ * Writing an explicit value where the theme had none is a real change — it
+ * takes the choice away from the component — so the two must stay distinct.
+ */
+function OptionalSelect({
+  label,
+  value,
+  options,
+  unsetNote,
+  onChange,
+}: {
+  label: string;
+  value: string | undefined;
+  options: readonly string[];
+  unsetNote: string;
+  onChange: (v: string | undefined) => void;
+}) {
+  return (
+    <label className={s.field}>
+      <span className={s.fieldLabel}>{label}</span>
+      <select
+        name={label}
+        value={value ?? UNSET}
+        onChange={(e) => onChange(e.target.value === UNSET ? undefined : e.target.value)}
+      >
+        <option value={UNSET}>{`${UNSET}  (${unsetNote})`}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/**
+ * `motion.per_component` as one name-per-line editor. Kept as free text rather
+ * than a picker over the catalog: the map is meant to stay short (D47), and a
+ * 26-row checklist would invite exactly the per-component sprawl that roles
+ * exist to prevent.
+ */
+function PerComponentField({
+  value,
+  onChange,
+}: {
+  value: Record<string, string> | undefined;
+  onChange: (next: Record<string, string> | undefined) => void;
+}) {
+  const text = formatPerComponent(value);
+  const entries = Object.keys(value ?? {}).length;
+  return (
+    <label className={s.field}>
+      <span className={s.fieldLabel}>per_component</span>
+      <textarea
+        name="per_component"
+        className={s.textarea}
+        rows={3}
+        spellCheck={false}
+        placeholder={"ChapterCard: typewriter\nAnimatedCounter: pop"}
+        value={text}
+        onChange={(e) => onChange(parsePerComponent(e.target.value))}
+      />
+      <span className={s.hint}>
+        {entries > 6
+          ? `${entries} overrides — long maps are the signal to switch to motion roles (D47).`
+          : "One ComponentName: entrance per line. Exceptions only."}
+      </span>
+    </label>
+  );
+}
+
 export default function ThemeFields({
   value,
   onChange,
@@ -105,6 +191,11 @@ export default function ThemeFields({
     onChange({ ...value, colors: { ...value.colors, [key]: v } });
   const upType = (key: keyof Theme["typography"], v: string) =>
     onChange({ ...value, typography: { ...value.typography, [key]: v } });
+
+  const upSurface = (patch: Partial<NonNullable<Theme["surface"]>>) =>
+    onChange(mergeTokenGroup(value, "surface", patch));
+  const upMotion = (patch: Partial<NonNullable<Theme["motion"]>>) =>
+    onChange(mergeTokenGroup(value, "motion", patch));
 
   return (
     <div className={s.form}>
@@ -166,6 +257,57 @@ export default function ThemeFields({
         value={value.grain ?? "none"}
         options={GRAINS}
         onChange={(v) => onChange({ ...value, grain: v as Theme["grain"] })}
+      />
+
+      <div className={s.formLabel}>SURFACE</div>
+      <div className={s.hint}>
+        The shape of an overlay panel. Components without a panel — titles,
+        charts, maps — ignore these.
+      </div>
+      <OptionalSelect
+        label="radius"
+        value={value.surface?.radius}
+        options={RADII}
+        unsetNote="soft"
+        onChange={(v) => upSurface({ radius: v as never })}
+      />
+      <OptionalSelect
+        label="fill"
+        value={value.surface?.fill}
+        options={FILLS}
+        unsetNote="translucent"
+        onChange={(v) => upSurface({ fill: v as never })}
+      />
+      <OptionalSelect
+        label="accent_rule"
+        value={value.surface?.accent_rule}
+        options={ACCENT_RULES}
+        unsetNote="each component's own"
+        onChange={(v) => upSurface({ accent_rule: v as never })}
+      />
+
+      <div className={s.formLabel}>MOTION</div>
+      <div className={s.hint}>
+        How an overlay arrives. A component that cannot draw the chosen entrance
+        falls back to a fade rather than rendering wrong.
+      </div>
+      <OptionalSelect
+        label="entrance"
+        value={value.motion?.entrance}
+        options={ENTRANCES}
+        unsetNote="each component's own"
+        onChange={(v) => upMotion({ entrance: v as never })}
+      />
+      <OptionalSelect
+        label="easing"
+        value={value.motion?.easing}
+        options={EASINGS}
+        unsetNote="smooth"
+        onChange={(v) => upMotion({ easing: v as never })}
+      />
+      <PerComponentField
+        value={value.motion?.per_component}
+        onChange={(next) => upMotion({ per_component: next as never })}
       />
     </div>
   );

@@ -8,7 +8,15 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 export const FactSheetProps = z.object({
   title: z.string().max(48),
@@ -25,11 +33,16 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.5 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const surface = surfaceStyle(theme, { radius: 10, alpha: "e6", accentRule: "top" });
+  const entrance = useEntrance(theme, {
+    component: "FactSheet",
+    supported: PANEL_ENTRANCES,
+    fallback: "wipe",
+    seconds: 0.5,
   });
+  const { opacity, kind, progress } = entrance;
+  const rule = Math.max(3, height * 0.006);
 
   const stagger = Math.min(
     4,
@@ -54,22 +67,27 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
       <div
         style={{
           width: width * 0.42,
-          background: `${theme.colors.bg}e6`,
+          background: surface.background,
           border: `1px solid ${theme.colors.neutral}44`,
-          borderTop: `${Math.max(3, height * 0.006)}px solid ${accent}`,
-          borderRadius: 10,
+          borderTop: surface.accentRule === "top" ? `${rule}px solid ${accent}` : undefined,
+          borderLeft: surface.accentRule === "left" ? `${rule}px solid ${accent}` : undefined,
+          borderRadius: surface.borderRadius,
           padding: `${height * 0.032}px ${width * 0.026}px`,
-          // Panel wipes open downward, then lifts slightly on the way out.
-          clipPath: `inset(0 0 ${interpolate(frame, [0, inDur], [100, 0], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
-          })}% 0)`,
-          translate: `0 ${interpolate(frame, [outStart, durationInFrames], [0, -height * 0.008], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: Easing.bezier(0.45, 0, 0.55, 1),
-          })}px`,
+          // This panel's own wipe opens DOWNWARD (the hook's is horizontal) —
+          // a dossier unrolling is the whole gesture, so it stays bespoke.
+          clipPath:
+            kind === "wipe"
+              ? `inset(0 0 ${interpolate(progress, [0, 1], [100, 0])}% 0)`
+              : undefined,
+          scale: `${entrance.scale}`,
+          translate: `${entrance.translateX}px ${
+            entrance.translateY +
+            interpolate(frame, [outStart, durationInFrames], [0, -height * 0.008], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: Easing.bezier(0.45, 0, 0.55, 1),
+            })
+          }px`,
         }}
       >
         <div
@@ -94,7 +112,7 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
           const enter = interpolate(frame, [start, start + fps * 0.4 * durationMul], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           });
           return (
             <div key={i} style={{ paddingTop: height * 0.014, paddingBottom: height * 0.014 }}>

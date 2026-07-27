@@ -12,7 +12,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const CalloutArrowProps = z.object({
   text: z.string().max(60),
@@ -44,11 +51,14 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.3 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "CalloutArrow",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.3,
   });
+  const { opacity, inDur } = entrance;
 
   const [rowKey, colKey] = props.target.split("_");
   const tx = width * (COL[colKey] ?? 0.5);
@@ -116,7 +126,7 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
     interpolate(frame, [drawStart, drawStart + drawDur], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      easing: curve,
     }),
     interpolate(frame, [outStart, durationInFrames], [1, 0], {
       extrapolateLeft: "clamp",
@@ -132,7 +142,7 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
   const labelClip = interpolate(frame, [0, inDur], [100, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: curve,
   });
   const labelClose = interpolate(frame, [outStart + fps * 0.2, durationInFrames], [0, 100], {
     extrapolateLeft: "clamp",
@@ -142,7 +152,7 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
   const clip = Math.max(labelClip, labelClose);
 
   return (
-    <div style={{ position: "absolute", inset: 0, opacity }}>
+    <div style={{ position: "absolute", inset: 0, opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
       <svg width={width} height={height} style={{ position: "absolute", inset: 0 }}>
         <path
           d={d}

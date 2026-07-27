@@ -9,7 +9,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const AnimatedCounterProps = z.object({
   value: z.number(),
@@ -30,17 +37,20 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "AnimatedCounter",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade", // its frame did not move before D46
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   const countDur = Math.round(fps * 1.6 * durationMul);
   const progress = interpolate(frame, [0, countDur], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: curve,
   });
   const shown = (props.value * progress).toLocaleString("en-US", {
     minimumFractionDigits: props.decimals,
@@ -63,6 +73,9 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
         alignItems: align,
         padding: `0 ${width * 0.1}px`,
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       <div

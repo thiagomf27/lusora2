@@ -10,8 +10,8 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { fitText } from "@remotion/layout-utils";
-import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import type { Entrance, Theme } from "../theme.ts";
+import { easingCurve, emphasisColor, fontStack, motionScale, useEntrance } from "../theme.ts";
 
 export const HammerStatementProps = z.object({
   text: z.string().max(90),
@@ -21,16 +21,21 @@ export const HammerStatementProps = z.object({
 });
 export type HammerStatementProps = z.infer<typeof HammerStatementProps>;
 
+/** The words mask up by default; `slide` would fight the per-word stagger. */
+const SUPPORTED: readonly Entrance[] = ["fade", "rise", "pop", "wipe", "typewriter"];
+
 export function HammerStatement({ props, theme }: { props: HammerStatementProps; theme: Theme }) {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
+  const curve = Easing.bezier(...easingCurve(theme));
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const { opacity, kind } = useEntrance(theme, {
+    component: "HammerStatement",
+    supported: SUPPORTED,
+    fallback: "wipe", // the pre-D46 mask-up
+    seconds: 0.4,
   });
 
   const words = props.text.split(" ").filter(Boolean);
@@ -103,34 +108,48 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
           maxWidth: boxWidth,
         }}
       >
-        {words.map((word, i) => (
-          // Each word masks up out of its own overflow-hidden slot.
-          <span key={i} style={{ overflow: "hidden", display: "block", paddingBottom: size * 0.06 }}>
+        {words.map((word, i) => {
+          const enter = interpolate(
+            frame,
+            [wordsStart + i * wordStagger, wordsStart + i * wordStagger + wordDur],
+            [0, 1],
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: curve },
+          );
+          return (
+            // Under `wipe` each word masks up out of its own overflow-hidden
+            // slot — the pre-D46 look. Other kinds move the word itself.
             <span
+              key={i}
               style={{
+                overflow: kind === "wipe" ? "hidden" : undefined,
                 display: "block",
-                fontFamily: fontStack(theme.typography.display),
-                fontWeight: 700,
-                fontSize: size,
-                lineHeight: 1.05,
-                color: theme.colors.text,
-                overflowWrap: "anywhere",
-                translate: `0 ${interpolate(
-                  frame,
-                  [wordsStart + i * wordStagger, wordsStart + i * wordStagger + wordDur],
-                  [110, 0],
-                  {
-                    extrapolateLeft: "clamp",
-                    extrapolateRight: "clamp",
-                    easing: Easing.bezier(0.16, 1, 0.3, 1),
-                  },
-                )}%`,
+                paddingBottom: size * 0.06,
               }}
             >
-              {word}
+              <span
+                style={{
+                  display: "block",
+                  fontFamily: fontStack(theme.typography.display),
+                  fontWeight: 700,
+                  fontSize: size,
+                  lineHeight: 1.05,
+                  color: theme.colors.text,
+                  overflowWrap: "anywhere",
+                  translate:
+                    kind === "wipe"
+                      ? `0 ${interpolate(enter, [0, 1], [110, 0])}%`
+                      : kind === "rise"
+                        ? `0 ${interpolate(enter, [0, 1], [height * 0.04, 0])}px`
+                        : "0 0",
+                  scale: kind === "pop" ? `${interpolate(enter, [0, 1], [0.86, 1])}` : "1",
+                  opacity: kind === "wipe" ? 1 : kind === "typewriter" ? Math.round(enter) : enter,
+                }}
+              >
+                {word}
+              </span>
             </span>
-          </span>
-        ))}
+          );
+        })}
       </div>
 
       <div
@@ -142,7 +161,7 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
           scale: `${interpolate(frame, [ruleStart, ruleStart + Math.round(fps * 0.3 * durationMul)], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })} 1`,
           transformOrigin: centered ? "center" : "left center",
         }}

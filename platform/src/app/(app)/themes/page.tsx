@@ -2,8 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Theme } from "@lusora/contracts";
 import ThemeFields, { THEME_NAME_RE, newTheme } from "@/components/ThemeFields";
+import DocImport from "@/components/DocImport";
 import {
   ThemeFrame,
+  ThemeEntrance,
   ThemeMotion,
   ThemeStrip,
   ThemeSwatches,
@@ -34,6 +36,7 @@ export default function ThemesPage() {
   const [showJson, setShowJson] = useState(false);
   const [editing, setEditing] = useState<Theme | null>(null);
   const [createDraft, setCreateDraft] = useState<Theme | null>(null);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -134,15 +137,18 @@ export default function ThemesPage() {
             tokens the engine resolves; the AI never sees them
           </div>
         </div>
-        <button
-          className="primary"
-          onClick={() => {
-            setError(null);
-            setCreateDraft(newTheme());
-          }}
-        >
-          New theme
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => { setError(null); setImporting(true); }}>Import…</button>
+          <button
+            className="primary"
+            onClick={() => {
+              setError(null);
+              setCreateDraft(newTheme());
+            }}
+          >
+            New theme
+          </button>
+        </div>
       </div>
 
       <div className={s.layout}>
@@ -258,6 +264,8 @@ export default function ThemesPage() {
                   <div className={s.section}>
                     <div className={s.sectionLabel}>MOTION &amp; POST-LOOK</div>
                     <ThemeMotion theme={preview} />
+                    <div className={s.sectionLabel}>ENTRANCE</div>
+                    <ThemeEntrance theme={preview} />
                   </div>
                 </div>
               </div>
@@ -283,6 +291,25 @@ export default function ThemesPage() {
         </div>
       </div>
 
+      {importing && (
+        <div className={s.overlay} onClick={() => setImporting(false)}>
+          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={s.modalHead}>
+              <div className={s.modalTitle}>Import theme</div>
+              <button onClick={() => setImporting(false)}>Close</button>
+            </div>
+            <DocImport
+              kind="theme"
+              onClose={() => setImporting(false)}
+              onImported={(name) => {
+                setImporting(false);
+                void load(name);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {createDraft && (
         <div className={s.overlay} onClick={() => setCreateDraft(null)}>
           <div className={s.modal} onClick={(e) => e.stopPropagation()}>
@@ -298,6 +325,7 @@ export default function ThemesPage() {
                 <ThemeSwatches theme={createDraft} />
                 <ThemeTypography theme={createDraft} />
                 <ThemeMotion theme={createDraft} />
+                <ThemeEntrance theme={createDraft} />
               </div>
             </div>
 

@@ -57,7 +57,12 @@ function Overlays({ plan, theme }: { plan: EditPlan; theme: Theme }) {
             if (!item.template || !isTemplateKind(item.template)) return null;
             return (
               <Sequence key={item.id} from={from} durationInFrames={durFrames}>
-                <TemplateOverlay template={item.template} props={item.props ?? {}} theme={theme} />
+                <TemplateOverlay
+                  template={item.template}
+                  component={item.component}
+                  props={item.props ?? {}}
+                  theme={theme}
+                />
               </Sequence>
             );
           }

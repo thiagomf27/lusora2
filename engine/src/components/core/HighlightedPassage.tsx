@@ -15,7 +15,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { Box, Bracket, Circle, Highlight, StrikeThrough, Underline } from "@remotion/rough-notation";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  TEXT_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const HighlightedPassageProps = z.object({
   text: z.string().max(200),
@@ -38,11 +45,15 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "HighlightedPassage",
+    supported: TEXT_ENTRANCES,
+    fallback: "rise",
+    rise: height * 0.014, // the passage block's pre-D46 lift
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   // Resolve each phrase to a text range; drop misses and overlaps.
   const found = props.marks
@@ -108,11 +119,9 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           }),
-          translate: `0 ${interpolate(frame, [0, inDur], [height * 0.014, 0], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
-          })}px`,
+          translate: entrance.translate,
+          scale: `${entrance.scale}`,
+          clipPath: entrance.clipPath,
         }}
       >
         {segments.map((seg, i) => {

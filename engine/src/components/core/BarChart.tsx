@@ -13,7 +13,14 @@
 import { z } from "zod";
 import { Easing, interpolate, interpolateColors, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const BarChartProps = z.object({
   title: z.string().max(48).optional(),
@@ -31,11 +38,14 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "BarChart",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   const stagger = Math.min(
     Math.round(fps * 0.18 * durationMul),
@@ -67,6 +77,9 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
         justifyContent: "center",
         alignItems: "center",
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       {props.title ? (
@@ -110,7 +123,7 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
           const grow = interpolate(frame, [start, start + growDur], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           });
           const shown = Math.round(s.value * grow);
           const fraction = s.value / max;
@@ -247,7 +260,7 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
             scale: `${interpolate(frame, [0, axisDur], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             })} 1`,
             transformOrigin: "left center",
           }}

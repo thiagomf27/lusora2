@@ -12,7 +12,14 @@
 import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const FramedExhibitProps = z.object({
   /** Path under public/, e.g. "exhibits/redoctober.jpg". */
@@ -30,11 +37,14 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.5 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "FramedExhibit",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.5,
   });
+  const { opacity, inDur } = entrance;
 
   const museum = props.frame_style === "museum";
   const polaroid = props.frame_style === "polaroid";
@@ -59,6 +69,9 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
         alignItems: "center",
         justifyContent: "center",
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       <div
@@ -72,7 +85,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
           scale: `${interpolate(frame, [0, inDur], [1.04, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })}`,
         }}
       >
@@ -145,7 +158,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
           translate: `0 ${interpolate(frame, [captionStart, captionStart + fps * 0.5], [height * 0.02, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })}px`,
         }}
       >

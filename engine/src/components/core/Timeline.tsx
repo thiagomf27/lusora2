@@ -8,7 +8,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const TimelineProps = z.object({
   title: z.string().max(32).optional(),
@@ -25,11 +32,14 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "Timeline",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
 
   const horizontal = props.orientation === "horizontal";
   const spineDur = Math.round(fps * 0.7 * durationMul);
@@ -55,6 +65,9 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
         justifyContent: "center",
         padding: `0 ${width * 0.08}px`,
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       {props.title ? (
@@ -117,7 +130,7 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
           const textIn = interpolate(frame, [nodeStart + 3, nodeStart + 3 + fps * 0.4 * durationMul], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           });
           const isHighlight = props.highlight_index === i;
           const color = isHighlight ? accent : theme.colors.neutral;

@@ -7,8 +7,8 @@
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import type { Entrance, Theme } from "../theme.ts";
+import { easingCurve, emphasisColor, fontStack, motionScale, useEntrance } from "../theme.ts";
 
 export const ChapterCardProps = z.object({
   chapter_label: z.string().max(24).optional(),
@@ -20,17 +20,23 @@ export const ChapterCardProps = z.object({
 });
 export type ChapterCardProps = z.infer<typeof ChapterCardProps>;
 
+/** The title masks up between the rules by default. */
+const SUPPORTED: readonly Entrance[] = ["fade", "rise", "pop", "wipe", "typewriter"];
+
 export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: Theme }) {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
+  const curve = Easing.bezier(...easingCurve(theme));
 
-  const inDur = Math.round(fps * 0.5 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const { opacity, kind } = useEntrance(theme, {
+    component: "ChapterCard",
+    supported: SUPPORTED,
+    fallback: "wipe", // the pre-D46 mask-up
+    seconds: 0.5,
   });
+  const inDur = Math.round(fps * 0.5 * durationMul);
 
   const ruleDur = Math.round(fps * 0.5 * durationMul);
   const outStart = durationInFrames - Math.round(fps * 0.5 * durationMul);
@@ -39,7 +45,7 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
     interpolate(frame, [0, ruleDur], [0, width * 0.6], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-      easing: Easing.bezier(0.16, 1, 0.3, 1),
+      easing: curve,
     }),
     interpolate(frame, [outStart, durationInFrames], [width * 0.6, 0], {
       extrapolateLeft: "clamp",
@@ -55,6 +61,23 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
   );
   const showOver = props.rule === "over" || props.rule === "both";
   const showUnder = props.rule === "under" || props.rule === "both";
+
+  // The title enters AFTER the rules open, so a typewriter has to run on the
+  // title's own clock — the hook's `typed` starts at frame 0 and would be
+  // finished before the title appeared.
+  const title =
+    kind === "typewriter"
+      ? props.title.slice(
+          0,
+          Math.ceil(
+            interpolate(frame, [titleStart, titleStart + fps * 0.9 * durationMul], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: curve,
+            }) * props.title.length,
+          ),
+        )
+      : props.title;
 
   return (
     <div style={{ position: "absolute", inset: 0, opacity }}>
@@ -116,7 +139,7 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
 
         {showOver ? <div style={{ width: ruleWidth, height: Math.max(1, height * 0.002), background: `${theme.colors.text}66` }} /> : null}
 
-        <div style={{ overflow: "hidden", paddingBottom: size * 0.08 }}>
+        <div style={{ overflow: kind === "wipe" ? "hidden" : undefined, paddingBottom: size * 0.08 }}>
           <div
             style={{
               fontFamily: fontStack(theme.typography.display),
@@ -127,14 +150,31 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
               overflowWrap: "anywhere",
               maxWidth: width * 0.8,
               color: theme.colors.text,
-              translate: `0 ${interpolate(frame, [titleStart, titleStart + fps * 0.55 * durationMul], [110, 0], {
-                extrapolateLeft: "clamp",
-                extrapolateRight: "clamp",
-                easing: Easing.bezier(0.16, 1, 0.3, 1),
-              })}%`,
+              translate:
+                kind === "wipe"
+                  ? `0 ${interpolate(frame, [titleStart, titleStart + fps * 0.55 * durationMul], [110, 0], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                      easing: curve,
+                    })}%`
+                  : kind === "rise"
+                    ? `0 ${interpolate(frame, [titleStart, titleStart + fps * 0.55 * durationMul], [height * 0.04, 0], {
+                        extrapolateLeft: "clamp",
+                        extrapolateRight: "clamp",
+                        easing: curve,
+                      })}px`
+                    : "0 0",
+              scale:
+                kind === "pop"
+                  ? `${interpolate(frame, [titleStart, titleStart + fps * 0.55 * durationMul], [0.86, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                      easing: curve,
+                    })}`
+                  : "1",
             }}
           >
-            {props.title}
+            {title}
           </div>
         </div>
 

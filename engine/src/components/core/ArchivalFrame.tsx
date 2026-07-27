@@ -19,7 +19,14 @@
 import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const ArchivalFrameProps = z.object({
   /** Path under public/, e.g. "exhibits/stalingrad.jpg". Omit for a procedural plate. */
@@ -40,11 +47,14 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.5 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "ArchivalFrame",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.5,
   });
+  const { opacity, inDur } = entrance;
 
   const look = props.treatment === "auto" ? (theme.grain ?? "none") : props.treatment;
   const grainOpacity = look === "archival" ? 0.16 : look === "film" ? 0.09 : 0;
@@ -59,7 +69,7 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
   const dustBucket = Math.floor(frame / 3);
 
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", opacity }}>
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
       {/* Plate: real still, or a procedural stand-in when no asset is supplied. */}
       <div
         style={{

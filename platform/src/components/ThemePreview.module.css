@@ -148,3 +148,89 @@
   border: 1px solid var(--border-2);
 }
 .stripCell { flex: 1; }
+
+/* Entrance stage (D46) — the keyframes mirror engine useEntrance transforms. */
+.stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 64px;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+}
+.stage:hover .stageHint { opacity: 1; }
+.stageHint {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.enterBox {
+  width: 96px;
+  height: 26px;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+}
+.enter_fade { animation-name: enterFade; }
+.enter_rise { animation-name: enterRise; }
+.enter_slide { animation-name: enterSlide; }
+.enter_pop { animation-name: enterPop; }
+.enter_wipe { animation-name: enterWipe; }
+.enter_typewriter { animation-name: enterType; }
+
+@keyframes enterFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes enterRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes enterSlide {
+  from { opacity: 0; transform: translateX(-64px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes enterPop {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes enterWipe {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+/* Stepped, because a typewriter is discrete per character, not a smooth ramp. */
+@keyframes enterType {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+.enter_typewriter { animation-timing-function: steps(12, end) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .enterBox { animation: none; }
+}
+
+.overrideList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 64px;
+  padding: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+}
+.overrideRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+}
+.overrideRow em { font-style: normal; }

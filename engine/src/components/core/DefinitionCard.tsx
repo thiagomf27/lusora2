@@ -4,7 +4,14 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  TEXT_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  useEntrance,
+} from "../theme.ts";
 
 export const DefinitionCardProps = z.object({
   term: z.string().max(40),
@@ -22,10 +29,13 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  // The term wipes in sideways out of its own slot — this component's signature.
+  const { opacity, kind, progress, typed } = useEntrance(theme, {
+    component: "DefinitionCard",
+    supported: TEXT_ENTRANCES,
+    fallback: "wipe",
+    seconds: 0.4,
   });
 
   const ruleStart = Math.round(fps * 0.25 * durationMul);
@@ -45,7 +55,7 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
         opacity,
       }}
     >
-      <div style={{ overflow: "hidden", paddingBottom: height * 0.008 }}>
+      <div style={{ overflow: kind === "wipe" ? "hidden" : undefined, paddingBottom: height * 0.008 }}>
         <div
           style={{
             fontFamily: fontStack(theme.typography.display),
@@ -54,14 +64,18 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
             lineHeight: 1.08,
             color: theme.colors.text,
             overflowWrap: "anywhere",
-            translate: `${interpolate(frame, [0, inDur], [-110, 0], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
-            })}% 0`,
+            translate:
+              kind === "wipe"
+                ? `${interpolate(progress, [0, 1], [-110, 0])}% 0`
+                : kind === "slide"
+                  ? `${interpolate(progress, [0, 1], [-width * 0.05, 0])}px 0`
+                  : kind === "rise"
+                    ? `0 ${interpolate(progress, [0, 1], [height * 0.03, 0])}px`
+                    : "0 0",
+            scale: kind === "pop" ? `${interpolate(progress, [0, 1], [0.88, 1])}` : "1",
           }}
         >
-          {props.term}
+          {typed(props.term)}
         </div>
       </div>
 
@@ -74,7 +88,7 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
           scale: `${interpolate(frame, [ruleStart, ruleStart + fps * 0.4 * durationMul], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })} 1`,
           transformOrigin: "left center",
         }}
@@ -122,7 +136,7 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
           translate: `0 ${interpolate(frame, [defStart, defStart + fps * 0.5], [height * 0.014, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
-            easing: Easing.bezier(0.16, 1, 0.3, 1),
+            easing: curve,
           })}px`,
         }}
       >

@@ -9,7 +9,15 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  TEXT_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 export const QuoteBlockProps = z.object({
   quote: z.string().max(180),
@@ -27,11 +35,15 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.4 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "QuoteBlock",
+    supported: TEXT_ENTRANCES,
+    fallback: "fade", // its frame did not move before D46
+    seconds: 0.4,
   });
+  const { opacity, inDur } = entrance;
+  const surface = surfaceStyle(theme, { radius: 10, alpha: "d9" });
 
   const centered = props.align === "center";
   const size = Math.max(
@@ -51,15 +63,18 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
         alignItems: centered ? "center" : "flex-start",
         padding: `0 ${width * 0.11}px`,
         opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
       }}
     >
       <div
         style={{
           position: "relative",
           maxWidth: width * 0.74,
-          background: props.variant === "boxed" ? `${theme.colors.bg}d9` : "transparent",
+          background: props.variant === "boxed" ? surface.background : "transparent",
           border: props.variant === "boxed" ? `1px solid ${accent}55` : "none",
-          borderRadius: props.variant === "boxed" ? 10 : 0,
+          borderRadius: props.variant === "boxed" ? surface.borderRadius : 0,
           borderLeft: props.variant === "rule" ? `${Math.max(4, width * 0.004)}px solid ${accent}` : undefined,
           padding:
             props.variant === "boxed"
@@ -84,7 +99,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
               scale: `${interpolate(frame, [0, inDur * 1.4], [0.85, 1], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
-                easing: Easing.bezier(0.16, 1, 0.3, 1),
+                easing: curve,
               })}`,
               transformOrigin: "left top",
             }}
@@ -106,7 +121,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
             clipPath: `inset(0 0 ${interpolate(frame, [0, fps * 0.7 * durationMul], [100, 0], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             })}% 0)`,
           }}
         >
@@ -131,7 +146,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
             translate: `${interpolate(frame, [attrStart, attrStart + fps * 0.4], [-width * 0.01, 0], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             })}px 0`,
           }}
         >

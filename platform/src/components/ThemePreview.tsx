@@ -8,9 +8,15 @@
  * captionStyle() are converted to `cqh` against a container-query frame, which
  * is the same proportional scaling the renderer applies.
  */
-import { useId } from "react";
+import { useId, useState } from "react";
 import type { Theme } from "@lusora/contracts";
-import { captionStyle, fontStack, motionScale } from "@lusora/engine/src/themes/runtime.ts";
+import {
+  captionStyle,
+  easingCurve,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+} from "@lusora/engine/src/themes/runtime.ts";
 import s from "./ThemePreview.module.css";
 
 const REF_HEIGHT = 1080;
@@ -65,6 +71,7 @@ export function ThemeFrame({ theme, title = "The Salt Road" }: { theme: Theme; t
   const cs = captionStyle(theme, theme.typography.caption_preset);
   const display = fontStack(theme.typography.display);
   const body = fontStack(theme.typography.body);
+  const surface = { ...surfaceStyle(theme, { radius: 10 }), fill: theme.surface?.fill };
   return (
     <div className={s.frame} style={{ background: theme.colors.bg }}>
       <div className={s.frameInner}>
@@ -94,10 +101,15 @@ export function ThemeFrame({ theme, title = "The Salt Road" }: { theme: Theme; t
         <div
           className={s.card}
           style={{
+            // The card is a panel, so it shows the surface tokens. Radius comes
+            // from the engine resolver against the same 10px base the mock used
+            // before D46, so an untouched theme looks exactly as it did.
             borderColor: theme.colors.accent,
-            background: `${theme.colors.text}0f`,
+            background: surface.fill === "none" ? "transparent" : `${theme.colors.text}0f`,
+            borderRadius: cqh(surface.borderRadius),
+            borderTopWidth: surface.accentRule === "top" ? cqh(5) : undefined,
+            borderLeftWidth: surface.accentRule === "left" ? cqh(5) : undefined,
             padding: cqh(24),
-            borderRadius: cqh(10),
           }}
         >
           <div style={{ color: theme.colors.neutral, fontFamily: body, fontSize: cqh(20), letterSpacing: "0.12em" }}>
@@ -202,6 +214,74 @@ export function ThemeTypography({ theme }: { theme: Theme }) {
         </div>
         <div className={s.cellValue}>{theme.typography.caption_preset}</div>
         <div className={s.cellNote}>burned-in subtitle style</div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The entrance, actually playing. A still cannot tell you whether `pop` reads
+ * as confident or silly at this duration — the only useful preview of motion is
+ * motion, so this replays on demand and whenever the tokens change.
+ *
+ * The CSS keyframes mirror useEntrance's transforms (engine/src/themes/
+ * entrance.ts). They are a second implementation, which is a real duplication
+ * risk; it is accepted because the alternative is booting a Remotion Player for
+ * a 12-frame gesture, and the shapes are simple enough that a divergence shows
+ * up the first time anyone looks at the two side by side.
+ */
+export function ThemeEntrance({ theme }: { theme: Theme }) {
+  const [take, setTake] = useState(0);
+  const { durationMul } = motionScale(theme);
+  const kind = theme.motion?.entrance ?? "rise";
+  const easing = theme.motion?.easing ?? "smooth";
+  const surface = surfaceStyle(theme, { radius: 10 });
+  const [x1, y1, x2, y2] = easingCurve(theme);
+  const seconds = 0.45 * durationMul;
+  const overrides = Object.entries(theme.motion?.per_component ?? {});
+
+  return (
+    <div className={s.typoGrid}>
+      <div className={s.typoCell}>
+        <div className={s.cellLabel}>ENTRANCE</div>
+        <button type="button" className={s.stage} onClick={() => setTake((t) => t + 1)}>
+          <span
+            key={`${take}-${kind}-${easing}-${seconds}`}
+            className={`${s.enterBox} ${s[`enter_${kind}`] ?? s.enter_fade}`}
+            style={{
+              background: theme.colors.accent,
+              borderRadius: surface.borderRadius,
+              animationDuration: `${seconds.toFixed(2)}s`,
+              animationTimingFunction: `cubic-bezier(${x1}, ${y1}, ${x2}, ${y2})`,
+            }}
+          />
+          <span className={s.stageHint}>replay</span>
+        </button>
+        <div className={s.cellValue}>
+          {theme.motion?.entrance ?? "— each component's own"}
+        </div>
+        <div className={s.cellNote}>
+          {easing} · {seconds.toFixed(2)}s after motion_feel
+        </div>
+      </div>
+      <div className={s.typoCell}>
+        <div className={s.cellLabel}>PER COMPONENT</div>
+        <div className={s.overrideList}>
+          {overrides.length === 0 ? (
+            <span className={s.cellNote}>no overrides — one motion for every overlay</span>
+          ) : (
+            overrides.map(([name, entrance]) => (
+              <span key={name} className={s.overrideRow}>
+                <code>{name}</code>
+                <em style={{ color: theme.colors.accent }}>{entrance}</em>
+              </span>
+            ))
+          )}
+        </div>
+        <div className={s.cellValue}>{overrides.length} override{overrides.length === 1 ? "" : "s"}</div>
+        <div className={s.cellNote}>
+          {overrides.length > 6 ? "long map — consider motion roles (D47)" : "exceptions to the entrance above"}
+        </div>
       </div>
     </div>
   );

@@ -33,7 +33,15 @@
 import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../theme.ts";
+import {
+  PANEL_ENTRANCES,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  motionScale,
+  surfaceStyle,
+  useEntrance,
+} from "../theme.ts";
 
 const plateSchema = z.object({
   /** Path under public/, e.g. "plates/stalingrad.jpg". */
@@ -66,11 +74,15 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
   const { durationMul } = motionScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
-  const inDur = Math.round(fps * 0.5 * durationMul);
-  const opacity = interpolate(frame, fadeInOutRange(durationInFrames, inDur), [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
+  const curve = Easing.bezier(...easingCurve(theme));
+  const entrance = useEntrance(theme, {
+    component: "SatelliteLocate",
+    supported: PANEL_ENTRANCES,
+    fallback: "fade",
+    seconds: 0.5,
   });
+  const { opacity, inDur } = entrance;
+  const surface = surfaceStyle(theme, { radius: 10 });
 
   const panel = props.framing === "panel";
   const boxW = panel ? width * 0.42 : width;
@@ -103,7 +115,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
   const cross = interpolate(frame, [crossStart, crossStart + crossDur], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: Easing.bezier(0.16, 1, 0.3, 1),
+    easing: curve,
   });
   const pulse = (frame / fps) % 1.6;
   const labelStart = Math.round(fps * 1.0 * durationMul);
@@ -127,7 +139,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
           width: plateW,
           height: plateH,
           overflow: "hidden",
-          borderRadius: panel ? 10 : 0,
+          borderRadius: panel ? surface.borderRadius : 0,
           border: panel ? `1px solid ${theme.colors.neutral}55` : "none",
           background: theme.colors.bg,
         }}
@@ -218,7 +230,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
             clipPath: `inset(0 ${interpolate(frame, [labelStart, labelStart + fps * 0.4 * durationMul], [100, 0], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
-              easing: Easing.bezier(0.16, 1, 0.3, 1),
+              easing: curve,
             })}% 0 0)`,
           }}
         >

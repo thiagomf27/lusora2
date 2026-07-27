@@ -17,13 +17,93 @@ typography:
   display: "Playfair Display"     # packaged fonts only, by name
   body: "Inter"
   caption_preset: "serif-lower-third"   # from the engine's caption presets
-motion_feel: slow_heavy           # maps to easing/duration scales in components
+motion_feel: slow_heavy           # global duration/easing scale
 grain: archival                   # optional post-look (Remotion path)
+surface:                          # D46 — the SHAPE of an overlay
+  radius: square                  # square | soft | rounded
+  fill: translucent               # solid | translucent | none
+  accent_rule: top                # top | left | none
+motion:                           # D46 — HOW an overlay arrives
+  entrance: slide                 # fade | rise | slide | pop | wipe | typewriter
+  easing: smooth                  # smooth | snap | spring | linear
+  per_component:                  # exceptions only; sparse by design
+    ChapterCard: typewriter
+    AnimatedCounter: pop
 ```
 
 Rules: components take semantic props only (`emphasis: accent|neutral`);
 the theme runtime resolves them. The AI never sees this file — brand
-consistency is enforced by construction. Final token list: OQ-10.
+consistency is enforced by construction. Token list: D46 (supersedes
+D30, which closed OQ-10 at the original eight).
+
+### Why presentation lives HERE and not in a component pack
+
+The renderer receives `{ plan, theme, assets }` and nothing else
+(`renderers/remotion/render.ts`). The style pack never reaches the
+engine; the compiler copies `template` into the plan item precisely so
+the renderer needs no catalog access either. So any token describing how
+an overlay *looks or moves* has to be a theme token — anywhere else
+needs a new plumbing path from `cfg.json` to the composition.
+
+The three layers, stated as a rule:
+
+| What changes | What you create |
+| --- | --- |
+| colors, fonts, corners, entrance, easing, grain | a **theme** |
+| hold lengths, density, allowed components, script length, persona | a **style pack** |
+| a component that does not exist yet | a **component pack** |
+
+A component pack is a *menu*, a theme is a *look*, a style pack is a
+*rhythm*. Copying 26 entries into a second pack to change a border
+radius is the failure mode this table exists to prevent: pack entries
+are the planner's menu, so the copies would land in the prompt as
+siblings with identical `when_to_use` — the exact ambiguity
+`when_not_to_use` exists to remove — and would render as nothing unless
+each one also mapped to a template.
+
+### `surface` and `motion` semantics
+
+- Enums, never raw numbers. `radius: 12` in a theme file invites
+  `radius: 13`, and "rounded" stops meaning one thing system-wide. The
+  engine owns the pixel values; the theme picks a word.
+- Every token is OPTIONAL with a default equal to today's hardcoded
+  value, so existing themes render identically and a component that has
+  not been converted yet simply ignores them.
+- `motion.entrance` is a REQUEST, not a guarantee. `typewriter` is
+  meaningless on BarChart or SatelliteLocate — a component declares the
+  entrances it can honor and anything else degrades to `fade`. Silent
+  degradation is correct here: the alternative is a theme that renders
+  one component broken.
+- `motion.per_component` is the per-component override, keyed by catalog
+  name, and is meant to stay SPARSE. If it approaches one entry per
+  component the theme has absorbed the styling problem and every new
+  component needs an entry in every theme — that is the trigger for
+  motion roles (D47).
+- All of this is Remotion-path only, at zero ffmpeg cost: any overlay at
+  all already forces the Remotion route (`router.ts`), so D31's
+  "each addition is filter-graph work" does not apply.
+
+### Motion roles — the deferred shape (D47)
+
+When `per_component` gets long, components declare a semantic role and
+the theme sets motion per role instead of per name:
+
+```yaml
+motion:
+  entrance: slide
+  per_role:
+    title: typewriter     # KineticTitle, ChapterCard, HammerStatement
+    data: pop             # AnimatedCounter, BarChart, StatTag
+    card: rise            # FactCard, DefinitionCard, BulletList
+    label: fade           # NamePlate, DateStamp, StatTag
+```
+
+Four entries instead of twenty-six, and a new component inherits its
+role's motion with no theme edit. The roles map cleanly onto the
+catalog's five existing clusters, which is what makes this cheap later.
+NOT built now: it is the right answer to a problem that does not exist
+until several themes carry long override maps. Deliberately deferred —
+see D47 for the trigger.
 
 ## Style pack (behavior — consumed by the PLANNER and the COMPILER)
 
