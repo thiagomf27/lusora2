@@ -513,21 +513,21 @@ export default function ChannelConfigForm({
             <label className={s.checkRow}>
               <input
                 type="checkbox"
-                checked={sp.music?.enabled ?? false}
+                checked={sp.music?.enabled ?? true}
                 onChange={(e) => up({ source_policy: { ...sp, music: { ...(sp.music ?? {}), enabled: e.target.checked } } })}
               />
               Enable background music
             </label>
           </div>
           <label className={s.field}>
-            <span className={s.label}>Music volume (0–1)</span>
+            <span className={s.label}>Music trim (0–1)</span>
             <input
               type="number"
               min={0}
               max={1}
               step={0.01}
               value={sp.music?.default_volume ?? ""}
-              placeholder="0.12"
+              placeholder="1 = as the theme mixed it"
               onChange={(e) =>
                 up({ source_policy: { ...sp, music: { ...(sp.music ?? {}), default_volume: numOr(e.target.value, undefined) } } })
               }
@@ -538,13 +538,40 @@ export default function ChannelConfigForm({
             <label className={s.checkRow}>
               <input
                 type="checkbox"
-                checked={sp.sfx?.enabled ?? false}
+                checked={sp.sfx?.enabled ?? true}
                 onChange={(e) => up({ source_policy: { ...sp, sfx: { ...(sp.sfx ?? {}), enabled: e.target.checked } } })}
               />
               Enable sound effects
             </label>
           </div>
+          <label className={s.field}>
+            <span className={s.label}>SFX gain (0–1)</span>
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.01}
+              value={sp.sfx?.default_gain ?? ""}
+              placeholder="theme default"
+              onChange={(e) =>
+                up({ source_policy: { ...sp, sfx: { ...(sp.sfx ?? {}), default_gain: numOr(e.target.value, undefined) } } })
+              }
+            />
+          </label>
+          <label className={s.field}>
+            <span className={s.label}>Sound pack</span>
+            <input
+              value={sp.sound_pack ?? ""}
+              placeholder="from the theme"
+              onChange={(e) => up({ source_policy: { ...sp, sound_pack: e.target.value || undefined } })}
+            />
+          </label>
         </div>
+        <p className={s.hint}>
+          These two switches are the master control: with either off, nothing is
+          produced for it no matter what the theme and style pack say. The theme
+          picks <em>which</em> sounds play; the style pack picks how often.
+        </p>
       </section>
 
       {/* Advanced — less-relevant / operational settings, kept last */}

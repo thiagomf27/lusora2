@@ -28,12 +28,31 @@ export interface BeatOverlay {
   props_hint?: Record<string, unknown>;
 }
 
+/**
+ * D48 — the mood vocabulary. `Beat.mood` stays a plain string: an unrecognised
+ * mood degrades to "neutral" in the compiler rather than failing a video over a
+ * word choice, so this is the set that MEANS something, not the set that is legal.
+ */
+export const MOODS = [
+  "neutral",
+  "tense",
+  "somber",
+  "hopeful",
+  "urgent",
+  "triumphant",
+  "reflective",
+  "playful",
+] as const;
+
+export type Mood = (typeof MOODS)[number];
+
 export interface Beat {
   id: string;
   kind: "narration" | "timed";
   script_text?: string;
   timing?: { start_s: number; end_s: number };
   visual_intent: string;
+  /** A Mood in practice; typed loose because unknown values degrade, not fail. */
   mood?: string;
   media_preference?: "video" | "image" | "any";
   anchors?: Anchor[];
@@ -135,11 +154,46 @@ export interface VoiceoverItem {
   volume?: number;
 }
 
+/**
+ * D48 — piecewise-linear absolute-time gain, computed by the compiler from the
+ * real sentence timings. This is how ducking works: no DSP, no sidechain, the
+ * same numbers on both render paths, visible and editable in the plan.
+ */
+export interface GainPoint {
+  t_s: number;
+  gain: number;
+}
+
 export interface MusicItem {
+  /** Absent on pre-D48 plans, which address music by index. */
+  id?: string;
   path: string;
   start_s: number;
   end_s?: number | null;
   volume?: number;
+  loop?: boolean;
+  fade_in_s?: number;
+  fade_out_s?: number;
+  mood?: Mood;
+  gain_envelope?: GainPoint[];
+  asset?: AssetProvenance;
+}
+
+export type SfxOrigin = "overlay" | "transition" | "manual";
+
+export interface SfxItem {
+  id: string;
+  beat_id?: string | null;
+  locked?: boolean;
+  start_s: number;
+  end_s: number;
+  path: string;
+  gain?: number;
+  /** Cue name in the sound pack that produced this item. */
+  cue?: string;
+  origin?: SfxOrigin;
+  /** The overlay or visual item this cue belongs to. */
+  origin_id?: string | null;
   loop?: boolean;
   fade_in_s?: number;
   fade_out_s?: number;
@@ -155,7 +209,7 @@ export interface EditPlan {
     visual: VisualItem[];
     overlays: OverlayItem[];
     captions: { enabled: boolean; preset?: string; items: CaptionItem[] };
-    audio: { voiceover: VoiceoverItem; music?: MusicItem[]; sfx?: MusicItem[] };
+    audio: { voiceover: VoiceoverItem; music?: MusicItem[]; sfx?: SfxItem[] };
   };
 }
 
@@ -184,6 +238,26 @@ export interface Theme {
     /** Keyed by catalog component name. Sparse by design (D47). */
     per_component?: Record<string, Entrance>;
   };
+  /** D48 — how a theme SOUNDS. Names cues from a sound pack, the way
+   *  typography names packaged fonts. Omitted = a silent video, as before. */
+  sound?: ThemeSound;
+}
+
+/** A cue or bed name in the resolved sound pack, or "none" to silence. */
+export type CueRef = string;
+
+export interface ThemeSound {
+  pack?: string;
+  /** Omitted means no entrance sfx: silence is the default, not a fallback swoosh. */
+  entrance?: CueRef;
+  /** Keyed by the entrance kind that actually plays, after support resolution. */
+  per_entrance?: Partial<Record<Entrance, CueRef>>;
+  /** Keyed by catalog component name. Exceptions only, like motion.per_component. */
+  per_component?: Record<string, CueRef>;
+  /** Omitted (the default) means none — a cue per transition is ~15/minute. */
+  transition?: CueRef;
+  mood_beds?: Partial<Record<Mood, CueRef>>;
+  gain?: { sfx?: number; music_duck?: number; music_lift?: number };
 }
 
 export type OverlayDensity = "low" | "normal" | "high" | { per_minute: number };
@@ -208,6 +282,45 @@ export interface StylePack {
   /** D45: narration length lives with the pacing numbers it interacts with,
    *  and is overridable per video like overlays.density. */
   script?: { target_seconds?: number; tolerance?: number; prompt?: string };
+  /** D48: how OFTEN cues fire. The theme picks which sound; this picks how many. */
+  sfx?: {
+    enabled?: boolean;
+    cues?: ("entrance" | "transition")[];
+    max_per_minute?: number;
+    min_gap_s?: number;
+  };
+  /** D48: how background music is shaped across the video. */
+  music?: { enabled?: boolean; min_span_s?: number; crossfade_s?: number };
+}
+
+// ---------- sound pack (D48) ----------
+
+export interface SoundCue {
+  file: string;
+  kind: "one_shot" | "loop";
+  duration_s: number;
+  /** Start this many seconds BEFORE the visual, so the transient lands on it. */
+  lead_s?: number;
+  gain?: number;
+  /** On a min-gap collision, the higher priority cue survives. */
+  priority?: number;
+  fade_out_s?: number;
+}
+
+export interface SoundBed {
+  file: string;
+  mood: Mood;
+  duration_s: number;
+  loopable?: boolean;
+  gain?: number;
+}
+
+export interface SoundPack {
+  name: string;
+  license: LicenseKind;
+  attribution?: string;
+  cues: Record<string, SoundCue>;
+  beds: Record<string, SoundBed>;
 }
 
 // ---------- prompts (D42-D44) ----------
@@ -291,16 +404,20 @@ export interface ChannelConfig {
       max_clip_seconds?: number;
       orientation?: "landscape" | "portrait" | "square";
     };
+    /** D48: overrides theme.sound.pack. */
+    sound_pack?: string;
     music?: {
       enabled?: boolean;
       chain?: { source: "audio_library"; tags?: string[] }[];
       default_volume?: number;
     };
-    sfx?: { enabled?: boolean };
+    sfx?: { enabled?: boolean; default_gain?: number };
   };
   overrides?: Record<string, unknown>;
   style_pack_doc?: StylePack;
   theme_doc?: Theme;
+  /** Full sound pack manifest, embedded at enqueue. Absent = silent video. */
+  sound_pack_doc?: SoundPack;
   /** Resolved prompt text per role, snapshotted at enqueue (D44). */
   prompts?: Partial<Record<PromptRole, ResolvedPrompt>>;
 }
@@ -335,6 +452,15 @@ export interface CatalogEntry {
   /** set instead of shipping a React component: TemplateOverlay draws it */
   template?: TemplateKind;
   duration_hint_s?: { min?: number; default?: number; max?: number };
+  /** D48 — the `seconds` this component passes to useEntrance, before
+   *  motion_feel scaling. Declared so the compiler can compute the real
+   *  entrance window without importing the engine. Set only when it differs
+   *  from the 0.45 default. */
+  entrance_seconds?: number;
+  /** D48 — which entrances this component can draw, mirroring the constant it
+   *  passes to useEntrance, so the compiler resolves the SAME kind the
+   *  renderer will play. */
+  entrance_support?: "panel" | "text";
   renderer: "remotion";
 }
 

@@ -34,5 +34,18 @@
     "default": "cut"
   },
   "script_persona": "Energetic analyst. Short punchy sentences. Numbers up front.",
-  "visual_language": "Dynamic close-ups, data-rich shots, quick context establishing shots."
+  "visual_language": "Dynamic close-ups, data-rich shots, quick context establishing shots.",
+  "sfx": {
+    "enabled": true,
+    "cues": [
+      "entrance"
+    ],
+    "max_per_minute": 6,
+    "min_gap_s": 1.0
+  },
+  "music": {
+    "enabled": true,
+    "min_span_s": 16,
+    "crossfade_s": 1.2
+  }
 }

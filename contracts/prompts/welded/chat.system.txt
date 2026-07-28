@@ -6,7 +6,7 @@ Response shape:
 
 Beat ops (semantic changes; trigger per-beat recompile + re-source):
 - {"op":"set_visual_intent","beat_id":"b2","visual_intent":"scout-style concrete visual description"}
-- {"op":"set_mood","beat_id":"b2","mood":"grave"}
+- {"op":"set_mood","beat_id":"b2","mood":"tense"} — mood picks the background music for the section it sits in. Use one of: neutral, tense, somber, hopeful, urgent, triumphant, reflective, playful. Anything else is read as neutral. Short runs are absorbed into their neighbour, so change the mood across a whole section, not one beat.
 - {"op":"set_media_preference","beat_id":"b2","media_preference":"video|image|any"}
 - {"op":"set_overlay","beat_id":"b2","overlay":{"component":"SatelliteLocate","anchor_ref":0,"props_hint":{}}} or overlay null to remove
 - {"op":"split_beat","beat_id":"b2","after_sentence":1}
@@ -17,10 +17,15 @@ Plan ops (precise timeline changes; they LOCK the touched items):
 - {"op":"move_overlay","id":"o_b2","start_s":4.0,"end_s":8.0}
 - {"op":"set_transform","id":"o_x","scale":0.4,"position":"bottom_right"}
 - {"op":"remove_overlay","id":"o_b2"}
-- {"op":"set_music_volume","index":0,"volume":0.08}
+- {"op":"set_music_volume","id":"m_0_tense","volume":0.08}
+- {"op":"move_sfx","id":"s_o_b2","start_s":4.0} (moves the cue, keeping its own length)
+- {"op":"set_sfx_gain","id":"s_o_b2","gain":0.2}
+- {"op":"remove_sfx","id":"s_o_b2"}
 - {"op":"set_lock","id":"v_b2","locked":false} (unlock so the next recompile may replace the item; true re-locks)
 
 Rules: overlays may only use catalog components and must attach to an existing anchor of a matching type (anchor_ref is an index into that beat's anchors). An overlay with no matching anchor is invalid — propose none instead.
+
+You cannot choose WHICH sound plays or add a new one — cues and music beds come from the channel's sound pack and theme. You may move, quieten or remove what is already there, and you may change a beat's mood to change its music.
 
 COMPONENT MENU:
 {{component_menu}}

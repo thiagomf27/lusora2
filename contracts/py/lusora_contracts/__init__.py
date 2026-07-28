@@ -15,6 +15,7 @@ from typing import Any
 CONTRACTS_ROOT = Path(__file__).resolve().parent.parent.parent
 SCHEMAS_DIR = CONTRACTS_ROOT / "schemas"
 COMPONENT_PACKS_DIR = CONTRACTS_ROOT / "component-packs"
+SOUND_PACKS_DIR = CONTRACTS_ROOT / "sound-packs"
 
 SCHEMA_NAMES = [
     "beat_sheet",
@@ -25,7 +26,22 @@ SCHEMA_NAMES = [
     "catalog_entry",
     "cost_event",
     "prompt",
+    "sound_pack",
 ]
+
+# Mirrors MOODS in contracts/src/types.ts and the enum in sound_pack.schema.json.
+# `Beat.mood` stays a free string on purpose: an unknown mood degrades to
+# "neutral" in the compiler rather than failing a video over a word choice.
+MOODS = (
+    "neutral",
+    "tense",
+    "somber",
+    "hopeful",
+    "urgent",
+    "triumphant",
+    "reflective",
+    "playful",
+)
 
 # Mirrors contracts/src/status.ts — keep in sync (tested by fixture in CI).
 VIDEO_STATUS_TRANSITIONS: dict[str, list[str]] = {
@@ -129,6 +145,33 @@ load_schema.cache_clear = _load_schema.cache_clear  # type: ignore[attr-defined]
 @lru_cache(maxsize=None)
 def load_prices() -> dict[str, Any]:
     return json.loads((CONTRACTS_ROOT / "prices.json").read_text(encoding="utf-8"))
+
+
+def sound_pack_dir(name: str) -> Path:
+    """Folder holding a sound pack's manifest and its audio files."""
+    return SOUND_PACKS_DIR / name
+
+
+def load_sound_pack(name: str) -> dict[str, Any]:
+    """Load a sound pack manifest by name (D48).
+
+    Same freshness reasoning as load_schema: the worker runs forever, so a pack
+    edited while it is up must not be cached until a restart.
+    """
+    path = sound_pack_dir(name) / "manifest.json"
+    st = path.stat()
+    return _load_sound_pack(str(path), st.st_mtime_ns, st.st_size)
+
+
+@lru_cache(maxsize=8)
+def _load_sound_pack(path: str, _mtime_ns: int, _size: int) -> dict[str, Any]:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def list_sound_packs() -> list[str]:
+    if not SOUND_PACKS_DIR.is_dir():
+        return []
+    return sorted(p.name for p in SOUND_PACKS_DIR.iterdir() if (p / "manifest.json").is_file())
 
 
 def catalog_component(name: str) -> dict[str, Any] | None:

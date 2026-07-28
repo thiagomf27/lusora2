@@ -7,6 +7,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EditPlan, Theme } from "@lusora/contracts";
 import { DEFAULT_THEME } from "../../themes/runtime.ts";
+import { normalizeLoudness } from "../loudness.ts";
 import { buildAssetManifest } from "./manifest.ts";
 
 export interface RenderResult {
@@ -89,6 +90,10 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
     // large stock clips can take far longer than the 28s default to seek/decode
     timeoutInMilliseconds: 180000,
   });
+  // D48: Remotion mixes the audio itself, so the loudness pass is a separate
+  // remux here rather than a filter in the mux chain. Runs on the tmp file so
+  // final.mp4 still appears atomically.
+  normalizeLoudness(tmpOut);
   renameSync(tmpOut, join(videoDir, "final.mp4"));
 
   const vo = plan.tracks.audio.voiceover;

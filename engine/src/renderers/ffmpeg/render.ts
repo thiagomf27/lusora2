@@ -122,36 +122,62 @@ export async function renderFfmpeg(plan: EditPlan, videoDir: string): Promise<Re
       );
     }
 
-    // ---- 4. audio mix: voiceover (+ music), then mux ----
+    // ---- 4. audio mix: voiceover + music + sfx, then mux ----
     const voPath = resolve(videoDir, vo.path);
     if (!existsSync(voPath)) throw new Error(`voiceover file missing: ${vo.path}`);
-    const music = (plan.tracks.audio.music ?? []).filter((m) =>
-      existsSync(resolve(videoDir, m.path))
-    );
+    const present = <T extends { path: string }>(items: T[] | undefined) =>
+      (items ?? []).filter((i) => existsSync(resolve(videoDir, i.path)));
+    const music = present(plan.tracks.audio.music);
+    const sfx = present(plan.tracks.audio.sfx);
 
     const audioInputs: string[] = ["-i", voPath];
     const filters: string[] = [
       `[1:a]adelay=${Math.round(voStart * 1000)}:all=1,volume=${vo.volume ?? 1}[voa]`,
     ];
     const mixLabels = ["[voa]"];
-    music.forEach((m, idx) => {
+
+    // music and sfx build the same chain; they differ in the gain field they
+    // carry (a bed is ducked, a cue is a fixed trim) and in looping
+    const beds = [
+      ...music.map((m) => ({ item: m, gain: m.volume ?? 0.12, label: "m" })),
+      ...sfx.map((s) => ({ item: s, gain: s.gain ?? 0.35, label: "s" })),
+    ];
+    beds.forEach(({ item, gain, label }, idx) => {
       const inputIdx = 2 + idx;
-      audioInputs.push(...(m.loop ? ["-stream_loop", "-1"] : []), "-i", resolve(videoDir, m.path));
-      const end = m.end_s ?? totalDuration;
-      const dur = Math.max(end - m.start_s, 0.1);
-      const fadeOutStart = Math.max(dur - (m.fade_out_s ?? 0), 0);
+      audioInputs.push(
+        ...(item.loop ? ["-stream_loop", "-1"] : []),
+        "-i",
+        resolve(videoDir, item.path)
+      );
+      const end = item.end_s ?? totalDuration;
+      const dur = Math.max(end - item.start_s, 0.1);
+      const fadeOutStart = Math.max(dur - (item.fade_out_s ?? 0), 0);
       let chain = `[${inputIdx}:a]atrim=0:${dur.toFixed(3)},asetpts=PTS-STARTPTS`;
-      if (m.fade_in_s) chain += `,afade=t=in:st=0:d=${m.fade_in_s}`;
-      if (m.fade_out_s) chain += `,afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${m.fade_out_s}`;
-      chain += `,volume=${m.volume ?? 0.12},adelay=${Math.round(m.start_s * 1000)}:all=1[m${idx}]`;
+      if (item.fade_in_s) chain += `,afade=t=in:st=0:d=${item.fade_in_s}`;
+      if (item.fade_out_s) chain += `,afade=t=out:st=${fadeOutStart.toFixed(3)}:d=${item.fade_out_s}`;
+      chain += `,volume=${gain}`;
+      // D48 ducking. The envelope is in absolute time and this chain is still
+      // at PTS 0 (adelay comes next), so shift it back by start_s. Same numbers
+      // the Remotion path interpolates, so both mixes are identical.
+      const envelope = "gain_envelope" in item ? item.gain_envelope : undefined;
+      if (envelope?.length) {
+        chain += `,volume=${envelopeExpr(envelope, item.start_s)}:eval=frame`;
+      }
+      chain += `,adelay=${Math.round(item.start_s * 1000)}:all=1[${label}${idx}]`;
       filters.push(chain);
-      mixLabels.push(`[m${idx}]`);
+      mixLabels.push(`[${label}${idx}]`);
     });
-    const mix =
+    // One loudness pass on the mixed bus (D48), BEFORE apad: padding with
+    // silence first would drag the measured integrated loudness down and push
+    // the whole mix up to compensate. Single-pass loudnorm — a two-pass measure
+    // costs a full extra decode for a difference the ear cannot hear here.
+    // -14 LUFS is the YouTube target, so the platform leaves the mix alone.
+    const loudnorm = "loudnorm=I=-14:TP=-1.5:LRA=11,apad[aout]";
+    filters.push(
       mixLabels.length === 1
-        ? `${mixLabels[0]}apad[aout]`
-        : `${mixLabels.join("")}amix=inputs=${mixLabels.length}:normalize=0,apad[aout]`;
-    filters.push(mix);
+        ? `${mixLabels[0]}${loudnorm}`
+        : `${mixLabels.join("")}amix=inputs=${mixLabels.length}:normalize=0,${loudnorm}`
+    );
 
     const tmpFinal = join(videoDir, "final.tmp.mp4");
     ffmpeg(
@@ -259,4 +285,40 @@ function toSrt(items: CaptionItem[]): string {
 
 function escapeFilterPath(p: string): string {
   return p.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+}
+
+/**
+ * A D48 gain envelope as an ffmpeg `volume` expression.
+ *
+ * The envelope is piecewise-linear in absolute time; this chain is still at
+ * PTS 0 (adelay has not run yet), so every point shifts back by `startS`.
+ * Built as nested if() rather than a sum of between() terms so that exactly
+ * one branch evaluates per sample — a sum would double-count at the joins.
+ *
+ * The ends are held flat, matching gainAt() on the Remotion side. The schema
+ * caps the envelope at 200 points, which bounds this string to a few KB.
+ */
+export function envelopeExpr(points: { t_s: number; gain: number }[], startS: number): string {
+  const p = points
+    .map(({ t_s, gain }) => ({ t: t_s - startS, g: gain }))
+    .sort((a, b) => a.t - b.t);
+  const n = (v: number) => v.toFixed(4);
+
+  // innermost value first: past the last point, hold the last gain
+  let expr = n(p[p.length - 1].g);
+  for (let i = p.length - 1; i >= 1; i--) {
+    const a = p[i - 1];
+    const b = p[i];
+    const span = b.t - a.t;
+    const segment =
+      span <= 0
+        ? n(b.g)
+        // lerp from a to b across the segment. The offset is parenthesized
+        // because it is negative whenever the envelope starts before the item
+        // does, and `t--8.0` is a parse hazard not worth relying on.
+        : `(${n(a.g)}+(${n(b.g - a.g)})*(t-(${n(a.t)}))/${n(span)})`;
+    expr = `if(lt(t,${n(b.t)}),${segment},${expr})`;
+  }
+  // before the first point, hold the first gain
+  return `'if(lt(t,${n(p[0].t)}),${n(p[0].g)},${expr})'`;
 }

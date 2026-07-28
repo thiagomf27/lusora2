@@ -20,7 +20,7 @@ emphasize). Everything computable (timings) or identity-bound
       "kind": "narration",
       "script_text": "By 1943, nearly 70% of the city's factories had been converted to produce aircraft parts.",
       "visual_intent": "aerial view of a 1940s industrial district, smokestacks, factory floor with workers assembling aircraft wings, archival grain",
-      "mood": "grave",
+      "mood": "somber",
       "media_preference": "video",
       "anchors": [
         { "type": "percentage", "value": 70, "label": "factories converted", "source_words": "nearly 70%" }
@@ -33,7 +33,7 @@ emphasize). Everything computable (timings) or identity-bound
       "kind": "timed",
       "timing": { "start_s": 0.0, "end_s": 4.5 },
       "visual_intent": "slow push-in on a city skyline at dawn, mist",
-      "mood": "calm",
+      "mood": "reflective",
       "overlay": { "component": "KineticTitle", "props_hint": { "text": "1943" } }
     }
   ],
@@ -70,6 +70,18 @@ emphasize). Everything computable (timings) or identity-bound
   vector search) — the planner prompt teaches this with examples.
 - `media_preference` (`video` | `image` | `any`) — hint for resolution
   ordering within the source policy.
+- `mood` — the beat's emotional register, and the ONLY thing the model
+  contributes to sound (D50). Vocabulary: `neutral, tense, somber,
+  hopeful, urgent, triumphant, reflective, playful`. Deliberately typed
+  as a plain string: an unrecognised mood degrades to `neutral` in the
+  compiler rather than failing a video over a word choice. The compiler
+  groups contiguous same-mood beats into spans, absorbs runs shorter than
+  the style pack's `music.min_span_s`, and the theme maps mood → bed —
+  so mood is a property of a *section*, not a per-beat dial.
+- `music[]` (top level) — **superseded by `mood` and read by nothing.**
+  It predates D50 and was never requested from the planner nor consumed
+  by the compiler. Left in the schema for now; a candidate for deletion
+  the next time this contract is touched. Do not build on it.
 
 ## What the planner receives (prompt inputs)
 

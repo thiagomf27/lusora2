@@ -10,9 +10,11 @@ import {
   EASINGS,
   ENTRANCES,
   FILLS,
+  MOOD_NAMES,
   RADII,
   UNSET,
   formatPerComponent,
+  mergeSoundMap,
   mergeTokenGroup,
   parsePerComponent,
 } from "@/lib/themeTokens";
@@ -178,6 +180,55 @@ function PerComponentField({
   );
 }
 
+/**
+ * A `key: value` map as one line each — the same shape as per_component, but
+ * over a CLOSED key set (entrance kinds, moods), so an unknown key is a typo
+ * worth showing rather than a new entry.
+ */
+function MapField({
+  label,
+  keys,
+  value,
+  placeholder,
+  hint,
+  onChange,
+}: {
+  label: string;
+  keys: readonly string[];
+  value: Record<string, string> | undefined;
+  placeholder: string;
+  hint: string;
+  onChange: (next: Record<string, string | undefined>) => void;
+}) {
+  const parsed = parsePerComponent(formatPerComponent(value)) ?? {};
+  const unknown = Object.keys(parsed).filter((k) => !keys.includes(k));
+  return (
+    <label className={s.field}>
+      <span className={s.fieldLabel}>{label}</span>
+      <textarea
+        name={label}
+        className={s.textarea}
+        rows={3}
+        spellCheck={false}
+        placeholder={placeholder}
+        value={formatPerComponent(value)}
+        onChange={(e) => {
+          const next = parsePerComponent(e.target.value) ?? {};
+          // keys that vanished from the text have to be sent as undefined for
+          // mergeSoundMap to actually drop them
+          const cleared = Object.fromEntries(
+            Object.keys(value ?? {}).filter((k) => !(k in next)).map((k) => [k, undefined])
+          );
+          onChange({ ...cleared, ...next });
+        }}
+      />
+      <span className={s.hint}>
+        {unknown.length ? `unknown key(s): ${unknown.join(", ")} — allowed: ${keys.join(", ")}` : hint}
+      </span>
+    </label>
+  );
+}
+
 export default function ThemeFields({
   value,
   onChange,
@@ -196,6 +247,8 @@ export default function ThemeFields({
     onChange(mergeTokenGroup(value, "surface", patch));
   const upMotion = (patch: Partial<NonNullable<Theme["motion"]>>) =>
     onChange(mergeTokenGroup(value, "motion", patch));
+  const upSound = (patch: Partial<NonNullable<Theme["sound"]>>) =>
+    onChange(mergeTokenGroup(value, "sound", patch));
 
   return (
     <div className={s.form}>
@@ -309,6 +362,95 @@ export default function ThemeFields({
         value={value.motion?.per_component}
         onChange={(next) => upMotion({ per_component: next as never })}
       />
+
+      <div className={s.formLabel}>SOUND</div>
+      <div className={s.hint}>
+        Which cue plays and at what level. Names come from the sound pack; the
+        style pack decides how <em>often</em> they fire. Leave it all empty for a
+        silent video.
+      </div>
+      <label className={s.field}>
+        <span className={s.fieldLabel}>pack</span>
+        <input
+          name="sound-pack"
+          value={value.sound?.pack ?? ""}
+          placeholder="doc-restrained"
+          spellCheck={false}
+          onChange={(e) => upSound({ pack: e.target.value.trim() || undefined })}
+        />
+        <span className={s.hint}>A channel may override this.</span>
+      </label>
+      <label className={s.field}>
+        <span className={s.fieldLabel}>entrance</span>
+        <input
+          name="sound-entrance"
+          value={value.sound?.entrance ?? ""}
+          placeholder="swoosh-soft"
+          spellCheck={false}
+          onChange={(e) => upSound({ entrance: e.target.value.trim() || undefined })}
+        />
+        <span className={s.hint}>Default cue for an overlay entrance. Empty = silent.</span>
+      </label>
+      <label className={s.field}>
+        <span className={s.fieldLabel}>transition</span>
+        <input
+          name="sound-transition"
+          value={value.sound?.transition ?? ""}
+          placeholder="none"
+          spellCheck={false}
+          onChange={(e) => upSound({ transition: e.target.value.trim() || undefined })}
+        />
+        <span className={s.hint}>
+          Usually empty: at a 4s hold, a cue per transition is ~15 a minute.
+        </span>
+      </label>
+      <MapField
+        label="per_entrance"
+        keys={ENTRANCES}
+        value={value.sound?.per_entrance}
+        placeholder={"typewriter: tick-typing\npop: thud-low"}
+        hint="One entrance-kind: cue per line. Applies once the theme has chosen an entrance."
+        onChange={(next) => onChange(mergeSoundMap(value, "per_entrance", next))}
+      />
+      <MapField
+        label="mood_beds"
+        keys={MOOD_NAMES}
+        value={value.sound?.mood_beds}
+        placeholder={"tense: tense-01\nsomber: somber-01"}
+        hint="One mood: bed per line. A mood with no bed plays no music, which is a valid choice."
+        onChange={(next) => onChange(mergeSoundMap(value, "mood_beds", next))}
+      />
+      <div className={s.formLabel}>SOUND GAIN</div>
+      <div className={s.hint}>
+        The mix. music_duck is the bed level under speech; music_lift is where it
+        rises in a narration gap.
+      </div>
+      {(
+        [
+          ["sfx", 0.35],
+          ["music_duck", 0.08],
+          ["music_lift", 0.22],
+        ] as const
+      ).map(([key, fallback]) => (
+        <label className={s.field} key={key}>
+          <span className={s.fieldLabel}>{key}</span>
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.01}
+            value={value.sound?.gain?.[key] ?? ""}
+            placeholder={String(fallback)}
+            onChange={(e) =>
+              onChange(
+                mergeSoundMap(value, "gain", {
+                  [key]: e.target.value === "" ? undefined : Number(e.target.value),
+                })
+              )
+            }
+          />
+        </label>
+      ))}
     </div>
   );
 }

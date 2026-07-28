@@ -486,6 +486,37 @@
 }
 .trackLabel { font-size: 9px; letter-spacing: 0.8px; color: var(--muted-2); margin-bottom: 3px; }
 
+/* Audio lane (D48): music beds as spans, sfx cues as ticks. Both are
+   compiled artifacts, so both are addressable and both show their origin. */
+.trackMusic { height: 22px; }
+.trackSfx { height: 18px; }
+.blockMusic {
+  background: #16302a;
+  border: 1px solid #2b5f4f;
+  color: #6fceac;
+  font-size: 9.5px;
+}
+.blockSfx {
+  background: #2c2440;
+  border: 1px solid #4b3d6f;
+  color: #a793e0;
+  min-width: 3px;
+  padding: 0;
+  justify-content: center;
+  font-size: 9px;
+}
+.blockSfxLocked { border-color: var(--warn); }
+/* The ducking envelope drawn over its bed: the shape of the mix, at a glance.
+   A flat line means nothing is being lifted, which is usually a mistake. */
+.duckCurve {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
 /* Playhead */
 .playhead {
   position: absolute;

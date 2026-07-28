@@ -36,5 +36,18 @@
     "default": "cut"
   },
   "script_persona": "Clear, friendly explainer. Concrete examples. One idea per sentence.",
-  "visual_language": "Clean, bright, illustrative footage; diagrams welcome; avoid clutter."
+  "visual_language": "Clean, bright, illustrative footage; diagrams welcome; avoid clutter.",
+  "sfx": {
+    "enabled": true,
+    "cues": [
+      "entrance"
+    ],
+    "max_per_minute": 4,
+    "min_gap_s": 1.2
+  },
+  "music": {
+    "enabled": true,
+    "min_span_s": 20,
+    "crossfade_s": 1.5
+  }
 }

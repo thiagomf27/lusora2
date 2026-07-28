@@ -1,9 +1,16 @@
 {
   "name": "breakdown-blitz",
   "video_type": "breakdown",
-  "pacing": { "avg_hold_seconds": 2.4, "min_hold": 1.4, "max_hold": 4.5, "arc": "linear" },
+  "pacing": {
+    "avg_hold_seconds": 2.4,
+    "min_hold": 1.4,
+    "max_hold": 4.5,
+    "arc": "linear"
+  },
   "overlays": {
-    "density": { "per_minute": 9 },
+    "density": {
+      "per_minute": 9
+    },
     "allowed_components": [
       "KineticTitle",
       "ChapterCard",
@@ -24,7 +31,27 @@
       "HighlightedPassage"
     ]
   },
-  "transitions": { "allowed": ["cut", "crossfade"], "default": "cut" },
+  "transitions": {
+    "allowed": [
+      "cut",
+      "crossfade"
+    ],
+    "default": "cut"
+  },
   "script_persona": "Rapid analyst. One idea per sentence, numbers up front, no wind-up. Every second earns the next.",
-  "visual_language": "Tight close-ups, mechanisms and hands, hard cuts between scales; avoid slow establishing drone shots."
+  "visual_language": "Tight close-ups, mechanisms and hands, hard cuts between scales; avoid slow establishing drone shots.",
+  "sfx": {
+    "enabled": true,
+    "cues": [
+      "entrance",
+      "transition"
+    ],
+    "max_per_minute": 8,
+    "min_gap_s": 0.9
+  },
+  "music": {
+    "enabled": true,
+    "min_span_s": 14,
+    "crossfade_s": 1.0
+  }
 }

@@ -81,12 +81,87 @@
           "additionalProperties": { "$ref": "#/$defs/entrance" }
         }
       }
+    },
+    "sound": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D48 — how a theme SOUNDS. Names cues and beds from a sound pack, the way typography names packaged fonts. Every token optional; a theme with no `sound` block produces a silent video exactly as before. The AI never sees this.",
+      "properties": {
+        "pack": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "default sound pack name; channel config source_policy.sound_pack overrides it"
+        },
+        "entrance": {
+          "$ref": "#/$defs/cueRef",
+          "description": "default cue for an overlay entrance. Omitted means no entrance sfx at all — silence is the default, not a fallback swoosh."
+        },
+        "per_entrance": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "cue by the entrance kind that actually plays, after the theme's motion tokens and the component's support are resolved. A typewriter entrance wants a typing loop; a pop wants a transient.",
+          "properties": {
+            "fade": { "$ref": "#/$defs/cueRef" },
+            "rise": { "$ref": "#/$defs/cueRef" },
+            "slide": { "$ref": "#/$defs/cueRef" },
+            "pop": { "$ref": "#/$defs/cueRef" },
+            "wipe": { "$ref": "#/$defs/cueRef" },
+            "typewriter": { "$ref": "#/$defs/cueRef" }
+          }
+        },
+        "per_component": {
+          "type": "object",
+          "description": "per-catalog-name cue override. Exceptions only, like motion.per_component. Set \"none\" to silence one component.",
+          "propertyNames": { "pattern": "^[A-Z][A-Za-z0-9]*$" },
+          "additionalProperties": { "$ref": "#/$defs/cueRef" }
+        },
+        "transition": {
+          "$ref": "#/$defs/cueRef",
+          "description": "cue for a visual transition. Omitted (the default) means none: at a 4s hold a cue per transition is 15/minute, which is the fastest way to sound amateur."
+        },
+        "mood_beds": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "mood -> bed name. A mood with no entry gets no music for that span, which is a legitimate choice: silence under the turn.",
+          "properties": {
+            "neutral": { "$ref": "#/$defs/cueRef" },
+            "tense": { "$ref": "#/$defs/cueRef" },
+            "somber": { "$ref": "#/$defs/cueRef" },
+            "hopeful": { "$ref": "#/$defs/cueRef" },
+            "urgent": { "$ref": "#/$defs/cueRef" },
+            "triumphant": { "$ref": "#/$defs/cueRef" },
+            "reflective": { "$ref": "#/$defs/cueRef" },
+            "playful": { "$ref": "#/$defs/cueRef" }
+          }
+        },
+        "gain": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the mix. Numbers, not enums, because these ARE the mix — there is no vocabulary that means '18 dB under the voice'. All three are absolute levels applied to the pack's files; the channel's source_policy trims them.",
+          "properties": {
+            "sfx": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.35 },
+            "music_duck": {
+              "type": "number", "minimum": 0, "maximum": 1, "default": 0.16,
+              "description": "bed level while a sentence is playing. Against the shipped packs (beds at -24 LUFS) this lands the bed about 18 dB under a typical narration — present, never competing."
+            },
+            "music_lift": {
+              "type": "number", "minimum": 0, "maximum": 1, "default": 0.5,
+              "description": "bed level in a narration gap long enough to be heard: about 8 dB under the voice, so the music is unmistakably there in the silence."
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {
     "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
     "entrance": {
       "enum": ["fade", "rise", "slide", "pop", "wipe", "typewriter"]
+    },
+    "cueRef": {
+      "type": "string",
+      "pattern": "^([a-z0-9][a-z0-9-]*|none)$",
+      "description": "a cue or bed name in the resolved sound pack, or \"none\" to silence"
     }
   }
 }

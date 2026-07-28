@@ -11,10 +11,58 @@ the renderer's ONLY input besides asset files.
 | `visual` | base items: broll / image / avatar, each with motion + transition_out | **contiguous, non-overlapping, starts at 0** |
 | `overlays` | catalog component instances AND media overlays (PiP: media item + transform scale/position) | may overlap each other and the base |
 | `captions` | subtitle items + style preset ref | imported from SRT once at compile; plan is then the source of truth |
-| `audio` | exactly one voiceover + music/sfx (volume, loop, fades) | voiceover defines total duration |
+| `audio` | exactly one voiceover, plus `music[]` beds and `sfx[]` cues | voiceover defines total duration |
 
 Fixed track set; richness lives in items. Transitions consume handles,
 never move narrative cuts; freeze-frame fallback.
+
+## The audio track (D48)
+
+Three item shapes, all placed by the compiler:
+
+- **`voiceover`** — exactly one. `start_s + duration_s` is the length of
+  the video, and everything else is checked against it.
+- **`music[]`** — one bed per mood span, each with `mood`, `loop`,
+  crossfade `fade_in_s`/`fade_out_s`, and a `gain_envelope`.
+- **`sfx[]`** — one-shots and short loops. Unlike music, a cue extends
+  `itemBase`: it has an `id`, a `beat_id` and a `locked` flag, so it is
+  addressable by the editor and follows the same recompile rules as an
+  overlay. `origin` (`overlay` | `transition` | `manual`) and `origin_id`
+  record *why* it exists.
+
+Cues are **not** nested inside the overlay they belong to. A flat track
+is what lets the editor move one independently, lets the ffmpeg path mix
+it with the same code as music, and keeps a hand-added cue alive across a
+recompile. The link is `origin_id`, not containment.
+
+### `gain_envelope` — ducking as data
+
+```json
+"gain_envelope": [
+  { "t_s": 0,     "gain": 0.16 },
+  { "t_s": 12.4,  "gain": 0.16 },
+  { "t_s": 12.75, "gain": 0.5  },
+  { "t_s": 16.2,  "gain": 0.5  },
+  { "t_s": 16.45, "gain": 0.16 }
+]
+```
+
+Piecewise-linear, **absolute time**, ends held flat, multiplied by
+`volume`. The compiler derives it from the exact per-sentence TTS
+timings: hold at `music_duck` while a sentence plays, ramp to
+`music_lift` in any gap long enough to be worth hearing (~1.2 s), and be
+back down before the next sentence starts.
+
+No compressor is involved, on purpose (D49). Remotion interpolates the
+points in its volume callback; ffmpeg builds the same curve as a nested
+`if(lt(t,…))` expression on `volume=…:eval=frame`. Both read the same
+numbers, so both paths mix the same — `engine/test/audio.test.ts` pins
+that by evaluating the ffmpeg expression and `gainAt()` against each
+other. The schema caps the list at 200 points; the compiler drops the
+shortest gaps rather than overflow it.
+
+Finally, one `loudnorm` pass takes the finished mix to **-14 LUFS**,
+YouTube's target, so the platform's own normalization leaves it alone.
 
 ## Item provenance + lock (the editor-sync rule)
 

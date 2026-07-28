@@ -1,3 +1,4 @@
 Output JSON shape:
-{"version":"1.0","video_id":"{{video_id}}","beats":[{"id":"b1","kind":"narration","script_text":"…","visual_intent":"…","mood":"…","media_preference":"video|image|any","anchors":[{"type":"percentage","value":70,"label":"…","source_words":"…"}],"overlay":{"component":"…","anchor_ref":0,"props_hint":{}}}]}
+{"version":"1.0","video_id":"{{video_id}}","beats":[{"id":"b1","kind":"narration","script_text":"…","visual_intent":"…","mood":"neutral|tense|somber|hopeful|urgent|triumphant|reflective|playful","media_preference":"video|image|any","anchors":[{"type":"percentage","value":70,"label":"…","source_words":"…"}],"overlay":{"component":"…","anchor_ref":0,"props_hint":{}}}]}
+`mood` selects the background music for the SECTION a beat sits in, so use one of those eight words exactly — anything else is read as "neutral". Keep one mood across a run of beats and change it only where the story turns; a mood set on a single isolated beat is merged away.
 Omit anchors/overlay where not needed. Respond with the JSON object only.

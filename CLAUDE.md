@@ -13,7 +13,7 @@ docker-compose.
 ## Reading order
 
 ### 00 — Status ★ read first when resuming work
-- [Implementation Status](00-status.md) — what is BUILT (all of M0–M9),
+- [Implementation Status](00-status.md) — what is BUILT (all of M0–M12),
   how to run it on this machine, providers wired, gotchas, known gaps.
   The docs below describe the design; that file describes reality.
 
@@ -36,6 +36,7 @@ docker-compose.
 - [Beat Sheet](03-contracts/beat-sheet.md) — the AI's output format ★ core
 - [Edit Plan](03-contracts/edit-plan.md) — the compiled, strict timeline
 - [Theme & Style Packs](03-contracts/theme-and-style.md) — personalization as data
+- [Sound](03-contracts/sound.md) — sound packs, cues, mood music, ducking
 - [Channel Config & Source Policy](03-contracts/channel-config.md)
 - [Component Catalog](03-contracts/component-catalog.md) — the effects menu
 - [Database](03-contracts/database.md) — the control plane schema
@@ -52,7 +53,8 @@ docker-compose.
 
 ### 07 — Authoring
 - [Authoring Guide](07-authoring.md) — ready-made prompts for adding a
-  component, a theme or a style pack, with the files to attach as models
+  component, theme, style pack, sound pack or prompt pack, with the files
+  to attach as models
 
 ## Conventions
 

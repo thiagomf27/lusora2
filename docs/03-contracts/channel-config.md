@@ -38,11 +38,13 @@ source_policy:
         style: "archival photo, desaturated, film grain"
     max_clip_seconds: 12
     orientation: landscape
+  sound_pack: doc-restrained          # optional; overrides theme.sound.pack
   music:
-    enabled: true
-    chain: [{ source: audio_library, tags: [dark, ambient] }]
-    default_volume: 0.12
-  sfx: { enabled: false }
+    enabled: true                     # master switch for this channel
+    default_volume: 1                 # a TRIM on the theme's levels, not the level
+  sfx:
+    enabled: true                     # master switch
+    default_gain: 0.28                # optional; overrides theme.sound.gain.sfx
 ```
 
 ## Semantics (Decided)
@@ -53,6 +55,16 @@ source_policy:
   library always returns *something*).
 - Every library filter maps 1:1 to a `library_search` parameter — the
   policy is stored arguments, not a query language.
+- `music.enabled` / `sfx.enabled` are the **master switches for sound**
+  (D48): with either false, nothing is produced for it whatever the theme
+  and style pack say, and `resolve_audio` no-ops. Both default TRUE. Like
+  every config field they deep-merge at enqueue, so silencing one video is
+  an override and needs no code.
+- `music.default_volume` is a **trim**, not a level: 1 means "as the theme
+  mixed it". The absolute levels are `theme.sound.gain.music_duck` /
+  `music_lift`, so the mix lives in one place. `music.chain` /
+  `audio_library` remain declared and unimplemented — sound comes from the
+  sound pack named here or in the theme, not from a source chain.
 - Chain exhausted with nothing found → the stage FAILS with the beat id
   and query (consistent fail-loud; placeholder-and-flag rejected — silent
   gaps reach review).

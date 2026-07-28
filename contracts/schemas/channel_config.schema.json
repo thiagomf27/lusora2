@@ -123,23 +123,43 @@
             "orientation": { "enum": ["landscape", "portrait", "square"], "default": "landscape" }
           }
         },
+        "sound_pack": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "sound pack name; overrides theme.sound.pack. The pack manifest is embedded as sound_pack_doc at enqueue."
+        },
         "music": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean", "default": false },
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "master switch for background music on this channel; false makes the resolve_audio stage a no-op for beds"
+            },
             "chain": {
               "type": "array",
               "items": { "$ref": "#/$defs/audioSource" }
             },
-            "default_volume": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.12 }
+            "default_volume": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 1,
+              "description": "D48: a TRIM on the theme's music levels, not the level itself — 1 means 'as the theme mixed it', 0.5 pulls music down 6 dB across the channel. The absolute levels are theme.sound.gain.music_duck / music_lift, so the mix lives in one place."
+            }
           }
         },
         "sfx": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean", "default": false }
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "master switch for sound effects on this channel; overridable per video like any config field"
+            },
+            "default_gain": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.35 }
           }
         }
       }
@@ -155,6 +175,10 @@
     "theme_doc": {
       "type": "object",
       "description": "full theme document embedded at enqueue (snapshot)"
+    },
+    "sound_pack_doc": {
+      "type": "object",
+      "description": "full sound pack manifest embedded at enqueue (snapshot). Absent when no pack is resolved, which is how a channel produces silent video."
     },
     "prompts": {
       "type": "object",

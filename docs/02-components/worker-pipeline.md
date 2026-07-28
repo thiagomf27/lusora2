@@ -16,12 +16,27 @@ folder. Stores no state of its own. Emits `video_events` and
 | 5 | plan_beats | `beats.json` | **bounded agent** ★ |
 | 6 | compile_plan | `edit_plan.json` | no (deterministic compiler) |
 | 7 | resolve_assets | `clips/` + filled asset paths + provenance | no |
+| 7b | resolve_audio | `audio/` — the sound pack's cues and beds copied in, provenance filled | no |
 | 8 | validate (full) | pass/fail (no artifact, always runs) | no |
 | 9 | render | `final.mp4` | no |
 | 10 | finalize | `thumb.jpg`, `metadata.txt`, status RENDERED | optional (thumb/metadata generators) |
 
 Structural validation additionally runs after claim (if a plan was
 provided manually) and after compile.
+
+### `resolve_audio` (D48)
+
+The compiler already decided which cues and beds play and when; this
+stage only binds those names to bytes, copying them from the snapshotted
+sound pack into `<video>/audio/` and recording `library` provenance. It
+no-ops when the channel has music and sfx switched off, or when the plan
+carries no audio items.
+
+Copying rather than pointing at the pack is what keeps a video
+reproducible: re-rendering next year uses the audio it was built with,
+even if the pack has been retuned since — the same reason `cfg.json`
+snapshots the theme (Principle 7). It costs nothing and needs no network,
+so there is no budget gate and no price-table entry.
 
 ## Bounded agents — the only three LLM roles in the system
 

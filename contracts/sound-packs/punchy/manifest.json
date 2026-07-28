@@ -1,0 +1,91 @@
+{
+  "name": "punchy",
+  "license": "cc0",
+  "attribution": "Synthesized placeholders — see contracts/sound-packs/README.md",
+  "cues": {
+    "swoosh-bright": {
+      "file": "sfx/swoosh-bright.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.34,
+      "lead_s": 0.08,
+      "priority": 1
+    },
+    "pop-tight": {
+      "file": "sfx/pop-tight.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.261,
+      "lead_s": 0.01,
+      "priority": 3
+    },
+    "riser-short": {
+      "file": "sfx/riser-short.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.836,
+      "lead_s": 0.55,
+      "priority": 1
+    },
+    "thud-low": {
+      "file": "sfx/thud-low.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.444,
+      "lead_s": 0.02,
+      "priority": 2
+    },
+    "tick-typing": {
+      "file": "sfx/tick-typing.mp3",
+      "kind": "loop",
+      "duration_s": 1.646,
+      "fade_out_s": 0.08
+    }
+  },
+  "beds": {
+    "neutral-01": {
+      "file": "beds/neutral-01.mp3",
+      "mood": "neutral",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "tense-01": {
+      "file": "beds/tense-01.mp3",
+      "mood": "tense",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "somber-01": {
+      "file": "beds/somber-01.mp3",
+      "mood": "somber",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "hopeful-01": {
+      "file": "beds/hopeful-01.mp3",
+      "mood": "hopeful",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "urgent-01": {
+      "file": "beds/urgent-01.mp3",
+      "mood": "urgent",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "triumphant-01": {
+      "file": "beds/triumphant-01.mp3",
+      "mood": "triumphant",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "reflective-01": {
+      "file": "beds/reflective-01.mp3",
+      "mood": "reflective",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "playful-01": {
+      "file": "beds/playful-01.mp3",
+      "mood": "playful",
+      "duration_s": 48.024,
+      "loopable": true
+    }
+  }
+}

@@ -190,6 +190,28 @@ export async function enqueueVideo(
     }
   }
 
+  // embed the sound pack manifest (D48). Same snapshot rule, but resolved
+  // AFTER theme_doc because the theme is where the pack name lives when the
+  // channel does not name one. A channel with no pack anywhere produces a
+  // silent video, which is a legitimate configuration and not an error.
+  if (snapshot.sound_pack_doc === undefined) {
+    const themeDoc = snapshot.theme_doc as { sound?: { pack?: string } } | undefined;
+    const policy = snapshot.source_policy as { sound_pack?: string } | undefined;
+    const packName = policy?.sound_pack ?? themeDoc?.sound?.pack;
+    if (packName) {
+      const packPath = join(repoRoot(), "contracts", "sound-packs", packName, "manifest.json");
+      if (!existsSync(packPath)) {
+        return {
+          ok: false,
+          problems: [
+            `sound-packs/${packName}/manifest.json not found in contracts — create the pack or clear source_policy.sound_pack / theme sound.pack`,
+          ],
+        };
+      }
+      snapshot.sound_pack_doc = JSON.parse(readFileSync(packPath, "utf8"));
+    }
+  }
+
   // Resolve each agent's prompt and embed its TEXT (D44). The style pack layer
   // reads style_pack_doc, so this has to run after the embed above. The welded
   // contract half is NOT snapshotted: it must match the validator that will

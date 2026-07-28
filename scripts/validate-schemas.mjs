@@ -96,6 +96,91 @@ for (const file of packFiles) {
   }
 }
 
+// 3bis. sound packs (D48): schema-valid, the manifest names its own folder, and
+//       every declared file EXISTS. A missing file would otherwise surface as a
+//       render-time "music file missing" on a real video, long after the edit.
+const soundPacksRoot = join(root, "contracts/sound-packs");
+if (existsSync(soundPacksRoot)) {
+  for (const dir of readdirSync(soundPacksRoot)) {
+    const manifestPath = join(soundPacksRoot, dir, "manifest.json");
+    if (!existsSync(manifestPath)) continue;
+    const pack = JSON.parse(readFileSync(manifestPath, "utf8"));
+    if (!validators.sound_pack(pack)) {
+      fail(`sound-packs/${dir}: ${ajv.errorsText(validators.sound_pack.errors)}`);
+      continue;
+    }
+    if (pack.name !== dir) fail(`sound-packs/${dir}: 'name' is ${JSON.stringify(pack.name)}, expected "${dir}"`);
+    for (const [kind, entries] of [
+      ["cue", pack.cues],
+      ["bed", pack.beds],
+    ]) {
+      for (const [key, spec] of Object.entries(entries ?? {})) {
+        if (!existsSync(join(soundPacksRoot, dir, spec.file)))
+          fail(`sound-packs/${dir}: ${kind} '${key}' points at missing file ${spec.file}`);
+      }
+    }
+    const cueCount = Object.keys(pack.cues ?? {}).length;
+    const bedCount = Object.keys(pack.beds ?? {}).length;
+    console.log(`✓ sound pack ${dir} valid (${cueCount} cues, ${bedCount} beds)`);
+  }
+}
+
+// 3ter. themes and style packs are schema-valid, and every cue or bed a theme
+//       NAMES exists in the pack it points at. Without this a typo surfaces as
+//       a compile-stage failure on a real video; here it is a red CI line.
+const themesDir = join(root, "contracts/themes");
+if (existsSync(themesDir)) {
+  for (const file of readdirSync(themesDir).filter((f) => f.endsWith(".json"))) {
+    const theme = JSON.parse(readFileSync(join(themesDir, file), "utf8"));
+    if (!validators.theme(theme)) {
+      fail(`themes/${file}: ${ajv.errorsText(validators.theme.errors)}`);
+      continue;
+    }
+    if (theme.name !== file.replace(/\.json$/, ""))
+      fail(`themes/${file}: 'name' is ${JSON.stringify(theme.name)}, expected the filename`);
+
+    const sound = theme.sound;
+    if (!sound) continue;
+    if (!sound.pack) {
+      // naming cues with no pack to resolve them against is always a mistake
+      const named = [sound.entrance, sound.transition].filter((c) => c && c !== "none");
+      if (named.length || sound.per_entrance || sound.mood_beds)
+        fail(`themes/${file}: sound names cues but sets no 'pack'`);
+      continue;
+    }
+    const manifestPath = join(soundPacksRoot, sound.pack, "manifest.json");
+    if (!existsSync(manifestPath)) {
+      fail(`themes/${file}: sound.pack '${sound.pack}' has no manifest`);
+      continue;
+    }
+    const pack = JSON.parse(readFileSync(manifestPath, "utf8"));
+    const check = (name, where, table) => {
+      if (!name || name === "none") return;
+      if (!(name in (pack[table] ?? {})))
+        fail(`themes/${file}: ${where} names '${name}', absent from sound pack '${sound.pack}'`);
+    };
+    check(sound.entrance, "sound.entrance", "cues");
+    check(sound.transition, "sound.transition", "cues");
+    for (const [k, v] of Object.entries(sound.per_entrance ?? {})) check(v, `per_entrance.${k}`, "cues");
+    for (const [k, v] of Object.entries(sound.per_component ?? {})) check(v, `per_component.${k}`, "cues");
+    for (const [k, v] of Object.entries(sound.mood_beds ?? {})) check(v, `mood_beds.${k}`, "beds");
+    console.log(`✓ theme ${theme.name} sound resolves against '${sound.pack}'`);
+  }
+}
+
+const stylePacksDir = join(root, "contracts/style-packs");
+if (existsSync(stylePacksDir)) {
+  for (const file of readdirSync(stylePacksDir).filter((f) => f.endsWith(".json"))) {
+    const pack = JSON.parse(readFileSync(join(stylePacksDir, file), "utf8"));
+    if (!validators.style_pack(pack)) {
+      fail(`style-packs/${file}: ${ajv.errorsText(validators.style_pack.errors)}`);
+      continue;
+    }
+    if (pack.name !== file.replace(/\.json$/, ""))
+      fail(`style-packs/${file}: 'name' is ${JSON.stringify(pack.name)}, expected the filename`);
+  }
+}
+
 // 3c. prompt packs (D42): schema-valid, role matches the directory, name
 //     matches the filename, every {{variable}} is one the role declares, and
 //     the required ones survive into the composed (editable + welded) text.

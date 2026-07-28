@@ -256,6 +256,9 @@ def validate_plan(
         for m in tracks["audio"].get("music") or []:
             if not (folder / str(m["path"])).exists():
                 violations.append(f"music file missing: {m['path']}")
+        for s in tracks["audio"].get("sfx") or []:
+            if not (folder / str(s["path"])).exists():
+                violations.append(f"sfx {s['id']}: file missing: {s['path']}")
 
     # overlays: catalog + props
     for item in tracks["overlays"]:
@@ -298,4 +301,35 @@ def validate_plan(
         if float(item["end_s"]) > total + 0.75:
             violations.append(f"overlay {item['id']} ends after the video ({item['end_s']}s > {total:.2f}s)")
 
+    # sfx density (D48) — belt and suspenders over the compiler's own thinning,
+    # the same arrangement overlays.density has. The compiler is what enforces
+    # these; this catches a hand-edited or chat-edited plan that beeps.
+    violations.extend(_check_sfx_density(tracks, cfg, total))
+
+    return violations
+
+
+def _check_sfx_density(tracks: dict, cfg: dict, total_duration_s: float) -> list[str]:
+    sfx = tracks["audio"].get("sfx") or []
+    if not sfx or total_duration_s <= 0:
+        return []
+    style_sfx = ((cfg.get("style_pack_doc") or {}).get("sfx")) or {}
+    violations: list[str] = []
+
+    max_per_minute = float(style_sfx.get("max_per_minute", 4))
+    budget = math.ceil(max_per_minute * total_duration_s / 60) + 1  # +1 slack, like overlays
+    if len(sfx) > budget:
+        violations.append(
+            f"{len(sfx)} sfx cues exceed max_per_minute {max_per_minute:g} "
+            f"(max {budget} for {total_duration_s:.0f}s)"
+        )
+
+    min_gap = float(style_sfx.get("min_gap_s", 1.2))
+    starts = sorted(float(s["start_s"]) for s in sfx)
+    tight = [(a, b) for a, b in zip(starts, starts[1:]) if b - a < min_gap - 1e-6]
+    if tight:
+        a, b = tight[0]
+        violations.append(
+            f"{len(tight)} sfx pair(s) closer than min_gap_s {min_gap:g} (first at {a:.2f}s and {b:.2f}s)"
+        )
     return violations

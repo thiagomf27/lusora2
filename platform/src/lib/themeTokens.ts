@@ -28,7 +28,7 @@ export const EASINGS = ["smooth", "snap", "spring", "linear"] as const;
  * one. Absence is meaningful here (it means "each component keeps its own
  * pre-D46 look"), so it has to be written as absence.
  */
-export function mergeTokenGroup<K extends "surface" | "motion">(
+export function mergeTokenGroup<K extends "surface" | "motion" | "sound">(
   theme: Theme,
   group: K,
   patch: Partial<Theme[K]>,
@@ -55,4 +55,35 @@ export function formatPerComponent(value: Record<string, string> | undefined): s
   return Object.entries(value ?? {})
     .map(([k, v]) => `${k}: ${v}`)
     .join("\n");
+}
+
+/** D48 — the mood vocabulary, mirrored from contracts/src/types.ts MOODS. */
+export const MOOD_NAMES = [
+  "neutral",
+  "tense",
+  "somber",
+  "hopeful",
+  "urgent",
+  "triumphant",
+  "reflective",
+  "playful",
+] as const;
+
+/**
+ * Merge into a `key: value` map nested inside theme.sound, dropping cleared
+ * entries and the map itself once empty — same reasoning as mergeTokenGroup,
+ * one level deeper. `mood_beds: {}` would read as "deliberately no music"
+ * rather than "not configured".
+ */
+export function mergeSoundMap(
+  theme: Theme,
+  field: "per_entrance" | "per_component" | "mood_beds" | "gain",
+  patch: Record<string, string | number | undefined>,
+): Theme {
+  const current = (theme.sound?.[field] ?? {}) as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...current, ...patch };
+  for (const [k, v] of Object.entries(merged)) if (v === undefined || v === "") delete merged[k];
+  return mergeTokenGroup(theme, "sound", {
+    [field]: Object.keys(merged).length ? merged : undefined,
+  } as Partial<Theme["sound"]>);
 }

@@ -33,6 +33,17 @@
         "max": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
+    "entrance_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "default": 0.45,
+      "description": "the `seconds` this component passes to useEntrance, BEFORE motion_feel scaling. Declared here so the compiler can compute the real entrance window without importing the engine — that is what lets a typing cue span exactly the typewriter reveal (D48). Set it only when the component overrides the 0.45 default."
+    },
+    "entrance_support": {
+      "enum": ["panel", "text"],
+      "default": "panel",
+      "description": "which entrances this component can draw: `panel` = PANEL_ENTRANCES, `text` = those plus typewriter. Mirrors the constant the component passes to useEntrance, so the compiler can resolve the SAME entrance kind the renderer will play."
+    },
     "renderer": { "enum": ["remotion"], "description": "catalog components always require the Remotion path" }
   },
   "$defs": {

@@ -216,12 +216,12 @@ function AudioTracks({ plan }: { plan: EditPlan }) {
       <Sequence from={Math.round((vo.start_s ?? 0) * fps)}>
         <Audio src={staticFile(vo.path)} volume={vo.volume ?? 1} />
       </Sequence>
-      {[...music, ...sfx].map((m, i) => {
+      {music.map((m, i) => {
         const from = Math.round(m.start_s * fps);
         const end = m.end_s ?? null;
         const durFrames = end !== null ? Math.max(Math.round((end - m.start_s) * fps), 1) : undefined;
         return (
-          <Sequence key={i} from={from} durationInFrames={durFrames}>
+          <Sequence key={m.id ?? `m${i}`} from={from} durationInFrames={durFrames}>
             <Audio
               src={staticFile(m.path)}
               loop={m.loop ?? false}
@@ -229,7 +229,27 @@ function AudioTracks({ plan }: { plan: EditPlan }) {
               // without "extend" the volume frame restarts on every loop
               loopVolumeCurveBehavior="extend"
               volume={(frame) =>
-                audioVolumeAt(m, frame, durFrames ?? Number.MAX_SAFE_INTEGER, fps, 0.12)
+                // start_s is passed so the absolute-time ducking envelope can be
+                // read at the right instant from a Sequence-relative frame
+                audioVolumeAt(m, frame, durFrames ?? Number.MAX_SAFE_INTEGER, fps, 0.12, m.start_s)
+              }
+            />
+          </Sequence>
+        );
+      })}
+      {sfx.map((s) => {
+        const from = Math.round(s.start_s * fps);
+        const durFrames = Math.max(Math.round((s.end_s - s.start_s) * fps), 1);
+        return (
+          <Sequence key={s.id} from={from} durationInFrames={durFrames}>
+            <Audio
+              src={staticFile(s.path)}
+              loop={s.loop ?? false}
+              loopVolumeCurveBehavior="extend"
+              // a cue carries `gain`, not `volume`: it is a fixed trim from the
+              // theme, never ducked, and the editor edits it separately
+              volume={(frame) =>
+                audioVolumeAt({ ...s, volume: s.gain }, frame, durFrames, fps, 0.35, s.start_s)
               }
             />
           </Sequence>

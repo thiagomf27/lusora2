@@ -40,7 +40,10 @@ export default function EditorPage() {
   const [selectedBeat, setSelectedBeat] = useState<string | null>(null);
   const [assetSearch, setAssetSearch] = useState("");
   const [issuesOpen, setIssuesOpen] = useState(false);
-  const [selectedTl, setSelectedTl] = useState<{ id: string; kind: "visual" | "overlay" } | null>(null);
+  const [selectedTl, setSelectedTl] = useState<{
+    id: string;
+    kind: "visual" | "overlay" | "music" | "sfx";
+  } | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const playerControl = useRef<PlayerRef | null>(null);
   const onTime = useCallback((sec: number) => setCurrentTime(sec), []);
@@ -232,8 +235,16 @@ export default function EditorPage() {
   const selTlItem: VisualItem | OverlayItem | undefined =
     selectedTl?.kind === "visual"
       ? plan.tracks.visual.find((v) => v.id === selectedTl.id)
-      : selectedTl
+      : selectedTl?.kind === "overlay"
       ? plan.tracks.overlays.find((o) => o.id === selectedTl.id)
+      : undefined;
+  const selMusic =
+    selectedTl?.kind === "music"
+      ? (plan.tracks.audio.music ?? []).find((m, i) => (m.id ?? `m${i}`) === selectedTl.id)
+      : undefined;
+  const selSfx =
+    selectedTl?.kind === "sfx"
+      ? (plan.tracks.audio.sfx ?? []).find((c) => c.id === selectedTl.id)
       : undefined;
 
   const pct = (x: number) => `${(x / total) * 100}%`;
@@ -588,6 +599,51 @@ export default function EditorPage() {
                   <div className={s.voiceover}>♪ Voiceover · {fmt(plan.tracks.audio.voiceover.duration_s)}</div>
                 )}
 
+                {(plan.tracks.audio.music?.length ?? 0) > 0 && (
+                  <>
+                    <div className={s.trackLabel}>MUSIC</div>
+                    <div className={`${s.track} ${s.trackMusic}`}>
+                      {plan.tracks.audio.music!.map((m, i) => {
+                        const end = m.end_s ?? total;
+                        return (
+                          <div
+                            key={m.id ?? i}
+                            className={`${s.block} ${s.blockMusic} ${selectedTl?.id === (m.id ?? `m${i}`) ? s.blockSel : ""}`}
+                            style={{ left: pct(m.start_s), width: pct(end - m.start_s) }}
+                            onClick={() => setSelectedTl({ id: m.id ?? `m${i}`, kind: "music" })}
+                            title={`${m.mood ?? "bed"} · ${m.path} · vol ${m.volume ?? 0.12}`}
+                          >
+                            <DuckCurve points={m.gain_envelope} start={m.start_s} end={end} />
+                            <span className={s.blockLabel}>♫ {m.mood ?? "music"}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {(plan.tracks.audio.sfx?.length ?? 0) > 0 && (
+                  <>
+                    <div className={s.trackLabel}>
+                      SFX · {plan.tracks.audio.sfx!.length} cues
+                      {total > 0 && ` (${((plan.tracks.audio.sfx!.length / total) * 60).toFixed(1)}/min)`}
+                    </div>
+                    <div className={`${s.track} ${s.trackSfx}`}>
+                      {plan.tracks.audio.sfx!.map((c) => (
+                        <div
+                          key={c.id}
+                          className={`${s.block} ${s.blockSfx} ${c.locked ? s.blockSfxLocked : ""} ${selectedTl?.id === c.id ? s.blockSel : ""}`}
+                          // a cue is often a fraction of a second; give it a
+                          // floor so it stays clickable at any zoom
+                          style={{ left: pct(c.start_s), width: `max(${pct(c.end_s - c.start_s)}, 6px)` }}
+                          onClick={() => setSelectedTl({ id: c.id, kind: "sfx" })}
+                          title={`${c.cue ?? "cue"} · ${c.origin ?? "?"} ${c.origin_id ?? ""} · gain ${c.gain ?? 0.35}${c.locked ? " · locked" : ""}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
                 <div className={s.playhead} style={{ left: pct(Math.min(currentTime, total)) }}>
                   <span className={s.playheadTime}>{fmt(currentTime)}</span>
                 </div>
@@ -598,7 +654,9 @@ export default function EditorPage() {
               <TlEditor
                 key={selTlItem.id}
                 item={selTlItem}
-                kind={selectedTl!.kind}
+                // selTlItem only resolves for these two kinds; music and sfx
+                // get AudioEditor below
+                kind={selectedTl!.kind === "visual" ? "visual" : "overlay"}
                 onApply={(vals) =>
                   selectedTl!.kind === "visual"
                     ? patchPlan([{ op: "set_timing", id: selTlItem.id, ...vals }])
@@ -606,6 +664,37 @@ export default function EditorPage() {
                 }
                 onToggleLock={() => patchPlan([{ op: "set_lock", id: selTlItem.id, locked: !selTlItem.locked }])}
                 onRemove={selectedTl!.kind === "overlay" ? () => patchPlan([{ op: "remove_overlay", id: selTlItem.id }]) : undefined}
+              />
+            )}
+
+            {selMusic && (
+              <AudioEditor
+                key={selMusic.id ?? selectedTl!.id}
+                label={`${selMusic.id ?? selectedTl!.id} · ${selMusic.mood ?? "bed"}`}
+                levelLabel="VOLUME"
+                level={selMusic.volume ?? 0.12}
+                note={
+                  selMusic.gain_envelope?.length
+                    ? `ducking: ${selMusic.gain_envelope.length} points`
+                    : "no ducking envelope — the bed sits at one level under the whole narration"
+                }
+                onLevel={(volume) =>
+                  patchPlan([{ op: "set_music_volume", id: selMusic.id, volume }])
+                }
+              />
+            )}
+
+            {selSfx && (
+              <AudioEditor
+                key={selSfx.id}
+                label={`${selSfx.id} · ${selSfx.cue ?? "cue"}`}
+                levelLabel="GAIN"
+                level={selSfx.gain ?? 0.35}
+                start={selSfx.start_s}
+                note={`${selSfx.origin ?? "?"}${selSfx.origin_id ? ` · ${selSfx.origin_id}` : ""}${selSfx.locked ? " · locked" : ""}`}
+                onLevel={(gain) => patchPlan([{ op: "set_sfx_gain", id: selSfx.id, gain }])}
+                onMove={(start_s) => patchPlan([{ op: "move_sfx", id: selSfx.id, start_s }])}
+                onRemove={() => patchPlan([{ op: "remove_sfx", id: selSfx.id }])}
               />
             )}
           </>
@@ -649,6 +738,93 @@ class PreviewBoundary extends Component<{ children: ReactNode }, { err: string |
     }
     return this.props.children;
   }
+}
+
+/**
+ * The ducking envelope drawn across its bed (D48).
+ *
+ * The mix is the one part of sound design you cannot judge from a list of
+ * numbers, and this is the cheapest honest view of it: a flat line means the
+ * bed never lifts, which almost always means the narration has no real gaps —
+ * worth seeing before wondering why the music is inaudible.
+ */
+function DuckCurve({
+  points,
+  start,
+  end,
+}: {
+  points?: { t_s: number; gain: number }[];
+  start: number;
+  end: number;
+}) {
+  if (!points?.length || end <= start) return null;
+  const span = end - start;
+  const max = Math.max(...points.map((p) => p.gain), 0.001);
+  const d = points
+    .map((p, i) => {
+      const x = ((p.t_s - start) / span) * 100;
+      const y = 100 - (p.gain / max) * 100;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  return (
+    <svg className={s.duckCurve} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+      <path d={d} fill="none" stroke="#6fceac" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+/** Level (and, for a cue, position) editing for one music bed or sfx item. */
+function AudioEditor({
+  label,
+  levelLabel,
+  level,
+  start,
+  note,
+  onLevel,
+  onMove,
+  onRemove,
+}: {
+  label: string;
+  levelLabel: string;
+  level: number;
+  start?: number;
+  note?: string;
+  onLevel: (value: number) => void;
+  onMove?: (start_s: number) => void;
+  onRemove?: () => void;
+}) {
+  const [value, setValue] = useState(String(level));
+  const [at, setAt] = useState(String(start ?? 0));
+  return (
+    <div className={s.tlEditor}>
+      <span className={s.tlEditorLabel}>{label}</span>
+      <div className={s.tlField}>
+        <span className={s.tlFieldLabel}>{levelLabel}</span>
+        <input className={`${s.beatField} ${s.tlInput}`} value={value} onChange={(e) => setValue(e.target.value)} />
+      </div>
+      <button className={s.beatBtn} disabled={Number(value) === level} onClick={() => onLevel(Number(value))}>
+        Set
+      </button>
+      {onMove && (
+        <>
+          <div className={s.tlField}>
+            <span className={s.tlFieldLabel}>AT</span>
+            <input className={`${s.beatField} ${s.tlInput}`} value={at} onChange={(e) => setAt(e.target.value)} />
+          </div>
+          <button className={s.beatBtn} disabled={Number(at) === start} onClick={() => onMove(Number(at))}>
+            Move
+          </button>
+        </>
+      )}
+      {onRemove && (
+        <button className={`${s.beatBtn} ${s.beatBtnWarn}`} onClick={onRemove}>
+          Remove
+        </button>
+      )}
+      {note && <span className={s.beatNote}>{note}</span>}
+    </div>
+  );
 }
 
 function TlEditor({

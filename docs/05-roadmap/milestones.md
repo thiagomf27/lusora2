@@ -105,6 +105,30 @@ one, changed in the UI with no deploy.
 Deferred out of M11: motion roles (D47 — build when two themes carry
 override maps longer than ~6 entries).
 
+## M12 — Hear it (sound) ✅ BUILT 2026-07-28
+Sound becomes the fourth data layer (D48–D50). A **sound pack** ships the
+files and the cue/bed vocabulary; the **theme** gains `sound` (which cue
+for which entrance, mood→bed, the gain numbers); the **style pack** gains
+`sfx`/`music` (how often, how long); the channel keeps the master
+switches. The compiler places every cue and bed as a concrete plan item,
+computes a ducking `gain_envelope` from the real per-sentence TTS
+timings, and a new `resolve_audio` stage copies the bytes in. Both
+renderers gained sfx support and a `loudnorm` pass to -14 LUFS; the
+editor gained an audio lane with the envelope drawn over its bed.
+
+`beat.mood` — in the schema since v1, written by the planner, and read by
+nothing — becomes the one thing the model contributes to sound.
+
+**Demo:** the same script on two channels. `doc-slow` + `history-dark`
+renders with no cues at all and a somber bed 18 dB under the narration
+that lifts in every pause; `breakdown-blitz` + `clean-punchy` renders the
+same beats with a tight pop on each counter, capped at 8 a minute, over a
+tense bed. Both arrive at -14 LUFS. Neither needed a deploy.
+
+Shipped with SYNTHESIZED placeholder audio (`contracts/sound-packs/build.mjs`)
+so the mix is testable offline at $0 — see that folder's README for
+swapping in real CC0 recordings, which needs no code change.
+
 ## Sequencing notes
 
 - M3 before M4 on purpose: the deterministic spine must produce a real

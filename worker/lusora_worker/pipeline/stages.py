@@ -38,6 +38,10 @@ STAGES: list[Stage] = [
     Stage("plan_beats", steps.run_plan_beats, artifact="beats.json"),
     Stage("compile_plan", steps.run_compile_plan, is_done=steps.plan_compiled_and_fresh),
     Stage("resolve_assets", steps.run_resolve_assets, is_done=steps.assets_resolved),
+    # D48: binds the compiler's cue and bed NAMES to bytes from the sound pack.
+    # After resolve_assets so a plan with no audio costs nothing, before
+    # validate so the file-existence checks see real files.
+    Stage("resolve_audio", steps.run_resolve_audio, is_done=steps.audio_resolved),
     Stage("validate", steps.run_validate),  # always runs
     Stage("render", steps.run_render, is_done=steps.render_fresh),
     Stage("finalize", steps.run_finalize, is_done=steps.finalize_fresh),

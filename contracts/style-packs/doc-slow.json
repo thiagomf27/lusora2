@@ -33,5 +33,13 @@
     "default": "cut"
   },
   "script_persona": "Grave, precise documentary narrator. Short sentences. No exclamations.",
-  "visual_language": "Archival, desaturated, wide establishing shots; avoid modern footage."
+  "visual_language": "Archival, desaturated, wide establishing shots; avoid modern footage.",
+  "sfx": {
+    "enabled": false
+  },
+  "music": {
+    "enabled": true,
+    "min_span_s": 28,
+    "crossfade_s": 2.5
+  }
 }

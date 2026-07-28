@@ -66,6 +66,13 @@ function numOr(raw: string, fallback: number): number {
   return raw.trim() === "" || Number.isNaN(n) ? fallback : n;
 }
 
+/** For OPTIONAL numbers: an emptied field drops the key so the schema default
+ *  applies, rather than pinning today's default into the document. */
+function optNum(raw: string): number | undefined {
+  const n = Number(raw);
+  return raw.trim() === "" || Number.isNaN(n) ? undefined : n;
+}
+
 export interface CatalogChoice {
   name: string;
   pack: string;
@@ -90,6 +97,19 @@ export default function StylePackFields({
 
   const setPacing = (key: keyof StylePack["pacing"], raw: string) =>
     onChange({ ...value, pacing: { ...value.pacing, [key]: numOr(raw, 0) } });
+
+  // D48 sound governance. Cleared fields drop out so the pack's JSON keeps
+  // saying only what its author meant, and defaults stay in the schema.
+  const upGroup = <K extends "sfx" | "music">(group: K, patch: Partial<StylePack[K]>) => {
+    const merged = { ...(value[group] ?? {}), ...patch } as Record<string, unknown>;
+    for (const [k, v] of Object.entries(merged)) if (v === undefined) delete merged[k];
+    const next = { ...value };
+    if (Object.keys(merged).length === 0) delete next[group];
+    else next[group] = merged as StylePack[K];
+    onChange(next);
+  };
+  const upSfx = (patch: Partial<NonNullable<StylePack["sfx"]>>) => upGroup("sfx", patch);
+  const upMusic = (patch: Partial<NonNullable<StylePack["music"]>>) => upGroup("music", patch);
 
   function setDensity(choice: string) {
     if (choice === "custom") {
@@ -352,6 +372,100 @@ export default function StylePackFields({
         />
       </label>
       <div className={s.hint}>Goes to the beat planner, and shapes the asset queries it writes.</div>
+
+      <div className={s.formLabel}>SOUND</div>
+      <div className={s.hint}>
+        How often cues fire and how music is shaped. Which sounds play is the
+        theme&apos;s job; the channel can switch either off entirely.
+      </div>
+      <label className={s.checkRow}>
+        <input
+          type="checkbox"
+          checked={value.sfx?.enabled ?? true}
+          onChange={(e) => upSfx({ enabled: e.target.checked })}
+        />
+        Sound effects
+      </label>
+      <div className={s.field}>
+        <span className={s.fieldLabel}>max_per_minute · min_gap_s</span>
+        <div className={s.triple}>
+          <input
+            name="max_per_minute"
+            value={value.sfx?.max_per_minute ?? ""}
+            placeholder="4"
+            inputMode="decimal"
+            onChange={(e) => upSfx({ max_per_minute: optNum(e.target.value) })}
+          />
+          <input
+            name="min_gap_s"
+            value={value.sfx?.min_gap_s ?? ""}
+            placeholder="1.2"
+            inputMode="decimal"
+            onChange={(e) => upSfx({ min_gap_s: optNum(e.target.value) })}
+          />
+        </div>
+        <div className={s.hint}>
+          The compiler drops the lowest-priority cues to stay inside both, and
+          validate re-checks. At a {value.pacing.avg_hold_seconds || 4}s hold an
+          ungoverned cue per overlay would be about{" "}
+          {(60 / (value.pacing.avg_hold_seconds || 4)).toFixed(0)} a minute.
+        </div>
+      </div>
+      <div className={s.field}>
+        <span className={s.fieldLabel}>cues</span>
+        <div className={s.checkRow}>
+          {(["entrance", "transition"] as const).map((c) => (
+            <label key={c} className={s.checkRow}>
+              <input
+                type="checkbox"
+                checked={(value.sfx?.cues ?? ["entrance"]).includes(c)}
+                onChange={(e) => {
+                  const current = value.sfx?.cues ?? ["entrance"];
+                  upSfx({
+                    cues: e.target.checked
+                      ? [...new Set([...current, c])]
+                      : current.filter((x) => x !== c),
+                  });
+                }}
+              />
+              {c}
+            </label>
+          ))}
+        </div>
+        <div className={s.hint}>Transitions are opt-in: most packs want entrances only.</div>
+      </div>
+
+      <label className={s.checkRow}>
+        <input
+          type="checkbox"
+          checked={value.music?.enabled ?? true}
+          onChange={(e) => upMusic({ enabled: e.target.checked })}
+        />
+        Background music
+      </label>
+      <div className={s.field}>
+        <span className={s.fieldLabel}>min_span_s · crossfade_s</span>
+        <div className={s.triple}>
+          <input
+            name="min_span_s"
+            value={value.music?.min_span_s ?? ""}
+            placeholder="20"
+            inputMode="decimal"
+            onChange={(e) => upMusic({ min_span_s: optNum(e.target.value) })}
+          />
+          <input
+            name="crossfade_s"
+            value={value.music?.crossfade_s ?? ""}
+            placeholder="1.5"
+            inputMode="decimal"
+            onChange={(e) => upMusic({ crossfade_s: optNum(e.target.value) })}
+          />
+        </div>
+        <div className={s.hint}>
+          A run of beats sharing a mood shorter than min_span_s is absorbed into
+          its neighbour, so a one-beat mood blip cannot restart the bed.
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/sound_pack.schema.json",
+  "title": "SoundPack",
+  "description": "The MENU of sounds: files plus the cue/bed vocabulary a theme selects from. The fourth data layer (D48) and the only one besides component packs that carries bytes. Files live next to the manifest under contracts/sound-packs/<name>/. The AI never sees this.",
+  "type": "object",
+  "required": ["name", "license", "cues", "beds"],
+  "additionalProperties": false,
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "license": {
+      "enum": ["cc0", "cc-by", "cc-by-sa", "owned", "stock-licensed", "unknown"],
+      "description": "D33 vocabulary, pack-wide. A pack mixing licenses should be split in two."
+    },
+    "attribution": {
+      "type": "string",
+      "description": "credit line required by the license, if any; carried into asset provenance"
+    },
+    "cues": {
+      "type": "object",
+      "description": "one-shots and loops a theme can bind to an overlay entrance or a transition",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/cue" }
+    },
+    "beds": {
+      "type": "object",
+      "description": "background music, selected by mood span",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/bed" }
+    }
+  },
+  "$defs": {
+    "cue": {
+      "type": "object",
+      "required": ["file", "kind", "duration_s"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "description": "relative to the pack folder, e.g. sfx/swoosh-soft.mp3" },
+        "kind": {
+          "enum": ["one_shot", "loop"],
+          "description": "one_shot plays once at its own length; loop is trimmed to the window the compiler gives it (a typing bed under a typewriter entrance)"
+        },
+        "duration_s": { "type": "number", "exclusiveMinimum": 0, "description": "real file duration; the compiler sizes one_shot items from it" },
+        "lead_s": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "start this many seconds BEFORE the visual it belongs to — a swoosh whose transient should land on the entrance, not begin there"
+        },
+        "gain": { "type": "number", "minimum": 0, "maximum": 1, "description": "per-cue trim; multiplied by the theme's sfx gain" },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "when the min-gap rule drops one of two colliding cues, the higher priority survives"
+        },
+        "fade_out_s": { "type": "number", "minimum": 0, "default": 0, "description": "loop cues need one; one-shots rarely do" }
+      }
+    },
+    "bed": {
+      "type": "object",
+      "required": ["file", "mood", "duration_s"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "type": "string", "description": "relative to the pack folder, e.g. beds/tense-01.mp3" },
+        "mood": { "$ref": "#/$defs/mood", "description": "the mood this bed answers; the theme's mood_beds map may still override" },
+        "duration_s": { "type": "number", "exclusiveMinimum": 0 },
+        "loopable": { "type": "boolean", "default": true, "description": "false means the bed must not be extended past its own length" },
+        "gain": { "type": "number", "minimum": 0, "maximum": 1, "description": "per-bed trim; multiplied by the ducking envelope" }
+      }
+    },
+    "mood": {
+      "enum": [
+        "neutral",
+        "tense",
+        "somber",
+        "hopeful",
+        "urgent",
+        "triumphant",
+        "reflective",
+        "playful"
+      ],
+      "description": "the beat sheet mood vocabulary; kept identical in beat_sheet.schema.json"
+    }
+  }
+}

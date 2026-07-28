@@ -82,6 +82,22 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
   with both routes spelled out. Whole packs can be imported (paste or
   upload the pack file), exported and deleted, so a pack moves between
   installs in one action.
+- **Sounds** — the sound-pack sibling of Overlays (D48): every cue and bed
+  in every pack, **playable in the browser** through
+  `GET /api/sounds/{pack}/audio/{...}` (range support), with a gain slider
+  set to the level a theme will actually apply — a cue judged at 100% is a
+  cue judged wrong. The editable half is what the compiler reads:
+  `kind`/`lead_s`/`priority`/`gain`/`fade_out_s` for a cue,
+  `mood`/`loopable`/`gain` for a bed. Sounds are uploaded here, packs
+  created and deleted. Three rules are enforced server-side because a form
+  is the easiest place to break them: `duration_s` is always PROBED with
+  ffprobe and a client-supplied value is discarded on save (the compiler
+  sizes one-shot cues from it); uploads are normalized by kind (cues to
+  -6 dBFS peak, beds to -24 LUFS, opt-out per upload); and deleting
+  anything a theme names is refused with a 409 that lists the themes,
+  because a theme pointing at a missing cue fails the next video at
+  compile. Each sound shows which themes name it, and a manifest entry
+  whose file is missing on disk is flagged — the same check CI runs.
 - **Editor** — two levels over the same video: beat panel (Kinema-style:
   subject, on-screen text, re-roll asset, split/merge) and timeline
   (precise trims, transforms, overlay moves) rendered with the engine's

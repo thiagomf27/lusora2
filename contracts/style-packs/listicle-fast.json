@@ -32,5 +32,18 @@
     "default": "cut"
   },
   "script_persona": "Upbeat countdown narrator. Each item opens with its rank and a hook.",
-  "visual_language": "Punchy hero shots per item; consistent framing between items."
+  "visual_language": "Punchy hero shots per item; consistent framing between items.",
+  "sfx": {
+    "enabled": true,
+    "cues": [
+      "entrance"
+    ],
+    "max_per_minute": 8,
+    "min_gap_s": 0.9
+  },
+  "music": {
+    "enabled": true,
+    "min_span_s": 16,
+    "crossfade_s": 1.2
+  }
 }

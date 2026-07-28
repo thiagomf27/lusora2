@@ -84,6 +84,52 @@
           "description": "prompt pack name carrying this pack's voice — layer 3 of the D44 resolution order"
         }
       }
+    },
+    "sfx": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D48 — how OFTEN sound effects fire. Numbers, enforced by the compiler and re-checked by the validator, exactly like overlays.density (D9). The theme picks which sound; this picks how many.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "cues": {
+          "type": "array",
+          "items": { "enum": ["entrance", "transition"] },
+          "default": ["entrance"],
+          "description": "which events may fire a cue at all. Transitions are opt-in on purpose."
+        },
+        "max_per_minute": {
+          "type": "number",
+          "minimum": 0,
+          "default": 4,
+          "description": "hard cap; the compiler drops the lowest-priority cues to stay under it"
+        },
+        "min_gap_s": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.2,
+          "description": "minimum spacing between two cue starts; on collision the higher-priority cue survives"
+        }
+      }
+    },
+    "music": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D48 — how background music is SHAPED across the video. Which bed comes from the theme's mood_beds; the mood itself comes from the beat sheet.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "min_span_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 20,
+          "description": "a mood run shorter than this merges into its neighbour. Without a floor, a two-beat mood blip restarts the bed and the score turns chatty."
+        },
+        "crossfade_s": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1.5,
+          "description": "fade in/out at each span boundary; adjacent spans overlap by this much"
+        }
+      }
     }
   }
 }

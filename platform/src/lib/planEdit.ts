@@ -12,7 +12,10 @@ export type PlanOp =
   | { op: "set_timing"; id: string; start_s?: number; end_s?: number; in_offset_s?: number }
   | { op: "set_transform"; id: string; scale?: number; position?: "top_left" | "top_right" | "bottom_left" | "bottom_right" | "center" }
   | { op: "move_overlay"; id: string; start_s: number; end_s: number }
-  | { op: "set_music_volume"; index: number; volume: number }
+  | { op: "set_music_volume"; index?: number; id?: string; volume: number }
+  | { op: "move_sfx"; id: string; start_s: number; end_s?: number }
+  | { op: "set_sfx_gain"; id: string; gain: number }
+  | { op: "remove_sfx"; id: string }
   | { op: "remove_overlay"; id: string }
   | { op: "set_lock"; id: string; locked: boolean };
 
@@ -96,12 +99,49 @@ export function applyPlanOps(plan: EditPlan, ops: PlanOp[]): ApplyResult {
         break;
       }
       case "set_music_volume": {
-        const m = next.tracks.audio.music?.[op.index];
+        // Music items gained ids in D48, but the welded chat vocabulary and any
+        // saved op log still address them by index. Both forms stay valid.
+        const music = next.tracks.audio.music ?? [];
+        const m = op.id !== undefined ? music.find((i) => i.id === op.id) : music[op.index ?? -1];
         if (!m) {
-          errors.push(`set_music_volume: music[${op.index}] not found`);
+          errors.push(`set_music_volume: music ${op.id ?? `[${op.index}]`} not found`);
           break;
         }
         m.volume = op.volume; // volume tweaks do NOT lock (OQ-19)
+        break;
+      }
+      case "move_sfx": {
+        const s = next.tracks.audio.sfx?.find((i) => i.id === op.id);
+        if (!s) {
+          errors.push(`move_sfx: sfx ${op.id} not found`);
+          break;
+        }
+        // keep the cue's own length unless an end is given: a cue is a sound of
+        // a fixed duration, so dragging it should move it, not stretch it
+        const length = s.end_s - s.start_s;
+        s.start_s = op.start_s;
+        s.end_s = op.end_s ?? op.start_s + length;
+        s.locked = true; // a timing edit locks (OQ-19)
+        touched.push(op.id);
+        break;
+      }
+      case "set_sfx_gain": {
+        const s = next.tracks.audio.sfx?.find((i) => i.id === op.id);
+        if (!s) {
+          errors.push(`set_sfx_gain: sfx ${op.id} not found`);
+          break;
+        }
+        s.gain = op.gain; // a level tweak does NOT lock, same rule as music
+        break;
+      }
+      case "remove_sfx": {
+        const idx = next.tracks.audio.sfx?.findIndex((i) => i.id === op.id) ?? -1;
+        if (idx < 0) {
+          errors.push(`remove_sfx: sfx ${op.id} not found`);
+          break;
+        }
+        next.tracks.audio.sfx!.splice(idx, 1);
+        touched.push(op.id);
         break;
       }
       default:

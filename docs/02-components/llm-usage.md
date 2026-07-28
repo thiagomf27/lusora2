@@ -140,9 +140,10 @@ config schema. Still open:
   shipped `doc-grave` pack has one — that is now a prompt-authoring
   choice, not a code change); **no output validation at all** — a stray
   `**bold**` reaches both the TTS and the planner's verbatim check.
-- **Planner:** `music[]` is in the beat sheet schema but never requested;
-  `kind:"timed"` never explained to the model; no worked example of a good
-  beat, only a shape skeleton.
+- **Planner:** `kind:"timed"` never explained to the model; no worked
+  example of a good beat, only a shape skeleton. (`music[]` is no longer
+  listed here: D50 replaced it with `mood` per beat, which the compiler
+  groups into spans — the planner is never asked to name music.)
 - **`visual_intent` serves three consumers with opposite needs**:
   semantic library search, *keyword* stock search (Pexels wants 2–4
   words, not a 30-word scout sentence) and the image-gen prompt.
@@ -205,13 +206,23 @@ Each role's prompt splits in two, and only one half is data:
 - **Editable (voice/creative):** persona, tone, structure guidance,
   forbidden phrases, worked examples, visual language.
 - **Welded (contract):** the JSON shape, the HARD RULES block, the
-  component menu, the op vocabulary. The code always appends these and
-  the UI never shows them as editable text.
+  component menu, the op vocabulary, **the closed vocabularies** (mood,
+  entrance kinds). The code always appends these and the UI never shows
+  them as editable text.
 
 Without that split, a user editing a prompt can silently break
 validation, and the repair loop will burn three attempts trying to
 recover. This is the single most important structural rule of the
 feature.
+
+`mood` (D50) is the worked example of where the line falls. The eight
+legal words are **welded** into `planner.user.txt`, because the compiler
+degrades anything else to `neutral` and a prompt that quietly stopped
+naming them would give every video the same bed. *How to choose* one —
+"a mood belongs to a section, not a sentence; hold it and change it only
+where the story turns" — is **editable** craft in
+`prompts/planner/default.json`, because that is taste and a
+punchier channel may want it applied differently.
 
 ### Resolution order — D44
 
@@ -322,7 +333,10 @@ budget gate. None of them changes the architecture or weakens D2.
   which fixes the `visual_intent`-as-search-query problem),
   `preferred_sources[]`, and a `hero` flag marking the 2–3 beats that
   deserve the best asset.
-- **Ask for `music[]`** — the schema already supports it.
+- ~~Ask for `music[]`~~ — done differently in M12: D50 makes `mood` per
+  beat the model's whole contribution to sound, and the compiler derives
+  the spans. Asking an LLM to name a track was the wrong shape — sound
+  selection is consistent taste, which D8 already removed from its job.
 
 ---
 

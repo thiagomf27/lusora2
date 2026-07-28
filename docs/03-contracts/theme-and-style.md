@@ -29,6 +29,20 @@ motion:                           # D46 — HOW an overlay arrives
   per_component:                  # exceptions only; sparse by design
     ChapterCard: typewriter
     AnimatedCounter: pop
+sound:                            # D48 — how the theme SOUNDS
+  pack: doc-restrained            # sound pack name; a channel may override
+  entrance: swoosh-soft           # default cue on an overlay entrance
+  per_entrance:                   # by the entrance kind that actually plays
+    typewriter: tick-typing
+    pop: thud-low
+  transition: none                # usually none — see below
+  mood_beds:                      # mood -> bed; a mood with no entry is silent
+    tense: tense-01
+    somber: somber-01
+  gain:                           # the mix, in absolute levels
+    sfx: 0.28
+    music_duck: 0.14              # bed level under speech
+    music_lift: 0.45              # bed level in a narration gap
 ```
 
 Rules: components take semantic props only (`emphasis: accent|neutral`);
@@ -49,12 +63,14 @@ The three layers, stated as a rule:
 
 | What changes | What you create |
 | --- | --- |
-| colors, fonts, corners, entrance, easing, grain | a **theme** |
-| hold lengths, density, allowed components, script length, persona | a **style pack** |
+| colors, fonts, corners, entrance, easing, grain, which cue plays | a **theme** |
+| hold lengths, density, allowed components, script length, persona, how often cues fire | a **style pack** |
 | a component that does not exist yet | a **component pack** |
+| a sound that does not exist yet | a **sound pack** |
 
 A component pack is a *menu*, a theme is a *look*, a style pack is a
-*rhythm*. Copying 26 entries into a second pack to change a border
+*rhythm*. A sound pack (D48) is a menu too — the one other layer that
+carries bytes rather than words. Copying 26 entries into a second pack to change a border
 radius is the failure mode this table exists to prevent: pack entries
 are the planner's menu, so the copies would land in the prompt as
 siblings with identical `when_to_use` — the exact ambiguity
@@ -105,6 +121,34 @@ NOT built now: it is the right answer to a problem that does not exist
 until several themes carry long override maps. Deliberately deferred —
 see D47 for the trigger.
 
+### `sound` semantics (D48)
+
+- **Names, not files.** A theme names cues the way `typography` names
+  packaged fonts. The bytes live in the sound pack; the theme picks from
+  its vocabulary. A name the pack does not define is a hard compile
+  error, not a silent fallback — a swoosh that quietly went missing is
+  worse than a video that refuses to build.
+- **Silence is the default.** `entrance` omitted means no cue at all. The
+  D46 tokens could default to today's look because there was a look;
+  there is no "today's sound" to preserve.
+- **`per_entrance` is keyed by the entrance that ACTUALLY plays**, after
+  `motion.per_component`, `motion.entrance` and the component's own
+  support are resolved. `clean-punchy` asks ChapterCard for `typewriter`
+  and gets `fade` (ChapterCard draws no typewriter) — so it also sounds
+  like a fade. The compiler mirrors `entranceFor` exactly for this, which
+  is why the catalog carries `entrance_support` and `entrance_seconds`.
+- **`transition` defaults to none.** At a 4 s hold, a cue on every
+  transition is about 15 a minute. That is the single fastest way to make
+  a channel sound amateur, so it is opt-in in both the theme and the
+  style pack.
+- **The gains are ABSOLUTE levels**, applied to the pack's files; the
+  channel's `source_policy.music.default_volume` is a *trim* on top
+  (1 = as the theme mixed it). Against the shipped packs (beds at
+  -24 LUFS) `music_duck: 0.16` puts the bed about 18 dB under a typical
+  narration and `music_lift: 0.5` brings it to about 8 dB under in a gap.
+  Replace the beds with material at another level and these need
+  retuning — see `contracts/sound-packs/README.md`.
+
 ## Style pack (behavior — consumed by the PLANNER and the COMPILER)
 
 ```yaml
@@ -131,6 +175,15 @@ script:                           # D45, lands in M10
   target_seconds: 90              # per-video overridable, like overlays.density
   tolerance: 0.25
   prompt: doc-grave               # optional: the prompt pack matching this voice
+sfx:                              # D48 — how OFTEN cues fire
+  enabled: false                  # doc-slow ships silent; punchier packs opt in
+  cues: [entrance]                # entrance | transition
+  max_per_minute: 4
+  min_gap_s: 1.2
+music:                            # D48 — how music is SHAPED
+  enabled: true
+  min_span_s: 28                  # shorter mood runs merge into a neighbour
+  crossfade_s: 2.5
 ```
 
 - `pacing` numbers are CONSTRAINTS: the prompt derives target beat count
@@ -153,6 +206,14 @@ script:                           # D45, lands in M10
 - `script.prompt` names the prompt pack that carries this pack's voice —
   layer 3 of the resolution order in D44 (video override → channel →
   style pack → default). See [LLM Usage](../02-components/llm-usage.md).
+- `sfx.max_per_minute` and `min_gap_s` are the same arrangement as
+  `overlays.density`: numbers the compiler enforces (dropping the
+  lowest-priority cues on a collision) and the validator re-checks. The
+  theme picks *which* sound; this picks *how many*, and without it a cue
+  per overlay at a 2.4 s hold is 25 a minute.
+- `music.min_span_s` is a floor on how often the bed may change. A
+  two-beat mood blip restarting the score reads as a bug, so a short run
+  is absorbed into its longer neighbour before any bed is chosen.
 - `video_type` is how a pack says which preset it implements. It is
   optional — a pack without one suits any type — and it is advisory: the
   channel's own `video_type` is what the pipeline reads, and the field

@@ -56,11 +56,13 @@
             "voiceover": { "$ref": "#/$defs/voiceoverItem" },
             "music": {
               "type": "array",
-              "items": { "$ref": "#/$defs/musicItem" }
+              "items": { "$ref": "#/$defs/musicItem" },
+              "description": "background beds, one per mood span; may overlap by the style pack's crossfade"
             },
             "sfx": {
               "type": "array",
-              "items": { "$ref": "#/$defs/musicItem" }
+              "items": { "$ref": "#/$defs/sfxItem" },
+              "description": "one-shots and short loops placed by the compiler against overlay entrances and transitions"
             }
           }
         }
@@ -192,6 +194,7 @@
       "required": ["path", "start_s"],
       "additionalProperties": false,
       "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "stable handle for edit ops; absent on hand-written pre-D48 plans, which address music by index" },
         "path": { "type": "string" },
         "start_s": { "type": "number", "minimum": 0 },
         "end_s": { "type": ["number", "null"] },
@@ -199,8 +202,57 @@
         "loop": { "type": "boolean", "default": false },
         "fade_in_s": { "type": "number", "minimum": 0, "default": 0 },
         "fade_out_s": { "type": "number", "minimum": 0, "default": 0 },
+        "mood": { "$ref": "#/$defs/mood", "description": "the mood span this bed answers; carried for the editor and for recompile merging" },
+        "gain_envelope": { "$ref": "#/$defs/gainEnvelope" },
         "asset": { "$ref": "#/$defs/provenance" }
       }
+    },
+    "sfxItem": {
+      "allOf": [{ "$ref": "#/$defs/itemBase" }],
+      "type": "object",
+      "required": ["id", "start_s", "end_s", "path"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "path": { "type": "string", "description": "relative to the video folder, e.g. audio/swoosh-soft.mp3" },
+        "gain": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.35 },
+        "cue": { "type": "string", "description": "cue name in the sound pack that produced this item" },
+        "origin": {
+          "enum": ["overlay", "transition", "manual"],
+          "description": "why this cue exists — the editor shows it, and a manual item survives recompile"
+        },
+        "origin_id": { "type": ["string", "null"], "description": "id of the overlay or visual item this cue belongs to" },
+        "loop": { "type": "boolean", "default": false, "description": "loop cues (a typing bed) fill their window; one-shots do not" },
+        "fade_in_s": { "type": "number", "minimum": 0, "default": 0 },
+        "fade_out_s": { "type": "number", "minimum": 0, "default": 0 },
+        "asset": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    "gainEnvelope": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 200,
+      "description": "piecewise-linear absolute-time gain multiplier, computed by the compiler from real sentence timings (D48 ducking). Multiplies `volume`. Points are ordered by t_s; the value before the first and after the last point is held flat.",
+      "items": {
+        "type": "object",
+        "required": ["t_s", "gain"],
+        "additionalProperties": false,
+        "properties": {
+          "t_s": { "type": "number", "minimum": 0 },
+          "gain": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "mood": {
+      "enum": [
+        "neutral",
+        "tense",
+        "somber",
+        "hopeful",
+        "urgent",
+        "triumphant",
+        "reflective",
+        "playful"
+      ]
     }
   }
 }

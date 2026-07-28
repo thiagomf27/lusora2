@@ -47,7 +47,10 @@
           "minLength": 3,
           "description": "scout-style concrete visual description; IS the library search query"
         },
-        "mood": { "type": "string" },
+        "mood": {
+          "type": "string",
+          "description": "emotional register of this beat, driving background music (D48). Vocabulary: neutral, tense, somber, hopeful, urgent, triumphant, reflective, playful. Deliberately a string and not an enum: an unrecognised mood degrades to neutral in the compiler rather than failing a video over a word choice."
+        },
         "media_preference": { "enum": ["video", "image", "any"], "default": "any" },
         "anchors": {
           "type": "array",

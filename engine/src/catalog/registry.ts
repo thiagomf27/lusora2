@@ -37,6 +37,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2.5, default: 4 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -61,6 +62,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     duration_hint_s: { min: 2.5, default: 5 },
+    entrance_seconds: 0.5,
     renderer: "remotion",
   },
   {
@@ -93,6 +95,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3.5, default: 5.5 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -117,6 +120,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3.5, default: 6 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -149,6 +153,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2, default: 3.5 },
+    entrance_seconds: 0.3,
     renderer: "remotion",
   },
   {
@@ -168,6 +173,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2.5, default: 4 },
+    entrance_seconds: 0.5,
     renderer: "remotion",
   },
   {
@@ -204,6 +210,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3, default: 5 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -228,6 +235,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2, default: 3.5 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -247,6 +255,8 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3, default: 5 },
+    entrance_seconds: 0.4,
+    entrance_support: "text",
     renderer: "remotion",
   },
   {
@@ -272,6 +282,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3.5, default: 6 },
+    entrance_seconds: 0.6,
     renderer: "remotion",
   },
   {
@@ -320,6 +331,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 4, default: 6 },
+    entrance_seconds: 0.5,
     renderer: "remotion",
   },
   {
@@ -342,6 +354,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     duration_hint_s: { min: 3, default: 5 },
+    entrance_seconds: 0.5,
     renderer: "remotion",
   },
   {
@@ -359,6 +372,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2, default: 3.5 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -390,6 +404,8 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3.5, default: 6 },
+    entrance_seconds: 0.4,
+    entrance_support: "text",
     renderer: "remotion",
   },
   {
@@ -409,6 +425,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2, default: 3.5 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -450,6 +467,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 4, default: 6.5 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -469,6 +487,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2.5, default: 4 },
+    entrance_seconds: 0.3,
     renderer: "remotion",
   },
   {
@@ -488,6 +507,8 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3.5, default: 6 },
+    entrance_seconds: 0.4,
+    entrance_support: "text",
     renderer: "remotion",
   },
   {
@@ -506,6 +527,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2.5, default: 4 },
+    entrance_seconds: 0.35,
     renderer: "remotion",
   },
   {
@@ -548,6 +570,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3.5, default: 6 },
+    entrance_seconds: 0.5,
     renderer: "remotion",
   },
   {
@@ -592,6 +615,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 4, default: 6.5 },
+    entrance_seconds: 0.5,
     renderer: "remotion",
   },
   {
@@ -624,6 +648,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 3, default: 5 },
+    entrance_seconds: 0.5,
     renderer: "remotion",
   },
   {
@@ -642,6 +667,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 2.5, default: 4 },
+    entrance_seconds: 0.35,
     renderer: "remotion",
   },
   {
@@ -672,6 +698,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 4, default: 6 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
   {
@@ -702,6 +729,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     duration_hint_s: { min: 4, default: 6.5 },
+    entrance_seconds: 0.4,
     renderer: "remotion",
   },
 ];

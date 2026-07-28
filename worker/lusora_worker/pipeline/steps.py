@@ -9,7 +9,11 @@ deterministic fallbacks so the pipeline runs end to end at $0.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
+from pathlib import Path
+
+import lusora_contracts
 
 from ..agents import planner as planner_agent
 from ..agents import script as script_agent
@@ -226,6 +230,22 @@ def _merge_recompiled(old_plan: dict, new_plan: dict, beats_by_id: dict) -> dict
         key = "start_s"
         merged_items.sort(key=lambda i: float(i[key]))
         new_plan["tracks"][track] = merged_items
+
+    # sfx follow the same rules (D48): they carry id/beat_id/locked precisely so
+    # that a cue someone moved or silenced by hand is not quietly put back by
+    # the next per-beat recompile.
+    old_sfx = {i["id"]: i for i in (old_plan["tracks"]["audio"].get("sfx") or [])}
+    new_sfx = new_plan["tracks"]["audio"].get("sfx") or []
+    merged_sfx = [old_sfx[i["id"]] if old_sfx.get(i["id"], {}).get("locked") else i for i in new_sfx]
+    merged_ids = {i["id"] for i in merged_sfx}
+    merged_sfx += [
+        i for i in old_sfx.values() if i.get("origin") == "manual" and i["id"] not in merged_ids
+    ]
+    if merged_sfx:
+        merged_sfx.sort(key=lambda i: float(i["start_s"]))
+        new_plan["tracks"]["audio"]["sfx"] = merged_sfx
+    else:
+        new_plan["tracks"]["audio"].pop("sfx", None)
     return new_plan
 
 
@@ -278,6 +298,96 @@ def run_resolve_assets(ctx: StageContext) -> None:
                      f"{sum(1 for v in plan['tracks']['visual'] if v['asset'].get('path'))} of "
                      f"{len(plan['tracks']['visual'])} items resolved")
     ctx.log("assets resolved for all visual items")
+
+
+# ---------------- resolve_audio (D48) ----------------
+
+
+def _audio_items(plan: dict) -> list[dict]:
+    audio = plan["tracks"]["audio"]
+    return [*(audio.get("music") or []), *(audio.get("sfx") or [])]
+
+
+def audio_resolved(ctx: StageContext) -> bool:
+    if not ctx.has("edit_plan.json"):
+        return False
+    try:
+        plan = ctx.read_json("edit_plan.json")
+    except StageError:
+        return False
+    return all((ctx.folder / str(item["path"])).exists() for item in _audio_items(plan))
+
+
+def run_resolve_audio(ctx: StageContext) -> None:
+    """Copy the pack's cue and bed files into the video folder.
+
+    The compiler already decided WHICH sounds play and when; this stage only
+    binds names to bytes. Copying (rather than pointing at the pack) is what
+    makes a video reproducible: re-rendering it next year uses the audio it was
+    built with, even if the pack has been retuned since — the same reason
+    cfg.json snapshots the theme (Core Principle 7).
+
+    $0 and offline, so no budget gate and no price entry: the sounds are files
+    in the repo, recorded as `library` provenance like any other local asset.
+    """
+    plan = ctx.read_json("edit_plan.json")
+    items = _audio_items(plan)
+    if not items:
+        ctx.log("no music or sfx in this plan")
+        return
+
+    pack = ctx.cfg.get("sound_pack_doc") or {}
+    pack_name = str(pack.get("name") or "")
+    if not pack_name:
+        raise StageError(
+            "resolve_audio",
+            "the plan carries audio items but cfg has no sound_pack_doc — "
+            "re-enqueue so the pack manifest is snapshotted",
+        )
+    pack_dir = lusora_contracts.sound_pack_dir(pack_name)
+    entries = {**(pack.get("cues") or {}), **(pack.get("beds") or {})}
+
+    (ctx.folder / "audio").mkdir(exist_ok=True)
+    copied = 0
+    for item in items:
+        dest = ctx.folder / str(item["path"])
+        name = str(item.get("cue") or Path(str(item["path"])).stem)
+        entry = entries.get(name)
+        if entry is None:
+            raise StageError(
+                "resolve_audio",
+                f"sound pack '{pack_name}' has no cue or bed named '{name}' — "
+                "the pack changed after this video was enqueued",
+            )
+        source = pack_dir / str(entry["file"])
+        if not source.exists():
+            raise StageError(
+                "resolve_audio",
+                f"sound pack '{pack_name}' declares {entry['file']} for '{name}' but the file is missing",
+            )
+        if not dest.exists():
+            shutil.copyfile(source, dest)
+            copied += 1
+        item["asset"] = {
+            "source": "library",
+            "id": name,
+            "provider": f"sound-pack:{pack_name}",
+            "license": str(pack.get("license") or "unknown"),
+            "path": str(item["path"]),
+        }
+        # beat_id is NOT NULL in asset_usage; a bed spanning the whole video
+        # legitimately has no single beat, so it records as the empty string
+        ctx.db.asset_usage(
+            ctx.video_id,
+            str(item.get("beat_id") or ""),
+            "library",
+            name,
+            str(pack.get("license") or "unknown"),
+            f"sound-pack:{pack_name}",
+        )
+
+    ctx.write_json("edit_plan.json", plan)
+    ctx.log(f"audio resolved from pack '{pack_name}': {len(items)} items, {copied} copied")
 
 
 # ---------------- validate (full, always runs) ----------------

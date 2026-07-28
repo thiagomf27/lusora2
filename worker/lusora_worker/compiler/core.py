@@ -14,7 +14,7 @@ import lusora_contracts
 
 from ..errors import StageError
 from ..textsplit import split_sentences
-from . import geo
+from . import geo, sound
 
 STAGE = "compile_plan"
 
@@ -122,6 +122,41 @@ def compile_plan(
         for t in sentence_timings
     ]
 
+    # ---- sound (D48) ----
+    # Placed here, at the end, because every input it needs is now settled:
+    # overlay starts (for cue timing), transitions, and the absolute sentence
+    # timings the ducking envelope is computed from.
+    total_duration_s = vo_start + audio_duration_s
+    audio: dict[str, Any] = {
+        "voiceover": {
+            "path": "audio.mp3",
+            "start_s": vo_start,
+            "duration_s": round(audio_duration_s, 3),
+            "volume": 1,
+        }
+    }
+
+    beat_times: list[tuple[float, float, str]] = [
+        (float(b["timing"]["start_s"]), float(b["timing"]["end_s"]), sound.normalize_mood(b.get("mood")))
+        for b in timed_beats
+    ]
+    beat_times += [
+        (start, end, sound.normalize_mood(beat.get("mood")))
+        for beat, (start, end, _s) in aligned
+    ]
+
+    absolute_timings = [
+        {"start_s": t["start_s"] + vo_start, "end_s": t["end_s"] + vo_start}
+        for t in sentence_timings
+    ]
+
+    music = sound.compile_music(beat_times, absolute_timings, cfg, total_duration_s)
+    if music:
+        audio["music"] = music
+    sfx = sound.compile_sfx(overlays, visual, cfg, total_duration_s)
+    if sfx:
+        audio["sfx"] = sfx
+
     plan: dict[str, Any] = {
         "version": "1.0",
         "video_id": str(beats_doc.get("video_id", "")),
@@ -134,14 +169,7 @@ def compile_plan(
             "visual": visual,
             "overlays": overlays,
             "captions": {"enabled": captions_enabled, "preset": preset, "items": caption_items},
-            "audio": {
-                "voiceover": {
-                    "path": "audio.mp3",
-                    "start_s": vo_start,
-                    "duration_s": round(audio_duration_s, 3),
-                    "volume": 1,
-                }
-            },
+            "audio": audio,
         },
     }
     return plan

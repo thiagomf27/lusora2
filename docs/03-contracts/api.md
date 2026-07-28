@@ -53,6 +53,23 @@ PACKS                                    channels; create a pack file)
                                          change; DELETE refuses while a
                                          channel still references it)
 
+SOUNDS    GET/POST /sounds              (list packs w/ schema errors, missing
+                                         files, and cue→themes usage; create
+                                         an empty pack)
+          GET/PUT/DELETE /sounds/:pack  (PUT replaces the manifest but KEEPS
+                                         each entry's probed duration_s and
+                                         file; DELETE refuses while a theme
+                                         names anything in the pack)
+          POST /sounds/:pack/entries    (multipart upload: the duration is
+                                         probed with ffprobe, never taken from
+                                         the client, and the file is normalized
+                                         by kind — cues to -6 dBFS peak, beds
+                                         to -24 LUFS)
+          DELETE /sounds/:pack/entries/:name
+                                        (refuses while a theme names it)
+          GET /sounds/:pack/audio/:path (serve pack audio for the player;
+                                         range support, audio MIME only)
+
 PROMPTS   GET/POST /prompts             (list every role's packs with schema +
                                          variable errors, the welded contract
                                          blocks, and who references each;
