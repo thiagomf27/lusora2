@@ -213,11 +213,18 @@ def _merge_recompiled(old_plan: dict, new_plan: dict, beats_by_id: dict) -> dict
             if old.get("locked"):
                 merged_items.append(old)
                 continue
-            # carry the resolved asset when the beat's intent didn't change
+            # carry the resolved asset when the beat's intent didn't change.
+            # The stored query is whatever the SOURCE was asked, which since
+            # v1.1 is a keyword query for stock and the intent for the library
+            # (D53) — so any of the beat's current queries counts as unchanged.
             beat = beats_by_id.get(str(item.get("beat_id")))
             old_query = ((old.get("asset") or {}).get("query") or "")[:200]
-            new_intent = (str((beat or {}).get("visual_intent") or ""))[:200]
-            if old_query and new_intent and old_query == new_intent and (old.get("asset") or {}).get("path"):
+            intent = str((beat or {}).get("visual_intent") or "")
+            wanted = {intent[:200]} if intent else set()
+            wanted |= {str(q)[:200] for q in ((beat or {}).get("queries") or [])}
+            if intent:
+                wanted.add(sources.keywords_from_intent(intent)[:200])
+            if old_query and old_query in wanted and (old.get("asset") or {}).get("path"):
                 item["asset"] = old["asset"]
                 item["media_type"] = old.get("media_type", item["media_type"])
                 if "motion" in old:
@@ -281,7 +288,9 @@ def run_resolve_assets(ctx: StageContext) -> None:
             continue  # human-provided or already resolved
         beat = beats.get(str(item.get("beat_id")))
         query = str((beat or {}).get("visual_intent") or ctx.video.get("title") or "establishing shot")
-        resolved = sources.resolve_item(ctx, item, query, chain)
+        # v1.1 (D53): keyword sources get these instead of the scout sentence
+        queries = [str(q) for q in ((beat or {}).get("queries") or [])]
+        resolved = sources.resolve_item(ctx, item, query, chain, queries)
         if not resolved:
             raise StageError(
                 "resolve_assets",

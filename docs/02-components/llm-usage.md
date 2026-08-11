@@ -335,11 +335,11 @@ budget gate. None of them changes the architecture or weakens D2.
 - **Metadata stage** — title / description / tags. A working prompt with
   a strict reply format exists in the predecessor repo
   (`~/youtube_automation/yt-video-automation/pipeline/stages/generate_metadata.py`).
-- **Richer beat fields** (beat sheet v1.1) — borrowed from OpenMontage's
-  `scene_plan` slots: `queries[]` (2–3 short *keyword* queries per beat,
-  which fixes the `visual_intent`-as-search-query problem),
-  `preferred_sources[]`, and a `hero` flag marking the 2–3 beats that
-  deserve the best asset.
+- **Richer beat fields** — `queries[]` **shipped** in beat sheet v1.1
+  (D53): 2–3 short keyword queries per beat, which is what fixed the
+  `visual_intent`-as-search-query problem. Still open from the same
+  OpenMontage `scene_plan` borrowing: `preferred_sources[]`, and a `hero`
+  flag marking the 2–3 beats that deserve the best asset.
 - ~~Ask for `music[]`~~ — done differently in M12: D50 makes `mood` per
   beat the model's whole contribution to sound, and the compiler derives
   the spans. Asking an LLM to name a track was the wrong shape — sound

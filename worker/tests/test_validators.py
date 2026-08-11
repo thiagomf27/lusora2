@@ -129,3 +129,25 @@ def test_a_locked_item_outranks_the_style_pack(tmp_path):
     plan = _plan_with_holds((0.0, 0.9), (0.9, 5.0))
     plan["tracks"]["visual"][0]["locked"] = True
     assert validate_plan(plan, tmp_path, HOLD_CFG, 5.0, require_assets=False) == []
+
+
+# ---------------- queries[] (beat sheet v1.1, D53) ----------------
+
+
+def test_both_beat_sheet_versions_are_accepted():
+    v10 = good_sheet()
+    assert validate_beat_sheet(v10, SCRIPT, CFG, 10.0) == []
+    v11 = {**good_sheet(), "version": "1.1"}
+    v11["beats"][0]["queries"] = ["1943 aircraft factory", "wartime assembly line"]
+    assert validate_beat_sheet(v11, SCRIPT, CFG, 10.0) == []
+
+
+def test_a_query_that_is_a_sentence_is_repairably_rejected():
+    sheet = {**good_sheet(), "version": "1.1"}
+    sheet["beats"][0]["queries"] = [
+        "aerial view of a 1940s industrial district with smokestacks and workers"
+    ]
+    violations = validate_beat_sheet(sheet, SCRIPT, CFG, 10.0)
+    assert len(violations) == 1
+    # the repair prompt has to say what to write instead, not just what is wrong
+    assert "2-4 words" in violations[0] and "visual_intent" in violations[0]

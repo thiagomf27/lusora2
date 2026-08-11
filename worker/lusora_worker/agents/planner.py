@@ -375,7 +375,7 @@ def _plan_chunk(
             violations = [f"output was not a parseable JSON object: {e}"]
         else:
             doc["video_id"] = ctx.video_id
-            doc.setdefault("version", "1.0")
+            doc.setdefault("version", "1.1")
             violations = validate_beat_sheet(doc, script, ctx.cfg, validate_duration_s)
             if not violations:
                 ctx.db.provider_health(f"llm.{provider}", True)
@@ -465,7 +465,7 @@ def plan_beats(
             next_id += 1
             merged_beats.append(beat)
 
-    merged = {"version": "1.0", "video_id": ctx.video_id, "beats": merged_beats}
+    merged = {"version": "1.1", "video_id": ctx.video_id, "beats": merged_beats}
     if chunked:
         # Belt-and-suspenders: each chunk already validated its own slice;
         # this catches boundary bugs across the merge (it should always pass

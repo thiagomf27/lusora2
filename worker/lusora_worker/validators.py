@@ -160,6 +160,20 @@ def validate_beat_sheet(
                         f"got {json.dumps(items)[:80]}"
                     )
 
+    # queries[] (v1.1, D53): the whole point is that they are SHORT. A planner
+    # that pastes the visual_intent back in has produced a valid document that
+    # resolves exactly as badly as before, so this is checked where the repair
+    # loop can still fix it.
+    for b in beats:
+        for i, query in enumerate(b.get("queries") or []):
+            words = str(query).split()
+            if not (1 <= len(words) <= 5):
+                violations.append(
+                    f"beat {b.get('id')}: queries[{i}] {str(query)[:50]!r} is {len(words)} words — "
+                    "a keyword query is 2-4 words, subject first ('bombed factory 1943'), "
+                    "not a sentence; the scout description belongs in visual_intent"
+                )
+
     # overlays: catalog existence + allowed_components + anchor types
     allowed = (style.get("overlays") or {}).get("allowed_components")
     overlay_count = 0

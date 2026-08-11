@@ -51,7 +51,10 @@ export interface Beat {
   kind: "narration" | "timed";
   script_text?: string;
   timing?: { start_s: number; end_s: number };
+  /** Semantic search query + image-generation prompt. Keyword stock search uses `queries`. */
   visual_intent: string;
+  /** v1.1 (D53): 2-3 short keyword queries for word-matching stock libraries, tried in order. */
+  queries?: string[];
   /** A Mood in practice; typed loose because unknown values degrade, not fail. */
   mood?: string;
   media_preference?: "video" | "image" | "any";
@@ -68,7 +71,7 @@ export interface MusicSpan {
 }
 
 export interface BeatSheet {
-  version: "1.0";
+  version: "1.0" | "1.1";
   video_id: string;
   beats: Beat[];
   music?: MusicSpan[];

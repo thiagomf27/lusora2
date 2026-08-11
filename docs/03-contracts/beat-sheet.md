@@ -12,7 +12,7 @@ emphasize). Everything computable (timings) or identity-bound
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
   "video_id": "…",
   "beats": [
     {
@@ -20,6 +20,7 @@ emphasize). Everything computable (timings) or identity-bound
       "kind": "narration",
       "script_text": "By 1943, nearly 70% of the city's factories had been converted to produce aircraft parts.",
       "visual_intent": "aerial view of a 1940s industrial district, smokestacks, factory floor with workers assembling aircraft wings, archival grain",
+      "queries": ["1940s aircraft factory", "wartime assembly line", "factory workers 1940s"],
       "mood": "somber",
       "media_preference": "video",
       "anchors": [
@@ -85,7 +86,18 @@ emphasize). Everything computable (timings) or identity-bound
   tools resolve what LLMs get wrong (place name → lat/lng geocoding, date
   parsing).
 - `visual_intent` is written scout-style (concrete, visual, rankable by
-  vector search) — the planner prompt teaches this with examples.
+  vector search) — the planner prompt teaches this with examples. It is the
+  SEMANTIC query (the library embeds it) and the image-generation prompt.
+- `queries` (v1.1, D53) — 2–3 short KEYWORD searches for the same shot,
+  2–4 words each, subject first, most specific first. Stock libraries match
+  words, not meaning: handed the scout sentence above, Pexels returns
+  whatever shares its most common words. The resolver tries them in order
+  within a keyword source before falling through to the next source, since a
+  second phrasing of the right shot beats a worse source. Optional and
+  additive — a v1.0 sheet (or a hand-written one) resolves exactly as before,
+  with keywords derived from `visual_intent` by dropping noise words. The
+  validator rejects a query longer than 5 words, because a sentence pasted
+  in here is a valid document that searches exactly as badly as before.
 - `media_preference` (`video` | `image` | `any`) — hint for resolution
   ordering within the source policy.
 - `mood` — the beat's emotional register, and the ONLY thing the model

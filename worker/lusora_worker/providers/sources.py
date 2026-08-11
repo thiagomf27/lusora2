@@ -30,7 +30,37 @@ class Resolution(dict):
 
 
 class SourceAdapter(Protocol):
+    #: "semantic" = give me the beat's visual_intent (a sentence, embedded and
+    #: matched by meaning). "keyword" = give me 2-4 words (matched literally).
+    #: Declared per adapter because it is a property of the SERVICE, not of the
+    #: beat: the same beat asks the library for "aerial view of a 1940s
+    #: industrial district, smokestacks…" and Pexels for "factory 1940s".
+    query_kind: str
+
     def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None: ...
+
+
+# Words that carry no visual weight, so dropping them leaves the subject
+# standing. en + pt-BR, because a channel's visual_intent is written in the
+# channel's language. Only used to DERIVE keywords from a v1.0 beat that has
+# no queries[] of its own.
+_NOISE = set(
+    "the a an and or of in on at to for with by from is are was were be this that it its as "
+    "into over under near above below during through while shot view scene footage image "
+    "photo photograph clip angle wide close up establishing archival grain style look "
+    "o a os as um uma uns umas de do da dos das em no na nos nas para por com sem sobre "
+    "entre ao aos e ou que se como plano vista cena imagem foto"
+    .split()
+)
+
+
+def keywords_from_intent(intent: str, limit: int = 3) -> str:
+    """A keyword query derived from a scout sentence: content words only, in
+    order, subject first. The v1.0 compatibility path — a sheet with queries[]
+    never reaches this."""
+    words = [w.strip(".,;:!?\"'()").lower() for w in str(intent).split()]
+    kept = [w for w in words if w and w not in _NOISE]
+    return " ".join(kept[:limit]) or str(intent)[:60]
 
 
 # ---------------- library (broll-lib-maker over HTTP, D11) ----------------
@@ -41,6 +71,9 @@ class LibraryAdapter:
     GET /search?q=…  (score included), GET /clips/{id} (bytes),
     POST /segments/{id}/mark_used. Niches/channels are lookup tables in
     the library — names resolve to ids via /niches and /channels."""
+
+    # embeddings: it matches MEANING, so it wants the whole scout sentence
+    query_kind = "semantic"
 
     def _lookup_ids(self, base: str, endpoint: str, names: list[str]) -> list[str]:
         try:
@@ -124,6 +157,12 @@ class LibraryAdapter:
 
 
 class PexelsAdapter:
+    # Pexels matches WORDS. Handed a scout sentence it returns whatever shares
+    # the most common ones, which is how "aerial view of a 1940s industrial
+    # district, smokestacks, workers assembling aircraft wings" came back as a
+    # man at a desk: every content word missed, "view" and "of" hit.
+    query_kind = "keyword"
+
     def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None:
         api_key = os.environ.get("PEXELS_API_KEY")
         if not api_key:
@@ -230,6 +269,9 @@ def normalize_video(ctx: StageContext, path) -> None:
 
 
 class AiImageAdapter:
+    # A generator wants the whole description; it is a prompt, not a search.
+    query_kind = "semantic"
+
     def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None:
         provider = str(source_cfg.get("provider") or "mock")
         style = str(source_cfg.get("style") or "")
@@ -297,14 +339,39 @@ ADAPTERS: dict[str, SourceAdapter] = {
 }
 
 
-def resolve_item(ctx: StageContext, item: dict, query: str, chain: list[dict]) -> bool:
+def _queries_for(adapter: SourceAdapter, intent: str, queries: list[str] | None) -> list[str]:
+    """What this source should be asked, in order of preference.
+
+    A semantic source gets the intent, whole. A keyword source gets the beat's
+    own queries[] (D53) — all of them, tried in order, so a second phrasing is a
+    retry WITHIN the source before the chain falls through to a worse one — or,
+    for a v1.0 beat with none, one derived from the intent."""
+    if getattr(adapter, "query_kind", "semantic") != "keyword":
+        return [intent]
+    return [q for q in (queries or []) if str(q).strip()] or [keywords_from_intent(intent)]
+
+
+def resolve_item(
+    ctx: StageContext,
+    item: dict,
+    query: str,
+    chain: list[dict],
+    queries: list[str] | None = None,
+) -> bool:
     """Walk the chain in order, stop at the first acceptable asset.
-    Returns False only when the chain is exhausted (caller fails loud)."""
+    Returns False only when the chain is exhausted (caller fails loud).
+
+    `query` is the beat's visual_intent; `queries` its optional keyword
+    alternates (beat sheet v1.1)."""
     for source_cfg in chain:
         adapter = ADAPTERS.get(str(source_cfg.get("source")))
         if adapter is None:
             continue
-        resolution = adapter.resolve(ctx, item, query, source_cfg)
+        resolution = None
+        for candidate in _queries_for(adapter, query, queries):
+            resolution = adapter.resolve(ctx, item, candidate, source_cfg)
+            if resolution is not None:
+                break
         if resolution is None:
             continue
         media_type = resolution.pop("media_type", "image")

@@ -128,3 +128,80 @@ def test_library_unreachable_falls_through(tmp_path, monkeypatch):
     result = adapter.resolve(ctx, {"id": "v1"}, "harbor", {"source": "library"})
     assert result is None
     assert any(p == "library" and not ok for p, ok, _ in ctx.db.health)
+
+
+# ---------------- keyword vs semantic queries (beat sheet v1.1, D53) ----------------
+
+
+class Records:
+    """An adapter that answers, remembering what it was asked."""
+
+    def __init__(self, query_kind, answer=True):
+        self.query_kind = query_kind
+        self.asked: list[str] = []
+        self.answer = answer
+
+    def resolve(self, ctx, item, query, source_cfg):
+        self.asked.append(query)
+        if not self.answer:
+            return None
+        return sources.Resolution(source="stock", id="a1", provider="p", license="cc0",
+                                  path="clips/x.jpg", score=0.9, query=query, media_type="image")
+
+
+INTENT = "aerial view of a 1940s industrial district, smokestacks, workers assembling aircraft wings"
+
+
+def test_stock_gets_the_keyword_queries_and_the_library_the_scout_sentence(tmp_path):
+    library, stock = Records("semantic", answer=False), Records("keyword")
+    sources.ADAPTERS.clear()
+    sources.ADAPTERS.update({"library": library, "stock": stock})
+    chain = [{"source": "library"}, {"source": "stock"}]
+
+    ok = sources.resolve_item(make_ctx(tmp_path), {"id": "v1", "beat_id": "b1"}, INTENT, chain,
+                              ["1940s aircraft factory", "wartime assembly line"])
+    assert ok
+    assert library.asked == [INTENT], "the library embeds meaning: it wants the whole sentence"
+    assert stock.asked == ["1940s aircraft factory"], "stock matches words: 2-4 of them"
+
+
+def test_a_second_query_is_tried_before_the_chain_falls_through(tmp_path):
+    """A different phrasing of the same shot is a better answer than the next
+    source down, which is a worse source by definition (D12: order = preference)."""
+    stock, ai = Records("keyword", answer=False), Records("semantic")
+    sources.ADAPTERS.clear()
+    sources.ADAPTERS.update({"stock": stock, "ai_image": ai})
+    chain = [{"source": "stock"}, {"source": "ai_image"}]
+
+    sources.resolve_item(make_ctx(tmp_path), {"id": "v1", "beat_id": "b1"}, INTENT, chain,
+                         ["1940s aircraft factory", "wartime assembly line", "factory workers 1940s"])
+    assert stock.asked == ["1940s aircraft factory", "wartime assembly line", "factory workers 1940s"]
+    assert ai.asked == [INTENT]
+
+
+def test_a_v1_0_beat_still_resolves_with_keywords_derived_from_its_intent(tmp_path):
+    stock = Records("keyword")
+    sources.ADAPTERS.clear()
+    sources.ADAPTERS.update({"stock": stock})
+
+    ok = sources.resolve_item(make_ctx(tmp_path), {"id": "v1", "beat_id": "b1"}, INTENT,
+                              [{"source": "stock"}])
+    assert ok
+    assert stock.asked == ["aerial 1940s industrial"], "content words only, subject first"
+
+
+def test_an_adapter_that_declares_nothing_is_asked_the_intent(tmp_path):
+    """Back-compatible default: a source that never said it wants keywords
+    keeps getting exactly what it got before v1.1."""
+    plain = Yes()
+    sources.ADAPTERS.clear()
+    sources.ADAPTERS.update({"stock": plain})
+    item = {"id": "v1", "beat_id": "b1"}
+    sources.resolve_item(make_ctx(tmp_path), item, INTENT, [{"source": "stock"}], ["short query"])
+    assert item["asset"]["query"] == INTENT
+
+
+def test_the_real_adapters_declare_their_kind():
+    assert sources.PexelsAdapter.query_kind == "keyword"
+    assert sources.LibraryAdapter.query_kind == "semantic"
+    assert sources.AiImageAdapter.query_kind == "semantic"
