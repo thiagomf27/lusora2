@@ -186,6 +186,8 @@ pacing:
   min_hold: 2.5
   max_hold: 8.0
   arc: three_act                # setup 30% / turn 40% / release 30%
+  hold_floor_ratio: 1.0         # x min_hold: a shorter slot merges into its neighbour
+  hold_ceiling_ratio: 1.5       # x max_hold: a longer slot is divided into equal slots
 overlays:
   density: normal               # low|normal|high or {per_minute: N}
   allowed_components: [ChapterCard, NamePlate, DateStamp, SatelliteLocate, QuoteBlock,
@@ -217,6 +219,22 @@ music:                            # D48 — how music is SHAPED
   from them, and the compiler enforces min/max hold (auto-split at
   sentence boundaries, or repair loop). This is what turns pacing from
   advice into a guarantee.
+- `hold_floor_ratio` / `hold_ceiling_ratio` close the gap those two left.
+  A narration beat's DURATION is not authored: the planner writes a span of
+  script and the SRT decides how long it takes to say, so a beat could land
+  at 0.8s and flash past, or hold one frame for fourteen seconds because it
+  is a single long sentence with no boundary to cut at. After alignment the
+  compiler merges anything under `min_hold * hold_floor_ratio` into its
+  neighbour and divides anything over `max_hold * hold_ceiling_ratio` into
+  equal slots; `validate_plan` re-checks the result, exempting `locked`
+  items (a human who dragged a cut outranks the pack, D39). Both default to
+  **0 = off** in the schema, and every shipped pack sets 1.0 / 1.5 — so a
+  video enqueued before these existed carries a snapshot without them and
+  re-compiles byte-identically (Principle 7).
+- The merge is a VISUAL-track decision and rewrites nothing: the beat sheet
+  keeps its verbatim coverage of the script, and the absorbed beat still
+  draws its own overlay and still contributes its mood to the score. The
+  surviving item records who it swallowed in `absorbed_beat_ids`.
 - `overlays.density` is the per-video "more/fewer animations" dial —
   override at enqueue like any config field; the validator checks the
   produced count against the range.

@@ -5,7 +5,9 @@
     "avg_hold_seconds": 4.5,
     "min_hold": 2.5,
     "max_hold": 9.0,
-    "arc": "three_act"
+    "arc": "three_act",
+    "hold_floor_ratio": 1.0,
+    "hold_ceiling_ratio": 1.5
   },
   "overlays": {
     "density": "low",

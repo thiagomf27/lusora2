@@ -20,7 +20,19 @@
         "avg_hold_seconds": { "type": "number", "exclusiveMinimum": 0 },
         "min_hold": { "type": "number", "exclusiveMinimum": 0 },
         "max_hold": { "type": "number", "exclusiveMinimum": 0 },
-        "arc": { "enum": ["three_act", "linear", "listicle"], "default": "linear" }
+        "arc": { "enum": ["three_act", "linear", "listicle"], "default": "linear" },
+        "hold_floor_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "post-alignment per-beat FLOOR, as a multiple of min_hold. Narration beat durations are emergent from SRT alignment and never checked, so a beat can land at 0.8s and flash by; the compiler merges any visual slot below min_hold * this into its neighbour. 0 disables the pass — the schema default, so a video enqueued before this field existed re-runs byte-identically (Principle 7). The shipped packs set 1.0."
+        },
+        "hold_ceiling_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "post-alignment per-beat CEILING, as a multiple of max_hold. A slot holding one long sentence has no boundary to cut at and sits there dead; the compiler divides anything above max_hold * this into equal slots. 0 disables the pass (see hold_floor_ratio). The shipped packs set 1.5."
+        }
       }
     },
     "overlays": {

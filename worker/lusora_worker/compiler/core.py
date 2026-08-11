@@ -7,6 +7,7 @@ construction the output passes structural validation.
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
@@ -38,6 +39,8 @@ def compile_plan(
     pacing = style.get("pacing") or {}
     min_hold = float(pacing.get("min_hold", 2.0))
     max_hold = float(pacing.get("max_hold", 10.0))
+    hold_floor = min_hold * float(pacing.get("hold_floor_ratio", 0) or 0)
+    hold_ceiling = max_hold * float(pacing.get("hold_ceiling_ratio", 0) or 0)
     transitions = style.get("transitions") or {}
     default_transition = str(transitions.get("default", "cut"))
     allowed_transitions = list(transitions.get("allowed", ["cut"]))
@@ -79,16 +82,21 @@ def compile_plan(
             transition=default_transition,
         ))
 
-    for beat, (start, end, beat_sentences) in aligned:
-        spans = _split_for_max_hold(start, end, beat_sentences, min_hold, max_hold)
+    for slot in _enforce_hold_floor(aligned, hold_floor):
+        beat = slot["beat"]
+        spans = _split_for_max_hold(slot["start"], slot["end"], slot["sentences"], min_hold, max_hold)
+        spans = _enforce_hold_ceiling(spans, max_hold, hold_ceiling)
         for j, (s0, s1) in enumerate(spans):
-            visual.append(_visual_item(
+            item = _visual_item(
                 item_id=f"v_{beat['id']}" + (f"_{j}" if len(spans) > 1 else ""),
                 beat=beat,
                 start=s0,
                 end=s1,
                 transition=default_transition,
-            ))
+            )
+            if slot["absorbed"]:
+                item["absorbed_beat_ids"] = list(slot["absorbed"])
+            visual.append(item)
 
     visual.sort(key=lambda v: v["start_s"])
     _make_contiguous(visual, total_end=vo_start + audio_duration_s)
@@ -321,6 +329,91 @@ def _align_beats(
             spans[-1]["end_s"] = timeline[-1]["end_s"]
         result[-1] = (beat, (start, end, spans))
     return result
+
+
+def _enforce_hold_floor(
+    aligned: list[tuple[dict[str, Any], tuple[float, float, list[dict[str, Any]]]]],
+    floor: float,
+) -> list[dict[str, Any]]:
+    """Group the aligned beats into VISUAL SLOTS no shorter than `floor`.
+
+    Beat durations are emergent: the planner writes spans of script, the SRT
+    decides how long they take to say. Nothing checked the result, so a beat
+    could align to 0.8s and flash past before the eye lands on it. A slot under
+    the floor is absorbed into its neighbour — the shot already on screen simply
+    holds through those words (at index 0 there is no previous shot, so the NEXT
+    one starts early instead).
+
+    This is a VISUAL-track decision and nothing else: `aligned` is untouched, so
+    the absorbed beat still compiles its own overlay at its own time, still
+    contributes its mood to the music spans, and the beat sheet — the validated
+    artifact whose verbatim coverage of the script is the whole contract — is
+    never rewritten. The surviving slot keeps the survivor's beat_id (so item
+    ids and per-beat recompile are unchanged) and records who it swallowed in
+    `absorbed_beat_ids`.
+
+    floor <= 0 disables the pass, which is the schema default: a video enqueued
+    before this existed carries a style pack snapshot without the ratio and must
+    re-compile byte-identically (Principle 7).
+    """
+    slots: list[dict[str, Any]] = [
+        {"beat": beat, "start": start, "end": end, "sentences": list(sentences), "absorbed": []}
+        for beat, (start, end, sentences) in aligned
+    ]
+    if floor <= 0:
+        return slots
+
+    i = 0
+    while i < len(slots) and len(slots) > 1:
+        slot = slots[i]
+        if slot["end"] - slot["start"] >= floor - 1e-6:
+            i += 1
+            continue
+        if i == 0:
+            target, victim = slots[1], slots[0]
+            target["start"] = victim["start"]
+        else:
+            target, victim = slots[i - 1], slots[i]
+            target["end"] = victim["end"]
+        target["sentences"] = sorted(
+            target["sentences"] + victim["sentences"], key=lambda s: s["start_s"]
+        )
+        target["absorbed"] = target["absorbed"] + [victim["beat"]["id"]] + victim["absorbed"]
+        slots.pop(i)
+        # i == 0: the target moved into index 0 and only GREW, but it may still
+        # be under the floor, so re-check it. i > 0: the target is behind us and
+        # already passed the check, and index i now holds the next candidate.
+    return slots
+
+
+def _enforce_hold_ceiling(
+    spans: list[tuple[float, float]], max_hold: float, ceiling: float
+) -> list[tuple[float, float]]:
+    """Divide any span still above `ceiling` into equal slots of <= max_hold.
+
+    `_split_for_max_hold` cuts at the beat's own sentence boundaries, so a beat
+    that IS one long sentence comes back uncut and holds one frame for as long
+    as it takes to say it. There is no boundary to respect here, so the cut is
+    arithmetic: enough equal slots to bring every one under max_hold. Each slot
+    resolves its own asset, which is what turns dead air into a second angle.
+
+    ceiling <= 0 disables the pass (see _enforce_hold_floor).
+    """
+    if ceiling <= 0 or max_hold <= 0:
+        return spans
+    out: list[tuple[float, float]] = []
+    for start, end in spans:
+        duration = end - start
+        if duration <= ceiling + 1e-6:
+            out.append((start, end))
+            continue
+        parts = max(2, math.ceil(duration / max_hold))
+        step = duration / parts
+        for k in range(parts):
+            s0 = start if k == 0 else round(start + step * k, 3)
+            s1 = end if k == parts - 1 else round(start + step * (k + 1), 3)
+            out.append((s0, s1))
+    return out
 
 
 def _split_for_max_hold(

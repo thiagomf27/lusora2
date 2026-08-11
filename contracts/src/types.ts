@@ -116,6 +116,11 @@ export interface VisualItem {
   mute?: boolean;
   /** Playback rate multiplier for video assets; 1.0 = normal (Remotion path only). */
   speed?: number;
+  /**
+   * Beats too short to hold on their own (style pack pacing.hold_floor_ratio),
+   * now playing under this item's shot. Provenance: they keep their overlays.
+   */
+  absorbed_beat_ids?: string[];
 }
 
 export interface OverlayItem {

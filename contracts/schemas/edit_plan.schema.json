@@ -128,7 +128,12 @@
         "motion": { "$ref": "#/$defs/motion" },
         "transition_out": { "$ref": "#/$defs/transition" },
         "mute": { "type": "boolean", "default": true },
-        "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "playback rate multiplier for video assets; 1.0 = normal speed (Remotion path only — ffmpeg profile rejects speed != 1)" }
+        "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "playback rate multiplier for video assets; 1.0 = normal speed (Remotion path only — ffmpeg profile rejects speed != 1)" },
+        "absorbed_beat_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "beats whose aligned span was too short to hold on its own (style pack pacing.hold_floor_ratio) and which now play under THIS item's shot. Provenance only — an absorbed beat still owns its overlay and its mood; this is what tells the editor why beat b7 has no visual of its own."
+        }
       }
     },
     "overlayItem": {

@@ -82,3 +82,50 @@ def test_plan_missing_assets_and_bad_duration(tmp_path):
     assert any("asset file missing" in v for v in violations)
     assert any("does not match audio" in v for v in violations)
     assert len(violations) >= 3  # all collected, not first-fail
+
+
+# ---------------- per-beat hold bounds ----------------
+
+HOLD_CFG = {
+    "style_pack_doc": {
+        **CFG["style_pack_doc"],
+        "pacing": {**CFG["style_pack_doc"]["pacing"], "hold_floor_ratio": 1.0, "hold_ceiling_ratio": 1.5},
+    }
+}
+
+
+def _plan_with_holds(*spans):
+    items = [
+        {"id": f"v_b{i + 1}", "beat_id": f"b{i + 1}", "start_s": a, "end_s": b,
+         "media_type": "image", "asset": {"source": "manual", "path": ""}}
+        for i, (a, b) in enumerate(spans)
+    ]
+    return {
+        "version": "1.0", "video_id": "vid_t", "fps": 30,
+        "resolution": {"width": 1920, "height": 1080},
+        "tracks": {
+            "visual": items, "overlays": [],
+            "captions": {"enabled": False, "items": []},
+            "audio": {"voiceover": {"path": "audio.mp3", "duration_s": spans[-1][1]}},
+        },
+    }
+
+
+def test_hold_bounds_flag_a_flash_and_a_dead_hold(tmp_path):
+    plan = _plan_with_holds((0.0, 0.9), (0.9, 14.9))
+    violations = validate_plan(plan, tmp_path, HOLD_CFG, 14.9, require_assets=False)
+    assert any("v_b1 holds 0.90s, under the 2.00s floor" in v for v in violations)
+    assert any("v_b2 holds 14.00s, over the 12.00s ceiling" in v for v in violations)
+    # every violation names the item, the number, the knob and the way out
+    assert all("hold_floor_ratio" in v or "hold_ceiling_ratio" in v for v in violations)
+
+
+def test_hold_bounds_are_silent_without_the_ratios(tmp_path):
+    plan = _plan_with_holds((0.0, 0.9), (0.9, 14.9))
+    assert validate_plan(plan, tmp_path, CFG, 14.9, require_assets=False) == []
+
+
+def test_a_locked_item_outranks_the_style_pack(tmp_path):
+    plan = _plan_with_holds((0.0, 0.9), (0.9, 5.0))
+    plan["tracks"]["visual"][0]["locked"] = True
+    assert validate_plan(plan, tmp_path, HOLD_CFG, 5.0, require_assets=False) == []

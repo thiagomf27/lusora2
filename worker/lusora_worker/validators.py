@@ -320,11 +320,50 @@ def validate_plan(
         if float(item["end_s"]) > total + 0.75:
             violations.append(f"overlay {item['id']} ends after the video ({item['end_s']}s > {total:.2f}s)")
 
+    # per-beat hold bounds (style pack pacing.hold_floor_ratio/hold_ceiling_ratio)
+    violations.extend(_check_visual_holds(visual, cfg))
+
     # sfx density (D48) — belt and suspenders over the compiler's own thinning,
     # the same arrangement overlays.density has. The compiler is what enforces
     # these; this catches a hand-edited or chat-edited plan that beeps.
     violations.extend(_check_sfx_density(tracks, cfg, total))
 
+    return violations
+
+
+def _check_visual_holds(visual: list[dict], cfg: dict) -> list[str]:
+    """Every visual item holds for a sane length — the check the compiler's
+    hold floor/ceiling pass exists to satisfy.
+
+    Belt and suspenders over that pass, exactly like sfx density (D48): the
+    compiler is what enforces the bounds, this catches a plan that arrived some
+    other way — hand-authored, chat-edited, or compiled before the ratios were
+    set. Locked items are exempt: a human who dragged a cut has made a decision
+    that outranks the style pack (D39).
+
+    Silent when the style pack does not set the ratios, which is the schema
+    default — an old snapshot must not start failing validation.
+    """
+    pacing = ((cfg.get("style_pack_doc") or {}).get("pacing")) or {}
+    floor = float(pacing.get("min_hold", 0)) * float(pacing.get("hold_floor_ratio", 0) or 0)
+    ceiling = float(pacing.get("max_hold", 0)) * float(pacing.get("hold_ceiling_ratio", 0) or 0)
+    violations: list[str] = []
+    for item in visual:
+        if item.get("locked"):
+            continue
+        duration = float(item["end_s"]) - float(item["start_s"])
+        if floor > 0 and duration < floor - 0.05:
+            violations.append(
+                f"visual item {item['id']} holds {duration:.2f}s, under the {floor:.2f}s floor "
+                f"(min_hold {pacing.get('min_hold')} x hold_floor_ratio {pacing.get('hold_floor_ratio')}) — "
+                "merge it into a neighbour or lower the ratio"
+            )
+        if ceiling > 0 and duration > ceiling + 0.05:
+            violations.append(
+                f"visual item {item['id']} holds {duration:.2f}s, over the {ceiling:.2f}s ceiling "
+                f"(max_hold {pacing.get('max_hold')} x hold_ceiling_ratio {pacing.get('hold_ceiling_ratio')}) — "
+                "split it or raise the ratio"
+            )
     return violations
 
 

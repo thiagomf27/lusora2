@@ -1,6 +1,10 @@
 """Compiler v1: alignment, hold enforcement, overlay compilation."""
 
+from pathlib import Path
+
 import pytest
+
+from lusora_worker import validators
 
 from lusora_worker.compiler import compile_plan
 from lusora_worker.compiler.core import CompileError
@@ -379,3 +383,153 @@ def test_overlays_never_overlap_each_other():
     assert plan["tracks"]["overlays"] == sorted(
         plan["tracks"]["overlays"], key=lambda o: o["start_s"]
     )
+
+
+# ---------------- per-beat hold bounds (pacing.hold_floor_ratio / _ceiling_ratio) ----------------
+
+# min_hold 2.0 x 1.0 = a 2.0s floor; max_hold 6.0 x 1.5 = a 9.0s ceiling.
+HOLD_CFG = {
+    **CFG,
+    "style_pack_doc": {
+        **CFG["style_pack_doc"],
+        "pacing": {**CFG["style_pack_doc"]["pacing"], "hold_floor_ratio": 1.0, "hold_ceiling_ratio": 1.5},
+    },
+}
+
+
+def _holds(plan):
+    return [round(v["end_s"] - v["start_s"], 3) for v in plan["tracks"]["visual"]]
+
+
+def test_hold_bounds_are_off_by_default():
+    """The schema default is 0/0, so a style pack snapshot taken before these
+    ratios existed must compile byte-identically (Principle 7)."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Flash.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "The rest of it.", "visual_intent": "b"},
+    )
+    st = timings(("Flash.", 0.0, 0.8), ("The rest of it.", 0.8, 6.0))
+    plan = compile_plan(doc, st, CFG, 6.0)
+    assert [v["beat_id"] for v in plan["tracks"]["visual"]] == ["b1", "b2"]
+    assert _holds(plan) == [0.8, 5.2]
+
+
+def test_short_beat_merges_into_its_predecessor():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Opening line here.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "Flash.", "visual_intent": "b"},
+        {"id": "b3", "kind": "narration", "script_text": "And the close.", "visual_intent": "c"},
+    )
+    st = timings(("Opening line here.", 0.0, 3.0), ("Flash.", 3.0, 3.7), ("And the close.", 3.7, 7.0))
+    plan = compile_plan(doc, st, HOLD_CFG, 7.0)
+    visual = plan["tracks"]["visual"]
+    assert [v["beat_id"] for v in visual] == ["b1", "b3"], "b2 (0.7s) holds under b1's shot"
+    assert visual[0]["absorbed_beat_ids"] == ["b2"]
+    assert "absorbed_beat_ids" not in visual[1]
+    assert all(d >= 2.0 for d in _holds(plan))
+    # the merge moved a CUT, not a word: coverage, order and contiguity hold
+    assert visual[0]["start_s"] == 0.0 and visual[-1]["end_s"] == 7.0
+    for a, b in zip(visual, visual[1:]):
+        assert a["end_s"] == b["start_s"]
+
+
+def test_absorbed_beat_keeps_its_own_overlay_and_mood():
+    """The merge is a visual-track decision: the beat sheet is not rewritten,
+    so the swallowed beat still draws its graphic over the shot that absorbed
+    it, and still contributes its mood to the score."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Opening line here.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "Nineteen forty five.",
+         "visual_intent": "b", "mood": "tense",
+         "anchors": [{"type": "date", "value": "1945", "source_words": "Nineteen forty five"}],
+         "overlay": {"component": "DateStamp", "anchor_ref": 0}},
+        {"id": "b3", "kind": "narration", "script_text": "And the close.", "visual_intent": "c"},
+    )
+    st = timings(("Opening line here.", 0.0, 3.0), ("Nineteen forty five.", 3.0, 3.8),
+                 ("And the close.", 3.8, 7.0))
+    plan = compile_plan(doc, st, HOLD_CFG, 7.0)
+    assert [v["beat_id"] for v in plan["tracks"]["visual"]] == ["b1", "b3"]
+    overlays = plan["tracks"]["overlays"]
+    assert [o["beat_id"] for o in overlays] == ["b2"]
+    assert 3.0 <= overlays[0]["start_s"] <= 3.8, "the overlay stays on its own beat's words"
+
+
+def test_first_beat_too_short_merges_forward():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Flash.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "The rest of it.", "visual_intent": "b"},
+    )
+    st = timings(("Flash.", 0.0, 0.8), ("The rest of it.", 0.8, 6.0))
+    plan = compile_plan(doc, st, HOLD_CFG, 6.0)
+    visual = plan["tracks"]["visual"]
+    assert [v["beat_id"] for v in visual] == ["b2"], "no previous shot to hold, so b2 starts early"
+    assert visual[0]["absorbed_beat_ids"] == ["b1"]
+    assert visual[0]["start_s"] == 0.0 and visual[0]["end_s"] == 6.0
+
+
+def test_a_run_of_short_beats_collapses_into_one_slot():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Opening line here.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "One.", "visual_intent": "b"},
+        {"id": "b3", "kind": "narration", "script_text": "Two.", "visual_intent": "c"},
+        {"id": "b4", "kind": "narration", "script_text": "Three.", "visual_intent": "d"},
+    )
+    st = timings(("Opening line here.", 0.0, 3.0), ("One.", 3.0, 3.5),
+                 ("Two.", 3.5, 4.0), ("Three.", 4.0, 4.5))
+    plan = compile_plan(doc, st, HOLD_CFG, 4.5)
+    visual = plan["tracks"]["visual"]
+    assert [v["beat_id"] for v in visual] == ["b1"]
+    assert visual[0]["absorbed_beat_ids"] == ["b2", "b3", "b4"]
+
+
+def test_a_beat_exactly_at_the_bounds_is_left_alone():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Exactly the floor.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "Exactly the ceiling.", "visual_intent": "b"},
+    )
+    st = timings(("Exactly the floor.", 0.0, 2.0), ("Exactly the ceiling.", 2.0, 11.0))
+    plan = compile_plan(doc, st, HOLD_CFG, 11.0)
+    visual = plan["tracks"]["visual"]
+    assert [v["beat_id"] for v in visual] == ["b1", "b2"]
+    assert _holds(plan) == [2.0, 9.0]
+
+
+def test_one_long_sentence_is_divided_into_equal_slots():
+    """_split_for_max_hold cuts at sentence boundaries, and a beat that IS one
+    sentence has none — so it used to hold one frame for 14s."""
+    doc = beats(
+        {"id": "b1", "kind": "narration",
+         "script_text": "One very long unbroken sentence that simply keeps going.",
+         "visual_intent": "a"},
+    )
+    st = timings(("One very long unbroken sentence that simply keeps going.", 0.0, 14.0))
+    plan = compile_plan(doc, st, HOLD_CFG, 14.0)
+    visual = plan["tracks"]["visual"]
+    assert [v["id"] for v in visual] == ["v_b1_0", "v_b1_1", "v_b1_2"]
+    assert all(v["beat_id"] == "b1" for v in visual)
+    assert all(d <= 6.0 + 1e-6 for d in _holds(plan))
+    assert visual[0]["start_s"] == 0.0 and visual[-1]["end_s"] == 14.0
+
+
+def test_no_visual_item_falls_outside_the_bounds():
+    """Golden compile: a sheet with every failure mode at once — a flash beat,
+    a run of short ones, a long unbroken sentence — leaves nothing out of range."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Flash.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration",
+         "script_text": "A long unbroken stretch of narration that keeps going well past the ceiling.",
+         "visual_intent": "b"},
+        {"id": "b3", "kind": "narration", "script_text": "One.", "visual_intent": "c"},
+        {"id": "b4", "kind": "narration", "script_text": "Two.", "visual_intent": "d"},
+        {"id": "b5", "kind": "narration", "script_text": "A normal closing beat.", "visual_intent": "e"},
+    )
+    st = timings(
+        ("Flash.", 0.0, 0.6),
+        ("A long unbroken stretch of narration that keeps going well past the ceiling.", 0.6, 15.6),
+        ("One.", 15.6, 16.1), ("Two.", 16.1, 16.6),
+        ("A normal closing beat.", 16.6, 20.0),
+    )
+    plan = compile_plan(doc, st, HOLD_CFG, 20.0)
+    for hold in _holds(plan):
+        assert 2.0 - 0.05 <= hold <= 9.0 + 0.05, _holds(plan)
+    assert validators.validate_plan(plan, Path("."), HOLD_CFG, 20.0, require_assets=False) == []
