@@ -18,6 +18,7 @@ all depend on.
 |---|---|---|---|---|---|---|---|
 | 1 | Script agent | `worker/lusora_worker/agents/script.py` | `prompts/script/` + `welded/script.system.txt` | `channel.script.llm` → `deepseek` | 8000 tok (prompt may raise), temp 0.7 | plain narration text | **nothing** (gap) |
 | 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
+| 2b | Beat planner — spine | `worker/lusora_worker/agents/planner.py` | `prompts/spine/` + `welded/spine.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 4000 tok, one shot | `{arc, sections:[{start_sentence, summary}]}` | arithmetic: first index 0, strictly increasing, in range — anything else falls back to the word-balanced split |
 | 3 | Editor chat | `platform/src/lib/chatAgent.ts` | `prompts/chat/` + `welded/chat.{system,user}.txt` | `deepseek-v4-flash`, `anthropic` fallback | 12000 tok, one shot | `{explanation, beat_ops, plan_ops}` | `beatEdit`/`planEdit` + `validateBeats` in the chat route |
 | 4 | Library coarse | `library/broll-lib-maker/broll/tagging.py` | `_COARSE_SYSTEM` (in code) | GLM-4.6V (z.ai or local vLLM) | 500 tok | `{score, rough_ranges}` | clamping parser |
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
@@ -25,7 +26,11 @@ all depend on.
 | 7 | AI image | `worker/lusora_worker/providers/sources.py` | `f"{query}. {style}"` (in code) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
-prompts are data. 4–6 belong to the library service (its own boundary, its
+prompts are data. 2b is not a fourth agent: it is phase 1 of the beat
+planner on a long script (D52), sharing the planner's provider and model,
+producing nothing that reaches an artifact, and unable to change control
+flow — code cuts the sections, checks the indices, and ignores the answer
+entirely when it does not describe a partition. 4–6 belong to the library service (its own boundary, its
 own model, its own prompts). 7 is barely a prompt — see gaps.
 
 ---

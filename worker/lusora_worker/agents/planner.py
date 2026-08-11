@@ -11,11 +11,20 @@ component menu are welded (D43) — they encode what
 `validate_beat_sheet` is about to enforce, so they are composed from the
 CURRENT contracts at call time rather than from the snapshot.
 
-Long scripts are planned in CHUNKS (one call per ~CHUNK_TARGET_BEATS
-beats): each call sees the full script for context but is told to emit
-beats for one contiguous, sentence-aligned slice only, carrying the last
-beats of the previous chunk forward for visual/mood continuity. Short
-videos stay a single call — the prompt for that path is unchanged.
+Long scripts are planned in CHUNKS (one call per
+`planner.chunk_target_beats` beats): each call sees the full script for
+context but is told to emit beats for one contiguous, sentence-aligned
+slice only, carrying the last beats of the previous chunk forward for
+visual/mood continuity. Short videos stay a single call — the prompt for
+that path is unchanged.
+
+Where the chunks are CUT is decided by a cheap spine pass first (D52):
+one call over the whole script returning section boundaries as sentence
+INDICES plus a one-line summary each, so sections land on the story's
+joints rather than on even word counts. Code checks the indices (first is
+0, strictly increasing, in range) and splits any section still too long;
+anything wrong with the spine degrades to the deterministic word-balanced
+split rather than failing the video.
 """
 
 from __future__ import annotations
@@ -38,15 +47,27 @@ from ..validators import validate_beat_sheet
 STAGE = "plan_beats"
 # the prompt-pack role, which is NOT the stage name (contracts/prompts/planner/)
 ROLE = "planner"
+# phase 1 of the same agent on a long script (D52), with its own prompt role
+SPINE_ROLE = "spine"
 MAX_ATTEMPTS = 3
 
 # A single call comfortably handles ~20-30 beats (existing calls cost
 # 4-9k tokens in that range per the max_tokens comment below); above this,
 # split into sentence-aligned chunks rather than risk truncation or
-# degraded quality on one huge call.
-CHUNK_TARGET_BEATS = 30
+# degraded quality on one huge call. Config, not a constant (Principle 4):
+# channel_config.planner.chunk_target_beats, schema default 30.
+DEFAULT_CHUNK_TARGET_BEATS = 30
 
 CARRY_FORWARD_BEATS = 2
+
+# How many earlier visual intents the next section is shown. Enough to stop it
+# opening on the same aerial shot for the fourth time; short enough that the
+# ledger does not become the largest thing in the prompt.
+LEDGER_ENTRIES = 12
+
+# The spine returns one short line per section, so its whole answer is a few
+# hundred tokens however long the script is.
+SPINE_MAX_TOKENS = 4000
 
 
 def _catalog_menu(allowed: list[str] | None) -> str:
@@ -92,6 +113,138 @@ def _chunk_script(script: str, chunk_count: int) -> list[str]:
     return chunks
 
 
+def _sections_from_starts(sentences: list[str], starts: list[int]) -> list[list[str]]:
+    """Cut the sentence list at the given start indices."""
+    bounds = list(starts) + [len(sentences)]
+    return [sentences[bounds[i] : bounds[i + 1]] for i in range(len(starts))]
+
+
+def _split_oversized(
+    sections: list[list[str]], summaries: list[str], max_words: int
+) -> tuple[list[str], list[str]]:
+    """Bring every section under `max_words` by splitting it at its own
+    sentence boundaries, keeping the summary on each piece.
+
+    The spine chooses where the story turns; it does not get to hand one call a
+    section twice the size a call can plan. Deterministic post-processing of an
+    LLM artifact, which is the same arrangement everywhere else: the model
+    proposes, code decides (D2)."""
+    out_text: list[str] = []
+    out_summary: list[str] = []
+    for section, summary in zip(sections, summaries):
+        words = sum(len(s.split()) for s in section)
+        pieces = max(1, math.ceil(words / max_words)) if max_words > 0 else 1
+        if pieces == 1 or len(section) < 2:
+            out_text.append(" ".join(section))
+            out_summary.append(summary)
+            continue
+        for piece in _chunk_script(" ".join(section), min(pieces, len(section))):
+            out_text.append(piece)
+            out_summary.append(summary)
+    return out_text, out_summary
+
+
+def _spine_sections(
+    ctx: StageContext,
+    script: str,
+    section_count: int,
+    chat_fn: llm.ChatFn,
+) -> tuple[list[str], list[str], str] | None:
+    """One cheap call: where does this story TURN?
+
+    Returns (section texts, one-line summaries, arc) or None to fall back to the
+    deterministic word-balanced split. None is the answer for every failure —
+    the model refused, the JSON was unparseable, the indices did not describe a
+    partition, the budget gate said no — because a spine is an improvement on a
+    split that already works, and no video should die for it.
+
+    The model never echoes script text: it returns INDICES into a sentence list
+    this code numbered. That is what makes the output checkable by arithmetic
+    instead of by string matching, and it keeps the call cheap on a 12-minute
+    script."""
+    sentences = split_sentences(script)
+    if len(sentences) <= section_count:
+        return None
+
+    planner_cfg = ctx.cfg.get("planner") or {}
+    provider = str(planner_cfg.get("llm") or "deepseek")
+    prompt = (ctx.cfg.get("prompts") or {}).get(SPINE_ROLE)
+    model = planner_cfg.get("model") or (prompt or {}).get("model_hint")
+    system, user = prompt_packs.compose(
+        SPINE_ROLE,
+        prompt,
+        {
+            "script": "\n".join(f"{i}. {s}" for i, s in enumerate(sentences)),
+            "sentence_count": len(sentences),
+            "section_count": section_count,
+            "arc": str(((ctx.cfg.get("style_pack_doc") or {}).get("pacing") or {}).get("arc") or ""),
+            "content_rules": str(ctx.cfg.get("content_rules") or ""),
+        },
+    )
+
+    try:
+        with budget_gate(
+            ctx, stage=STAGE, provider=provider, operation="llm.plan_spine",
+            estimated_units=2000, details={"sections": section_count},
+        ) as cost:
+            result = chat_fn(provider, model, system, user, int((prompt or {}).get("max_tokens") or SPINE_MAX_TOKENS))
+            cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
+                                              "output_tokens": result.output_tokens})
+        doc = llm.extract_json(result.text)
+        raw = doc.get("sections") or []
+        starts = [int(s["start_sentence"]) for s in raw]
+        summaries = [str(s.get("summary") or "").strip() for s in raw]
+        arc = str(doc.get("arc") or "").strip()
+    except (StageError, ValueError, TypeError, KeyError, json.JSONDecodeError) as e:
+        ctx.db.event(ctx.video_id, STAGE, "progress",
+                     f"spine unavailable ({e.__class__.__name__}), cutting sections by word count instead")
+        return None
+
+    valid = (
+        starts
+        and starts[0] == 0
+        and all(0 <= a < len(sentences) for a in starts)
+        and all(b > a for a, b in zip(starts, starts[1:]))
+    )
+    if not valid:
+        ctx.db.event(ctx.video_id, STAGE, "progress",
+                     f"spine returned {starts[:8]}, which is not a partition of "
+                     f"{len(sentences)} sentences — cutting sections by word count instead")
+        return None
+
+    max_words = max(1, math.ceil(len(script.split()) / section_count * 1.5))
+    texts, summaries = _split_oversized(
+        _sections_from_starts(sentences, starts), summaries, max_words
+    )
+    ctx.db.event(ctx.video_id, STAGE, "progress",
+                 f"spine cut {len(texts)} sections at the story's joints (asked for {section_count})")
+    return texts, summaries, arc
+
+
+def _format_spine(summaries: list[str], arc: str, current: int) -> str:
+    """The whole spine, with THIS section marked — the planner needs to know
+    what it is writing towards, not only what it is writing."""
+    lines = [f"ARC: {arc}"] if arc else []
+    for i, summary in enumerate(summaries):
+        mark = "  <- YOUR SECTION" if i == current else ""
+        lines.append(f"{i + 1}. {summary}{mark}")
+    return "\n".join(lines)
+
+
+def _format_ledger(beats: list[dict[str, Any]]) -> str:
+    """Visual subjects already spent, oldest first, deduplicated.
+
+    Carry-forward answers "what did the last shot look like"; this answers "what
+    has this video already shown", which is the question that stops section 5
+    from opening on the same aerial as sections 1, 2 and 3."""
+    seen: list[str] = []
+    for beat in beats:
+        intent = " ".join(str(beat.get("visual_intent") or "").split()[:8])
+        if intent and intent not in seen:
+            seen.append(intent)
+    return "\n".join(f"- {intent}" for intent in seen[-LEDGER_ENTRIES:])
+
+
 def _format_carry_forward(beats: list[dict[str, Any]]) -> str:
     if not beats:
         return ""
@@ -112,6 +265,8 @@ def _build_prompt(
     chunk_position: str = "",
     coverage_scope: str = "the ENTIRE script",
     max_overlays: int | str = "",
+    spine: str = "",
+    visual_ledger: str = "",
 ) -> tuple[str, str]:
     style = ctx.cfg.get("style_pack_doc") or {}
     pacing = style.get("pacing") or {}
@@ -142,6 +297,8 @@ def _build_prompt(
             "chunk_position": chunk_position,
             "coverage_scope": coverage_scope,
             "max_overlays": max_overlays,
+            "spine": spine,
+            "visual_ledger": visual_ledger,
         },
     )
 
@@ -158,6 +315,8 @@ def _plan_chunk(
     coverage_scope: str,
     section_label: str,
     max_overlays: int | str = "",
+    spine: str = "",
+    visual_ledger: str = "",
     validate_duration_s: float | None = None,
 ) -> dict[str, Any]:
     """One call, with the same validate→repair loop as before (max 3
@@ -189,7 +348,7 @@ def _plan_chunk(
         ctx, script, audio_duration_s,
         full_script=full_script, carry_forward=carry_forward,
         chunk_position=chunk_position, coverage_scope=coverage_scope,
-        max_overlays=max_overlays,
+        max_overlays=max_overlays, spine=spine, visual_ledger=visual_ledger,
     )
     user = base_user
     label_prefix = f"{section_label}: " if section_label else ""
@@ -252,10 +411,21 @@ def plan_beats(
     chat_fn: llm.ChatFn = llm.chat,
 ) -> dict[str, Any]:
     style = ctx.cfg.get("style_pack_doc") or {}
+    planner_cfg = ctx.cfg.get("planner") or {}
     avg_hold = float((style.get("pacing") or {}).get("avg_hold_seconds", 4.0))
     total_target_beats = max(1, round(audio_duration_s / avg_hold))
-    chunk_count = max(1, math.ceil(total_target_beats / CHUNK_TARGET_BEATS))
-    chunks = _chunk_script(script, chunk_count)
+    target_per_chunk = max(1, int(planner_cfg.get("chunk_target_beats") or DEFAULT_CHUNK_TARGET_BEATS))
+    chunk_count = max(1, math.ceil(total_target_beats / target_per_chunk))
+
+    summaries: list[str] = []
+    arc = ""
+    spine = None
+    if chunk_count > 1 and (planner_cfg.get("spine") or {}).get("enabled", True):
+        spine = _spine_sections(ctx, script, chunk_count, chat_fn)
+    if spine is not None:
+        chunks, summaries, arc = spine
+    else:
+        chunks = _chunk_script(script, chunk_count)
     chunked = len(chunks) > 1
 
     total_words = len(script.split()) or 1
@@ -285,6 +455,8 @@ def plan_beats(
             ),
             section_label=f"section {i + 1}/{len(chunks)}" if chunked else "",
             max_overlays=chunk_overlays,
+            spine=_format_spine(summaries, arc, i) if chunked and summaries else "",
+            visual_ledger=_format_ledger(merged_beats) if chunked else "",
             # unchunked: the one call IS the whole video, so judge it fully here
             validate_duration_s=None if chunked else audio_duration_s,
         )

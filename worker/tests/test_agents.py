@@ -15,8 +15,8 @@ from lusora_worker.textsplit import normalize, split_sentences
 SCRIPT = "The port fed the capital. Nearly 70% of all grain passed through it."
 
 # 6 short sentences, ~5 words each, split after sentence 3 (word-balanced,
-# sentence-aligned) when chunked into 2. Chunking tests monkeypatch
-# CHUNK_TARGET_BEATS down to 1 so a fixture this small still triggers
+# sentence-aligned) when chunked into 2. Chunking tests set
+# planner.chunk_target_beats to 1 so a fixture this small still triggers
 # multiple chunks without needing a realistically long script — and so each
 # chunk's pacing-range check (validators.py) tolerates the fake's 1 beat.
 SCRIPT_LONG = (
@@ -74,6 +74,16 @@ def make_ctx(tmp_path, cfg=None):
         db=FakeDb(),
         config=None,
     )
+
+
+def chunking_ctx(tmp_path, *, spine=False, target_beats=1):
+    """A cfg that chunks a 6-sentence fixture, with the spine pass off unless a
+    test is exercising it — the deterministic word-balanced split is the
+    fallback path and stays the one most tests measure."""
+    cfg = json.loads(json.dumps(CFG))
+    cfg["planner"]["chunk_target_beats"] = target_beats
+    cfg["planner"]["spine"] = {"enabled": spine}
+    return make_ctx(tmp_path, cfg)
 
 
 def good_beats():
@@ -267,9 +277,8 @@ def _long_chat_fn(calls, fail_on_position=None):
     return chat_fn
 
 
-def test_long_script_is_planned_in_chunks_with_full_context(tmp_path, monkeypatch):
-    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
-    ctx = make_ctx(tmp_path)
+def test_long_script_is_planned_in_chunks_with_full_context(tmp_path):
+    ctx = chunking_ctx(tmp_path)
     calls: list[str] = []
     doc = planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_long_chat_fn(calls))
 
@@ -288,9 +297,8 @@ def test_long_script_is_planned_in_chunks_with_full_context(tmp_path, monkeypatc
     assert covered == normalize(SCRIPT_LONG)
 
 
-def test_carry_forward_passes_previous_chunk_into_the_next(tmp_path, monkeypatch):
-    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
-    ctx = make_ctx(tmp_path)
+def test_carry_forward_passes_previous_chunk_into_the_next(tmp_path):
+    ctx = chunking_ctx(tmp_path)
     calls: list[str] = []
     planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_long_chat_fn(calls))
 
@@ -299,9 +307,8 @@ def test_carry_forward_passes_previous_chunk_into_the_next(tmp_path, monkeypatch
     assert "visual for chunk 0" in calls[1][1]  # chunk 1's own beat, carried forward
 
 
-def test_chunk_failure_names_the_section(tmp_path, monkeypatch):
-    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
-    ctx = make_ctx(tmp_path)
+def test_chunk_failure_names_the_section(tmp_path):
+    ctx = chunking_ctx(tmp_path)
     calls: list[str] = []
     chat_fn = _long_chat_fn(calls, fail_on_position="part 2 of 2")
     with pytest.raises(StageError, match=r"section 2/2"):
@@ -310,14 +317,13 @@ def test_chunk_failure_names_the_section(tmp_path, monkeypatch):
     assert len(calls) == 1 + 3
 
 
-def test_chunks_get_a_slack_free_share_of_the_overlay_budget(tmp_path, monkeypatch):
+def test_chunks_get_a_slack_free_share_of_the_overlay_budget(tmp_path):
     """Regression: validate_beat_sheet grants the density budget a +1 slack.
     Handing each chunk its own share re-granted that slack per chunk, so every
     chunk passed while their sum overshot the video's real ceiling (observed
     live: 14 overlays against a 13-overlay budget). Chunks are now told a
     floor'd, slack-free share, and only the merged sheet is density-checked."""
-    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
-    ctx = make_ctx(tmp_path)
+    ctx = chunking_ctx(tmp_path)
     calls: list[tuple[str, str]] = []
     planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_long_chat_fn(calls))
 
@@ -332,11 +338,10 @@ def test_chunks_get_a_slack_free_share_of_the_overlay_budget(tmp_path, monkeypat
     assert sum(hints) <= whole_video_ceiling
 
 
-def test_chunk_validation_defers_whole_video_checks(tmp_path, monkeypatch):
+def test_chunk_validation_defers_whole_video_checks(tmp_path):
     """A chunk stuffed with overlays is NOT rejected per chunk (density is a
     whole-video property), but the merged sheet is — one budget, judged once."""
-    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
-    ctx = make_ctx(tmp_path)
+    ctx = chunking_ctx(tmp_path)
 
     def overlay_heavy(provider, model, system, user, max_tokens):
         chunk_text = _chunk_text_from_prompt(user)
@@ -355,7 +360,7 @@ def test_chunk_validation_defers_whole_video_checks(tmp_path, monkeypatch):
 
 
 def test_short_script_stays_a_single_unchunked_call(tmp_path):
-    """Below CHUNK_TARGET_BEATS, behavior is byte-identical to the
+    """Below planner.chunk_target_beats, behavior is byte-identical to the
     pre-chunking prompt: no section/full-script/carry-forward scaffolding."""
     ctx = make_ctx(tmp_path)
     seen = {}
@@ -371,3 +376,145 @@ def test_short_script_stays_a_single_unchunked_call(tmp_path):
     assert "cover the ENTIRE script" in (
         planner._build_prompt(make_ctx(tmp_path), SCRIPT, 8.0)[0]
     )
+
+
+# ---------------- the spine pass (D52) ----------------
+
+
+def _spine_chat_fn(calls, spine_doc):
+    """First call is the spine, every call after it plans one section."""
+    def chat_fn(provider, model, system, user, max_tokens):
+        calls.append((system, user))
+        if len(calls) == 1:
+            return reply(spine_doc) if isinstance(spine_doc, dict) else LLMResult(
+                text=spine_doc, input_tokens=200, output_tokens=80
+            )
+        chunk_text = _chunk_text_from_prompt(user)
+        return reply({"version": "1.0", "video_id": "vid_t",
+                      "beats": [{"id": "b1", "kind": "narration", "script_text": chunk_text,
+                                 "visual_intent": f"visual for section {len(calls) - 1}",
+                                 "mood": "neutral"}]})
+    return chat_fn
+
+
+GOOD_SPINE = {
+    "arc": "a port at work, then the war reaches it",
+    "sections": [
+        {"start_sentence": 0, "summary": "the port at work before the war"},
+        {"start_sentence": 4, "summary": "the war reaches the docks"},
+    ],
+}
+
+
+def test_spine_cuts_the_sections_and_reaches_every_section_prompt(tmp_path):
+    ctx = chunking_ctx(tmp_path, spine=True)
+    calls: list[tuple[str, str]] = []
+    doc = planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_spine_chat_fn(calls, GOOD_SPINE))
+
+    assert len(calls) == 3, "one spine call, then one per section"
+    # the spine saw numbered sentences, not raw prose — its answer is indices
+    assert "0. Sentence one about ships." in calls[0][1]
+    # the cut landed where the spine asked (sentence 4), not at the word-balanced
+    # midpoint (sentence 3) the deterministic split would have chosen
+    assert doc["beats"][0]["script_text"].endswith("Sentence four about workers.")
+    # every planning call sees the whole spine with its own section marked
+    for i, (_system, user) in enumerate(calls[1:]):
+        assert "a port at work, then the war reaches it" in user
+        assert "the war reaches the docks" in user
+        assert f"{i + 1}. " in user
+    assert "<- YOUR SECTION" in calls[1][1]
+
+
+def test_visual_ledger_is_threaded_between_sections(tmp_path):
+    ctx = chunking_ctx(tmp_path, spine=True)
+    calls: list[tuple[str, str]] = []
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_spine_chat_fn(calls, GOOD_SPINE))
+
+    assert "ALREADY ON SCREEN" not in calls[1][1], "nothing spent yet in section 1"
+    assert "visual for section 1" in calls[2][1], "section 2 sees what section 1 shot"
+
+
+def test_a_spine_that_is_not_a_partition_degrades_to_the_word_split(tmp_path):
+    """The spine is an improvement on a split that already works, so every
+    failure mode falls back rather than failing the video."""
+    for label, bad in [
+        ("does not start at 0", {"sections": [{"start_sentence": 2, "summary": "x"}]}),
+        ("not increasing", {"sections": [{"start_sentence": 0}, {"start_sentence": 0}]}),
+        ("out of range", {"sections": [{"start_sentence": 0}, {"start_sentence": 99}]}),
+        ("empty", {"sections": []}),
+        ("unparseable", "sorry, I can't do that"),
+        ("wrong shape", {"sections": [{"summary": "no index at all"}]}),
+    ]:
+        ctx = chunking_ctx(tmp_path, spine=True)
+        calls: list[tuple[str, str]] = []
+        doc = planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_spine_chat_fn(calls, bad))
+        covered = normalize(" ".join(b["script_text"] for b in doc["beats"]))
+        assert covered == normalize(SCRIPT_LONG), label
+        assert len(doc["beats"]) == 2, label
+        assert any("word count" in (m or "") for _s, _st, m in ctx.db.events), label
+
+
+def test_spine_is_skipped_when_the_channel_turns_it_off(tmp_path):
+    ctx = chunking_ctx(tmp_path, spine=False)
+    calls: list[tuple[str, str]] = []
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_long_chat_fn(calls))
+    assert len(calls) == 2, "two sections, no spine call"
+
+
+def test_a_short_video_never_pays_for_a_spine(tmp_path):
+    ctx = make_ctx(tmp_path)
+    calls: list[tuple[str, str]] = []
+
+    def chat_fn(provider, model, system, user, max_tokens):
+        calls.append((system, user))
+        return reply(good_beats())
+
+    planner.plan_beats(ctx, SCRIPT, 8.0, chat_fn=chat_fn)
+    assert len(calls) == 1
+    assert not [e for e in ctx.db.cost_events if e["operation"] == "llm.plan_spine"]
+
+
+def test_the_spine_call_is_billed_like_any_other(tmp_path):
+    ctx = chunking_ctx(tmp_path, spine=True)
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_spine_chat_fn([], GOOD_SPINE))
+    spine_events = [e for e in ctx.db.cost_events if e["operation"] == "llm.plan_spine"]
+    assert [e["status"] for e in spine_events][0] == "estimated"
+    completed = [e for e in spine_events if e["status"] == "completed"]
+    assert len(completed) == 1 and completed[0]["units"] > 0
+
+
+def test_an_oversized_spine_section_is_split_by_code(tmp_path):
+    """The spine says where the story turns; it does not get to hand one call a
+    section twice the size a call can plan."""
+    ctx = chunking_ctx(tmp_path, spine=True)
+    calls: list[tuple[str, str]] = []
+    lopsided = {"arc": "", "sections": [
+        {"start_sentence": 0, "summary": "almost everything"},
+        {"start_sentence": 5, "summary": "the last sentence"},
+    ]}
+    doc = planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_spine_chat_fn(calls, lopsided))
+    assert len(calls) > 3, "the 5-sentence section was divided further"
+    assert normalize(" ".join(b["script_text"] for b in doc["beats"])) == normalize(SCRIPT_LONG)
+
+
+def test_a_script_that_fails_as_one_call_succeeds_chunked(tmp_path):
+    """The reason chunking exists: at doc length one call drops a sentence
+    somewhere in the middle and full coverage fails for the WHOLE sheet, three
+    times over. The same model, asked for one section at a time, covers each."""
+    def drops_a_sentence(provider, model, system, user, max_tokens):
+        chunk_text = _chunk_text_from_prompt(user)
+        sentences = split_sentences(chunk_text)
+        if len(sentences) > 3:
+            sentences = sentences[:2] + sentences[3:]  # the classic long-call miss
+        return reply({"version": "1.0", "video_id": "vid_t",
+                      "beats": [{"id": f"b{i + 1}", "kind": "narration", "script_text": s,
+                                 "visual_intent": f"shot {i}", "mood": "neutral"}
+                                for i, s in enumerate(sentences)]})
+
+    with pytest.raises(StageError, match="beat planner failed after 3 attempts"):
+        planner.plan_beats(make_ctx(tmp_path), SCRIPT_LONG, 24.0, chat_fn=drops_a_sentence)
+
+    doc = planner.plan_beats(
+        chunking_ctx(tmp_path, target_beats=3), SCRIPT_LONG, 24.0, chat_fn=drops_a_sentence
+    )
+    assert normalize(" ".join(b["script_text"] for b in doc["beats"])) == normalize(SCRIPT_LONG)

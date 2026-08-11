@@ -46,6 +46,15 @@ so there is no budget gate and no price-table entry.
    numbers, arc, overlay density) + component catalog (when_to_use /
    when_not_to_use) + content rules. Output = beat sheet. Wrapped in the
    validate→repair loop (max 3 attempts, all violations fed back).
+   Past `planner.chunk_target_beats` target beats (default 30) it runs in
+   two phases (D52): a cheap **spine** call finds where the story turns and
+   returns section boundaries as sentence indices, then one planning call
+   per section — each validated on its own, so a dropped sentence costs one
+   section rather than the whole video, and each carrying the spine, the
+   previous section's last beats and a ledger of visuals already spent. The
+   merged sheet is judged by the same `validate_beat_sheet` a single call
+   faces. A spine that is not a partition is ignored: sections fall back to
+   a deterministic word-balanced split.
 3. **Editor chat agent** (platform-hosted, worker-independent): emits
    beat operations and plan patch operations only; every result passes
    the same validators.

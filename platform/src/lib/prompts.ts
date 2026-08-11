@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { repoRoot } from "./env.ts";
 import { validateAgainst } from "./validate.ts";
 
-export const PROMPT_ROLES = ["script", "planner", "chat"] as const;
+export const PROMPT_ROLES = ["script", "planner", "spine", "chat"] as const;
 export type PromptRole = (typeof PROMPT_ROLES)[number];
 
 export const PROMPT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -212,7 +212,13 @@ export function resolvePrompt(
   role: PromptRole,
   overrides?: Record<string, unknown> | null
 ): { resolved: ResolvedPrompt } | { problem: string } {
-  const roleCfg = (cfg[role] ?? {}) as { prompt?: string };
+  // The spine is phase 1 of the planner agent (D52), so its channel layer sits
+  // with the planner rather than in a `spine` block of its own.
+  const roleCfg = (
+    role === "spine"
+      ? ((cfg.planner as { spine?: { prompt?: string } } | undefined)?.spine ?? {})
+      : (cfg[role] ?? {})
+  ) as { prompt?: string };
   const overrideCfg = ((overrides?.[role] ?? {}) as { prompt?: string }).prompt;
   const packCfg =
     role === "script"

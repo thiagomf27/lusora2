@@ -5,6 +5,7 @@
     "mock": {
       "llm.generate_script": { "unit": "token", "unit_price_usd": 0 },
       "llm.plan_beats": { "unit": "token", "unit_price_usd": 0 },
+      "llm.plan_spine": { "unit": "token", "unit_price_usd": 0 },
       "llm.chat_edit": { "unit": "token", "unit_price_usd": 0 },
       "tts.narrate": { "unit": "char", "unit_price_usd": 0 },
       "image.generate": { "unit": "image", "unit_price_usd": 0 }
@@ -20,11 +21,13 @@
     "deepseek": {
       "llm.generate_script": { "unit": "token", "unit_price_usd": 0.00000028 },
       "llm.plan_beats": { "unit": "token", "unit_price_usd": 0.00000028 },
+      "llm.plan_spine": { "unit": "token", "unit_price_usd": 0.00000028 },
       "llm.chat_edit": { "unit": "token", "unit_price_usd": 0.00000028 }
     },
     "anthropic": {
       "llm.generate_script": { "unit": "token", "unit_price_usd": 0.000003 },
       "llm.plan_beats": { "unit": "token", "unit_price_usd": 0.000003 },
+      "llm.plan_spine": { "unit": "token", "unit_price_usd": 0.000003 },
       "llm.chat_edit": { "unit": "token", "unit_price_usd": 0.000003 }
     },
     "openai": {

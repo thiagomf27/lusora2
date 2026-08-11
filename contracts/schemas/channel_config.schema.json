@@ -52,6 +52,29 @@
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]*$",
           "description": "prompt pack name (contracts/prompts/planner/<name>.json)"
+        },
+        "chunk_target_beats": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30,
+          "description": "above this many target beats the script is planned in sentence-aligned CHUNKS, one call each, instead of one call for the whole video. A single call handles ~20-30 beats comfortably; past that it truncates or degrades, and one dropped sentence fails full coverage for the entire sheet."
+        },
+        "spine": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "phase 1 of this agent on a chunked script: one cheap call that finds where the story TURNS, so sections are cut at joints instead of at even word counts. It shares planner.llm/model — it is the same bounded agent (D2), not a fourth one.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "false uses the deterministic word-balanced split, which is also what a failed or malformed spine degrades to"
+            },
+            "prompt": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "description": "prompt pack name (contracts/prompts/spine/<name>.json)"
+            }
+          }
         }
       }
     },
@@ -187,6 +210,7 @@
       "properties": {
         "script": { "$ref": "#/$defs/resolvedPrompt" },
         "planner": { "$ref": "#/$defs/resolvedPrompt" },
+        "spine": { "$ref": "#/$defs/resolvedPrompt" },
         "chat": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
