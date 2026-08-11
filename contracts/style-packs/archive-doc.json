@@ -1,0 +1,42 @@
+{
+  "name": "archive-doc",
+  "video_type": "doc",
+  "pacing": {
+    "avg_hold_seconds": 4.5,
+    "min_hold": 2.5,
+    "max_hold": 9.0,
+    "arc": "three_act"
+  },
+  "overlays": {
+    "density": "low",
+    "allowed_components": [
+      "ArchiveBarGraph",
+      "ArchiveCaption",
+      "ArchiveChapterTitle",
+      "ArchiveCounter",
+      "ArchiveLineChart",
+      "ArchiveLowerThird",
+      "ArchiveQuoteCard",
+      "ArchivalFrame",
+      "Timeline"
+    ]
+  },
+  "transitions": {
+    "allowed": [
+      "cut",
+      "crossfade",
+      "fade_to_black"
+    ],
+    "default": "cut"
+  },
+  "script_persona": "Grave, precise documentary narrator. Short sentences. Names, dates and sources stated plainly.",
+  "visual_language": "Archival footage and stills, desaturated; the overlays are white plates and tan strips pinned over the picture.",
+  "sfx": {
+    "enabled": false
+  },
+  "music": {
+    "enabled": true,
+    "min_span_s": 28,
+    "crossfade_s": 2.5
+  }
+}

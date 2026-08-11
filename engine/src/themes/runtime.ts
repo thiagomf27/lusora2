@@ -45,15 +45,90 @@ export function fadeInOutRange(
   return [0, inEnd, outStart, end];
 }
 
-/** packaged font name -> CSS stack (files-only: system fallbacks) */
+/**
+ * packaged font name -> CSS stack (files-only: system fallbacks)
+ *
+ * The mono branch matters more than it looks: a theme naming a typewriter face
+ * that fell through to the sans fallback would set a counting figure in a
+ * proportional face, and the digits visibly shuffle sideways on every frame.
+ */
 export function fontStack(name: string): string {
-  const serifs = ["Playfair Display", "Georgia", "Times New Roman", "Merriweather", "Lora"];
-  const isSerif = serifs.some((s) => name.toLowerCase().includes(s.toLowerCase().split(" ")[0]));
-  return `"${name}", ${isSerif ? "Georgia, 'DejaVu Serif', serif" : "'DejaVu Sans', Helvetica, Arial, sans-serif"}`;
+  const key = name.toLowerCase();
+  const family = (list: string[]) => list.some((s) => key.includes(s.toLowerCase().split(" ")[0]));
+  if (family(["Courier", "Mono", "Typewriter", "Consolas", "Menlo"])) {
+    return `"${name}", 'DejaVu Sans Mono', 'Liberation Mono', monospace`;
+  }
+  if (family(["Playfair Display", "Georgia", "Times New Roman", "Merriweather", "Lora"])) {
+    return `"${name}", Georgia, 'DejaVu Serif', serif`;
+  }
+  return `"${name}", 'DejaVu Sans', Helvetica, Arial, sans-serif`;
 }
 
 export function emphasisColor(theme: Theme, emphasis: "accent" | "neutral" | undefined): string {
   return emphasis === "neutral" ? theme.colors.neutral : theme.colors.accent;
+}
+
+/**
+ * The flat, OPAQUE colour a component paints under its own type.
+ *
+ * Deliberately not `surfaceStyle().background`: that resolves a panel floated
+ * over the shot, so it honours `fill: "translucent" | "none"`. A plate is the
+ * substrate its type is set on — "none" there is not a lighter look, it is
+ * unreadable type over moving footage — so this always hands back a solid
+ * colour. A paper theme (`bg` light) gets paper; a dark theme gets its ground.
+ */
+export function surfaceColor(theme: Theme): string {
+  return theme.colors.bg;
+}
+
+/** WCAG relative luminance of a #rrggbb colour. */
+function luminance(hex: string): number {
+  const h = hex.replace("#", "");
+  const channel = (i: number) => {
+    const c = parseInt(h.slice(i * 2, i * 2 + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
+}
+
+/**
+ * Type colour for text set ON a given ground: whichever of the theme's ink
+ * (`text`) and its page (`bg`) reads better against it.
+ *
+ * A component that paints a band in `accent` and then sets `colors.text` on it
+ * is fine exactly as long as the theme's accent is a GROUND colour. Pair the
+ * same component with a theme whose accent is a bright mark on a dark page and
+ * the label lands at 1.9:1. This picks the readable one instead, so a pack
+ * built for a paper theme degrades rather than breaks on a dark one.
+ */
+export function contrastInk(theme: Theme, background: string): string {
+  const bg = luminance(background);
+  const ratio = (fg: number) => (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+  return ratio(luminance(theme.colors.text)) >= ratio(luminance(theme.colors.bg))
+    ? theme.colors.text
+    : theme.colors.bg;
+}
+
+/**
+ * The data ramp: hues for two or three series that have to be told apart.
+ *
+ * Not `theme.colors.accent` at three opacities, and not a theme token either
+ * (OQ-10 keeps the token list closed). A ramp is not a preference: it has to
+ * hold contrast against the plate it is drawn on AND against itself for a
+ * viewer who cannot separate the hues, which is a property of the three
+ * colours together. So the engine owns it, and picks the variant by the
+ * luminance of the plate `surfaceColor` just resolved.
+ *
+ * Light plate: 3.2:1, 6.5:1 and 10.4:1 against #f2efe6, worst adjacent-pair
+ * ΔE00 of 22.8 across simulated deuteranopia, protanopia and tritanopia.
+ * Dark plate: 9.9:1, 7.4:1 and 3.3:1 against #101216, worst ΔE00 21.1. Both
+ * clear the 3:1 that non-text marks need; the oxblood is the floor in each.
+ */
+const SERIES_ON_LIGHT = ["#b87828", "#3c5870", "#58282c"] as const;
+const SERIES_ON_DARK = ["#e8b45c", "#7fa8c8", "#a34c58"] as const;
+
+export function seriesColors(theme: Theme): readonly string[] {
+  return luminance(surfaceColor(theme)) > 0.4 ? SERIES_ON_LIGHT : SERIES_ON_DARK;
 }
 
 // ---------------- D46: surface + motion tokens ----------------

@@ -3,11 +3,22 @@
  * (engine/src/catalog/registry.ts) — the validator guarantees a plan
  * only references these.
  *
- * Implementations live in ./core; ./example_lib keeps the original six as
- * reference copies and is deliberately NOT registered.
+ * Implementations live in ./core for the generated `core` pack, and in
+ * ./<pack> for a component pack whose entries are data
+ * (contracts/component-packs/<pack>.json) but whose drawing is code —
+ * ./archive is the first. ./example_lib keeps the original six as reference
+ * copies and is deliberately NOT registered.
  */
 import type { ComponentType } from "react";
 import type { Theme } from "@lusora/contracts";
+
+import { ArchiveBarGraph } from "./archive/ArchiveBarGraph.tsx";
+import { ArchiveCaption } from "./archive/ArchiveCaption.tsx";
+import { ArchiveChapterTitle } from "./archive/ArchiveChapterTitle.tsx";
+import { ArchiveCounter } from "./archive/ArchiveCounter.tsx";
+import { ArchiveLineChart } from "./archive/ArchiveLineChart.tsx";
+import { ArchiveLowerThird } from "./archive/ArchiveLowerThird.tsx";
+import { ArchiveQuoteCard } from "./archive/ArchiveQuoteCard.tsx";
 
 import { AnimatedCounter } from "./core/AnimatedCounter.tsx";
 import { ArchivalFrame } from "./core/ArchivalFrame.tsx";
@@ -45,6 +56,13 @@ export interface OverlayComponentProps {
 export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = {
   AnimatedCounter,
   ArchivalFrame,
+  ArchiveBarGraph,
+  ArchiveCaption,
+  ArchiveChapterTitle,
+  ArchiveCounter,
+  ArchiveLineChart,
+  ArchiveLowerThird,
+  ArchiveQuoteCard,
   BarChart,
   BulletList,
   CalloutArrow,
@@ -74,6 +92,13 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
 export {
   AnimatedCounter,
   ArchivalFrame,
+  ArchiveBarGraph,
+  ArchiveCaption,
+  ArchiveChapterTitle,
+  ArchiveCounter,
+  ArchiveLineChart,
+  ArchiveLowerThird,
+  ArchiveQuoteCard,
   BarChart,
   BulletList,
   CalloutArrow,

@@ -56,7 +56,8 @@
         "text": {
           "type": "string",
           "maxWords": 8,
-          "required": true
+          "required": true,
+          "from_anchor": "value"
         },
         "subtext": {
           "type": "string",

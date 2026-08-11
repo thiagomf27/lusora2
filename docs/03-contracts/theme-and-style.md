@@ -85,6 +85,12 @@ each one also mapped to a template.
 - Every token is OPTIONAL with a default equal to today's hardcoded
   value, so existing themes render identically and a component that has
   not been converted yet simply ignores them.
+- `surface.accent_rule: "none"` removes every accent bar an overlay draws,
+  not only the one along its edge: on the template path it also takes the
+  underline out of `big_number` and `statement`. They are the same ornament
+  in a different place, and a theme asking for text on the background does
+  not want text on the background with a stripe under it. Themes that leave
+  the token unset keep each component's own choice and are unchanged.
 - `motion.entrance` is a REQUEST, not a guarantee. `typewriter` is
   meaningless on BarChart or SatelliteLocate — a component declares the
   entrances it can honor and anything else degrades to `fade`. Silent
@@ -98,6 +104,27 @@ each one also mapped to a template.
 - All of this is Remotion-path only, at zero ffmpeg cost: any overlay at
   all already forces the Remotion route (`router.ts`), so D31's
   "each addition is filter-graph work" does not apply.
+
+### Colours the theme does not name
+
+Four tokens (`bg`, `text`, `accent`, `neutral`) do not cover every colour an
+overlay needs, and the answer is *not* more tokens for each one — it is a
+resolver in `engine/src/themes/runtime.ts` that derives the colour from the
+four, so no theme has to be re-authored when a component pack arrives:
+
+- `surfaceColor(theme)` — the flat, opaque plate a component sets type ON.
+  Deliberately not `surfaceStyle().background`, which resolves a *panel*
+  floated over the shot and therefore honours `fill: none`. A plate cannot be
+  transparent: that is not a lighter look, it is unreadable type over footage.
+- `seriesColors(theme)` — the data ramp for two or three series that must be
+  told apart (`accent` at three opacities is not a ramp). Engine-owned on
+  purpose: a ramp has to hold contrast against the plate AND against itself
+  under colour-blindness, which is a property of the three colours together,
+  not a preference. Two variants, picked by the plate's luminance.
+- `contrastInk(theme, ground)` — type set on a coloured ground picks `text` or
+  `bg`, whichever reads. A pack built for a theme whose `accent` is a ground
+  (the `archive` pack's tan) would otherwise land at 1.9:1 on a theme whose
+  accent is a bright mark.
 
 ### Motion roles — the deferred shape (D47)
 

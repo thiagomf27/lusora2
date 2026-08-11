@@ -1,0 +1,23 @@
+{
+  "name": "atlas-da-guerra",
+  "colors": {
+    "bg": "#101216",
+    "text": "#e8eaf0",
+    "accent": "#e5a50a",
+    "neutral": "#8a8f9a"
+  },
+  "typography": {
+    "display": "Georgia",
+    "body": "Times New Roman",
+    "caption_preset": "plain"
+  },
+  "motion_feel": "slow_heavy",
+  "grain": "archival",
+  "surface": {
+    "radius": "square",
+    "fill": "solid"
+  },
+  "motion": {
+    "easing": "snap"
+  }
+}

@@ -31,7 +31,14 @@ Rules the loaders enforce:
 The pack name itself is organisational: nothing in the pipeline filters by it
 today (`channel_config.component_pack` is stored but unread). What actually
 decides whether the planner may pick a component is the style pack's
-`overlays.allowed_components`.
+`overlays.allowed_components` — `archive-doc` is the one that offers the
+`archive` pack.
+
+A pack may also be built for a particular theme. The `archive` overlays paint
+their own paper plate from `surfaceColor(theme)` (i.e. `colors.bg`) and set
+type on `colors.accent`, so they are drawn for a *paper* theme —
+`contracts/themes/archive.json`. They stay legible on a dark theme (the type
+on the accent picks its colour by contrast), but the look is the pairing.
 
 **A catalog entry is metadata, not an animation.** Adding one here makes the
 planner offer the component and the validator accept it, but something has to
@@ -40,8 +47,12 @@ draw it. Either:
 - set `"template": "card" | "lower_third" | "big_number" | "bullet_list" |
   "statement"` — the engine's `TemplateOverlay` draws the entry from its props,
   no code, usable in the next video; or
-- add a React component in `engine/src/components/core/<Name>.tsx` and register
-  it (see "Adding a component" in `docs/03-contracts/component-catalog.md`).
+- add a React component in `engine/src/components/<pack>/<Name>.tsx` (`core/`
+  for the generated pack) and register it in
+  `engine/src/components/index.ts` — see "Adding a component" in
+  `docs/03-contracts/component-catalog.md`. `archive.json` is the worked
+  example: data entries here, drawing in `engine/src/components/archive/`.
+  `engine/test/catalog.test.ts` fails if the two lists drift apart.
 
 With neither, the Overlays screen marks the entry *no renderer* and a plan
 referencing it renders an empty overlay.

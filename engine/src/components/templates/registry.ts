@@ -117,7 +117,10 @@ export const TEMPLATES: Record<TemplateKind, TemplateDef> = {
         max: 6,
         items: { type: "string", maxWords: 10 },
       },
-      marker: { enum: ["dot", "rule", "number"], default: "dot" },
+      // "none" is for minimalist packs: lines of a document or a stanza read as
+      // text, not as bullets, and a marker in front of each one is the ornament
+      // they are trying to get rid of.
+      marker: { enum: ["dot", "rule", "number", "none"], default: "dot" },
       emphasis: EMPHASIS,
     },
     sample: {

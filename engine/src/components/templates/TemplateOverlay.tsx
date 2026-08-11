@@ -71,6 +71,12 @@ export function TemplateOverlay({
   const display = fontStack(theme.typography.display);
   const body = fontStack(theme.typography.body);
   const rule = Math.max(3, height * 0.006);
+  // The accent bar of `card`/`lower_third` and the underlines of `big_number`/
+  // `statement` are the same ornament in different places, so one token removes
+  // all four: a theme asking for `accent_rule: "none"` wants text on the
+  // background, not text on the background with a stripe under it. Themes that
+  // leave the token unset resolve to their component default and are unchanged.
+  const ornament = surfaceStyle(theme, { accentRule: "left" }).accentRule !== "none";
 
   // Slide direction is the card's `position` prop — semantic, so it stays a
   // prop and only the DISTANCE is handed to the entrance resolver.
@@ -291,15 +297,17 @@ export function TemplateOverlay({
           </span>
           {str(props.suffix) ? <span style={{ fontSize: height * 0.07 }}>{str(props.suffix)}</span> : null}
         </div>
-        <div
-          style={{
-            marginTop: height * 0.022,
-            width: width * 0.22 * rise,
-            height: rule,
-            background: accent,
-            borderRadius: 2,
-          }}
-        />
+        {ornament ? (
+          <div
+            style={{
+              marginTop: height * 0.022,
+              width: width * 0.22 * rise,
+              height: rule,
+              background: accent,
+              borderRadius: 2,
+            }}
+          />
+        ) : null}
         <div
           style={{
             marginTop: height * 0.024,
@@ -321,7 +329,14 @@ export function TemplateOverlay({
 
   if (template === "bullet_list") {
     const items = list(props.items).slice(0, 6);
-    const marker = props.marker === "number" ? "number" : props.marker === "rule" ? "rule" : "dot";
+    const marker =
+      props.marker === "number"
+        ? "number"
+        : props.marker === "rule"
+          ? "rule"
+          : props.marker === "none"
+            ? "none"
+            : "dot";
     const stagger = entrance.frames(0.22);
     return (
       <div
@@ -355,13 +370,13 @@ export function TemplateOverlay({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: width * 0.016,
+                gap: marker === "none" ? 0 : width * 0.016,
                 marginBottom: height * 0.026,
                 opacity: appear,
                 translate: `${-width * 0.015 * (1 - appear)}px 0px`,
               }}
             >
-              {marker === "number" ? (
+              {marker === "none" ? null : marker === "number" ? (
                 <span
                   style={{
                     fontFamily: display,
@@ -446,15 +461,17 @@ export function TemplateOverlay({
       >
         {typed(str(props.text) ?? "")}
       </div>
-      <div
-        style={{
-          marginTop: height * 0.03,
-          width: width * 0.16 * after(6, 0.5),
-          height: rule,
-          background: accent,
-          borderRadius: 2,
-        }}
-      />
+      {ornament ? (
+        <div
+          style={{
+            marginTop: height * 0.03,
+            width: width * 0.16 * after(6, 0.5),
+            height: rule,
+            background: accent,
+            borderRadius: 2,
+          }}
+        />
+      ) : null}
     </div>
   );
 }

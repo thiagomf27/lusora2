@@ -1,0 +1,42 @@
+{
+  "name": "archive",
+  "colors": {
+    "bg": "#f2efe6",
+    "text": "#16130f",
+    "accent": "#c4ab78",
+    "neutral": "#6f6a5f"
+  },
+  "typography": {
+    "display": "Inter",
+    "body": "Courier New",
+    "caption_preset": "boxed"
+  },
+  "motion_feel": "neutral",
+  "grain": "archival",
+  "surface": {
+    "radius": "square",
+    "fill": "solid",
+    "accent_rule": "none"
+  },
+  "motion": {
+    "easing": "smooth"
+  },
+  "sound": {
+    "pack": "doc-restrained",
+    "mood_beds": {
+      "neutral": "neutral-01",
+      "tense": "tense-01",
+      "somber": "somber-01",
+      "hopeful": "hopeful-01",
+      "urgent": "urgent-01",
+      "triumphant": "triumphant-01",
+      "reflective": "reflective-01",
+      "playful": "playful-01"
+    },
+    "gain": {
+      "sfx": 0.28,
+      "music_duck": 0.14,
+      "music_lift": 0.45
+    }
+  }
+}

@@ -1,0 +1,178 @@
+{
+  "pack": "archive",
+  "components": [
+    {
+      "name": "ArchiveLowerThird",
+      "pack": "archive",
+      "when_to_use": "naming a person or a unit while the shot keeps running — the name on a white plate, the role on the tan bar welded under it",
+      "when_not_to_use": "dating or sourcing the footage rather than naming somebody in it (ArchiveCaption); a section break that stops the narration (ArchiveChapterTitle); the words the person said (ArchiveQuoteCard)",
+      "anchor_types": ["name"],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 6,
+          "required": true,
+          "from_anchor": "value",
+          "description": "the name, as it should read on the plate"
+        },
+        "subtitle": { "type": "string", "maxWords": 8, "description": "rank, role, or the years" },
+        "position": { "enum": ["bottom_left", "bottom_right"], "default": "bottom_left" },
+        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+      },
+      "duration_hint_s": { "min": 2.5, "default": 4 },
+      "entrance_seconds": 0.5,
+      "renderer": "remotion"
+    },
+    {
+      "name": "ArchiveCaption",
+      "pack": "archive",
+      "when_to_use": "dating and sourcing the footage itself, as a ruled note pinned to the film ('Military parade for Afghan Independence Day, August 1966')",
+      "when_not_to_use": "naming a person on screen (ArchiveLowerThird); a figure (ArchiveCounter); a sentence the video is asserting rather than a note about the picture (ArchiveChapterTitle)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 14,
+          "required": true,
+          "description": "what the shot is, where and when — one line, in the language of the video"
+        },
+        "label": { "type": "string", "maxWords": 2, "description": "reel, fond or archive mark on a tan tab ahead of the text" },
+        "position": { "enum": ["bottom_center", "bottom_left", "top_center"], "default": "bottom_center" },
+        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+      },
+      "duration_hint_s": { "min": 2.5, "default": 4.5 },
+      "entrance_seconds": 0.45,
+      "renderer": "remotion"
+    },
+    {
+      "name": "ArchiveChapterTitle",
+      "pack": "archive",
+      "when_to_use": "a full-screen act break: the tan kicker bar naming the part, the title on the plate under it",
+      "when_not_to_use": "a name plate over continuing narration (ArchiveLowerThird); a caption about the footage (ArchiveCaption); the video's opening title (KineticTitle)",
+      "anchor_types": [],
+      "props": {
+        "title": { "type": "string", "maxWords": 8, "required": true },
+        "kicker": { "type": "string", "maxWords": 3, "description": "e.g. 'Part Two', 'Chapter III'" },
+        "subtitle": { "type": "string", "maxWords": 6, "description": "date range or place" },
+        "align": { "enum": ["center", "left"], "default": "center" },
+        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+      },
+      "duration_hint_s": { "min": 3, "default": 4.5 },
+      "entrance_seconds": 0.55,
+      "renderer": "remotion"
+    },
+    {
+      "name": "ArchiveQuoteCard",
+      "pack": "archive",
+      "when_to_use": "testimony — a line somebody actually said or wrote, set on the plate with the speaker on a tan strip under it",
+      "when_not_to_use": "the video's own assertion rather than a quotation (ArchiveChapterTitle); naming a person who is not being quoted (ArchiveLowerThird); a caption about the footage (ArchiveCaption)",
+      "anchor_types": ["quote"],
+      "props": {
+        "quote": {
+          "type": "string",
+          "maxWords": 28,
+          "required": true,
+          "from_anchor": "value",
+          "description": "the words, without surrounding quotation marks — the plate is the quotation"
+        },
+        "attribution": { "type": "string", "maxWords": 5, "description": "who said it" },
+        "context": { "type": "string", "maxWords": 8, "description": "rank, role or date, under a hairline" },
+        "position": { "enum": ["center", "left"], "default": "center" },
+        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+      },
+      "duration_hint_s": { "min": 4, "default": 6.5 },
+      "entrance_seconds": 0.55,
+      "renderer": "remotion"
+    },
+    {
+      "name": "ArchiveCounter",
+      "pack": "archive",
+      "when_to_use": "one figure worth dwelling on, counted up in typewriter mono on the plate under a tan label strip",
+      "when_not_to_use": "three or more values being compared (ArchiveBarGraph); a quantity changing over an ordered sequence (ArchiveLineChart); a figure that is really a date or a source note (ArchiveCaption)",
+      "anchor_types": ["number", "percentage"],
+      "props": {
+        "value": { "type": "number", "required": true, "from_anchor": "value" },
+        "label": { "type": "string", "maxWords": 5, "description": "what the figure counts, on the tan strip" },
+        "caption": { "type": "string", "maxWords": 11, "description": "one sentence under the figure" },
+        "prefix": { "type": "string", "maxWords": 1, "description": "e.g. a currency symbol" },
+        "suffix": { "type": "string", "maxWords": 2, "description": "e.g. '%', 'tons'" },
+        "decimals": { "type": "number", "min": 0, "max": 2, "default": 0 },
+        "approximate": { "type": "boolean", "default": false, "description": "prefixes the settled figure with '~'" },
+        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+      },
+      "duration_hint_s": { "min": 3, "default": 5 },
+      "entrance_seconds": 0.5,
+      "renderer": "remotion"
+    },
+    {
+      "name": "ArchiveBarGraph",
+      "pack": "archive",
+      "when_to_use": "two to six named quantities of the same kind compared as columns on the pack's ruled card",
+      "when_not_to_use": "one figure (ArchiveCounter); the same quantity moving across an ordered sequence (ArchiveLineChart); dated events (Timeline)",
+      "anchor_types": ["comparison"],
+      "props": {
+        "title": { "type": "string", "maxWords": 6, "required": true, "description": "what is being compared, on the tan header band" },
+        "bars": {
+          "type": "array",
+          "required": true,
+          "from_anchor": "value",
+          "min": 2,
+          "max": 6,
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string", "maxWords": 2 },
+              "value": { "type": "number" }
+            }
+          }
+        },
+        "highlight_index": { "type": "number", "min": 0, "max": 5, "description": "index of the one column that keeps full ink; the rest go muted" },
+        "source": { "type": "string", "maxWords": 7, "description": "credit line along the bottom of the card" },
+        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+      },
+      "duration_hint_s": { "min": 4, "default": 6 },
+      "entrance_seconds": 0.5,
+      "renderer": "remotion"
+    },
+    {
+      "name": "ArchiveLineChart",
+      "pack": "archive",
+      "when_to_use": "a quantity changing across an ordered sequence — production by year, losses by month — for up to three series, each named at the end of its own line",
+      "when_not_to_use": "values at one moment (ArchiveBarGraph); a single figure (ArchiveCounter); events rather than measurements (Timeline)",
+      "anchor_types": [],
+      "props": {
+        "title": { "type": "string", "maxWords": 6, "required": true },
+        "series": {
+          "type": "array",
+          "required": true,
+          "min": 1,
+          "max": 3,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "maxWords": 2 },
+              "points": {
+                "type": "array",
+                "min": 2,
+                "max": 24,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": { "type": "string", "maxWords": 1, "description": "a label plotted at equal spacing ('1941', 'Q3'), not a date" },
+                    "y": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "y_label": { "type": "string", "maxWords": 3, "description": "the unit, tracked out above the plot" },
+        "source": { "type": "string", "maxWords": 7, "description": "credit line along the bottom of the card" },
+        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+      },
+      "duration_hint_s": { "min": 4.5, "default": 7 },
+      "entrance_seconds": 0.5,
+      "renderer": "remotion"
+    }
+  ]
+}
