@@ -96,6 +96,11 @@ source_policy:
 - Chain exhausted with nothing found → the stage FAILS with the beat id
   and query (consistent fail-loud; placeholder-and-flag rejected — silent
   gaps reach review).
+- `qa` (D57) holds the post-render thresholds: how many frames to sample, what
+  counts as black, flat, silent or clipping, and how far the finished file may
+  drift from the voiceover's length. They are numbers on things ffmpeg
+  measures, so loosening one is a channel decision rather than a code change;
+  `qa.enabled: false` skips the stage entirely.
 - `budget.max_usd_per_video` is enforced pre-spend by the cost gate (see
   [Costs](costs.md)); a video that would exceed it stops with an
   actionable event before generating.

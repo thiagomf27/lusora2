@@ -25,7 +25,7 @@ from ..providers import sources, tts, whisper
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
-from . import degrade
+from . import degrade, qa
 
 # ---------------- script ----------------
 
@@ -471,6 +471,22 @@ def run_render(ctx: StageContext) -> None:
         ctx.log(f"rendered via {info.get('renderer')} ({info.get('duration_s')}s)")
     except (json.JSONDecodeError, IndexError):
         ctx.log("rendered (engine reported no JSON summary)")
+
+
+# ---------------- qa (D57) ----------------
+
+
+def run_qa(ctx: StageContext) -> None:
+    """Look at the finished file. A render that is black, silent or the wrong
+    length has passed every structural check ever written for it."""
+    final = ctx.artifact("final.mp4")
+    expected = probe_duration("qa", ctx.artifact("audio.mp3")) if ctx.has("audio.mp3") else None
+    if expected is not None and ctx.has("edit_plan.json"):
+        # the voiceover may start late (a cold open), and the video is as long
+        # as everything before it plus the narration
+        vo = ctx.read_json("edit_plan.json")["tracks"]["audio"]["voiceover"]
+        expected += float(vo.get("start_s", 0))
+    qa.check(ctx, final, expected)
 
 
 # ---------------- finalize ----------------

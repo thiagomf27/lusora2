@@ -19,10 +19,23 @@ folder. Stores no state of its own. Emits `video_events` and
 | 7b | resolve_audio | `audio/` — the sound pack's cues and beds copied in, provenance filled | no |
 | 8 | validate (full) | pass/fail (no artifact, always runs) | no |
 | 9 | render | `final.mp4` | no |
+| 9b | qa | pass/fail (no artifact, always runs) | no |
 | 10 | finalize | `thumb.jpg`, `metadata.txt`, status RENDERED | optional (thumb/metadata generators) |
 
 Structural validation additionally runs after claim (if a plan was
 provided manually) and after compile.
+
+### `qa` (D57)
+
+Everything before this judges the PLAN. `qa` judges the file: sampled
+frames for black and flat ones, `volumedetect` and `silencedetect` for a
+mix that is silent, clipping or full of holes, and the finished duration
+against the voiceover's. It sits between render and finalize, which is
+what makes it a gate rather than a report — the orchestrator sets RENDERED
+only after every stage passes, so a black or silent video stops with one
+reason (which check, which timestamp) and never reaches review. Thresholds
+are channel data under `qa`; `qa.enabled: false` turns the stage into a
+no-op for a channel that wants it.
 
 ### `resolve_audio` (D48)
 
