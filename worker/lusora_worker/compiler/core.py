@@ -54,31 +54,28 @@ def compile_plan(
     narration_beats = [b for b in beats if b.get("kind") == "narration"]
     timed_beats = [b for b in beats if b.get("kind") == "timed"]
 
-    # ---- narration offset: leading timed beats delay the voiceover ----
-    leading_end = 0.0
-    for b in timed_beats:
-        t = b.get("timing") or {}
-        if float(t.get("start_s", 0)) < leading_end + 1e-6 or not narration_beats:
-            leading_end = max(leading_end, float(t.get("end_s", 0)))
-        else:
-            raise CompileError(
-                f"timed beat {b.get('id')} starts at {t.get('start_s')}s inside the narration envelope — "
-                "v1 supports timed beats only before narration starts (OQ-8)"
-            )
-    vo_start = round(leading_end, 3)
+    # ---- where the timed beats go (D58) ----
+    leading, trailing = _split_timed(timed_beats, bool(narration_beats))
+    vo_start = round(max([float(b["timing"]["end_s"]) for b in leading], default=0.0), 3)
+    vo_end = vo_start + audio_duration_s
+    placed_timed = _place_timed(leading, trailing, vo_end)
+    total_end = round(max([end for _b, _s, end in placed_timed] + [vo_end]), 3)
 
     # ---- align narration beats to sentence timings ----
-    aligned = _align_beats(narration_beats, sentence_timings, vo_start)
+    # A sheet with no narration beats claims to cover no narration, so there is
+    # nothing to align: the timed track IS the video. (A sheet that dropped its
+    # narration beats by mistake fails earlier, against script.txt, in
+    # validate_beat_sheet's coverage check.)
+    aligned = _align_beats(narration_beats, sentence_timings, vo_start) if narration_beats else []
 
     # ---- visual track ----
     visual: list[dict[str, Any]] = []
-    for b in timed_beats:
-        t = b["timing"]
+    for b, start, end in placed_timed:
         visual.append(_visual_item(
             item_id=f"v_{b['id']}",
             beat=b,
-            start=float(t["start_s"]),
-            end=float(t["end_s"]),
+            start=start,
+            end=end,
             transition=default_transition,
         ))
 
@@ -99,17 +96,15 @@ def compile_plan(
             visual.append(item)
 
     visual.sort(key=lambda v: v["start_s"])
-    _make_contiguous(visual, total_end=vo_start + audio_duration_s)
+    _make_contiguous(visual, total_end=total_end)
 
     # ---- overlays ----
     # captions_enabled is read here, not in the caption block below: it decides
     # where a corner overlay is allowed to sit (see _avoid_caption_band)
     captions_enabled = bool((cfg.get("captions") or {}).get("enabled", True))
     overlays: list[dict[str, Any]] = []
-    for b in timed_beats:
-        item = _compile_overlay(
-            b, float(b["timing"]["start_s"]), float(b["timing"]["end_s"]), captions_enabled
-        )
+    for b, start, end in placed_timed:
+        item = _compile_overlay(b, start, end, captions_enabled)
         if item:
             overlays.append(item)
     for beat, (start, end, _s) in aligned:
@@ -117,7 +112,7 @@ def compile_plan(
         if item:
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
-    _trim_overlay_holds(overlays, total_end=vo_start + audio_duration_s)
+    _trim_overlay_holds(overlays, total_end=total_end)
 
     # ---- captions ----
     theme = cfg.get("theme_doc") or {}
@@ -137,7 +132,7 @@ def compile_plan(
     # Placed here, at the end, because every input it needs is now settled:
     # overlay starts (for cue timing), transitions, and the absolute sentence
     # timings the ducking envelope is computed from.
-    total_duration_s = vo_start + audio_duration_s
+    total_duration_s = total_end
     audio: dict[str, Any] = {
         "voiceover": {
             "path": "audio.mp3",
@@ -148,8 +143,7 @@ def compile_plan(
     }
 
     beat_times: list[tuple[float, float, str]] = [
-        (float(b["timing"]["start_s"]), float(b["timing"]["end_s"]), sound.normalize_mood(b.get("mood")))
-        for b in timed_beats
+        (start, end, sound.normalize_mood(b.get("mood"))) for b, start, end in placed_timed
     ]
     beat_times += [
         (start, end, sound.normalize_mood(beat.get("mood")))
@@ -331,6 +325,60 @@ def _align_beats(
             spans[-1]["end_s"] = timeline[-1]["end_s"]
         result[-1] = (beat, (start, end, spans))
     return result
+
+
+def _split_timed(
+    timed_beats: list[dict[str, Any]], has_narration: bool
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Which timed beats come BEFORE the narration, and which after (D58).
+
+    Leading beats are the run that starts at 0 and stays contiguous — a cold
+    open, or a title card and then a cold open. The first gap ends the run, and
+    everything from there on is an outro: a card over music after the last
+    word, a credit, a sting.
+
+    With no narration at all, every timed beat is 'leading': the whole video is
+    the timed track and its own timings are the truth.
+    """
+    ordered = sorted(timed_beats, key=lambda b: float((b.get("timing") or {}).get("start_s", 0)))
+    if not has_narration:
+        return ordered, []
+    leading: list[dict[str, Any]] = []
+    trailing: list[dict[str, Any]] = []
+    cursor = 0.0
+    for beat in ordered:
+        timing = beat.get("timing") or {}
+        start, end = float(timing.get("start_s", 0)), float(timing.get("end_s", 0))
+        if not trailing and start <= cursor + 1e-6:
+            leading.append(beat)
+            cursor = max(cursor, end)
+        else:
+            trailing.append(beat)
+    return leading, trailing
+
+
+def _place_timed(
+    leading: list[dict[str, Any]], trailing: list[dict[str, Any]], vo_end: float
+) -> list[tuple[dict[str, Any], float, float]]:
+    """Absolute (start, end) for every timed beat.
+
+    Leading beats keep the times they were written with. Trailing ones keep
+    only their DURATION and their order: where an outro actually starts depends
+    on how long the cold open ran and how long the narration turned out to be,
+    which is arithmetic over the real audio — code's job, not the planner's
+    (Principle 3). A model asked to compute it would be guessing at the TTS.
+
+    They are laid end to end, so two outro beats of 3s each occupy the six
+    seconds after the last word, in the order they were written.
+    """
+    placed = [(b, float(b["timing"]["start_s"]), float(b["timing"]["end_s"])) for b in leading]
+    cursor = vo_end
+    for beat in trailing:
+        timing = beat["timing"]
+        duration = max(float(timing["end_s"]) - float(timing["start_s"]), 0.1)
+        placed.append((beat, round(cursor, 3), round(cursor + duration, 3)))
+        cursor += duration
+    return placed
 
 
 def _enforce_hold_floor(

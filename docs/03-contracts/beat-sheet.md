@@ -74,9 +74,16 @@ emphasize). Everything computable (timings) or identity-bound
   multi-word expansions (`EUA` ↔ `Estados Unidos`), and languages other
   than pt-BR/en, which need their own number tables.
   See `compiler/core.py::_align_beats`.
-- `kind: timed` — for spans with no narration (cold opens, music-only
-  outros, montage inserts). Carries absolute `timing`. (Music-bar-relative
-  beats: deferred, OQ-8.)
+- `kind: timed` — for spans with no narration: a cold open before the
+  first word, a music-only outro after the last. Carries `timing` instead
+  of `script_text`. The compiler decides which is which (D58): the run of
+  timed beats that starts at 0 and stays contiguous is the cold open, and
+  the narration is pushed back behind it; everything after the first gap is
+  an outro, laid end to end after the last word. An outro's `timing`
+  therefore contributes its DURATION and its order — where it actually
+  lands depends on how long the real audio turned out to be, which is
+  arithmetic over the TTS, not something a planner can know (Principle 3).
+  (Music-bar-relative beats: deferred, OQ-8.)
 - `anchors` — structured facts detected in the span (percentage, number,
   comparison, place, date, name). **An overlay may only reference an
   anchor** (`anchor_ref`) or carry pure text (`KineticTitle`); this is what
@@ -127,7 +134,9 @@ schema • full script coverage, ordered, non-overlapping • beat count
 within pacing-derived range (duration ÷ avg_hold ± tolerance) • every
 `script_text` found verbatim in script • every anchor's `source_words`
 found in its span • every overlay component in catalog and density within
-range • timed beats don't collide with narration timing envelope.
+range • every timed beat has a positive duration and none of them overlap
+each other (they cannot collide with the narration: the compiler places
+them around it).
 
 ## Editing semantics
 

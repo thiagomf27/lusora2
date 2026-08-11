@@ -481,11 +481,17 @@ def run_qa(ctx: StageContext) -> None:
     length has passed every structural check ever written for it."""
     final = ctx.artifact("final.mp4")
     expected = probe_duration("qa", ctx.artifact("audio.mp3")) if ctx.has("audio.mp3") else None
-    if expected is not None and ctx.has("edit_plan.json"):
-        # the voiceover may start late (a cold open), and the video is as long
-        # as everything before it plus the narration
-        vo = ctx.read_json("edit_plan.json")["tracks"]["audio"]["voiceover"]
-        expected += float(vo.get("start_s", 0))
+    if ctx.has("edit_plan.json"):
+        # The PLAN is the expectation, not the narration: a cold open delays the
+        # voiceover and an outro outlives it (D58), so the timeline is as long
+        # as its last visual item.
+        plan = ctx.read_json("edit_plan.json")
+        vo = plan["tracks"]["audio"]["voiceover"]
+        visual = plan["tracks"]["visual"]
+        expected = max(
+            float(vo.get("start_s", 0)) + float(vo["duration_s"]),
+            float(visual[-1]["end_s"]) if visual else 0.0,
+        )
     qa.check(ctx, final, expected)
 
 

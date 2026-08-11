@@ -151,3 +151,40 @@ def test_a_query_that_is_a_sentence_is_repairably_rejected():
     assert len(violations) == 1
     # the repair prompt has to say what to write instead, not just what is wrong
     assert "2-4 words" in violations[0] and "visual_intent" in violations[0]
+
+
+# ---------------- timed beats (D58) ----------------
+
+
+def timed_sheet(*timed):
+    sheet = good_sheet()
+    sheet["beats"] = list(timed) + sheet["beats"]
+    return sheet
+
+
+def test_a_cold_open_and_an_outro_both_validate():
+    sheet = timed_sheet(
+        {"id": "b0", "kind": "timed", "timing": {"start_s": 0, "end_s": 4.5},
+         "visual_intent": "cathedral at dawn", "mood": "somber"},
+        {"id": "b9", "kind": "timed", "timing": {"start_s": 900, "end_s": 905},
+         "visual_intent": "the cathedral rebuilt", "mood": "reflective"},
+    )
+    assert validate_beat_sheet(sheet, SCRIPT, CFG, 10.0) == []
+
+
+def test_a_timed_beat_with_no_duration_is_repairably_rejected():
+    sheet = timed_sheet({"id": "b0", "kind": "timed", "timing": {"start_s": 4, "end_s": 4},
+                         "visual_intent": "a held card over music"})
+    violations = validate_beat_sheet(sheet, SCRIPT, CFG, 10.0)
+    assert any("positive duration" in v for v in violations)
+
+
+def test_overlapping_timed_beats_are_rejected():
+    sheet = timed_sheet(
+        {"id": "b0", "kind": "timed", "timing": {"start_s": 0, "end_s": 5},
+         "visual_intent": "cathedral at dawn"},
+        {"id": "b9", "kind": "timed", "timing": {"start_s": 3, "end_s": 8},
+         "visual_intent": "the cathedral rebuilt"},
+    )
+    violations = validate_beat_sheet(sheet, SCRIPT, CFG, 10.0)
+    assert any("overlap" in v and "b0" in v and "b9" in v for v in violations)

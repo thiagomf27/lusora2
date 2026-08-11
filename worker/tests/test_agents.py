@@ -518,3 +518,39 @@ def test_a_script_that_fails_as_one_call_succeeds_chunked(tmp_path):
         chunking_ctx(tmp_path, target_beats=3), SCRIPT_LONG, 24.0, chat_fn=drops_a_sentence
     )
     assert normalize(" ".join(b["script_text"] for b in doc["beats"])) == normalize(SCRIPT_LONG)
+
+
+def test_the_planner_can_open_cold_and_close_on_a_card(tmp_path):
+    """D58: `kind: timed` is reachable now that the prompt explains it. A sheet
+    with a cold open and an outro must survive validation AND compile — the
+    envelope collision that used to make it impossible is gone."""
+    from lusora_worker.compiler import compile_plan
+
+    ctx = make_ctx(tmp_path)
+    sheet = {
+        "version": "1.1", "video_id": "vid_t",
+        "beats": [
+            {"id": "b1", "kind": "timed", "timing": {"start_s": 0, "end_s": 4.5},
+             "visual_intent": "slow push-in on a bombed cathedral at dawn, mist",
+             "queries": ["ruined cathedral dawn"], "mood": "somber",
+             "overlay": {"component": "KineticTitle", "props_hint": {"text": "February 1945"}}},
+            {"id": "b2", "kind": "narration", "script_text": "The port fed the capital.",
+             "visual_intent": "aerial harbour, 1940s", "mood": "somber"},
+            {"id": "b3", "kind": "narration",
+             "script_text": "Nearly 70% of all grain passed through it.",
+             "visual_intent": "dock workers unloading sacks", "mood": "somber"},
+            {"id": "b4", "kind": "timed", "timing": {"start_s": 900, "end_s": 905},
+             "visual_intent": "the same cathedral, rebuilt, present day",
+             "queries": ["cathedral restored exterior"], "mood": "reflective"},
+        ],
+    }
+    assert validators.validate_beat_sheet(sheet, SCRIPT, ctx.cfg, 8.0) == []
+
+    st = [{"text": "The port fed the capital.", "start_s": 0.0, "end_s": 4.0},
+          {"text": "Nearly 70% of all grain passed through it.", "start_s": 4.0, "end_s": 8.0}]
+    plan = compile_plan(sheet, st, {**ctx.cfg, "captions": {"enabled": True},
+                                    "theme_doc": {}, "output": {"fps": 30}}, 8.0)
+    spans = [(v["beat_id"], v["start_s"], v["end_s"]) for v in plan["tracks"]["visual"]]
+    assert spans[0] == ("b1", 0.0, 4.5), "the cold open holds before the first word"
+    assert plan["tracks"]["audio"]["voiceover"]["start_s"] == 4.5
+    assert spans[-1][0] == "b4" and spans[-1][2] - spans[-1][1] == 5.0

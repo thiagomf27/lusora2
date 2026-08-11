@@ -628,3 +628,86 @@ def test_captions_off_means_nothing_to_place():
     st = timings(("Someone speaks here.", 0.0, 6.0))
     plan = compile_plan(doc, st, cfg, 6.0)
     assert plan["tracks"]["captions"]["enabled"] is False
+
+
+# ---------------- cold opens and outros (D58) ----------------
+
+
+def test_a_cold_open_delays_the_narration_and_an_outro_follows_it():
+    doc = beats(
+        {"id": "b1", "kind": "timed", "timing": {"start_s": 0.0, "end_s": 4.5},
+         "visual_intent": "slow push-in on a bombed cathedral at dawn", "mood": "somber"},
+        {"id": "b2", "kind": "narration", "script_text": "The city fell in February.",
+         "visual_intent": "a"},
+        {"id": "b3", "kind": "timed", "timing": {"start_s": 900.0, "end_s": 905.0},
+         "visual_intent": "the same cathedral, rebuilt", "mood": "reflective"},
+    )
+    st = timings(("The city fell in February.", 0.0, 6.0))
+    plan = compile_plan(doc, st, CFG, 6.0)
+    visual = plan["tracks"]["visual"]
+
+    assert [v["beat_id"] for v in visual] == ["b1", "b2", "b3"]
+    # the cold open keeps the times it was written with
+    assert visual[0]["start_s"] == 0.0 and visual[0]["end_s"] == 4.5
+    # the narration is pushed back behind it
+    assert visual[1]["start_s"] == 4.5
+    vo = plan["tracks"]["audio"]["voiceover"]
+    assert vo["start_s"] == 4.5 and vo["duration_s"] == 6.0
+    # the outro keeps its DURATION and lands after the last word, wherever the
+    # real audio put it — the planner cannot know 10.5s, and is not asked to
+    assert visual[2]["start_s"] == 10.5
+    assert visual[2]["end_s"] - visual[2]["start_s"] == 5.0
+
+
+def test_two_outro_beats_play_in_order_end_to_end():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "One line.", "visual_intent": "a"},
+        {"id": "b2", "kind": "timed", "timing": {"start_s": 100.0, "end_s": 103.0},
+         "visual_intent": "card"},
+        {"id": "b3", "kind": "timed", "timing": {"start_s": 103.0, "end_s": 105.0},
+         "visual_intent": "credit"},
+    )
+    st = timings(("One line.", 0.0, 4.0))
+    plan = compile_plan(doc, st, CFG, 4.0)
+    spans = [(v["beat_id"], v["start_s"], v["end_s"]) for v in plan["tracks"]["visual"]]
+    assert spans == [("b1", 0.0, 4.0), ("b2", 4.0, 7.0), ("b3", 7.0, 9.0)]
+
+
+def test_an_outro_extends_the_video_past_the_voiceover():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "One line.", "visual_intent": "a"},
+        {"id": "b2", "kind": "timed", "timing": {"start_s": 100.0, "end_s": 103.0},
+         "visual_intent": "card"},
+    )
+    st = timings(("One line.", 0.0, 4.0))
+    plan = compile_plan(doc, st, CFG, 4.0)
+    assert plan["tracks"]["visual"][-1]["end_s"] == 7.0
+    # ...and the plan still validates: a visual track outliving the voiceover is
+    # exactly what an outro is
+    assert validators.validate_plan(plan, Path("."), CFG, 4.0, require_assets=False) == []
+
+
+def test_a_timed_only_video_keeps_its_own_timings():
+    """No narration at all: the timed track IS the video."""
+    doc = beats(
+        {"id": "b1", "kind": "timed", "timing": {"start_s": 0.0, "end_s": 3.0}, "visual_intent": "a"},
+        {"id": "b2", "kind": "timed", "timing": {"start_s": 3.0, "end_s": 6.0}, "visual_intent": "b"},
+    )
+    st = timings(("silence", 0.0, 0.1))
+    plan = compile_plan(doc, st, CFG, 0.1)
+    spans = [(v["start_s"], v["end_s"]) for v in plan["tracks"]["visual"]]
+    assert spans[0] == (0.0, 3.0) and spans[1][0] == 3.0
+
+
+def test_a_cold_open_overlay_stays_on_its_own_beat():
+    doc = beats(
+        {"id": "b1", "kind": "timed", "timing": {"start_s": 0.0, "end_s": 4.5},
+         "visual_intent": "cathedral at dawn",
+         "overlay": {"component": "KineticTitle", "props_hint": {"text": "February 1945"}}},
+        {"id": "b2", "kind": "narration", "script_text": "The city fell.", "visual_intent": "a"},
+    )
+    st = timings(("The city fell.", 0.0, 5.0))
+    plan = compile_plan(doc, st, CFG, 5.0)
+    overlay = plan["tracks"]["overlays"][0]
+    assert overlay["beat_id"] == "b1"
+    assert 0.0 <= overlay["start_s"] < 4.5

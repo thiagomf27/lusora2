@@ -234,17 +234,33 @@ def validate_beat_sheet(
                 f"{overlay_count} overlays exceed density '{density}' (max {max_overlays} for {expected_duration_s:.0f}s)"
             )
 
-    # timed beats must not collide with the narration envelope (v1: leading only)
+    # timed beats: a cold open before the narration, an outro after it (D58).
+    # The compiler decides which is which — a beat contiguous with the run from
+    # 0 is a cold open, anything after the first gap is an outro, and an outro's
+    # start_s is only there to order it, since where it really lands depends on
+    # the length of the real audio. So the only thing to check here is that each
+    # one describes a span at all.
     for b in beats:
-        if b.get("kind") == "timed" and narration:
-            t = b.get("timing") or {}
-            leading = all(
-                float(t.get("start_s", 0)) <= float((other.get("timing") or {}).get("end_s", 0))
-                for other in beats
-                if other.get("kind") == "timed"
+        if b.get("kind") != "timed":
+            continue
+        timing = b.get("timing") or {}
+        start, end = float(timing.get("start_s", 0)), float(timing.get("end_s", 0))
+        if end <= start:
+            violations.append(
+                f"timed beat {b.get('id')} ends at {end}s, at or before its start at {start}s — "
+                "a timed beat needs a positive duration (for an outro, the duration is what counts)"
             )
-            if not leading:
-                violations.append(f"timed beat {b.get('id')} collides with the narration envelope")
+    timed_spans = sorted(
+        (float((b.get("timing") or {}).get("start_s", 0)), float((b.get("timing") or {}).get("end_s", 0)),
+         str(b.get("id")))
+        for b in beats if b.get("kind") == "timed"
+    )
+    for (a_start, a_end, a_id), (b_start, b_end, b_id) in zip(timed_spans, timed_spans[1:]):
+        if b_start < a_end - 1e-6:
+            violations.append(
+                f"timed beats {a_id} and {b_id} overlap ({a_start}-{a_end}s and {b_start}-{b_end}s) — "
+                "give them separate spans, in the order they should play"
+            )
 
     return violations
 
@@ -326,15 +342,23 @@ def validate_plan(
         violations.append(
             f"voiceover duration_s {vo['duration_s']} does not match audio.mp3 ({audio_duration_s:.2f}s)"
         )
+    # The visual track may run PAST the voiceover — that is what an outro is
+    # (D58): a card over music after the last word. It may never stop short of
+    # it, which would leave the narration playing over nothing.
+    timeline_end = total
     if visual:
         vis_end = float(visual[-1]["end_s"])
-        if abs(vis_end - total) > 1.0:
+        timeline_end = max(total, vis_end)
+        if vis_end < total - 1.0:
             violations.append(
-                f"visual track ends at {vis_end}s but voiceover ends at {total:.2f}s"
+                f"visual track ends at {vis_end}s, before the voiceover does at {total:.2f}s — "
+                "the narration would play over nothing"
             )
     for item in tracks["overlays"]:
-        if float(item["end_s"]) > total + 0.75:
-            violations.append(f"overlay {item['id']} ends after the video ({item['end_s']}s > {total:.2f}s)")
+        if float(item["end_s"]) > timeline_end + 0.75:
+            violations.append(
+                f"overlay {item['id']} ends after the video ({item['end_s']}s > {timeline_end:.2f}s)"
+            )
 
     # per-beat hold bounds (style pack pacing.hold_floor_ratio/hold_ceiling_ratio)
     violations.extend(_check_visual_holds(visual, cfg))
