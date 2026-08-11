@@ -48,13 +48,31 @@ emphasize). Everything computable (timings) or identity-bound
 - `kind: narration` — the default. `script_text` MUST be a verbatim
   contiguous span of the script; beats must cover the entire script in
   order without overlap (validator-enforced). Timing comes later from SRT
-  alignment — word-level, punctuation-insensitive, tolerant of a few
-  stray ASR-inserted words and of number-word/digit formatting
-  differences ("fifty" ↔ "50", "nineteen-fifties" ↔ "1950s"). The SRT
-  (Whisper transcript, hand-authored captions, or TTS timings) is a
-  TIMING source only — `script_text` stays the source of truth; a
-  genuine wording mismatch (wrong word, not just formatting) still fails
-  loud. See `compiler/core.py::_align_beats`.
+  alignment — word-level and tolerant of every way the same spoken words
+  get WRITTEN differently, because the SRT (Whisper transcript,
+  hand-authored captions, or TTS timings) is a TIMING source only and
+  `script_text` stays the source of truth. Tolerated (pt-BR and en, see
+  `compiler/textmatch.py`):
+
+  | script | narration | |
+  |---|---|---|
+  | punctuation, `*emphasis*` | anything | folded away |
+  | `Estêvão`, `café` | `Estevao`, `cafe` | diacritics folded |
+  | `state-of-the-art`, `guerra—a` | spaced words | dashes split |
+  | `1945` | `nineteen forty-five`, `mil novecentos e quarenta e cinco` | number runs |
+  | `20 mil`, `1.200`, `3.5`, `9:30` | `20,000`, `twelve hundred`, `três vírgula cinco` | number runs |
+  | `os anos 1950` | `os anos 50`, `nineteen-fifties` | decades |
+  | `Século XX`, `20th` | `século vinte`, `twentieth` | romans, ordinals |
+  | `50%`, `US$ 5`, `30 km` | `cinquenta por cento`, `cinco dólares`, `trinta quilômetros` | unit names |
+  | `Dr.`, `Sr.`, `vs.` | `doutor`, `senhor`, `versus` | abbreviations |
+  | — | up to 6 stray inserted/misheard words between matches | ASR noise |
+
+  A genuine divergence still fails loud: a different word, a different
+  NUMBER (`1945` vs `1946`), or a script word the audio never says.
+  Unhandled and by design: spelled-out acronyms (`ONU` read `O-N-U`),
+  multi-word expansions (`EUA` ↔ `Estados Unidos`), and languages other
+  than pt-BR/en, which need their own number tables.
+  See `compiler/core.py::_align_beats`.
 - `kind: timed` — for spans with no narration (cold opens, music-only
   outros, montage inserts). Carries absolute `timing`. (Music-bar-relative
   beats: deferred, OQ-8.)

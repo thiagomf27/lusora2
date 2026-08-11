@@ -1,15 +1,34 @@
 """Beat planner agent: validate→repair loop and the budget gate."""
 
 import json
+import re
 
 import pytest
 
+from lusora_worker import validators
 from lusora_worker.agents import planner
 from lusora_worker.context import StageContext
 from lusora_worker.errors import StageError
 from lusora_worker.providers.llm import LLMResult
+from lusora_worker.textsplit import normalize, split_sentences
 
 SCRIPT = "The port fed the capital. Nearly 70% of all grain passed through it."
+
+# 6 short sentences, ~5 words each, split after sentence 3 (word-balanced,
+# sentence-aligned) when chunked into 2. Chunking tests monkeypatch
+# CHUNK_TARGET_BEATS down to 1 so a fixture this small still triggers
+# multiple chunks without needing a realistically long script — and so each
+# chunk's pacing-range check (validators.py) tolerates the fake's 1 beat.
+SCRIPT_LONG = (
+    "Sentence one about ships. Sentence two about ports. Sentence three about grain. "
+    "Sentence four about workers. Sentence five about cranes. Sentence six about trade."
+)
+
+
+def _chunk_text_from_prompt(user: str) -> str:
+    match = re.search(r"SCRIPT \(\d+s of narration\):\n(.*?)\n\n", user, re.DOTALL)
+    assert match, f"could not find SCRIPT section in prompt: {user!r}"
+    return match.group(1)
 
 CFG = {
     "language": "en-US",
@@ -209,3 +228,146 @@ def test_planner_prompt_max_tokens_overrides_the_default(tmp_path):
     planner.plan_beats(ctx, SCRIPT, 8.0, chat_fn=chat_fn)
     assert seen["max_tokens"] == 24000
     assert seen["model"] == "deepseek-v4-pro"  # channel config still wins when set
+
+
+# ---------- chunking for long scripts ----------
+
+
+def test_chunk_script_no_op_below_threshold():
+    assert planner._chunk_script(SCRIPT, 1) == [SCRIPT]
+    # more chunks requested than sentences available: still a no-op
+    assert planner._chunk_script(SCRIPT, 5) == [SCRIPT]
+
+
+def test_chunk_script_splits_into_balanced_sentence_aligned_slices():
+    chunks = planner._chunk_script(SCRIPT_LONG, 2)
+    assert len(chunks) == 2
+    # sentence-aligned, no overlap/gaps: rejoining reproduces the script
+    assert normalize(" ".join(chunks)) == normalize(SCRIPT_LONG)
+    # roughly balanced (3 sentences each, given the fixture)
+    assert chunks[0].count(".") == 3
+    assert chunks[1].count(".") == 3
+
+
+def _long_chat_fn(calls, fail_on_position=None):
+    def chat_fn(provider, model, system, user, max_tokens):
+        calls.append((system, user))
+        if fail_on_position and fail_on_position in user:
+            bad_doc = {"version": "1.0", "video_id": "vid_t",
+                       "beats": [{"id": "b1", "kind": "narration",
+                                  "script_text": "not in the script at all",
+                                  "visual_intent": "x"}]}
+            return reply(bad_doc)
+        chunk_text = _chunk_text_from_prompt(user)
+        idx = len(calls) - 1
+        doc = {"version": "1.0", "video_id": "vid_t",
+               "beats": [{"id": "b1", "kind": "narration", "script_text": chunk_text,
+                          "visual_intent": f"visual for chunk {idx}", "mood": "neutral"}]}
+        return reply(doc)
+    return chat_fn
+
+
+def test_long_script_is_planned_in_chunks_with_full_context(tmp_path, monkeypatch):
+    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
+    ctx = make_ctx(tmp_path)
+    calls: list[str] = []
+    doc = planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_long_chat_fn(calls))
+
+    assert len(calls) == 2  # one call per chunk
+    assert "This call covers part 1 of 2" in calls[0][1]
+    assert "This call covers part 2 of 2" in calls[1][1]
+    # each call sees the FULL script for context...
+    assert "FULL SCRIPT" in calls[0][1] and SCRIPT_LONG in calls[0][1]
+    # ...but is scoped to its own section, not the whole script (welded HARD RULE 1)
+    assert "YOUR SECTION only" in calls[0][0]
+
+    # ids renumbered sequentially across the merge, no collisions
+    assert [b["id"] for b in doc["beats"]] == ["b1", "b2"]
+    # merged doc covers the whole script (final validation passed)
+    covered = normalize(" ".join(b["script_text"] for b in doc["beats"]))
+    assert covered == normalize(SCRIPT_LONG)
+
+
+def test_carry_forward_passes_previous_chunk_into_the_next(tmp_path, monkeypatch):
+    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
+    ctx = make_ctx(tmp_path)
+    calls: list[str] = []
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_long_chat_fn(calls))
+
+    assert "PREVIOUS BEATS" not in calls[0][1]  # nothing to carry into chunk 1
+    assert "PREVIOUS BEATS" in calls[1][1]
+    assert "visual for chunk 0" in calls[1][1]  # chunk 1's own beat, carried forward
+
+
+def test_chunk_failure_names_the_section(tmp_path, monkeypatch):
+    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
+    ctx = make_ctx(tmp_path)
+    calls: list[str] = []
+    chat_fn = _long_chat_fn(calls, fail_on_position="part 2 of 2")
+    with pytest.raises(StageError, match=r"section 2/2"):
+        planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=chat_fn)
+    # chunk 1 succeeded (1 call); chunk 2 exhausted all 3 repair attempts
+    assert len(calls) == 1 + 3
+
+
+def test_chunks_get_a_slack_free_share_of_the_overlay_budget(tmp_path, monkeypatch):
+    """Regression: validate_beat_sheet grants the density budget a +1 slack.
+    Handing each chunk its own share re-granted that slack per chunk, so every
+    chunk passed while their sum overshot the video's real ceiling (observed
+    live: 14 overlays against a 13-overlay budget). Chunks are now told a
+    floor'd, slack-free share, and only the merged sheet is density-checked."""
+    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
+    ctx = make_ctx(tmp_path)
+    calls: list[tuple[str, str]] = []
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_long_chat_fn(calls))
+
+    hints = [
+        int(re.search(r"Use AT MOST (\d+) overlays", user).group(1))
+        for _system, user in calls
+    ]
+    assert len(hints) == 2
+    style = CFG["style_pack_doc"]
+    whole_video_ceiling = validators.max_overlays_for(style, 8.0)
+    # the sum of the per-chunk hints must not exceed what the merge allows
+    assert sum(hints) <= whole_video_ceiling
+
+
+def test_chunk_validation_defers_whole_video_checks(tmp_path, monkeypatch):
+    """A chunk stuffed with overlays is NOT rejected per chunk (density is a
+    whole-video property), but the merged sheet is — one budget, judged once."""
+    monkeypatch.setattr(planner, "CHUNK_TARGET_BEATS", 1)
+    ctx = make_ctx(tmp_path)
+
+    def overlay_heavy(provider, model, system, user, max_tokens):
+        chunk_text = _chunk_text_from_prompt(user)
+        beats = []
+        for i, sentence in enumerate(split_sentences(chunk_text)):
+            beats.append({
+                "id": f"b{i + 1}", "kind": "narration", "script_text": sentence,
+                "visual_intent": "archival street scene, desaturated", "mood": "neutral",
+                "anchors": [{"type": "name", "label": "who", "source_words": sentence.split()[0]}],
+                "overlay": {"component": "NamePlate", "anchor_ref": 0},
+            })
+        return reply({"version": "1.0", "video_id": "vid_t", "beats": beats})
+
+    with pytest.raises(StageError, match="merged beat sheet failed final validation"):
+        planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=overlay_heavy)
+
+
+def test_short_script_stays_a_single_unchunked_call(tmp_path):
+    """Below CHUNK_TARGET_BEATS, behavior is byte-identical to the
+    pre-chunking prompt: no section/full-script/carry-forward scaffolding."""
+    ctx = make_ctx(tmp_path)
+    seen = {}
+
+    def chat_fn(provider, model, system, user, max_tokens):
+        seen["user"] = user
+        return reply(good_beats())
+
+    planner.plan_beats(ctx, SCRIPT, 8.0, chat_fn=chat_fn)
+    assert "This call covers part" not in seen["user"]
+    assert "FULL SCRIPT" not in seen["user"]
+    assert "PREVIOUS BEATS" not in seen["user"]
+    assert "cover the ENTIRE script" in (
+        planner._build_prompt(make_ctx(tmp_path), SCRIPT, 8.0)[0]
+    )

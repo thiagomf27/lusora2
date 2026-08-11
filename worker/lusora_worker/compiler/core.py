@@ -15,6 +15,7 @@ import lusora_contracts
 from ..errors import StageError
 from ..textsplit import split_sentences
 from . import geo, sound
+from .textmatch import SKIPPABLE, compare_key, decade_context, is_filler, number_run, tokenize
 
 STAGE = "compile_plan"
 
@@ -178,69 +179,7 @@ def compile_plan(
 # ---------------- helpers ----------------
 
 
-_WORD_CHARS = re.compile(r"[^a-z0-9]")
-_NUM_CHARS = re.compile(r"[^a-z0-9-]")
-_DECADE_FORM = re.compile(r"^(\d+)s$")
 _ALIGN_LOOKAHEAD = 6
-
-_ONES = {
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
-    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
-    "seventeen": 17, "eighteen": 18, "nineteen": 19,
-}
-_TENS = {
-    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
-    "seventy": 70, "eighty": 80, "ninety": 90,
-}
-_DECADE_PLURALS = {
-    "twenties": 20, "thirties": 30, "forties": 40, "fifties": 50,
-    "sixties": 60, "seventies": 70, "eighties": 80, "nineties": 90,
-}
-
-
-def _norm_word(word: str) -> str:
-    """Alignment-comparison form: only the letters/digits matter. Strips
-    punctuation (period vs comma is an ASR punctuation choice, not a real
-    divergence) and markdown emphasis (*Alcedo* -> alcedo)."""
-    return _WORD_CHARS.sub("", word.lower())
-
-
-def _parse_cardinal(parts: list[str]) -> int | None:
-    """Sum hyphen-joined number-word parts ('forty', 'seven' -> 47). None
-    if any part isn't a recognized ones/tens word — never guesses."""
-    if not parts:
-        return None
-    total = 0
-    for p in parts:
-        if p in _ONES:
-            total += _ONES[p]
-        elif p in _TENS:
-            total += _TENS[p]
-        else:
-            return None
-    return total
-
-
-def _number_canonical(word: str) -> str | None:
-    """Digit-string form of a number, spoken or written ('fifty' and '50'
-    both -> '50'; 'nineteen-fifties' and '1950s' both -> '1950s'). Only
-    covers 0-99 and simple decade/century-decade compounds (documentary
-    narration's actual range) — deliberately not a general number parser
-    (no hundreds/thousands/ordinals). Returns None for anything else, so
-    it only ever adds matches, never creates a false one."""
-    w = _NUM_CHARS.sub("", word.lower())
-    if w.isdigit() or _DECADE_FORM.match(w):
-        return w
-    parts = w.split("-")
-    if len(parts) >= 2 and parts[-1] in _DECADE_PLURALS:
-        century = _parse_cardinal(parts[:-1])
-        if century is not None:
-            return f"{century * 100 + _DECADE_PLURALS[parts[-1]]}s"
-    if len(parts) == 1 and parts[0] in _DECADE_PLURALS:
-        return f"{_DECADE_PLURALS[parts[0]]}s"
-    value = _parse_cardinal(parts)
-    return str(value) if value is not None else None
 
 
 def _word_timeline(sentence_timings: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -251,39 +190,52 @@ def _word_timeline(sentence_timings: list[dict[str, Any]]) -> list[dict[str, Any
     once we're matching word by word."""
     out: list[dict[str, Any]] = []
     for item in sentence_timings:
-        words = str(item.get("text", "")).split()
+        words = tokenize(str(item.get("text", "")))
         n = len(words)
         if n == 0:
             continue
         start_s, end_s = float(item["start_s"]), float(item["end_s"])
         span = end_s - start_s
         for i, w in enumerate(words):
-            norm = _norm_word(w)
-            if not norm:
-                continue
             out.append({
                 "word": w,
-                "norm": norm,
-                "num": _number_canonical(w),
+                "norm": compare_key(w),
                 "start_s": start_s + span * i / n,
                 "end_s": start_s + span * (i + 1) / n,
             })
     return out
 
 
-def _consume_word(
-    timeline: list[dict[str, Any]], cursor: int, target: str, target_num: str | None
-) -> tuple[int, dict[str, Any] | None]:
-    """Find `target` at or shortly after cursor, tolerating a few stray
-    narration words in between (ASR insertions/mishears). A number word
-    also matches its digit form and vice versa ('fifty' <-> '50'). Returns
-    the new cursor (past the match) and the matched timing, or (cursor,
-    None)."""
-    for p in range(cursor, min(cursor + 1 + _ALIGN_LOOKAHEAD, len(timeline))):
-        tw = timeline[p]
-        if tw["norm"] == target or (target_num is not None and tw["num"] == target_num):
-            return p + 1, tw
-    return cursor, None
+def _consume(
+    timeline: list[dict[str, Any]],
+    narration: list[str],
+    cursor: int,
+    script_tokens: list[str],
+    i: int,
+) -> tuple[int, int, dict[str, Any] | None, dict[str, Any] | None]:
+    """Match the script token(s) at `i` against the narration at or
+    shortly after `cursor`, tolerating a few stray narration words in
+    between (ASR insertions and mishears). A number matches however the
+    other side wrote it — '1945' <-> 'nineteen forty-five' — which may
+    span several tokens on either side (textmatch.py).
+
+    Returns (tokens consumed from the script, new cursor, first matched
+    timing, last matched timing); (0, cursor, None, None) on no match."""
+    window = min(cursor + 1 + _ALIGN_LOOKAHEAD, len(timeline))
+    take, keys = number_run(script_tokens, i)
+    if keys:
+        keys = decade_context(keys, script_tokens[i - 1] if i else None)
+        for p in range(cursor, window):
+            n_take, n_keys = number_run(narration, p)
+            n_keys = decade_context(n_keys, narration[p - 1] if p else None)
+            if n_take and (keys & n_keys):
+                return take, p + n_take, timeline[p], timeline[p + n_take - 1]
+
+    target = compare_key(script_tokens[i])
+    for p in range(cursor, window):
+        if timeline[p]["norm"] == target:
+            return 1, p + 1, timeline[p], timeline[p]
+    return 0, cursor, None, None
 
 
 def _align_beats(
@@ -302,6 +254,7 @@ def _align_beats(
     timeline = _word_timeline(sentence_timings)
     if not timeline:
         raise CompileError("no narration words found in the audio timing")
+    narration = [t["word"] for t in timeline]
 
     result = []
     cursor = 0
@@ -314,24 +267,34 @@ def _align_beats(
         beat_first: dict[str, Any] | None = None
         beat_last: dict[str, Any] | None = None
         for sentence in split_sentences(text) or [text]:
-            words = [w for w in sentence.split() if _norm_word(w)]
+            words = tokenize(sentence)
             if not words:
                 continue
             sent_first: dict[str, Any] | None = None
             sent_last: dict[str, Any] | None = None
-            for w in words:
-                cursor, tw = _consume_word(timeline, cursor, _norm_word(w), _number_canonical(w))
-                if tw is None:
+            i = 0
+            while i < len(words):
+                take, cursor, first, last = _consume(timeline, narration, cursor, words, i)
+                if last is None:
+                    if compare_key(words[i]) in SKIPPABLE:
+                        # a unit the other side wrote as a bare symbol
+                        # ('cinquenta por cento' vs '50%') — not a word
+                        # the narration owes us
+                        i += 1
+                        continue
                     near = min(cursor, len(timeline) - 1)
                     context = " ".join(t["word"] for t in timeline[near : near + 8])
                     raise CompileError(
-                        f"beat {beat.get('id')}: script word {w!r} does not align with the "
+                        f"beat {beat.get('id')}: script word {words[i]!r} does not align with the "
                         f"narration near {timeline[near]['start_s']:.1f}s (narration says "
                         f"{context!r}) — beats must cover the script in order; check the audio "
                         "actually says this (numbers, names, wording), or fix subtitles.srt"
                     )
-                sent_first = sent_first or tw
-                sent_last = tw
+                sent_first = sent_first or first
+                sent_last = last
+                i += take
+            if sent_first is None or sent_last is None:
+                continue
             sentence_spans.append({"start_s": sent_first["start_s"], "end_s": sent_last["end_s"]})
             beat_first = beat_first or sent_first
             beat_last = sent_last
@@ -342,11 +305,21 @@ def _align_beats(
         end = round(beat_last["end_s"] + vo_start, 3)
         result.append((beat, (start, end, sentence_spans)))
 
-    if cursor < len(timeline):
+    trailing = len(timeline) - cursor
+    if trailing > _ALIGN_LOOKAHEAD or not all(is_filler(t["word"]) for t in timeline[cursor:]):
         leftover = " ".join(t["word"] for t in timeline[cursor : cursor + 8])
         raise CompileError(
             f"beats do not cover the whole narration — first uncovered words: {leftover!r}"
         )
+    if trailing and result:
+        # a handful of trailing narration words is the same tolerance the
+        # rest of the alignment gets (a spoken unit the script wrote as a
+        # symbol, an ASR flourish) — the last beat simply runs to the end
+        beat, (start, _end, spans) = result[-1]
+        end = round(timeline[-1]["end_s"] + vo_start, 3)
+        if spans:
+            spans[-1]["end_s"] = timeline[-1]["end_s"]
+        result[-1] = (beat, (start, end, spans))
     return result
 
 

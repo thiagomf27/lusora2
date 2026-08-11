@@ -140,6 +140,64 @@ def test_alignment_tolerates_number_word_digit_equivalence(script_words, narrati
     assert plan["tracks"]["visual"][0]["beat_id"] == "b1"
 
 
+@pytest.mark.parametrize(
+    "script_words,narration_words",
+    [
+        # accents: the script and the transcript never agree on them
+        ("Estêvão partiu ao amanhecer.", "Estevao partiu ao amanhecer."),
+        ("O coracao da frota.", "O coração da frota."),
+        # years: digits vs the spoken form, pt and en
+        ("Em 1945 a guerra acabou.", "Em mil novecentos e quarenta e cinco a guerra acabou."),
+        ("In 1945 the war ended.", "In nineteen forty-five the war ended."),
+        # scales and grouped digits
+        ("Vinte mil soldados marcharam.", "20.000 soldados marcharam."),
+        ("Twelve hundred men waited.", "1,200 men waited."),
+        # decimals
+        ("It fell 3.5 meters.", "It fell three point five meters."),
+        # units the other side wrote as a symbol, in both directions
+        ("Cinquenta por cento da frota.", "50% da frota."),
+        ("50% da frota afundou.", "Cinquenta por cento da frota afundou."),
+        ("It cost five dollars.", "It cost $5."),
+        # decades, written long or short
+        ("Os anos 1950 mudaram tudo.", "Os anos 50 mudaram tudo."),
+        # roman numerals and ordinals
+        ("O Século XX começou.", "O século vinte começou."),
+        ("The 20th century began.", "The twentieth century began."),
+        # abbreviations and unit names, written short or spoken in full
+        ("O Dr. Alberto chegou.", "O doutor Alberto chegou."),
+        ("Avançaram 30 km ao norte.", "Avançaram trinta quilômetros ao norte."),
+        ("Custou US$ 5 milhões.", "Custou cinco milhões de dólares."),
+        # dashes: typography, not wording
+        ("A state-of-the-art radar.", "A state of the art radar."),
+        ("A guerra—a maior de todas.", "A guerra a maior de todas."),
+    ],
+)
+def test_alignment_tolerates_written_vs_spoken_forms(script_words, narration_words):
+    """The script is the source of truth; the SRT is only a timing source,
+    and it renders the same spoken words with different spelling
+    conventions. None of that is a content divergence (textmatch.py)."""
+    doc = beats({"id": "b1", "kind": "narration", "script_text": script_words, "visual_intent": "a"})
+    st = timings((narration_words, 0.0, 2.0))
+    plan = compile_plan(doc, st, CFG, 2.0)
+    assert plan["tracks"]["visual"][0]["beat_id"] == "b1"
+
+
+@pytest.mark.parametrize(
+    "script_words,narration_words",
+    [
+        ("The year was 1945.", "The year was 1946."),
+        ("Fifty feet away.", "Sixty feet away."),
+        ("Twenty thousand marched.", "Two thousand marched."),
+    ],
+)
+def test_alignment_still_fails_on_a_real_number_divergence(script_words, narration_words):
+    """Tolerating number FORMATTING is not tolerating a different number."""
+    doc = beats({"id": "b1", "kind": "narration", "script_text": script_words, "visual_intent": "a"})
+    st = timings((narration_words, 0.0, 2.0))
+    with pytest.raises(CompileError):
+        compile_plan(doc, st, CFG, 2.0)
+
+
 def test_uncovered_narration_fails_loud():
     doc = beats({"id": "b1", "kind": "narration", "script_text": "First.", "visual_intent": "x"})
     st = timings(("First.", 0.0, 2.0), ("Uncovered tail.", 2.0, 4.0))

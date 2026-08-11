@@ -71,6 +71,28 @@ def _schema_errors(name: str, data: Any) -> list[str]:
     ]
 
 
+# ---------------- overlay density (shared with the planner agent) ----------------
+
+
+def overlays_per_minute(style: dict[str, Any]) -> float:
+    """Overlay density as a number: the style pack's low|normal|high word, or
+    an explicit {"per_minute": n}. Anything unrecognised reads as normal."""
+    density = (style.get("overlays") or {}).get("density", "normal")
+    if isinstance(density, dict):
+        return float(density.get("per_minute", 2.5))
+    return {"low": 1.0, "normal": 2.5, "high": 5.0}.get(str(density), 2.5)
+
+
+def max_overlays_for(style: dict[str, Any], duration_s: float) -> int:
+    """The overlay ceiling for `duration_s` of narration: the density budget
+    plus one, so a single judgement call never fails a whole sheet.
+
+    The planner reads this too, to hand each chunk a slack-free share of the
+    whole-video budget — the +1 here is granted ONCE, against the merged
+    sheet, and must not be handed out per chunk (it accumulates)."""
+    return math.ceil(overlays_per_minute(style) * duration_s / 60) + 1
+
+
 # ---------------- beat sheet ----------------
 
 
@@ -192,10 +214,7 @@ def validate_beat_sheet(
                 f"the pacing range [{lo}, {hi}] (avg_hold {pacing['avg_hold_seconds']}s)"
             )
         density = (style.get("overlays") or {}).get("density", "normal")
-        per_minute = {"low": 1.0, "normal": 2.5, "high": 5.0}.get(
-            density if isinstance(density, str) else "", float((density or {}).get("per_minute", 2.5)) if isinstance(density, dict) else 2.5
-        )
-        max_overlays = math.ceil(per_minute * expected_duration_s / 60) + 1
+        max_overlays = max_overlays_for(style, expected_duration_s)
         if overlay_count > max_overlays:
             violations.append(
                 f"{overlay_count} overlays exceed density '{density}' (max {max_overlays} for {expected_duration_s:.0f}s)"

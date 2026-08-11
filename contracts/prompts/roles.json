@@ -31,7 +31,12 @@
         "content_rules": { "required": false, "source": "cfg.content_rules" },
         "instructions": { "required": false, "source": "cfg.overrides.instructions" },
         "component_menu": { "required": true, "source": "catalog, filtered by allowed_components" },
-        "video_id": { "required": true, "source": "the video id" }
+        "video_id": { "required": true, "source": "the video id" },
+        "coverage_scope": { "required": true, "source": "derived: 'the ENTIRE script' for a single call, or a section-scoped phrase when the script is split into chunks" },
+        "full_script": { "required": false, "source": "the whole script.txt, for context only; set only when this call is one of several chunks" },
+        "carry_forward": { "required": false, "source": "the previous chunk's last beats (id/mood/visual_intent), for continuity across a chunk boundary" },
+        "chunk_position": { "required": false, "source": "e.g. 'part 2 of 5'; set only when this call is one of several chunks" },
+        "max_overlays": { "required": false, "source": "derived: this chunk's slack-free share of the whole-video overlay density budget; set only when chunked" }
       }
     },
     "chat": {
