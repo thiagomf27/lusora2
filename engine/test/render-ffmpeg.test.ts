@@ -97,3 +97,57 @@ test("pinned ffmpeg fails loudly on a plan that needs remotion", () => {
   assert.equal(route.renderer, "remotion");
   assert.ok(route.reasons.some((r) => r.includes("KineticTitle")));
 });
+
+test("a looped short clip fills its slot instead of freezing", { timeout: 120_000 }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lusora-loop-"));
+  try {
+    mkdirSync(join(dir, "clips"));
+    // 1s of moving footage under a 4s hold: without loop the last frame holds
+    sh("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i",
+      "testsrc=size=320x180:rate=30:duration=1", "-pix_fmt", "yuv420p", join(dir, "clips/short.mp4")]);
+    sh("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=330:duration=4",
+      "-q:a", "9", join(dir, "audio.mp3")]);
+
+    const plan: EditPlan = {
+      version: "1.0", video_id: "loop", fps: 30,
+      resolution: { width: 320, height: 180 },
+      tracks: {
+        visual: [{
+          id: "v1", beat_id: "b1", locked: false, start_s: 0, end_s: 4,
+          media_type: "video", loop: true, mute: true,
+          asset: { source: "stock", path: "clips/short.mp4" },
+        }],
+        overlays: [],
+        captions: { enabled: false, items: [] },
+        audio: { voiceover: { path: "audio.mp3", start_s: 0, duration_s: 4, volume: 1 } },
+      },
+    };
+
+    // looping is an INPUT flag, not a plan capability: the cheap path keeps it
+    assert.equal(routePlan(plan).renderer, "ffmpeg");
+    const result = await renderFfmpeg(plan, dir);
+    assert.ok(Math.abs(result.duration_s - 4) < 0.5, `duration ${result.duration_s} ≈ 4s`);
+
+    // mpdecimate drops frames identical to the one before, so its count is how
+    // much of the hold actually MOVES. The same plan without the flag runs the
+    // source out after a second and holds still for the other three.
+    const moving = (path: string): number => {
+      const proc = spawnSync(
+        "ffmpeg", ["-i", path, "-vf", "mpdecimate", "-an", "-f", "null", "-"],
+        { encoding: "utf8" }
+      );
+      const counts = [...proc.stderr.matchAll(/frame=\s*(\d+)/g)];
+      return Number(counts[counts.length - 1]?.[1] ?? 0);
+    };
+    const looped = moving(join(dir, "final.mp4"));
+
+    const frozen: EditPlan = structuredClone(plan);
+    delete frozen.tracks.visual[0]!.loop;
+    await renderFfmpeg(frozen, dir);
+    const held = moving(join(dir, "final.mp4"));
+
+    assert.ok(looped > held * 2, `looped ${looped} moving frames vs ${held} without the flag`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

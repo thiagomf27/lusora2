@@ -204,6 +204,9 @@ script:                           # D45, lands in M10
   target_seconds: 90              # per-video overridable, like overlays.density
   tolerance: 0.25
   prompt: doc-grave               # optional: the prompt pack matching this voice
+fallback:                         # D55 — when the sources have nothing good
+  component: ChapterCard          # drawn over a plain colour fill
+  text_prop: title                # filled from the beat's own keyword query
 sfx:                              # D48 — how OFTEN cues fire
   enabled: false                  # doc-slow ships silent; punchier packs opt in
   cues: [entrance]                # entrance | transition

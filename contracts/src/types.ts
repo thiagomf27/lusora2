@@ -119,6 +119,8 @@ export interface VisualItem {
   mute?: boolean;
   /** Playback rate multiplier for video assets; 1.0 = normal (Remotion path only). */
   speed?: number;
+  /** Repeat a video source that is shorter than the item, instead of freezing on its last frame. */
+  loop?: boolean;
   /**
    * Beats too short to hold on their own (style pack pacing.hold_floor_ratio),
    * now playing under this item's shot. Provenance: they keep their overlays.

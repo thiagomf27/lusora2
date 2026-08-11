@@ -25,6 +25,7 @@ from ..providers import sources, tts, whisper
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
+from . import degrade
 
 # ---------------- script ----------------
 
@@ -267,6 +268,8 @@ def assets_resolved(ctx: StageContext) -> bool:
     except StageError:
         return False
     for item in plan["tracks"]["visual"]:
+        if item.get("media_type") == "color":
+            continue  # a colour fill has nothing to fetch (D55 fallback cards)
         path = str(item["asset"].get("path", ""))
         if not path or not (ctx.folder / path).exists():
             return False
@@ -285,10 +288,13 @@ def run_resolve_assets(ctx: StageContext) -> None:
     # so a worker killed mid-stage resumes with the ledger it had.
     ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
     changed = False
+    floor = degrade.source_score_floor(ctx.cfg)
     for item in plan["tracks"]["visual"]:
         path = str(item["asset"].get("path", ""))
         if path and (ctx.folder / path).exists():
             continue  # human-provided or already resolved
+        if item.get("media_type") == "color":
+            continue  # already degraded to a card on an earlier pass
         beat = beats.get(str(item.get("beat_id")))
         query = str((beat or {}).get("visual_intent") or ctx.video.get("title") or "establishing shot")
         # v1.1 (D53): keyword sources get these instead of the scout sentence
@@ -300,6 +306,23 @@ def run_resolve_assets(ctx: StageContext) -> None:
                 f"source chain exhausted for beat {item.get('beat_id')} (item {item['id']}) — "
                 f"query was: {query!r}; add sources, lower min_score, or edit the beat",
             )
+        # A score below the floor is a match nobody would have chosen: place a
+        # card that says what the beat is about instead of a clip that is
+        # nearly unrelated (D55). Sources that return no score (stock, ai) are
+        # not judged here — there is nothing to judge them by.
+        score = (item.get("asset") or {}).get("score")
+        if floor > 0 and score is not None and float(score) < floor:
+            used = degrade.to_title_card(ctx, plan, item, beat or {})
+            if used:
+                ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                             f"beat {item.get('beat_id')}: best match scored {float(score):.2f}, "
+                             f"under min_score_floor {floor:g} — showing a {used} instead")
+        else:
+            strategy = degrade.apply_short_clip_policy(ctx, item)
+            if strategy:
+                ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                             f"beat {item.get('beat_id')}: footage shorter than the beat — {strategy}")
+
         # checkpoint after every item so a killed worker resumes without
         # re-downloading what it already has
         ctx.write_json("edit_plan.json", plan)

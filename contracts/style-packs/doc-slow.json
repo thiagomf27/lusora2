@@ -35,6 +35,10 @@
   },
   "script_persona": "Grave, precise documentary narrator. Short sentences. No exclamations.",
   "visual_language": "Archival, desaturated, wide establishing shots; avoid modern footage.",
+  "fallback": {
+    "component": "ChapterCard",
+    "text_prop": "title"
+  },
   "sfx": {
     "enabled": false
   },

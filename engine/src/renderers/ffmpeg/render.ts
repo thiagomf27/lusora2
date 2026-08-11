@@ -258,13 +258,16 @@ function renderSegment(
     return;
   }
 
-  // video / avatar
+  // video / avatar. `loop` repeats a source shorter than the slot rather than
+  // letting the last frame hold (D55); -t still bounds the output, so a long
+  // source is unaffected by the flag.
   const inOffset = item.in_offset_s ?? 0;
   ffmpeg(
-    ["-ss", inOffset.toFixed(3), "-i", assetPath,
+    [...(item.loop ? ["-stream_loop", "-1"] : []),
+     "-ss", inOffset.toFixed(3), "-i", assetPath,
      "-vf", `${cover},fps=${fps},setsar=1`, "-t", dur.toFixed(3),
      "-pix_fmt", "yuv420p", "-an", outFile],
-    `segment ${item.id} (video)`
+    `segment ${item.id} (video${item.loop ? ", looped" : ""})`
   );
 }
 

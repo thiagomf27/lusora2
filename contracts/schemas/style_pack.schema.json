@@ -97,6 +97,22 @@
         }
       }
     },
+    "fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D55 — what to put on screen when the sources have nothing good enough (source_policy.visual.min_score_floor). A card that names the subject is honest; a clip that is nearly unrelated is a lie the viewer notices and cannot name. Absent = keep the weak asset, since a beat with nothing on it is worse than a beat with the wrong thing on it.",
+      "properties": {
+        "component": {
+          "type": "string",
+          "description": "catalog component drawn over a plain colour fill; it must be one this pack's allowed_components list would accept"
+        },
+        "text_prop": {
+          "type": "string",
+          "default": "title",
+          "description": "which prop takes the words, derived from the beat's own keyword query (v1.1) or its visual_intent"
+        }
+      }
+    },
     "sfx": {
       "type": "object",
       "additionalProperties": false,

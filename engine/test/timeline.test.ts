@@ -135,3 +135,31 @@ test("rejects items shorter than one frame with an actionable error", () => {
     /visual\[0\].*shorter than one frame at 30 fps/,
   );
 });
+
+test("a looping item has no freeze threshold: it starts the source again", () => {
+  const items = [
+    item({ start_s: 0, end_s: 9, loop: true }),
+    item({ start_s: 9, end_s: 12 }),
+  ];
+  const layouts = buildVisualTimeline(items, [video(2), video(10)], 30);
+  // 2s of footage under a 9s hold would otherwise freeze for seven seconds
+  assert.equal(layouts[0]!.availableFrames, null);
+  assert.equal(layouts[0]!.narrativeFrames, 270);
+});
+
+test("loop does not change the cut points", () => {
+  const plain = buildVisualTimeline(
+    [item({ start_s: 0, end_s: 5 }), item({ start_s: 5, end_s: 8 })],
+    [video(2), video(10)],
+    30,
+  );
+  const looped = buildVisualTimeline(
+    [item({ start_s: 0, end_s: 5, loop: true }), item({ start_s: 5, end_s: 8 })],
+    [video(2), video(10)],
+    30,
+  );
+  assert.deepEqual(
+    looped.map((l) => l.narrativeFrames),
+    plain.map((l) => l.narrativeFrames),
+  );
+});

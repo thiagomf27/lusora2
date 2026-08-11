@@ -106,6 +106,8 @@ function availablePlaybackFrames(
   fps: number,
 ): number | null {
   if (!asset || asset.kind !== "video" || asset.durationInSeconds === null) return null;
+  // A looping item never runs out of footage: it starts the source again (D55).
+  if (item.loop) return null;
   const speed = item.speed ?? 1;
   const inOffset = item.in_offset_s ?? 0;
   const remainingSeconds = Math.max(asset.durationInSeconds - inOffset, 0);

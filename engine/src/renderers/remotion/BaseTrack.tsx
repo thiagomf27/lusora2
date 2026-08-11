@@ -16,6 +16,7 @@ import {
   Freeze,
   Img,
   OffthreadVideo,
+  Sequence,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
@@ -95,6 +96,28 @@ const VisualItemContent: React.FC<{
       style={COVER}
     />
   );
+
+  // A source shorter than its slot repeats instead of freezing (D55): a frozen
+  // frame reads as a stall, a loop reads as a shot. Sequence-based rather than
+  // <Loop>, because each pass has to restart at the item's own trim point.
+  if (item.loop) {
+    const inOffset = item.in_offset_s ?? 0;
+    const sourceFrames = Math.max(
+      Math.floor(((asset.durationInSeconds ?? 0) - inOffset) * fps / (item.speed ?? 1)),
+      1,
+    );
+    const passes = Math.ceil(totalFrames / sourceFrames);
+    return (
+      <AbsoluteFill style={{ backgroundColor: "black" }}>
+        {Array.from({ length: passes }, (_, pass) => (
+          <Sequence key={pass} from={pass * sourceFrames} durationInFrames={sourceFrames}>
+            {video}
+          </Sequence>
+        ))}
+      </AbsoluteFill>
+    );
+  }
+
   const available = layout.availableFrames;
   if (available === null || available >= totalFrames) {
     return <AbsoluteFill style={{ backgroundColor: "black" }}>{video}</AbsoluteFill>;

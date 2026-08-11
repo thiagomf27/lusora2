@@ -80,6 +80,10 @@ Every item carries:
   wiped. The chat agent's plan patches follow the same rule.
 - `asset` provenance feeds the Video screen's "assets used", license
   checks, and `mark_used` bookkeeping.
+- `loop` (D55) — repeat a video source shorter than the item instead of
+  freezing on its last frame. Both renderers honour it, and it does not force
+  the premium route; `speed` (the `slow` fallback) does, since the ffmpeg
+  profile rejects a rate other than 1.
 - `absorbed_beat_ids` — beats whose aligned span was under the style pack's
   hold floor (`pacing.hold_floor_ratio`) and which now play under THIS
   item's shot. Provenance only: an absorbed beat keeps its overlay and its

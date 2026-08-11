@@ -129,6 +129,11 @@
         "transition_out": { "$ref": "#/$defs/transition" },
         "mute": { "type": "boolean", "default": true },
         "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "playback rate multiplier for video assets; 1.0 = normal speed (Remotion path only — ffmpeg profile rejects speed != 1)" },
+        "loop": {
+          "type": "boolean",
+          "default": false,
+          "description": "video assets only: repeat the source from its trim start for as long as the item holds, instead of freezing on the last frame when the footage runs out (D55). Both renderers honour it."
+        },
         "absorbed_beat_ids": {
           "type": "array",
           "items": { "type": "string" },

@@ -144,6 +144,21 @@
             },
             "max_clip_seconds": { "type": "number", "exclusiveMinimum": 0, "default": 12 },
             "orientation": { "enum": ["landscape", "portrait", "square"], "default": "landscape" },
+            "min_score_floor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0,
+              "description": "D55 — the score under which a match is not worth showing at all. A source's own min_score decides whether to FALL THROUGH; this decides whether the chain's answer is placed or replaced by a typographic card (style_pack.fallback). 0 = off. Only sources that return a score (the library) are judged.",
+              "$comment": "not the same knob as chain[].min_score: that one is per source, this one is the last word"
+            },
+            "short_clip_fallback": {
+              "type": "array",
+              "items": { "enum": ["loop", "slow", "freeze"] },
+              "default": ["loop", "freeze"],
+              "description": "D55 — how to cover a slot longer than its footage, first applicable wins. `loop` repeats the source (both renderers), `slow` ramps playback down to at most 0.5x (Remotion only — the ffmpeg profile rejects speed != 1, so it forces the premium route), `freeze` holds the last frame, which is what both renderers did before this existed.",
+              "minItems": 1
+            },
             "dedup": {
               "type": "object",
               "additionalProperties": false,

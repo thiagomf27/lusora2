@@ -281,6 +281,8 @@ def validate_plan(
     # assets present and readable
     if require_assets:
         for item in visual:
+            if item.get("media_type") == "color":
+                continue  # both renderers draw a colour fill with no file (D55)
             path = str(item["asset"].get("path", ""))
             if not path:
                 violations.append(f"visual item {item['id']}: asset not resolved (empty path)")

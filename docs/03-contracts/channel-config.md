@@ -38,6 +38,8 @@ source_policy:
         style: "archival photo, desaturated, film grain"
     max_clip_seconds: 12
     orientation: landscape
+    min_score_floor: 0.45             # D55 — under this, show a card, not a bad clip
+    short_clip_fallback: [loop, freeze]  # D55 — footage shorter than the beat
     dedup:                            # D54 — the same shot twice in one video
       reuse_window_items: 0           # 0 = a segment is spent for the whole video
       min_hamming_distance: 6         # near-duplicate frames; 0 = off (default)
@@ -78,6 +80,19 @@ source_policy:
   `music_lift`, so the mix lives in one place. `music.chain` /
   `audio_library` remain declared and unimplemented — sound comes from the
   sound pack named here or in the theme, not from a source chain.
+- `visual.min_score_floor` (D55) is the LAST word, where `chain[].min_score` is
+  a per-source one: the first decides whether to fall through, this decides
+  whether what the chain finally returned is worth showing. Under it, the item
+  becomes a colour fill carrying the style pack's `fallback` card, which names
+  the subject instead of showing something nearly unrelated. Only sources that
+  return a score (the library) are judged — there is nothing to judge stock or
+  a generated image by.
+- `visual.short_clip_fallback` (D55) covers a slot longer than its footage.
+  Before it the two renderers disagreed in silence: Remotion froze on the last
+  frame, the ffmpeg path ran out and truncated the segment. `loop` is a plan
+  field both now honour, `slow` ramps to at most 0.5x and forces the Remotion
+  route (the ffmpeg profile rejects `speed != 1`), `freeze` is the old
+  behaviour, kept for a channel that prefers it.
 - Chain exhausted with nothing found → the stage FAILS with the beat id
   and query (consistent fail-loud; placeholder-and-flag rejected — silent
   gaps reach review).
