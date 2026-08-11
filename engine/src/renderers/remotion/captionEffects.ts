@@ -73,3 +73,18 @@ function easeOutBack(t: number): number {
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
+
+
+/**
+ * Where a caption sits: the compiler's answer when the plan carries one (D56),
+ * else the renderer's own fallback for a hand-written or pre-D56 plan — the old
+ * rule, which steps up by one caption height while any graphic is on screen.
+ */
+export function captionBottom(
+  item: { bottom_fraction?: number },
+  graphicOnScreen: boolean,
+  resting: number,
+  lifted: number,
+): number {
+  return item.bottom_fraction ?? (graphicOnScreen ? lifted : resting);
+}

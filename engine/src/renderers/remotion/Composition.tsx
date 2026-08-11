@@ -27,7 +27,7 @@ import { isTemplateKind } from "../../components/templates/registry.ts";
 import { captionStyle } from "../../themes/runtime.ts";
 import { BaseTrack } from "./BaseTrack.tsx";
 import { audioVolumeAt } from "./audioVolume.ts";
-import { captionPose } from "./captionEffects.ts";
+import { captionBottom, captionPose } from "./captionEffects.ts";
 import { fallbackAssets, type VisualAsset } from "./timeline.ts";
 
 export interface VideoInput {
@@ -110,20 +110,19 @@ function Overlays({ plan, theme }: { plan: EditPlan; theme: Theme }) {
 }
 
 /**
- * Captions yield to graphics. The compiler already keeps corner overlays out of
- * the bottom strip (_avoid_caption_band), but a component whose whole layout
- * lives down there — a lower third, a chart's own caption line — cannot be moved
- * by a prop, and nothing in the plan says which zone a component occupies. So
- * the rule is positional and needs no per-component knowledge: while any
- * component overlay is on screen, the caption steps up out of the extreme bottom.
+ * Captions yield to graphics — but the DECISION is the compiler's (D56).
  *
- * The lift is deliberately ONE caption-height, not more. The lower third is
- * contested from both sides: components put their own caption/credit lines at
- * the very bottom (~94% down), while lower-third footers — QuoteBlock's
- * attribution, NamePlate's role — sit around 66%. Lifting further clears the
- * first and lands on the second, which is exactly the collision this replaced.
- * A zone declared per component in the catalog would let the caption place
- * itself properly; until that exists, this threads between the two.
+ * Each catalog entry declares the vertical band it draws in, so the compiler
+ * knows whether a graphic actually lands on the captions and by how much they
+ * must rise, and writes the answer onto the caption as `bottom_fraction`. That
+ * keeps it deterministic, visible in the plan and editable by hand, like every
+ * other placement decision.
+ *
+ * The constants below are the fallback for a plan that carries no answer — a
+ * hand-written one, or anything compiled before D56. They are the old rule:
+ * while any component overlay is on screen, the caption steps up by one
+ * caption-height, which threads between a component's own credit line at the
+ * very bottom (~94% down) and a lower-third footer around 66%.
  */
 const CAPTION_BOTTOM = 0.06;
 const CAPTION_BOTTOM_LIFTED = 0.13;
@@ -138,6 +137,7 @@ function Captions({ plan, theme }: { plan: EditPlan; theme: Theme }) {
       {captions.items.map((c, i) => {
         const durFrames = Math.max(Math.round((c.end_s - c.start_s) * fps), 1);
         const overlapped = graphics.some((o) => c.start_s < o.end_s && c.end_s > o.start_s);
+        const bottomFraction = captionBottom(c, overlapped, CAPTION_BOTTOM, CAPTION_BOTTOM_LIFTED);
         return (
           <Sequence key={i} from={Math.round(c.start_s * fps)} durationInFrames={durFrames}>
             <Caption
@@ -145,7 +145,7 @@ function Captions({ plan, theme }: { plan: EditPlan; theme: Theme }) {
               theme={theme}
               preset={captions.preset ?? "plain"}
               durationInFrames={durFrames}
-              bottomFraction={overlapped ? CAPTION_BOTTOM_LIFTED : CAPTION_BOTTOM}
+              bottomFraction={bottomFraction}
             />
           </Sequence>
         );

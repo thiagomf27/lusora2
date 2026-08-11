@@ -185,7 +185,13 @@
         "end_s": { "type": "number", "exclusiveMinimum": 0 },
         "text": { "type": "string" },
         "in_effect": { "enum": ["fade", "pop", "slide_up", null], "default": null, "description": "per-item entrance animation (Remotion path only)" },
-        "out_effect": { "enum": ["fade", "pop", "slide_down", null], "default": null, "description": "per-item exit animation (Remotion path only)" }
+        "out_effect": { "enum": ["fade", "pop", "slide_down", null], "default": null, "description": "per-item exit animation (Remotion path only)" },
+        "bottom_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.9,
+          "description": "D56 — where this caption sits, as a gap from the bottom edge in fractions of frame height. Written by the compiler when a graphic occupies the caption band for this caption's span (from the catalog's `region`), so the decision is deterministic, visible in the plan and editable. Absent = the renderer's own resting position. Remotion only: the ffmpeg path burns one subtitle style for the whole video, and a plan with component overlays routes to Remotion anyway."
+        }
       }
     },
     "voiceoverItem": {

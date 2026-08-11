@@ -96,7 +96,28 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean", "default": true }
+        "enabled": { "type": "boolean", "default": true },
+        "safe_bottom": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "default": 0.06,
+          "description": "D56 — where captions sit when nothing is in the way: the gap from the bottom edge, as a fraction of frame height. The renderer's resting position."
+        },
+        "line_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "default": 0.07,
+          "description": "D56 — how tall a caption is, as a fraction of frame height. Used to work out whether a graphic actually lands on it; a caption is not a line, it is a band."
+        },
+        "max_lift": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.8,
+          "default": 0.3,
+          "description": "D56 — how far captions may be raised to clear a graphic. Clearing a full-frame treatment would need more than this (there is no free space under it), and a caption in the middle of the frame is worse than an overlap, so past this limit the caption steps up by one caption height instead."
+        }
       }
     },
     "renderer": { "enum": ["auto", "ffmpeg", "remotion"], "default": "auto" },

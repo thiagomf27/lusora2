@@ -89,6 +89,14 @@ quietly rather than loudly:
 4. `allowed_components` in the style packs that should offer it — the
    validator rejects a component the pack does not list.
 
+`region` (D56) is how an entry says which vertical band it draws in, as
+fractions from the top: `{y_min: 0.70, y_max: 0.86}` for a lower third,
+`{0, 0.94}` for a full-frame treatment with its own credit line, `{0.10, 0.86}`
+for a card in the middle. The compiler reads it to decide whether a graphic is
+actually sitting on the captions, and by how much they must rise. Omit it when
+the placement comes from a prop the compiler already moves (a corner tag):
+absent is read as full-frame, which is the conservative answer.
+
 `engine/test/catalog.test.ts` enforces 2 ↔ 3 parity — across the data packs
 too, so a pack entry must be drawn by a component or a template and a
 registered component must be reachable from some entry — that every

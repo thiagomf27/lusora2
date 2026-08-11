@@ -155,6 +155,9 @@ export interface CaptionItem {
   text: string;
   in_effect?: CaptionInEffect | null;
   out_effect?: CaptionOutEffect | null;
+  /** D56 — compiled position: gap from the bottom edge, as a fraction of frame
+   *  height. Written when a graphic occupies the caption band for this span. */
+  bottom_fraction?: number;
 }
 
 export interface VoiceoverItem {
@@ -461,6 +464,10 @@ export interface CatalogEntry {
   props: Record<string, CatalogPropSpec>;
   /** set instead of shipping a React component: TemplateOverlay draws it */
   template?: TemplateKind;
+  /** D56 — the vertical band this component draws in, as fractions from the
+   *  top. Lets the compiler tell whether a graphic actually lands on the
+   *  captions; absent means "assume it does". */
+  region?: { y_min: number; y_max: number };
   duration_hint_s?: { min?: number; default?: number; max?: number };
   /** D48 — the `seconds` this component passes to useEntrance, before
    *  motion_feel scaling. Declared so the compiler can compute the real

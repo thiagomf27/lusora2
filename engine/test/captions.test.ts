@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { captionPose } from "../src/renderers/remotion/captionEffects.ts";
+import { captionBottom, captionPose } from "../src/renderers/remotion/captionEffects.ts";
 
 const fps = 30; // effect window = round(0.25 * 30) = 8 frames
 
@@ -44,4 +44,16 @@ test("pop overshoots scale above 1 during entry", () => {
 test("collapses to rest when the item is too short to host effects", () => {
   const pose = captionPose({ in_effect: "fade" }, 0, 1, fps);
   assert.deepEqual(pose, { opacity: 1, offsetYFraction: 0, scale: 1 });
+});
+
+test("the compiler's caption placement wins over the renderer's fallback", () => {
+  // D56: the plan says where a caption sits, because only the compiler knows
+  // which band each component draws in (the catalog's `region`).
+  assert.equal(captionBottom({ bottom_fraction: 0.21 }, true, 0.06, 0.13), 0.21);
+  assert.equal(captionBottom({ bottom_fraction: 0.06 }, true, 0.06, 0.13), 0.06);
+});
+
+test("a plan with no placement falls back to the old blanket rule", () => {
+  assert.equal(captionBottom({}, false, 0.06, 0.13), 0.06);
+  assert.equal(captionBottom({}, true, 0.06, 0.13), 0.13);
 });

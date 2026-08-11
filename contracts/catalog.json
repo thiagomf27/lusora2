@@ -59,6 +59,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
+      },
       "duration_hint_s": {
         "min": 2.5,
         "default": 4
@@ -110,6 +114,10 @@
           ],
           "default": "neutral"
         }
+      },
+      "region": {
+        "y_min": 0,
+        "y_max": 0.94
       },
       "duration_hint_s": {
         "min": 2.5,
@@ -175,6 +183,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
+      },
       "duration_hint_s": {
         "min": 3.5,
         "default": 5.5
@@ -226,6 +238,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 3.5,
@@ -286,6 +302,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0,
+        "y_max": 0.94
+      },
       "duration_hint_s": {
         "min": 2,
         "default": 3.5
@@ -335,6 +355,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 2.5,
@@ -403,6 +427,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 3,
@@ -499,6 +527,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
+      },
       "duration_hint_s": {
         "min": 3,
         "default": 5
@@ -552,6 +584,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0,
+        "y_max": 0.94
       },
       "duration_hint_s": {
         "min": 3.5,
@@ -653,6 +689,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
+      },
       "duration_hint_s": {
         "min": 4,
         "default": 6
@@ -696,6 +736,10 @@
           "default": "neutral"
         }
       },
+      "region": {
+        "y_min": 0,
+        "y_max": 0.94
+      },
       "duration_hint_s": {
         "min": 3,
         "default": 5
@@ -733,6 +777,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 2,
@@ -790,6 +838,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
+      },
       "duration_hint_s": {
         "min": 3.5,
         "default": 6
@@ -843,6 +895,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 2,
@@ -911,6 +967,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
+      },
       "duration_hint_s": {
         "min": 4,
         "default": 6.5
@@ -964,6 +1024,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.7,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 2.5,
@@ -1019,6 +1083,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.9
+      },
       "duration_hint_s": {
         "min": 3.5,
         "default": 6
@@ -1064,6 +1132,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 2.5,
@@ -1151,6 +1223,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0,
+        "y_max": 0.94
       },
       "duration_hint_s": {
         "min": 3.5,
@@ -1248,6 +1324,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0,
+        "y_max": 0.94
+      },
       "duration_hint_s": {
         "min": 4,
         "default": 6.5
@@ -1342,6 +1422,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0,
+        "y_max": 0.94
       },
       "duration_hint_s": {
         "min": 3,
@@ -1447,6 +1531,10 @@
           "default": "accent"
         }
       },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
+      },
       "duration_hint_s": {
         "min": 4,
         "default": 6
@@ -1503,6 +1591,10 @@
           ],
           "default": "accent"
         }
+      },
+      "region": {
+        "y_min": 0.1,
+        "y_max": 0.86
       },
       "duration_hint_s": {
         "min": 4,

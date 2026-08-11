@@ -533,3 +533,98 @@ def test_no_visual_item_falls_outside_the_bounds():
     for hold in _holds(plan):
         assert 2.0 - 0.05 <= hold <= 9.0 + 0.05, _holds(plan)
     assert validators.validate_plan(plan, Path("."), HOLD_CFG, 20.0, require_assets=False) == []
+
+
+# ---------------- captions vs graphics (D56) ----------------
+
+
+def _captions(plan):
+    return plan["tracks"]["captions"]["items"]
+
+
+def test_a_graphic_in_the_band_lifts_only_the_captions_it_sits_on():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Someone speaks here.",
+         "visual_intent": "a",
+         "overlay": {"component": "ArchivalFrame", "props_hint": {"slate": "Reel 4"}}},
+        {"id": "b2", "kind": "narration", "script_text": "Then nobody does.", "visual_intent": "b"},
+    )
+    st = timings(("Someone speaks here.", 0.0, 8.0), ("Then nobody does.", 8.0, 14.0))
+    plan = compile_plan(doc, st, CFG, 14.0)
+
+    first, second = _captions(plan)
+    # ArchivalFrame's band reaches 0.94 — its own slate line is down there — so
+    # the caption under it steps up by one caption height
+    assert first["bottom_fraction"] == pytest.approx(0.13)
+    # ...and the one it does not overlap keeps its designed position
+    assert "bottom_fraction" not in second
+
+
+def test_a_lower_third_that_stops_above_the_band_is_not_in_the_way():
+    """NamePlate's declared band ends at 0.86 and the captions start at 0.87.
+    The old blanket rule lifted them into its footer; the numbers say don't."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Someone speaks here.",
+         "visual_intent": "a",
+         "anchors": [{"type": "name", "value": "Kurchatov", "label": "physicist",
+                      "source_words": "Someone"}],
+         "overlay": {"component": "NamePlate", "anchor_ref": 0}},
+    )
+    st = timings(("Someone speaks here.", 0.0, 6.0))
+    plan = compile_plan(doc, st, CFG, 6.0)
+    assert "bottom_fraction" not in _captions(plan)[0]
+
+
+def test_a_mid_frame_card_leaves_the_captions_alone():
+    """The old rule lifted every caption under ANY component overlay. A card in
+    the middle of the frame is not in the captions' way."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "A big number lands.",
+         "visual_intent": "a",
+         "anchors": [{"type": "number", "value": 29000, "label": "tanks", "source_words": "A big number"}],
+         "overlay": {"component": "AnimatedCounter", "anchor_ref": 0}},
+    )
+    st = timings(("A big number lands.", 0.0, 6.0))
+    plan = compile_plan(doc, st, CFG, 6.0)
+    assert all("bottom_fraction" not in c for c in _captions(plan))
+
+
+def test_an_undeclared_component_is_assumed_to_be_in_the_way():
+    """Conservative default: an entry with no region keeps the old blanket
+    lift, so adding a region is an improvement and never a regression."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "In nineteen forty three.",
+         "visual_intent": "a",
+         "anchors": [{"type": "date", "value": "1943", "source_words": "nineteen forty three"}],
+         "overlay": {"component": "DateStamp", "anchor_ref": 0}},
+    )
+    st = timings(("In nineteen forty three.", 0.0, 6.0))
+    plan = compile_plan(doc, st, CFG, 6.0)
+    assert _captions(plan)[0]["bottom_fraction"] > 0.06
+
+
+def test_the_lift_is_bounded_by_config():
+    cfg = {**CFG, "captions": {"enabled": True, "max_lift": 0.02}}
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Someone speaks here.",
+         "visual_intent": "a",
+         "overlay": {"component": "ArchivalFrame", "props_hint": {"slate": "Reel 4"}}},
+    )
+    st = timings(("Someone speaks here.", 0.0, 6.0))
+    plan = compile_plan(doc, st, cfg, 6.0)
+    # clearing a bottom-anchored graphic needs more than the cap allows, so the
+    # caption steps up by its own height rather than into the middle of frame
+    assert _captions(plan)[0]["bottom_fraction"] == pytest.approx(0.13)
+
+
+def test_captions_off_means_nothing_to_place():
+    cfg = {**CFG, "captions": {"enabled": False}}
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "Someone speaks here.",
+         "visual_intent": "a",
+         "anchors": [{"type": "name", "value": "K", "label": "physicist", "source_words": "Someone"}],
+         "overlay": {"component": "NamePlate", "anchor_ref": 0}},
+    )
+    st = timings(("Someone speaks here.", 0.0, 6.0))
+    plan = compile_plan(doc, st, cfg, 6.0)
+    assert plan["tracks"]["captions"]["enabled"] is False

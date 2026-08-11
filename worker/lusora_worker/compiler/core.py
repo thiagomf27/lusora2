@@ -131,6 +131,8 @@ def compile_plan(
         for t in sentence_timings
     ]
 
+    _place_captions(caption_items, overlays, cfg)
+
     # ---- sound (D48) ----
     # Placed here, at the end, because every input it needs is now settled:
     # overlay starts (for cue timing), transitions, and the absolute sentence
@@ -525,6 +527,63 @@ def _trim_overlay_holds(
             ceiling = min(ceiling, float(overlays[i + 1]["start_s"]) - gap)
         end = min(float(item["end_s"]), ceiling)
         item["end_s"] = round(max(end, float(item["start_s"]) + 0.5), 3)
+
+
+def _place_captions(
+    captions: list[dict[str, Any]], overlays: list[dict[str, Any]], cfg: dict[str, Any]
+) -> None:
+    """Raise the captions that a graphic is sitting on, and only those (D56).
+
+    Captions and lower thirds want the same strip of frame, and nothing
+    reconciled them: the renderer lifted every caption that overlapped ANY
+    component overlay, by a fixed amount, because the plan never said which
+    part of the frame a component draws in. The catalog says now, so the
+    decision moves here — deterministic, visible in the plan, and editable.
+
+    An entry with no declared `region` is treated as if it reached the caption
+    band, which is the conservative reading and exactly the old behaviour.
+    """
+    if not captions or not overlays:
+        return
+    settings = cfg.get("captions") or {}
+    safe_bottom = float(settings.get("safe_bottom", 0.06))
+    line = float(settings.get("line_fraction", 0.07))
+    max_lift = float(settings.get("max_lift", 0.3))
+
+    # in the same coordinates as the catalog's region: fractions from the TOP
+    caption_top = 1.0 - safe_bottom - line
+
+    graphics: list[tuple[float, float, float]] = []
+    for item in overlays:
+        if item.get("kind") != "component":
+            continue
+        entry = lusora_contracts.catalog_component(str(item.get("component", "")))
+        region = (entry or {}).get("region")
+        # undeclared: assume it reaches the band (the old blanket rule)
+        # undeclared: assume the worst — a full-frame graphic, which cannot be
+        # cleared by moving the caption, so it takes the blanket step below
+        y_min = float(region["y_min"]) if region else 0.0
+        y_max = float(region["y_max"]) if region else 1.0
+        if y_max <= caption_top:
+            continue  # nowhere near the captions; they stay where they belong
+        graphics.append((float(item["start_s"]), float(item["end_s"]), y_min))
+
+    for caption in captions:
+        clashing = [
+            y_min for start, end, y_min in graphics
+            if caption["start_s"] < end and caption["end_s"] > start
+        ]
+        if not clashing:
+            continue
+        # Rise above the highest graphic in the way — unless that would take the
+        # caption off the bottom third of the frame, which a full-frame
+        # treatment always would. There is no clear space under one of those,
+        # so the caption steps up by its own height instead: enough to leave a
+        # component's credit line at the very bottom, not so much that it lands
+        # on a lower third's footer.
+        needed = (1.0 - min(clashing)) + line - safe_bottom
+        lift = needed if 0 < needed <= max_lift else line
+        caption["bottom_fraction"] = round(safe_bottom + lift, 4)
 
 
 # A caption sits in the bottom strip of the frame, so an overlay parked in a
