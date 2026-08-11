@@ -243,6 +243,13 @@ music:                            # D48 — how music is SHAPED
   produced count against the range.
 - `allowed_components` is both a planner menu filter and a validate rule
   (belt and suspenders).
+- `overlays.emphasis` (D59) opens a second overlay class, keyed on where
+  attention needs a lift instead of on a fact in the script, with its own
+  `per_minute` ceiling. Off by default: `density` above is anchor-gated, so it
+  tracks factual density — right for a documentary, limiting for a channel
+  whose best reason to put something on screen is "this is the line the video
+  exists for". The budgets are separate so the new class cannot crowd out the
+  old one, and the prompt mentions it only when a pack turns it on.
 - Video-type presets (doc / explainer / breakdown / listicle) are just
   named style packs with different numbers. Initial numbers per type:
   OQ-12 (needs your taste, not a technical decision).

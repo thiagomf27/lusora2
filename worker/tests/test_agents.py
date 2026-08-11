@@ -554,3 +554,18 @@ def test_the_planner_can_open_cold_and_close_on_a_card(tmp_path):
     assert spans[0] == ("b1", 0.0, 4.5), "the cold open holds before the first word"
     assert plan["tracks"]["audio"]["voiceover"]["start_s"] == 4.5
     assert spans[-1][0] == "b4" and spans[-1][2] - spans[-1][1] == 5.0
+
+
+def test_emphasis_overlays_are_invisible_until_a_pack_enables_them(tmp_path):
+    """D59's whole promise: with the class off, the composed prompt is
+    byte-identical to what it was before the class existed."""
+    off = make_ctx(tmp_path)
+    baseline = planner._build_prompt(off, SCRIPT, 60.0)
+    assert "emphasis" not in baseline[1]
+
+    cfg = json.loads(json.dumps(CFG))
+    cfg["style_pack_doc"]["overlays"]["emphasis"] = {"enabled": True, "per_minute": 1.5}
+    on = planner._build_prompt(make_ctx(tmp_path, cfg), SCRIPT, 60.0)
+    assert on[0] == baseline[0], "the system half is untouched either way"
+    assert '"emphasis": true' in on[1]
+    assert "1.5 per minute" in on[1], "the budget is a number from the pack, not prose"

@@ -26,6 +26,9 @@ export interface BeatOverlay {
   component: string;
   anchor_ref?: number;
   props_hint?: Record<string, unknown>;
+  /** v1.1 (D59): lifts a moment rather than carrying a fact; counted under its
+   *  own density budget, and only allowed when the style pack enables it. */
+  emphasis?: boolean;
 }
 
 /**

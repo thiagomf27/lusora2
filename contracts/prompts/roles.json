@@ -38,7 +38,8 @@
         "chunk_position": { "required": false, "source": "e.g. 'part 2 of 5'; set only when this call is one of several chunks" },
         "max_overlays": { "required": false, "source": "derived: this chunk's slack-free share of the whole-video overlay density budget; set only when chunked" },
         "spine": { "required": false, "source": "the spine pass's arc + section summaries, with THIS section marked; set only when chunked" },
-        "visual_ledger": { "required": false, "source": "visual subjects already used by earlier sections, so the video does not shoot the same image twice; set only when chunked" }
+        "visual_ledger": { "required": false, "source": "visual subjects already used by earlier sections, so the video does not shoot the same image twice; set only when chunked" },
+        "emphasis_per_minute": { "required": false, "source": "style_pack.overlays.emphasis.per_minute, and only when that class is enabled (D59) — empty otherwise, which is what keeps the prompt byte-identical for a pack that does not use it" }
       }
     },
     "spine": {

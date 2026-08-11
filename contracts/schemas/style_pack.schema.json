@@ -55,6 +55,20 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "planner menu filter AND validate rule (belt and suspenders)"
+        },
+        "emphasis": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "D59 — a SECOND overlay class, keyed on where attention needs a lift rather than on a fact in the script. Off by default: `density` above is anchor-gated, so it tracks factual density, which is right for a documentary and limiting for a faster channel. The two classes are counted under separate budgets, so turning this on cannot dilute the first.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "per_minute": {
+              "type": "number",
+              "minimum": 0,
+              "default": 1,
+              "description": "ceiling for emphasis overlays alone, per minute of narration"
+            }
+          }
         }
       }
     },

@@ -84,6 +84,13 @@ emphasize). Everything computable (timings) or identity-bound
   lands depends on how long the real audio turned out to be, which is
   arithmetic over the TTS, not something a planner can know (Principle 3).
   (Music-bar-relative beats: deferred, OQ-8.)
+- `overlay.emphasis` (v1.1, D59) — marks the overlay as the SECOND class: it
+  lifts a moment rather than carrying a fact, so it references no anchor and
+  must be a pure-text component. Rejected unless the style pack enables it
+  (`overlays.emphasis`), and counted under its own `per_minute` ceiling, never
+  against `overlays.density`. Sharing one budget would let emphasis crowd out
+  the anchor overlays, which is the discipline that makes the first class
+  worth trusting.
 - `anchors` — structured facts detected in the span (percentage, number,
   comparison, place, date, name). **An overlay may only reference an
   anchor** (`anchor_ref`) or carry pure text (`KineticTitle`); this is what

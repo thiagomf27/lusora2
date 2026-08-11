@@ -109,6 +109,11 @@
         "props_hint": {
           "type": "object",
           "description": "partial props; the compiler fills the rest from the anchor + defaults"
+        },
+        "emphasis": {
+          "type": "boolean",
+          "default": false,
+          "description": "v1.1 (D59): this overlay is here to LIFT a moment, not to carry a fact — it answers salience rather than an anchor. A second, separately rate-limited class, off unless the style pack enables it (overlays.emphasis), so a channel whose discipline comes from anchor-gating is untouched."
         }
       }
     },

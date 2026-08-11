@@ -83,6 +83,14 @@ def overlays_per_minute(style: dict[str, Any]) -> float:
     return {"low": 1.0, "normal": 2.5, "high": 5.0}.get(str(density), 2.5)
 
 
+def emphasis_policy(style: dict[str, Any]) -> tuple[bool, float]:
+    """(enabled, per_minute) for the emphasis overlay class (D59). Off unless
+    the style pack says otherwise, so a pack written before it existed behaves
+    exactly as it did."""
+    emphasis = (style.get("overlays") or {}).get("emphasis") or {}
+    return bool(emphasis.get("enabled", False)), float(emphasis.get("per_minute", 1.0))
+
+
 def max_overlays_for(style: dict[str, Any], duration_s: float) -> int:
     """The overlay ceiling for `duration_s` of narration: the density budget
     plus one, so a single judgement call never fails a whole sheet.
@@ -176,12 +184,17 @@ def validate_beat_sheet(
 
     # overlays: catalog existence + allowed_components + anchor types
     allowed = (style.get("overlays") or {}).get("allowed_components")
+    emphasis_enabled, emphasis_per_minute = emphasis_policy(style)
     overlay_count = 0
+    emphasis_count = 0
     for b in beats:
         overlay = b.get("overlay")
         if not overlay:
             continue
-        overlay_count += 1
+        if overlay.get("emphasis"):
+            emphasis_count += 1
+        else:
+            overlay_count += 1
         name = str(overlay.get("component", ""))
         entry = lusora_contracts.catalog_component(name)
         if entry is None:
@@ -191,6 +204,19 @@ def validate_beat_sheet(
             violations.append(
                 f"beat {b.get('id')}: component '{name}' not in style pack allowed_components {allowed}"
             )
+        if overlay.get("emphasis"):
+            if not emphasis_enabled:
+                violations.append(
+                    f"beat {b.get('id')}: overlay is marked emphasis, which this style pack does not "
+                    "use — drop the flag and attach the overlay to an anchor in this beat, or leave "
+                    "the beat without an overlay"
+                )
+            elif entry["anchor_types"]:
+                violations.append(
+                    f"beat {b.get('id')}: '{name}' carries a fact (anchor types {entry['anchor_types']}) "
+                    "and cannot be an emphasis overlay — emphasis lifts a moment, so use a pure-text "
+                    "component, or drop the emphasis flag and reference an anchor"
+                )
         # props_hint must contain VALUES (the spec-echo failure is common)
         for pname, pvalue in (overlay.get("props_hint") or {}).items():
             spec = entry["props"].get(pname)
@@ -227,12 +253,25 @@ def validate_beat_sheet(
                 f"{len(narration)} narration beats for {expected_duration_s:.0f}s narration is outside "
                 f"the pacing range [{lo}, {hi}] (avg_hold {pacing['avg_hold_seconds']}s)"
             )
+        # The two classes are counted under SEPARATE budgets (D59): emphasis
+        # exists because anchor-gated density tracks factual density, and
+        # letting it spend the same budget would just dilute the first class.
         density = (style.get("overlays") or {}).get("density", "normal")
         max_overlays = max_overlays_for(style, expected_duration_s)
         if overlay_count > max_overlays:
             violations.append(
+                f"{overlay_count} anchor overlays exceed density '{density}' "
+                f"(max {max_overlays} for {expected_duration_s:.0f}s)"
+                if emphasis_enabled else
                 f"{overlay_count} overlays exceed density '{density}' (max {max_overlays} for {expected_duration_s:.0f}s)"
             )
+        if emphasis_enabled:
+            max_emphasis = math.ceil(emphasis_per_minute * expected_duration_s / 60) + 1
+            if emphasis_count > max_emphasis:
+                violations.append(
+                    f"{emphasis_count} emphasis overlays exceed overlays.emphasis.per_minute "
+                    f"{emphasis_per_minute:g} (max {max_emphasis} for {expected_duration_s:.0f}s)"
+                )
 
     # timed beats: a cold open before the narration, an outro after it (D58).
     # The compiler decides which is which — a beat contiguous with the run from

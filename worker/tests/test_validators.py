@@ -188,3 +188,77 @@ def test_overlapping_timed_beats_are_rejected():
     )
     violations = validate_beat_sheet(sheet, SCRIPT, CFG, 10.0)
     assert any("overlap" in v and "b0" in v and "b9" in v for v in violations)
+
+
+# ---------------- the emphasis overlay class (D59) ----------------
+
+
+EMPHASIS_CFG = {
+    "style_pack_doc": {
+        **CFG["style_pack_doc"],
+        "overlays": {
+            **CFG["style_pack_doc"]["overlays"],
+            "allowed_components": ["AnimatedCounter", "KineticTitle", "HammerStatement"],
+            "emphasis": {"enabled": True, "per_minute": 1.0},
+        },
+    }
+}
+
+
+def sheet_with_emphasis(count=1):
+    sheet = good_sheet()
+    sheet["version"] = "1.1"
+    sheet["beats"][1]["overlay"] = {
+        "component": "HammerStatement",
+        "props_hint": {"text": "They came from everywhere"},
+        "emphasis": True,
+    }
+    return sheet
+
+
+def test_with_the_flag_off_an_emphasis_overlay_is_repairably_rejected():
+    off = {"style_pack_doc": {**EMPHASIS_CFG["style_pack_doc"],
+                              "overlays": {**EMPHASIS_CFG["style_pack_doc"]["overlays"],
+                                           "emphasis": {"enabled": False}}}}
+    violations = validate_beat_sheet(sheet_with_emphasis(), SCRIPT, off, 10.0)
+    assert len(violations) == 1
+    assert "this style pack does not use" in violations[0]
+    assert "drop the flag" in violations[0], "the repair prompt must say what to do"
+
+
+def test_with_the_flag_on_it_passes():
+    assert validate_beat_sheet(sheet_with_emphasis(), SCRIPT, EMPHASIS_CFG, 10.0) == []
+
+
+def test_the_two_classes_are_counted_under_separate_budgets():
+    """An anchor overlay and an emphasis overlay in a 30s video: each is inside
+    its own budget, and neither eats the other's."""
+    sheet = sheet_with_emphasis()
+    assert validate_beat_sheet(sheet, SCRIPT, EMPHASIS_CFG, 10.0) == []
+
+    # the emphasis budget ALONE is what an excess of emphasis overlays breaks:
+    # a pack that allows almost none still allows its anchor overlays
+    stingy = {"style_pack_doc": {**EMPHASIS_CFG["style_pack_doc"],
+                                 "overlays": {**EMPHASIS_CFG["style_pack_doc"]["overlays"],
+                                              "emphasis": {"enabled": True, "per_minute": 0}}}}
+    many = {"version": "1.1", "video_id": "vid_t", "beats": [
+        {**b, "overlay": {"component": "HammerStatement",
+                          "props_hint": {"text": "A line worth landing"}, "emphasis": True}}
+        for b in good_sheet()["beats"]
+    ]}
+    violations = validate_beat_sheet(many, SCRIPT, stingy, 10.0)
+    assert any("emphasis overlays exceed" in v for v in violations)
+    assert not any("anchor overlays exceed" in v for v in violations)
+
+
+def test_an_anchor_component_cannot_be_an_emphasis_overlay():
+    sheet = good_sheet()
+    sheet["beats"][0]["overlay"]["emphasis"] = True  # AnimatedCounter carries a number
+    violations = validate_beat_sheet(sheet, SCRIPT, EMPHASIS_CFG, 10.0)
+    assert any("carries a fact" in v for v in violations)
+
+
+def test_the_flag_off_is_byte_identical_to_before():
+    """Nothing about a sheet that never mentions emphasis changes."""
+    assert validate_beat_sheet(good_sheet(), SCRIPT, CFG, 10.0) == []
+    assert validate_beat_sheet(good_sheet(), SCRIPT, EMPHASIS_CFG, 10.0) == []

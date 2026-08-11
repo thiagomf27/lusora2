@@ -268,12 +268,17 @@ def _build_prompt(
     spine: str = "",
     visual_ledger: str = "",
 ) -> tuple[str, str]:
+    """The emphasis budget (D59) is read here rather than passed in: it is a
+    property of the style pack, the same for every chunk, and empty unless the
+    pack enables the class — which is what keeps the composed prompt
+    byte-identical for a pack that does not use it."""
     style = ctx.cfg.get("style_pack_doc") or {}
     pacing = style.get("pacing") or {}
     overlays = style.get("overlays") or {}
     allowed = overlays.get("allowed_components")
     avg_hold = float(pacing.get("avg_hold_seconds", 4.0))
     density = overlays.get("density", "normal")
+    emphasis_enabled, emphasis_per_minute = validators.emphasis_policy(style)
 
     return prompt_packs.compose(
         ROLE,
@@ -299,6 +304,7 @@ def _build_prompt(
             "max_overlays": max_overlays,
             "spine": spine,
             "visual_ledger": visual_ledger,
+            "emphasis_per_minute": emphasis_per_minute if emphasis_enabled else "",
         },
     )
 
