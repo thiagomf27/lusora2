@@ -37,7 +37,10 @@ class SourceAdapter(Protocol):
     #: industrial district, smokestacks…" and Pexels for "factory 1940s".
     query_kind: str
 
-    def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None: ...
+    def resolve(
+        self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None: ...
 
 
 # Words that carry no visual weight, so dropping them leaves the subject
@@ -84,7 +87,10 @@ class LibraryAdapter:
         by_name = {norm(r.get("normalized_name") or r.get("name", "")): str(r["id"]) for r in rows}
         return [by_name[norm(n)] for n in names if norm(n) in by_name]
 
-    def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None:
+    def resolve(
+        self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None:
         base = (ctx.config.library_api_url if ctx.config else os.environ.get("LIBRARY_API_URL", "")).rstrip("/")
         if not base:
             ctx.db.provider_health("library", False, "LIBRARY_API_URL not set")
@@ -120,37 +126,64 @@ class LibraryAdapter:
             return None
 
         min_score = float(source_cfg.get("min_score", 0.0))
-        best = results[0] if results else None
-        if not best or float(best.get("score", 0)) < min_score:
-            return None  # honest fallthrough — the library always returns *something*
+        # Walk the ranked results rather than taking the first: a segment this
+        # video has already used is worse than the next one down, however much
+        # better it scores (D54).
+        for best in results:
+            if float(best.get("score", 0)) < min_score:
+                break  # ranked, so everything after is worse — honest fallthrough
+            seg_id = str(best.get("id"))
+            if ledger is not None and ledger.blocked("library", None, seg_id):
+                continue
+            is_video = best.get("media_type") == "video_clip"
+            ext = "mp4" if is_video else "jpg"
+            out_rel = f"clips/{item['id']}.{ext}"
+            try:
+                with httpx.stream("GET", f"{base}/clips/{seg_id}", timeout=180) as clip:
+                    clip.raise_for_status()
+                    with open(ctx.folder / out_rel, "wb") as f:
+                        for chunk in clip.iter_bytes():
+                            f.write(chunk)
+            except httpx.HTTPError as e:
+                ctx.db.provider_health("library", False, f"acquire failed for {seg_id}: {e}")
+                return None
+            if _too_similar(ctx, ledger, ctx.folder / out_rel, f"library segment {seg_id}"):
+                continue
+            try:
+                httpx.post(
+                    f"{base}/segments/{seg_id}/mark_used",
+                    json={"project_id": ctx.video_id,
+                          "channel_id": lib_channel[0] if lib_channel else ctx.channel_id},
+                    timeout=30,
+                )
+            except httpx.HTTPError as e:
+                ctx.db.provider_health("library", False, f"mark_used failed for {seg_id}: {e}")
 
-        seg_id = str(best.get("id"))
-        is_video = best.get("media_type") == "video_clip"
-        ext = "mp4" if is_video else "jpg"
-        out_rel = f"clips/{item['id']}.{ext}"
-        try:
-            with httpx.stream("GET", f"{base}/clips/{seg_id}", timeout=180) as clip:
-                clip.raise_for_status()
-                with open(ctx.folder / out_rel, "wb") as f:
-                    for chunk in clip.iter_bytes():
-                        f.write(chunk)
-            httpx.post(
-                f"{base}/segments/{seg_id}/mark_used",
-                json={"project_id": ctx.video_id,
-                      "channel_id": lib_channel[0] if lib_channel else ctx.channel_id},
-                timeout=30,
+            ctx.db.provider_health("library", True)
+            return Resolution(
+                source="library", id=seg_id, provider=None,
+                license=best.get("license"), path=out_rel,
+                score=float(best.get("score", 0)), query=query[:200],
+                media_type="video" if is_video else "image",
             )
-        except httpx.HTTPError as e:
-            ctx.db.provider_health("library", False, f"acquire failed for {seg_id}: {e}")
-            return None
+        return None
 
-        ctx.db.provider_health("library", True)
-        return Resolution(
-            source="library", id=seg_id, provider=None,
-            license=best.get("license"), path=out_rel,
-            score=float(best.get("score", 0)), query=query[:200],
-            media_type="video" if is_video else "image",
-        )
+
+def _too_similar(ctx: StageContext, ledger: "Ledger | None", path: Any, what: str) -> bool:
+    """Reject a downloaded file that looks like one already on screen.
+
+    Runs after the download because a perceptual hash needs the pixels; the
+    cost is one wasted fetch on a repeat, against a video that visibly reuses a
+    shot. Off unless the channel sets a distance."""
+    if ledger is None or ledger.min_distance <= 0:
+        return False
+    distance = ledger.too_similar(perceptual_hash(path))
+    if distance is None:
+        return False
+    ctx.db.event(ctx.video_id, STAGE, "progress",
+                 f"skipped {what}: {distance} bits from a shot already used "
+                 f"(min_hamming_distance {ledger.min_distance})")
+    return True
 
 
 # ---------------- stock (pexels, cached searches) ----------------
@@ -163,7 +196,10 @@ class PexelsAdapter:
     # man at a desk: every content word missed, "view" and "of" hit.
     query_kind = "keyword"
 
-    def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None:
+    def resolve(
+        self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None:
         api_key = os.environ.get("PEXELS_API_KEY")
         if not api_key:
             ctx.db.provider_health("stock.pexels", False, "PEXELS_API_KEY not set")
@@ -195,40 +231,39 @@ class PexelsAdapter:
                 ctx.db.provider_health("stock.pexels", False, f"search failed: {e}")
                 return None
 
-        try:
-            if want_video:
-                hits = data.get("videos") or []
-                if not hits:
-                    return None
-                files = sorted(hits[0]["video_files"], key=lambda f: f.get("width") or 0, reverse=True)
-                dl_url = files[0]["link"]
-                asset_id = str(hits[0]["id"])
-                ext = "mp4"
-            else:
-                hits = data.get("photos") or []
-                if not hits:
-                    return None
-                dl_url = hits[0]["src"]["large2x"]
-                asset_id = str(hits[0]["id"])
-                ext = "jpg"
-            out_rel = f"clips/{item['id']}.{ext}"
-            with httpx.stream("GET", dl_url, timeout=180, follow_redirects=True) as resp:
-                resp.raise_for_status()
-                with open(ctx.folder / out_rel, "wb") as f:
-                    for chunk in resp.iter_bytes():
-                        f.write(chunk)
-        except (httpx.HTTPError, KeyError, IndexError) as e:
-            ctx.db.provider_health("stock.pexels", False, f"download failed: {e}")
-            return None
+        hits = (data.get("videos") if want_video else data.get("photos")) or []
+        ext = "mp4" if want_video else "jpg"
+        out_rel = f"clips/{item['id']}.{ext}"
+        for hit in hits:
+            asset_id = str(hit.get("id"))
+            if ledger is not None and ledger.blocked("stock", "pexels", asset_id):
+                continue
+            try:
+                if want_video:
+                    files = sorted(hit["video_files"], key=lambda f: f.get("width") or 0, reverse=True)
+                    dl_url = files[0]["link"]
+                else:
+                    dl_url = hit["src"]["large2x"]
+                with httpx.stream("GET", dl_url, timeout=180, follow_redirects=True) as resp:
+                    resp.raise_for_status()
+                    with open(ctx.folder / out_rel, "wb") as f:
+                        for chunk in resp.iter_bytes():
+                            f.write(chunk)
+            except (httpx.HTTPError, KeyError, IndexError) as e:
+                ctx.db.provider_health("stock.pexels", False, f"download failed: {e}")
+                return None
 
-        if ext == "mp4":
-            normalize_video(ctx, ctx.folder / out_rel)
-        ctx.db.provider_health("stock.pexels", True)
-        return Resolution(
-            source="stock", id=asset_id, provider="pexels", license="stock-licensed",
-            path=out_rel, score=None, query=query[:200],
-            media_type="video" if ext == "mp4" else "image",
-        )
+            if want_video:
+                normalize_video(ctx, ctx.folder / out_rel)
+            if _too_similar(ctx, ledger, ctx.folder / out_rel, f"pexels {asset_id}"):
+                continue
+            ctx.db.provider_health("stock.pexels", True)
+            return Resolution(
+                source="stock", id=asset_id, provider="pexels", license="stock-licensed",
+                path=out_rel, score=None, query=query[:200],
+                media_type="video" if want_video else "image",
+            )
+        return None
 
 
 def normalize_video(ctx: StageContext, path) -> None:
@@ -272,7 +307,10 @@ class AiImageAdapter:
     # A generator wants the whole description; it is a prompt, not a search.
     query_kind = "semantic"
 
-    def resolve(self, ctx: StageContext, item: dict, query: str, source_cfg: dict) -> Resolution | None:
+    def resolve(
+        self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None:
         provider = str(source_cfg.get("provider") or "mock")
         style = str(source_cfg.get("style") or "")
         prompt = f"{query}. {style}".strip()
@@ -339,6 +377,117 @@ ADAPTERS: dict[str, SourceAdapter] = {
 }
 
 
+# ---------------- the used-asset ledger (D54) ----------------
+
+
+def perceptual_hash(path: Any) -> int | None:
+    """A 64-bit dHash of one frame, or None when it cannot be computed.
+
+    Difference hash: scale to 9x8 grey, then one bit per horizontal neighbour
+    pair. It survives re-encoding, letterboxing and colour grading — which is
+    exactly the case that matters, two stock clips of the same drone pass sold
+    by two contributors — and it is arithmetic, so the same file always hashes
+    the same way. Video is sampled one second in, past the fades most clips
+    open with.
+
+    Never raises: a hash that cannot be computed is a missing OPINION about
+    similarity, not a reason to fail a video.
+    """
+    import subprocess
+
+    proc = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", "1", "-i", str(path),
+         "-vf", "scale=9:8,format=gray", "-frames:v", "1", "-f", "rawvideo", "-"],
+        capture_output=True,
+    )
+    pixels = proc.stdout
+    if len(pixels) < 72:  # no frame a second in (a short clip or a still)
+        proc = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(path),
+             "-vf", "scale=9:8,format=gray", "-frames:v", "1", "-f", "rawvideo", "-"],
+            capture_output=True,
+        )
+        pixels = proc.stdout
+    if len(pixels) < 72:
+        return None
+    bits = 0
+    for row in range(8):
+        for col in range(8):
+            left = pixels[row * 9 + col]
+            right = pixels[row * 9 + col + 1]
+            bits = (bits << 1) | int(left > right)
+    return bits
+
+
+class Ledger:
+    """What this video has already put on screen.
+
+    Per-beat resolution is independent by design (D12 is a chain per item), and
+    that independence is what makes two adjacent beats about the same subject
+    fetch the same clip — or, worse, the same library segment three times in
+    eight minutes, which reads as a mistake rather than as a motif.
+
+    Rebuilt from the plan rather than kept in a file of its own: the plan
+    already records every resolved asset's provenance, so a worker killed
+    mid-stage resumes with the ledger it had, and the folder stays the data
+    plane of record (Principle 1).
+    """
+
+    def __init__(self, cfg: dict[str, Any] | None = None) -> None:
+        dedup = (((cfg or {}).get("source_policy") or {}).get("visual") or {}).get("dedup") or {}
+        # 0 = the whole video: a segment id is spent once, which is the
+        # behaviour anyone would expect and the reason the default is not a
+        # small window.
+        self.window = int(dedup.get("reuse_window_items", 0) or 0)
+        # 0 = off. Hamming distance between two 64-bit dHashes; ~6 catches the
+        # same footage re-encoded or re-graded without catching two different
+        # shots of the same subject.
+        self.min_distance = int(dedup.get("min_hamming_distance", 0) or 0)
+        self.entries: list[tuple[str, int | None]] = []
+
+    @classmethod
+    def from_plan(cls, plan: dict[str, Any], folder: Any, cfg: dict[str, Any] | None = None) -> "Ledger":
+        ledger = cls(cfg)
+        for item in plan["tracks"]["visual"]:
+            asset = item.get("asset") or {}
+            path = str(asset.get("path") or "")
+            if not path:
+                continue
+            ledger.remember(asset, folder / path if ledger.min_distance else None)
+        return ledger
+
+    @staticmethod
+    def key(asset: dict[str, Any]) -> str:
+        return f"{asset.get('source')}:{asset.get('provider') or ''}:{asset.get('id') or ''}"
+
+    def _recent(self) -> list[tuple[str, int | None]]:
+        return self.entries if self.window <= 0 else self.entries[-self.window :]
+
+    def blocked(self, source: str, provider: str | None, asset_id: str | None) -> bool:
+        """This exact asset is already on screen, recently enough to notice."""
+        if not asset_id:
+            return False  # a generated image has no id and is never a repeat
+        key = f"{source}:{provider or ''}:{asset_id}"
+        return any(k == key for k, _h in self._recent())
+
+    def too_similar(self, digest: int | None) -> int | None:
+        """The closest recent hash within min_distance, or None if it is new
+        enough. Returns the distance so the caller can say WHY in a log line."""
+        if digest is None or self.min_distance <= 0:
+            return None
+        for _key, other in reversed(self._recent()):
+            if other is None:
+                continue
+            distance = bin(digest ^ other).count("1")
+            if distance < self.min_distance:
+                return distance
+        return None
+
+    def remember(self, asset: dict[str, Any], path: Any = None) -> None:
+        digest = perceptual_hash(path) if path is not None else None
+        self.entries.append((self.key(asset), digest))
+
+
 def _queries_for(adapter: SourceAdapter, intent: str, queries: list[str] | None) -> list[str]:
     """What this source should be asked, in order of preference.
 
@@ -357,19 +506,21 @@ def resolve_item(
     query: str,
     chain: list[dict],
     queries: list[str] | None = None,
+    ledger: Ledger | None = None,
 ) -> bool:
     """Walk the chain in order, stop at the first acceptable asset.
     Returns False only when the chain is exhausted (caller fails loud).
 
     `query` is the beat's visual_intent; `queries` its optional keyword
-    alternates (beat sheet v1.1)."""
+    alternates (beat sheet v1.1); `ledger` is what this video has already put
+    on screen (D54)."""
     for source_cfg in chain:
         adapter = ADAPTERS.get(str(source_cfg.get("source")))
         if adapter is None:
             continue
         resolution = None
         for candidate in _queries_for(adapter, query, queries):
-            resolution = adapter.resolve(ctx, item, candidate, source_cfg)
+            resolution = _call_adapter(adapter, ctx, item, candidate, source_cfg, ledger)
             if resolution is not None:
                 break
         if resolution is None:
@@ -387,5 +538,19 @@ def resolve_item(
             str(resolution["source"]), resolution.get("id"),
             resolution.get("license"), resolution.get("provider"),
         )
+        if ledger is not None:
+            ledger.remember(item["asset"], ctx.folder / str(item["asset"]["path"]))
         return True
     return False
+
+
+def _call_adapter(
+    adapter: SourceAdapter, ctx: StageContext, item: dict, query: str,
+    source_cfg: dict, ledger: Ledger | None,
+) -> Resolution | None:
+    """Adapters take the ledger; a hand-written or third-party one written
+    against the pre-D54 signature keeps working without it."""
+    try:
+        return adapter.resolve(ctx, item, query, source_cfg, ledger)
+    except TypeError:
+        return adapter.resolve(ctx, item, query, source_cfg)

@@ -38,6 +38,9 @@ source_policy:
         style: "archival photo, desaturated, film grain"
     max_clip_seconds: 12
     orientation: landscape
+    dedup:                            # D54 — the same shot twice in one video
+      reuse_window_items: 0           # 0 = a segment is spent for the whole video
+      min_hamming_distance: 6         # near-duplicate frames; 0 = off (default)
   sound_pack: doc-restrained          # optional; overrides theme.sound.pack
   music:
     enabled: true                     # master switch for this channel
@@ -55,6 +58,16 @@ source_policy:
   library always returns *something*).
 - Every library filter maps 1:1 to a `library_search` parameter — the
   policy is stored arguments, not a query language.
+- `visual.dedup` (D54) is what keeps one video from showing the same thing
+  twice. Beat resolution is independent per item, so nothing else stops two
+  adjacent beats about the same subject from fetching the same clip. A source
+  now walks its RANKED results and skips an asset id this video already used
+  within `reuse_window_items` (0 = the whole video; a small window suits a thin
+  library, where a callback four minutes later reads as a motif). Skipping is
+  not failing: a used segment loses to the next result down, but still beats
+  falling through to a worse source. `min_hamming_distance` adds a perceptual
+  check on one frame — off by default, since it costs a wasted download per
+  rejection — for the case ids cannot catch: the same drone pass sold twice.
 - `music.enabled` / `sfx.enabled` are the **master switches for sound**
   (D48): with either false, nothing is produced for it whatever the theme
   and style pack say, and `resolve_audio` no-ops. Both default TRUE. Like

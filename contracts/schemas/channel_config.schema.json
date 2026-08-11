@@ -143,7 +143,27 @@
               "description": "order = preference; omission = forbidden; replaced wholesale by overrides"
             },
             "max_clip_seconds": { "type": "number", "exclusiveMinimum": 0, "default": 12 },
-            "orientation": { "enum": ["landscape", "portrait", "square"], "default": "landscape" }
+            "orientation": { "enum": ["landscape", "portrait", "square"], "default": "landscape" },
+            "dedup": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "D54 — how hard this channel works to avoid showing the same thing twice in one video. Per-beat resolution is independent by design, which is what lets two adjacent beats about the same subject fetch the same clip.",
+              "properties": {
+                "reuse_window_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "how many recent visual items an exact asset id stays blocked for. 0 = the whole video: a segment is spent once. A small number suits a channel with a thin library, where a callback after four minutes reads as a motif rather than as a mistake."
+                },
+                "min_hamming_distance": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64,
+                  "default": 0,
+                  "description": "near-duplicate threshold on a 64-bit perceptual hash of one frame: a candidate closer than this to a shot already used is skipped. 0 = off (the default, since the check costs one wasted download per repeat); ~6 catches the same footage re-encoded or re-graded, without catching two different shots of the same subject."
+                }
+              }
+            }
           }
         },
         "sound_pack": {

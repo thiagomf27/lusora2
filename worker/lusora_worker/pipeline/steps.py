@@ -281,6 +281,9 @@ def run_resolve_assets(ctx: StageContext) -> None:
         raise StageError("resolve_assets", "source_policy.visual.chain is empty — nothing can be sourced")
 
     (ctx.folder / "clips").mkdir(exist_ok=True)
+    # What this video has already put on screen (D54). Rebuilt from the plan,
+    # so a worker killed mid-stage resumes with the ledger it had.
+    ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
     changed = False
     for item in plan["tracks"]["visual"]:
         path = str(item["asset"].get("path", ""))
@@ -290,7 +293,7 @@ def run_resolve_assets(ctx: StageContext) -> None:
         query = str((beat or {}).get("visual_intent") or ctx.video.get("title") or "establishing shot")
         # v1.1 (D53): keyword sources get these instead of the scout sentence
         queries = [str(q) for q in ((beat or {}).get("queries") or [])]
-        resolved = sources.resolve_item(ctx, item, query, chain, queries)
+        resolved = sources.resolve_item(ctx, item, query, chain, queries, ledger)
         if not resolved:
             raise StageError(
                 "resolve_assets",
