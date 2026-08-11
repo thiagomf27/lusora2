@@ -17,7 +17,7 @@ all depend on.
 | # | Prompt | Composed in | Prompt text | Provider (default) | Budget | Output must be | Validated by |
 |---|---|---|---|---|---|---|---|
 | 1 | Script agent | `worker/lusora_worker/agents/script.py` | `prompts/script/` + `welded/script.system.txt` | `channel.script.llm` → `deepseek` | 8000 tok (prompt may raise), temp 0.7 | plain narration text | **nothing** (gap) |
-| 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 16000 tok, ≤3 attempts | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
+| 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
 | 3 | Editor chat | `platform/src/lib/chatAgent.ts` | `prompts/chat/` + `welded/chat.{system,user}.txt` | `deepseek-v4-flash`, `anthropic` fallback | 12000 tok, one shot | `{explanation, beat_ops, plan_ops}` | `beatEdit`/`planEdit` + `validateBeats` in the chat route |
 | 4 | Library coarse | `library/broll-lib-maker/broll/tagging.py` | `_COARSE_SYSTEM` (in code) | GLM-4.6V (z.ai or local vLLM) | 500 tok | `{score, rough_ranges}` | clamping parser |
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
@@ -119,9 +119,11 @@ user turn. There is:
 - `temperature=0.7` fixed for every caller, including the strict-JSON
   ones;
 - no retry/backoff on 429/5xx;
-- `finish_reason == "length"` → actionable `StageError` (reasoning models
-  spend 4–9k tokens before the JSON starts — that is why the planner
-  budget is 16000).
+- `finish_reason == "length"` → actionable `StageError`; see
+  [Tokens & Pricing](../08-tokens-and-pricing.md) for how to raise a
+  budget (reasoning models spend 4–16k tokens before the JSON starts —
+  measured, and unbounded by the prompt — which is why the planner
+  budget is 64000).
 
 Any prompt improvement that needs JSON mode, prefill or real few-shot
 turns requires this adapter to change first.

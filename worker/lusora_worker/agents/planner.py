@@ -179,7 +179,7 @@ def _plan_chunk(
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     provider = str(planner_cfg.get("llm") or "deepseek")
     model = planner_cfg.get("model") or (prompt or {}).get("model_hint")
-    # 32k, not 16k: reasoning is billed out of max_tokens and its length is not
+    # 64k, not 16k: reasoning is billed out of max_tokens and its length is not
     # bounded by the prompt — a run that had been costing 4-9k spent 15.8k
     # thinking and truncated mid-JSON with 16k. The unused budget is free
     # (billing is on actual tokens), so buy headroom rather than track the

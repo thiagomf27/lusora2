@@ -56,6 +56,11 @@ docker-compose.
   component, theme, style pack, sound pack or prompt pack, with the files
   to attach as models
 
+### 08 — Operations
+- [Tokens & Pricing](08-tokens-and-pricing.md) — every knob that decides
+  what a video costs: token budgets, the price table, the budget gate,
+  model selection ★ read before changing a `max_tokens` or a price
+
 ## Conventions
 
 - **Decided** — settled in the Decision Log; changing it requires a new entry.
