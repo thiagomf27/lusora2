@@ -1,0 +1,7 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. `start_sentence` is an INDEX into the numbered sentences you were given, never text from the script.
+2. The first section MUST start at 0, and the indices must strictly increase. Every sentence belongs to the section that starts at or before it, so the sections cover the whole script with no gaps and no overlap.
+3. Aim for {{section_count}} sections. Fewer is acceptable where the story genuinely has fewer movements; never more than twice that.
+4. `summary` is ONE line, at most 15 words, saying what that section does in the story — not what it is about.

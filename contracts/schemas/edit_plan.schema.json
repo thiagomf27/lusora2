@@ -128,7 +128,17 @@
         "motion": { "$ref": "#/$defs/motion" },
         "transition_out": { "$ref": "#/$defs/transition" },
         "mute": { "type": "boolean", "default": true },
-        "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "playback rate multiplier for video assets; 1.0 = normal speed (Remotion path only — ffmpeg profile rejects speed != 1)" }
+        "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "description": "playback rate multiplier for video assets; 1.0 = normal speed (Remotion path only — ffmpeg profile rejects speed != 1)" },
+        "loop": {
+          "type": "boolean",
+          "default": false,
+          "description": "video assets only: repeat the source from its trim start for as long as the item holds, instead of freezing on the last frame when the footage runs out (D55). Both renderers honour it."
+        },
+        "absorbed_beat_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "beats whose aligned span was too short to hold on its own (style pack pacing.hold_floor_ratio) and which now play under THIS item's shot. Provenance only — an absorbed beat still owns its overlay and its mood; this is what tells the editor why beat b7 has no visual of its own."
+        }
       }
     },
     "overlayItem": {
@@ -175,7 +185,13 @@
         "end_s": { "type": "number", "exclusiveMinimum": 0 },
         "text": { "type": "string" },
         "in_effect": { "enum": ["fade", "pop", "slide_up", null], "default": null, "description": "per-item entrance animation (Remotion path only)" },
-        "out_effect": { "enum": ["fade", "pop", "slide_down", null], "default": null, "description": "per-item exit animation (Remotion path only)" }
+        "out_effect": { "enum": ["fade", "pop", "slide_down", null], "default": null, "description": "per-item exit animation (Remotion path only)" },
+        "bottom_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.9,
+          "description": "D56 — where this caption sits, as a gap from the bottom edge in fractions of frame height. Written by the compiler when a graphic occupies the caption band for this caption's span (from the catalog's `region`), so the decision is deterministic, visible in the plan and editable. Absent = the renderer's own resting position. Remotion only: the ffmpeg path burns one subtitle style for the whole video, and a plan with component overlays routes to Remotion anyway."
+        }
       }
     },
     "voiceoverItem": {

@@ -20,7 +20,19 @@
         "avg_hold_seconds": { "type": "number", "exclusiveMinimum": 0 },
         "min_hold": { "type": "number", "exclusiveMinimum": 0 },
         "max_hold": { "type": "number", "exclusiveMinimum": 0 },
-        "arc": { "enum": ["three_act", "linear", "listicle"], "default": "linear" }
+        "arc": { "enum": ["three_act", "linear", "listicle"], "default": "linear" },
+        "hold_floor_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "post-alignment per-beat FLOOR, as a multiple of min_hold. Narration beat durations are emergent from SRT alignment and never checked, so a beat can land at 0.8s and flash by; the compiler merges any visual slot below min_hold * this into its neighbour. 0 disables the pass — the schema default, so a video enqueued before this field existed re-runs byte-identically (Principle 7). The shipped packs set 1.0."
+        },
+        "hold_ceiling_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "post-alignment per-beat CEILING, as a multiple of max_hold. A slot holding one long sentence has no boundary to cut at and sits there dead; the compiler divides anything above max_hold * this into equal slots. 0 disables the pass (see hold_floor_ratio). The shipped packs set 1.5."
+        }
       }
     },
     "overlays": {
@@ -43,6 +55,20 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "planner menu filter AND validate rule (belt and suspenders)"
+        },
+        "emphasis": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "D59 — a SECOND overlay class, keyed on where attention needs a lift rather than on a fact in the script. Off by default: `density` above is anchor-gated, so it tracks factual density, which is right for a documentary and limiting for a faster channel. The two classes are counted under separate budgets, so turning this on cannot dilute the first.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "per_minute": {
+              "type": "number",
+              "minimum": 0,
+              "default": 1,
+              "description": "ceiling for emphasis overlays alone, per minute of narration"
+            }
+          }
         }
       }
     },
@@ -82,6 +108,22 @@
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]*$",
           "description": "prompt pack name carrying this pack's voice — layer 3 of the D44 resolution order"
+        }
+      }
+    },
+    "fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D55 — what to put on screen when the sources have nothing good enough (source_policy.visual.min_score_floor). A card that names the subject is honest; a clip that is nearly unrelated is a lie the viewer notices and cannot name. Absent = keep the weak asset, since a beat with nothing on it is worse than a beat with the wrong thing on it.",
+      "properties": {
+        "component": {
+          "type": "string",
+          "description": "catalog component drawn over a plain colour fill; it must be one this pack's allowed_components list would accept"
+        },
+        "text_prop": {
+          "type": "string",
+          "default": "title",
+          "description": "which prop takes the words, derived from the beat's own keyword query (v1.1) or its visual_intent"
         }
       }
     },

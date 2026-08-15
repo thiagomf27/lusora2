@@ -12,7 +12,7 @@ emphasize). Everything computable (timings) or identity-bound
 
 ```json
 {
-  "version": "1.0",
+  "version": "1.1",
   "video_id": "…",
   "beats": [
     {
@@ -20,6 +20,7 @@ emphasize). Everything computable (timings) or identity-bound
       "kind": "narration",
       "script_text": "By 1943, nearly 70% of the city's factories had been converted to produce aircraft parts.",
       "visual_intent": "aerial view of a 1940s industrial district, smokestacks, factory floor with workers assembling aircraft wings, archival grain",
+      "queries": ["1940s aircraft factory", "wartime assembly line", "factory workers 1940s"],
       "mood": "somber",
       "media_preference": "video",
       "anchors": [
@@ -48,16 +49,48 @@ emphasize). Everything computable (timings) or identity-bound
 - `kind: narration` — the default. `script_text` MUST be a verbatim
   contiguous span of the script; beats must cover the entire script in
   order without overlap (validator-enforced). Timing comes later from SRT
-  alignment — word-level, punctuation-insensitive, tolerant of a few
-  stray ASR-inserted words and of number-word/digit formatting
-  differences ("fifty" ↔ "50", "nineteen-fifties" ↔ "1950s"). The SRT
-  (Whisper transcript, hand-authored captions, or TTS timings) is a
-  TIMING source only — `script_text` stays the source of truth; a
-  genuine wording mismatch (wrong word, not just formatting) still fails
-  loud. See `compiler/core.py::_align_beats`.
-- `kind: timed` — for spans with no narration (cold opens, music-only
-  outros, montage inserts). Carries absolute `timing`. (Music-bar-relative
-  beats: deferred, OQ-8.)
+  alignment — word-level and tolerant of every way the same spoken words
+  get WRITTEN differently, because the SRT (Whisper transcript,
+  hand-authored captions, or TTS timings) is a TIMING source only and
+  `script_text` stays the source of truth. Tolerated (pt-BR and en, see
+  `compiler/textmatch.py`):
+
+  | script | narration | |
+  |---|---|---|
+  | punctuation, `*emphasis*` | anything | folded away |
+  | `Estêvão`, `café` | `Estevao`, `cafe` | diacritics folded |
+  | `state-of-the-art`, `guerra—a` | spaced words | dashes split |
+  | `1945` | `nineteen forty-five`, `mil novecentos e quarenta e cinco` | number runs |
+  | `20 mil`, `1.200`, `3.5`, `9:30` | `20,000`, `twelve hundred`, `três vírgula cinco` | number runs |
+  | `os anos 1950` | `os anos 50`, `nineteen-fifties` | decades |
+  | `Século XX`, `20th` | `século vinte`, `twentieth` | romans, ordinals |
+  | `50%`, `US$ 5`, `30 km` | `cinquenta por cento`, `cinco dólares`, `trinta quilômetros` | unit names |
+  | `Dr.`, `Sr.`, `vs.` | `doutor`, `senhor`, `versus` | abbreviations |
+  | — | up to 6 stray inserted/misheard words between matches | ASR noise |
+
+  A genuine divergence still fails loud: a different word, a different
+  NUMBER (`1945` vs `1946`), or a script word the audio never says.
+  Unhandled and by design: spelled-out acronyms (`ONU` read `O-N-U`),
+  multi-word expansions (`EUA` ↔ `Estados Unidos`), and languages other
+  than pt-BR/en, which need their own number tables.
+  See `compiler/core.py::_align_beats`.
+- `kind: timed` — for spans with no narration: a cold open before the
+  first word, a music-only outro after the last. Carries `timing` instead
+  of `script_text`. The compiler decides which is which (D58): the run of
+  timed beats that starts at 0 and stays contiguous is the cold open, and
+  the narration is pushed back behind it; everything after the first gap is
+  an outro, laid end to end after the last word. An outro's `timing`
+  therefore contributes its DURATION and its order — where it actually
+  lands depends on how long the real audio turned out to be, which is
+  arithmetic over the TTS, not something a planner can know (Principle 3).
+  (Music-bar-relative beats: deferred, OQ-8.)
+- `overlay.emphasis` (v1.1, D59) — marks the overlay as the SECOND class: it
+  lifts a moment rather than carrying a fact, so it references no anchor and
+  must be a pure-text component. Rejected unless the style pack enables it
+  (`overlays.emphasis`), and counted under its own `per_minute` ceiling, never
+  against `overlays.density`. Sharing one budget would let emphasis crowd out
+  the anchor overlays, which is the discipline that makes the first class
+  worth trusting.
 - `anchors` — structured facts detected in the span (percentage, number,
   comparison, place, date, name). **An overlay may only reference an
   anchor** (`anchor_ref`) or carry pure text (`KineticTitle`); this is what
@@ -67,7 +100,18 @@ emphasize). Everything computable (timings) or identity-bound
   tools resolve what LLMs get wrong (place name → lat/lng geocoding, date
   parsing).
 - `visual_intent` is written scout-style (concrete, visual, rankable by
-  vector search) — the planner prompt teaches this with examples.
+  vector search) — the planner prompt teaches this with examples. It is the
+  SEMANTIC query (the library embeds it) and the image-generation prompt.
+- `queries` (v1.1, D53) — 2–3 short KEYWORD searches for the same shot,
+  2–4 words each, subject first, most specific first. Stock libraries match
+  words, not meaning: handed the scout sentence above, Pexels returns
+  whatever shares its most common words. The resolver tries them in order
+  within a keyword source before falling through to the next source, since a
+  second phrasing of the right shot beats a worse source. Optional and
+  additive — a v1.0 sheet (or a hand-written one) resolves exactly as before,
+  with keywords derived from `visual_intent` by dropping noise words. The
+  validator rejects a query longer than 5 words, because a sentence pasted
+  in here is a valid document that searches exactly as badly as before.
 - `media_preference` (`video` | `image` | `any`) — hint for resolution
   ordering within the source policy.
 - `mood` — the beat's emotional register, and the ONLY thing the model
@@ -97,7 +141,9 @@ schema • full script coverage, ordered, non-overlapping • beat count
 within pacing-derived range (duration ÷ avg_hold ± tolerance) • every
 `script_text` found verbatim in script • every anchor's `source_words`
 found in its span • every overlay component in catalog and density within
-range • timed beats don't collide with narration timing envelope.
+range • every timed beat has a positive duration and none of them overlap
+each other (they cannot collide with the narration: the compiler places
+them around it).
 
 ## Editing semantics
 

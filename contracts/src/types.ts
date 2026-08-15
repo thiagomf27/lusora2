@@ -26,6 +26,9 @@ export interface BeatOverlay {
   component: string;
   anchor_ref?: number;
   props_hint?: Record<string, unknown>;
+  /** v1.1 (D59): lifts a moment rather than carrying a fact; counted under its
+   *  own density budget, and only allowed when the style pack enables it. */
+  emphasis?: boolean;
 }
 
 /**
@@ -51,7 +54,10 @@ export interface Beat {
   kind: "narration" | "timed";
   script_text?: string;
   timing?: { start_s: number; end_s: number };
+  /** Semantic search query + image-generation prompt. Keyword stock search uses `queries`. */
   visual_intent: string;
+  /** v1.1 (D53): 2-3 short keyword queries for word-matching stock libraries, tried in order. */
+  queries?: string[];
   /** A Mood in practice; typed loose because unknown values degrade, not fail. */
   mood?: string;
   media_preference?: "video" | "image" | "any";
@@ -68,7 +74,7 @@ export interface MusicSpan {
 }
 
 export interface BeatSheet {
-  version: "1.0";
+  version: "1.0" | "1.1";
   video_id: string;
   beats: Beat[];
   music?: MusicSpan[];
@@ -116,6 +122,13 @@ export interface VisualItem {
   mute?: boolean;
   /** Playback rate multiplier for video assets; 1.0 = normal (Remotion path only). */
   speed?: number;
+  /** Repeat a video source that is shorter than the item, instead of freezing on its last frame. */
+  loop?: boolean;
+  /**
+   * Beats too short to hold on their own (style pack pacing.hold_floor_ratio),
+   * now playing under this item's shot. Provenance: they keep their overlays.
+   */
+  absorbed_beat_ids?: string[];
 }
 
 export interface OverlayItem {
@@ -145,6 +158,9 @@ export interface CaptionItem {
   text: string;
   in_effect?: CaptionInEffect | null;
   out_effect?: CaptionOutEffect | null;
+  /** D56 — compiled position: gap from the bottom edge, as a fraction of frame
+   *  height. Written when a graphic occupies the caption band for this span. */
+  bottom_fraction?: number;
 }
 
 export interface VoiceoverItem {
@@ -451,6 +467,10 @@ export interface CatalogEntry {
   props: Record<string, CatalogPropSpec>;
   /** set instead of shipping a React component: TemplateOverlay draws it */
   template?: TemplateKind;
+  /** D56 — the vertical band this component draws in, as fractions from the
+   *  top. Lets the compiler tell whether a graphic actually lands on the
+   *  captions; absent means "assume it does". */
+  region?: { y_min: number; y_max: number };
   duration_hint_s?: { min?: number; default?: number; max?: number };
   /** D48 — the `seconds` this component passes to useEntrance, before
    *  motion_feel scaling. Declared so the compiler can compute the real

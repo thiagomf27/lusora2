@@ -19,10 +19,23 @@ folder. Stores no state of its own. Emits `video_events` and
 | 7b | resolve_audio | `audio/` — the sound pack's cues and beds copied in, provenance filled | no |
 | 8 | validate (full) | pass/fail (no artifact, always runs) | no |
 | 9 | render | `final.mp4` | no |
+| 9b | qa | pass/fail (no artifact, always runs) | no |
 | 10 | finalize | `thumb.jpg`, `metadata.txt`, status RENDERED | optional (thumb/metadata generators) |
 
 Structural validation additionally runs after claim (if a plan was
 provided manually) and after compile.
+
+### `qa` (D57)
+
+Everything before this judges the PLAN. `qa` judges the file: sampled
+frames for black and flat ones, `volumedetect` and `silencedetect` for a
+mix that is silent, clipping or full of holes, and the finished duration
+against the voiceover's. It sits between render and finalize, which is
+what makes it a gate rather than a report — the orchestrator sets RENDERED
+only after every stage passes, so a black or silent video stops with one
+reason (which check, which timestamp) and never reaches review. Thresholds
+are channel data under `qa`; `qa.enabled: false` turns the stage into a
+no-op for a channel that wants it.
 
 ### `resolve_audio` (D48)
 
@@ -46,6 +59,15 @@ so there is no budget gate and no price-table entry.
    numbers, arc, overlay density) + component catalog (when_to_use /
    when_not_to_use) + content rules. Output = beat sheet. Wrapped in the
    validate→repair loop (max 3 attempts, all violations fed back).
+   Past `planner.chunk_target_beats` target beats (default 30) it runs in
+   two phases (D52): a cheap **spine** call finds where the story turns and
+   returns section boundaries as sentence indices, then one planning call
+   per section — each validated on its own, so a dropped sentence costs one
+   section rather than the whole video, and each carrying the spine, the
+   previous section's last beats and a ledger of visuals already spent. The
+   merged sheet is judged by the same `validate_beat_sheet` a single call
+   faces. A spine that is not a partition is ignored: sections fall back to
+   a deterministic word-balanced split.
 3. **Editor chat agent** (platform-hosted, worker-independent): emits
    beat operations and plan patch operations only; every result passes
    the same validators.

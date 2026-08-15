@@ -44,6 +44,11 @@ STAGES: list[Stage] = [
     Stage("resolve_audio", steps.run_resolve_audio, is_done=steps.audio_resolved),
     Stage("validate", steps.run_validate),  # always runs
     Stage("render", steps.run_render, is_done=steps.render_fresh),
+    # D57: between render and finalize, so a black or silent file never reaches
+    # RENDERED — the orchestrator sets that status only after every stage
+    # passes, and a StageError here stops the video with one reason. Always
+    # runs: it judges the FILE, and the file is what changed.
+    Stage("qa", steps.run_qa),
     Stage("finalize", steps.run_finalize, is_done=steps.finalize_fresh),
 ]
 

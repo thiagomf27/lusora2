@@ -32,7 +32,8 @@
         { "source": "ai_image", "provider": "mock", "style": "archival photo, desaturated, film grain" }
       ],
       "max_clip_seconds": 12,
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "dedup": { "reuse_window_items": 0, "min_hamming_distance": 6 }
     },
     "music": {
       "enabled": true,

@@ -233,6 +233,27 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
 - `engine/src/catalog/sample-props.json` holds the representative props per
   component, shared by `engine/preview-all.mjs` and the Overlays screen's
   live preview (`engine/src/renderers/remotion/OverlaySolo.tsx`).
+  Only `core` entries live there; a pack entry's preview props are
+  synthesized from its prop spec (`platform/src/lib/overlaySamples.ts`).
+- **The `archive` pack (data entries + code).** `contracts/component-packs/
+  archive.json` declares seven overlays drawn by React components in
+  `engine/src/components/archive/`: ArchiveLowerThird, ArchiveCaption,
+  ArchiveChapterTitle, ArchiveQuoteCard, ArchiveCounter, ArchiveBarGraph,
+  ArchiveLineChart. One visual idea throughout — a hard-edged paper plate
+  with a tan strip welded to it, both sized by their own text and opened by
+  a wipe under the type rather than through it. Ships with the theme it is
+  drawn for (`contracts/themes/archive.json`, a paper theme: cream `bg`,
+  ink `text`, tan `accent`, typewriter `body`) and the style pack that
+  offers it (`contracts/style-packs/archive-doc.json`). Three theme
+  resolvers were added for it in `engine/src/themes/runtime.ts`:
+  `surfaceColor` (the opaque plate colour — `surfaceStyle().background`
+  honours `fill: none`, which a plate cannot), `seriesColors` (the ochre /
+  slate / oxblood data ramp, one variant per plate luminance, contrast- and
+  colour-blindness-checked) and `contrastInk` (type ON the accent picks
+  `text` or `bg` by contrast, so the pack degrades instead of breaking on a
+  dark theme). `fontStack` also grew a mono branch — a typewriter face that
+  fell through to the sans fallback would set the counter in a proportional
+  face and its digits would shuffle sideways every frame.
 - **Overlay templates** (`engine/src/components/templates/`): an entry may set
   `template: card|lower_third|big_number|bullet_list|statement` instead of
   shipping a React component, and `TemplateOverlay` draws it from the theme

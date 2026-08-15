@@ -71,6 +71,36 @@ def _schema_errors(name: str, data: Any) -> list[str]:
     ]
 
 
+# ---------------- overlay density (shared with the planner agent) ----------------
+
+
+def overlays_per_minute(style: dict[str, Any]) -> float:
+    """Overlay density as a number: the style pack's low|normal|high word, or
+    an explicit {"per_minute": n}. Anything unrecognised reads as normal."""
+    density = (style.get("overlays") or {}).get("density", "normal")
+    if isinstance(density, dict):
+        return float(density.get("per_minute", 2.5))
+    return {"low": 1.0, "normal": 2.5, "high": 5.0}.get(str(density), 2.5)
+
+
+def emphasis_policy(style: dict[str, Any]) -> tuple[bool, float]:
+    """(enabled, per_minute) for the emphasis overlay class (D59). Off unless
+    the style pack says otherwise, so a pack written before it existed behaves
+    exactly as it did."""
+    emphasis = (style.get("overlays") or {}).get("emphasis") or {}
+    return bool(emphasis.get("enabled", False)), float(emphasis.get("per_minute", 1.0))
+
+
+def max_overlays_for(style: dict[str, Any], duration_s: float) -> int:
+    """The overlay ceiling for `duration_s` of narration: the density budget
+    plus one, so a single judgement call never fails a whole sheet.
+
+    The planner reads this too, to hand each chunk a slack-free share of the
+    whole-video budget — the +1 here is granted ONCE, against the merged
+    sheet, and must not be handed out per chunk (it accumulates)."""
+    return math.ceil(overlays_per_minute(style) * duration_s / 60) + 1
+
+
 # ---------------- beat sheet ----------------
 
 
@@ -138,14 +168,33 @@ def validate_beat_sheet(
                         f"got {json.dumps(items)[:80]}"
                     )
 
+    # queries[] (v1.1, D53): the whole point is that they are SHORT. A planner
+    # that pastes the visual_intent back in has produced a valid document that
+    # resolves exactly as badly as before, so this is checked where the repair
+    # loop can still fix it.
+    for b in beats:
+        for i, query in enumerate(b.get("queries") or []):
+            words = str(query).split()
+            if not (1 <= len(words) <= 5):
+                violations.append(
+                    f"beat {b.get('id')}: queries[{i}] {str(query)[:50]!r} is {len(words)} words — "
+                    "a keyword query is 2-4 words, subject first ('bombed factory 1943'), "
+                    "not a sentence; the scout description belongs in visual_intent"
+                )
+
     # overlays: catalog existence + allowed_components + anchor types
     allowed = (style.get("overlays") or {}).get("allowed_components")
+    emphasis_enabled, emphasis_per_minute = emphasis_policy(style)
     overlay_count = 0
+    emphasis_count = 0
     for b in beats:
         overlay = b.get("overlay")
         if not overlay:
             continue
-        overlay_count += 1
+        if overlay.get("emphasis"):
+            emphasis_count += 1
+        else:
+            overlay_count += 1
         name = str(overlay.get("component", ""))
         entry = lusora_contracts.catalog_component(name)
         if entry is None:
@@ -155,6 +204,19 @@ def validate_beat_sheet(
             violations.append(
                 f"beat {b.get('id')}: component '{name}' not in style pack allowed_components {allowed}"
             )
+        if overlay.get("emphasis"):
+            if not emphasis_enabled:
+                violations.append(
+                    f"beat {b.get('id')}: overlay is marked emphasis, which this style pack does not "
+                    "use — drop the flag and attach the overlay to an anchor in this beat, or leave "
+                    "the beat without an overlay"
+                )
+            elif entry["anchor_types"]:
+                violations.append(
+                    f"beat {b.get('id')}: '{name}' carries a fact (anchor types {entry['anchor_types']}) "
+                    "and cannot be an emphasis overlay — emphasis lifts a moment, so use a pure-text "
+                    "component, or drop the emphasis flag and reference an anchor"
+                )
         # props_hint must contain VALUES (the spec-echo failure is common)
         for pname, pvalue in (overlay.get("props_hint") or {}).items():
             spec = entry["props"].get(pname)
@@ -191,27 +253,53 @@ def validate_beat_sheet(
                 f"{len(narration)} narration beats for {expected_duration_s:.0f}s narration is outside "
                 f"the pacing range [{lo}, {hi}] (avg_hold {pacing['avg_hold_seconds']}s)"
             )
+        # The two classes are counted under SEPARATE budgets (D59): emphasis
+        # exists because anchor-gated density tracks factual density, and
+        # letting it spend the same budget would just dilute the first class.
         density = (style.get("overlays") or {}).get("density", "normal")
-        per_minute = {"low": 1.0, "normal": 2.5, "high": 5.0}.get(
-            density if isinstance(density, str) else "", float((density or {}).get("per_minute", 2.5)) if isinstance(density, dict) else 2.5
-        )
-        max_overlays = math.ceil(per_minute * expected_duration_s / 60) + 1
+        max_overlays = max_overlays_for(style, expected_duration_s)
         if overlay_count > max_overlays:
             violations.append(
+                f"{overlay_count} anchor overlays exceed density '{density}' "
+                f"(max {max_overlays} for {expected_duration_s:.0f}s)"
+                if emphasis_enabled else
                 f"{overlay_count} overlays exceed density '{density}' (max {max_overlays} for {expected_duration_s:.0f}s)"
             )
+        if emphasis_enabled:
+            max_emphasis = math.ceil(emphasis_per_minute * expected_duration_s / 60) + 1
+            if emphasis_count > max_emphasis:
+                violations.append(
+                    f"{emphasis_count} emphasis overlays exceed overlays.emphasis.per_minute "
+                    f"{emphasis_per_minute:g} (max {max_emphasis} for {expected_duration_s:.0f}s)"
+                )
 
-    # timed beats must not collide with the narration envelope (v1: leading only)
+    # timed beats: a cold open before the narration, an outro after it (D58).
+    # The compiler decides which is which — a beat contiguous with the run from
+    # 0 is a cold open, anything after the first gap is an outro, and an outro's
+    # start_s is only there to order it, since where it really lands depends on
+    # the length of the real audio. So the only thing to check here is that each
+    # one describes a span at all.
     for b in beats:
-        if b.get("kind") == "timed" and narration:
-            t = b.get("timing") or {}
-            leading = all(
-                float(t.get("start_s", 0)) <= float((other.get("timing") or {}).get("end_s", 0))
-                for other in beats
-                if other.get("kind") == "timed"
+        if b.get("kind") != "timed":
+            continue
+        timing = b.get("timing") or {}
+        start, end = float(timing.get("start_s", 0)), float(timing.get("end_s", 0))
+        if end <= start:
+            violations.append(
+                f"timed beat {b.get('id')} ends at {end}s, at or before its start at {start}s — "
+                "a timed beat needs a positive duration (for an outro, the duration is what counts)"
             )
-            if not leading:
-                violations.append(f"timed beat {b.get('id')} collides with the narration envelope")
+    timed_spans = sorted(
+        (float((b.get("timing") or {}).get("start_s", 0)), float((b.get("timing") or {}).get("end_s", 0)),
+         str(b.get("id")))
+        for b in beats if b.get("kind") == "timed"
+    )
+    for (a_start, a_end, a_id), (b_start, b_end, b_id) in zip(timed_spans, timed_spans[1:]):
+        if b_start < a_end - 1e-6:
+            violations.append(
+                f"timed beats {a_id} and {b_id} overlap ({a_start}-{a_end}s and {b_start}-{b_end}s) — "
+                "give them separate spans, in the order they should play"
+            )
 
     return violations
 
@@ -248,6 +336,8 @@ def validate_plan(
     # assets present and readable
     if require_assets:
         for item in visual:
+            if item.get("media_type") == "color":
+                continue  # both renderers draw a colour fill with no file (D55)
             path = str(item["asset"].get("path", ""))
             if not path:
                 violations.append(f"visual item {item['id']}: asset not resolved (empty path)")
@@ -291,21 +381,68 @@ def validate_plan(
         violations.append(
             f"voiceover duration_s {vo['duration_s']} does not match audio.mp3 ({audio_duration_s:.2f}s)"
         )
+    # The visual track may run PAST the voiceover — that is what an outro is
+    # (D58): a card over music after the last word. It may never stop short of
+    # it, which would leave the narration playing over nothing.
+    timeline_end = total
     if visual:
         vis_end = float(visual[-1]["end_s"])
-        if abs(vis_end - total) > 1.0:
+        timeline_end = max(total, vis_end)
+        if vis_end < total - 1.0:
             violations.append(
-                f"visual track ends at {vis_end}s but voiceover ends at {total:.2f}s"
+                f"visual track ends at {vis_end}s, before the voiceover does at {total:.2f}s — "
+                "the narration would play over nothing"
             )
     for item in tracks["overlays"]:
-        if float(item["end_s"]) > total + 0.75:
-            violations.append(f"overlay {item['id']} ends after the video ({item['end_s']}s > {total:.2f}s)")
+        if float(item["end_s"]) > timeline_end + 0.75:
+            violations.append(
+                f"overlay {item['id']} ends after the video ({item['end_s']}s > {timeline_end:.2f}s)"
+            )
+
+    # per-beat hold bounds (style pack pacing.hold_floor_ratio/hold_ceiling_ratio)
+    violations.extend(_check_visual_holds(visual, cfg))
 
     # sfx density (D48) — belt and suspenders over the compiler's own thinning,
     # the same arrangement overlays.density has. The compiler is what enforces
     # these; this catches a hand-edited or chat-edited plan that beeps.
     violations.extend(_check_sfx_density(tracks, cfg, total))
 
+    return violations
+
+
+def _check_visual_holds(visual: list[dict], cfg: dict) -> list[str]:
+    """Every visual item holds for a sane length — the check the compiler's
+    hold floor/ceiling pass exists to satisfy.
+
+    Belt and suspenders over that pass, exactly like sfx density (D48): the
+    compiler is what enforces the bounds, this catches a plan that arrived some
+    other way — hand-authored, chat-edited, or compiled before the ratios were
+    set. Locked items are exempt: a human who dragged a cut has made a decision
+    that outranks the style pack (D39).
+
+    Silent when the style pack does not set the ratios, which is the schema
+    default — an old snapshot must not start failing validation.
+    """
+    pacing = ((cfg.get("style_pack_doc") or {}).get("pacing")) or {}
+    floor = float(pacing.get("min_hold", 0)) * float(pacing.get("hold_floor_ratio", 0) or 0)
+    ceiling = float(pacing.get("max_hold", 0)) * float(pacing.get("hold_ceiling_ratio", 0) or 0)
+    violations: list[str] = []
+    for item in visual:
+        if item.get("locked"):
+            continue
+        duration = float(item["end_s"]) - float(item["start_s"])
+        if floor > 0 and duration < floor - 0.05:
+            violations.append(
+                f"visual item {item['id']} holds {duration:.2f}s, under the {floor:.2f}s floor "
+                f"(min_hold {pacing.get('min_hold')} x hold_floor_ratio {pacing.get('hold_floor_ratio')}) — "
+                "merge it into a neighbour or lower the ratio"
+            )
+        if ceiling > 0 and duration > ceiling + 0.05:
+            violations.append(
+                f"visual item {item['id']} holds {duration:.2f}s, over the {ceiling:.2f}s ceiling "
+                f"(max_hold {pacing.get('max_hold')} x hold_ceiling_ratio {pacing.get('hold_ceiling_ratio')}) — "
+                "split it or raise the ratio"
+            )
     return violations
 
 

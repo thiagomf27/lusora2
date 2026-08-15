@@ -48,7 +48,7 @@ test("compose appends the welded half to the editable half", () => {
 });
 
 test("welded text is never empty for a role that declares it", () => {
-  for (const role of ["script", "planner", "chat"] as const) {
+  for (const role of ["script", "planner", "spine", "chat"] as const) {
     assert.notEqual(weldedText(role, "system").trim(), "", `${role} system`);
   }
   assert.notEqual(weldedText("planner", "user").trim(), "");
@@ -82,8 +82,18 @@ test("validatePrompt rejects a prompt that drops a required variable", () => {
   assert.ok(validatePrompt(doc).some((e) => /required variable \{\{script\}\}/.test(e)));
 });
 
-test("roles.json declares exactly the three bounded agents", () => {
-  assert.deepEqual(Object.keys(loadRoles()).sort(), ["chat", "planner", "script"]);
+test("roles.json declares the three bounded agents, plus the planner's spine phase", () => {
+  // Four prompt roles, still three agents (D2): `spine` is phase 1 of the beat
+  // planner on a long script (D52) and shares planner.llm/model.
+  assert.deepEqual(Object.keys(loadRoles()).sort(), ["chat", "planner", "script", "spine"]);
+});
+
+test("the spine's channel layer sits under planner.spine", () => {
+  const cfg = { channel_id: "C1", planner: { spine: { prompt: "default" } } };
+  const result = resolvePrompt(cfg, "spine");
+  assert.ok("resolved" in result, JSON.stringify(result));
+  assert.equal(result.resolved.name, "default");
+  assert.equal(result.resolved.source, "channel");
 });
 
 // ---------- resolution ladder (D44) ----------

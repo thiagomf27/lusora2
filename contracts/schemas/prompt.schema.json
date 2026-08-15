@@ -13,7 +13,7 @@
       "description": "also the filename; lowercase slug"
     },
     "role": {
-      "enum": ["script", "planner", "chat"],
+      "enum": ["script", "planner", "spine", "chat"],
       "description": "must match the containing directory; decides the variable set and the welded block"
     },
     "video_type": {

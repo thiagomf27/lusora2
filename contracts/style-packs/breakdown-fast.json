@@ -5,7 +5,9 @@
     "avg_hold_seconds": 2.6,
     "min_hold": 1.6,
     "max_hold": 5.0,
-    "arc": "linear"
+    "arc": "linear",
+    "hold_floor_ratio": 1.0,
+    "hold_ceiling_ratio": 1.5
   },
   "overlays": {
     "density": "high",
@@ -22,7 +24,6 @@
       "FactCard",
       "HighlightedPassage",
       "NamePlate",
-      "SatelliteLocate",
       "DefinitionCard"
     ]
   },

@@ -29,7 +29,7 @@ from . import CONTRACTS_ROOT
 
 PROMPTS_DIR = CONTRACTS_ROOT / "prompts"
 
-ROLES = ("script", "planner", "chat")
+ROLES = ("script", "planner", "spine", "chat")
 
 _SECTION_RE = re.compile(r"\{\{#([a-z_][a-z0-9_]*)\}\}(.*?)\{\{/\1\}\}", re.DOTALL)
 _VAR_RE = re.compile(r"\{\{([a-z_][a-z0-9_]*)\}\}")
@@ -139,7 +139,11 @@ def resolve(cfg: dict[str, Any], role: str) -> dict[str, Any]:
     (`cfg[role].prompt`) → style pack (`script.prompt`) → built-in default.
     The per-video layer is applied earlier, by the platform, as an override on
     the same field. Returns the document plus the layer that won."""
-    name = ((cfg.get(role) or {}).get("prompt")) or None
+    if role == "spine":
+        # phase 1 of the planner agent, so its channel layer sits with it
+        name = (((cfg.get("planner") or {}).get("spine") or {}).get("prompt")) or None
+    else:
+        name = ((cfg.get(role) or {}).get("prompt")) or None
     source = "channel"
     if not name:
         pack = cfg.get("style_pack_doc") or {}

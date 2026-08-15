@@ -113,3 +113,53 @@ them — see
 **OQ-23 — Script length as data.** ✅ DECIDED (D45): **style pack**, with
 a per-video override, mirroring `overlays.density`. Unblocks long-form
 channels.
+
+## Opened by the editing-quality pass (D51–D59), 2026-08-11
+
+Four questions the work raised and deliberately did not answer. None
+blocks anything today; each has a trigger that would make it worth
+answering.
+
+**OQ-24 — A locked item whose beat gets absorbed.** The hold floor (D51)
+merges a sub-floor beat's visual slot into its neighbour, so that beat
+produces no item of its own. A per-beat recompile keeps a locked old item
+only when the new plan has an item with the same id, so a human's locked
+`v_b7` is dropped if b7 is absorbed on a later compile. It can only happen
+when the timings change under an existing plan — re-synthesised audio, a
+new SRT — and a beat split has always behaved the same way. **Options:**
+(a) leave it (a re-narrated video is a new edit); (b) refuse to absorb a
+beat whose old item was locked, by passing the old plan into the compiler,
+which makes compilation depend on its own previous output; (c) keep the
+dropped item as a hand-added one (`beat_id: null`), which preserves the
+work and breaks track contiguity. **Trigger:** the first time someone
+loses timeline work this way.
+
+**OQ-25 — Regions for prop-placed components.** 23 of the 26 core entries
+declare a `region` (D56). `DateStamp`, `StatTag` and `FactCard` do not,
+because where they sit comes from a `position` prop the compiler already
+moves out of the caption band — a fixed band would be a lie, so they fall
+back to the conservative "assume it reaches the captions". **Options:**
+(a) leave it; (b) let a region be declared per enum value of a named prop,
+which the catalog schema can express and nothing else needs; (c) have the
+compiler derive the band from the prop it just set. **Trigger:** a channel
+whose captions visibly jump around corner tags.
+
+**OQ-26 — What `slow` costs.** The short-clip fallback (D55) can ramp
+playback instead of looping, and `speed != 1` forces the Remotion route
+(D7/D31). One short clip in a video that would otherwise render on ffmpeg
+therefore changes the render cost of the whole video, silently. **Options:**
+(a) document it and leave the ordering to the channel (today); (b) have the
+resolver refuse `slow` when the plan is otherwise ffmpeg-routable; (c) let
+the router report the reason as a cost event so the jump is visible in the
+numbers rather than only in the bill. **Trigger:** the first month where
+render cost moves without an obvious cause.
+
+**OQ-27 — How much of the render QA should look at.** `qa` (D57) samples
+N frames and two audio statistics. It cannot see a stutter, a mid-video
+black run shorter than the gap between samples, or an overlay that draws
+in the wrong place. A full decode (`blackdetect` over the whole file)
+would catch runs exactly, at a cost that grows with video length.
+**Options:** (a) sampling only (today); (b) sampling plus one full
+`blackdetect` pass, since it is one decode and no seeking; (c) a
+per-channel `qa.thorough` flag. **Trigger:** the first broken render that
+sampling misses.

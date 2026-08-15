@@ -7,6 +7,7 @@ construction the output passes structural validation.
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
@@ -15,6 +16,7 @@ import lusora_contracts
 from ..errors import StageError
 from ..textsplit import split_sentences
 from . import geo, sound
+from .textmatch import SKIPPABLE, compare_key, decade_context, is_filler, number_run, tokenize
 
 STAGE = "compile_plan"
 
@@ -37,6 +39,8 @@ def compile_plan(
     pacing = style.get("pacing") or {}
     min_hold = float(pacing.get("min_hold", 2.0))
     max_hold = float(pacing.get("max_hold", 10.0))
+    hold_floor = min_hold * float(pacing.get("hold_floor_ratio", 0) or 0)
+    hold_ceiling = max_hold * float(pacing.get("hold_ceiling_ratio", 0) or 0)
     transitions = style.get("transitions") or {}
     default_transition = str(transitions.get("default", "cut"))
     allowed_transitions = list(transitions.get("allowed", ["cut"]))
@@ -50,57 +54,57 @@ def compile_plan(
     narration_beats = [b for b in beats if b.get("kind") == "narration"]
     timed_beats = [b for b in beats if b.get("kind") == "timed"]
 
-    # ---- narration offset: leading timed beats delay the voiceover ----
-    leading_end = 0.0
-    for b in timed_beats:
-        t = b.get("timing") or {}
-        if float(t.get("start_s", 0)) < leading_end + 1e-6 or not narration_beats:
-            leading_end = max(leading_end, float(t.get("end_s", 0)))
-        else:
-            raise CompileError(
-                f"timed beat {b.get('id')} starts at {t.get('start_s')}s inside the narration envelope — "
-                "v1 supports timed beats only before narration starts (OQ-8)"
-            )
-    vo_start = round(leading_end, 3)
+    # ---- where the timed beats go (D58) ----
+    leading, trailing = _split_timed(timed_beats, bool(narration_beats))
+    vo_start = round(max([float(b["timing"]["end_s"]) for b in leading], default=0.0), 3)
+    vo_end = vo_start + audio_duration_s
+    placed_timed = _place_timed(leading, trailing, vo_end)
+    total_end = round(max([end for _b, _s, end in placed_timed] + [vo_end]), 3)
 
     # ---- align narration beats to sentence timings ----
-    aligned = _align_beats(narration_beats, sentence_timings, vo_start)
+    # A sheet with no narration beats claims to cover no narration, so there is
+    # nothing to align: the timed track IS the video. (A sheet that dropped its
+    # narration beats by mistake fails earlier, against script.txt, in
+    # validate_beat_sheet's coverage check.)
+    aligned = _align_beats(narration_beats, sentence_timings, vo_start) if narration_beats else []
 
     # ---- visual track ----
     visual: list[dict[str, Any]] = []
-    for b in timed_beats:
-        t = b["timing"]
+    for b, start, end in placed_timed:
         visual.append(_visual_item(
             item_id=f"v_{b['id']}",
             beat=b,
-            start=float(t["start_s"]),
-            end=float(t["end_s"]),
+            start=start,
+            end=end,
             transition=default_transition,
         ))
 
-    for beat, (start, end, beat_sentences) in aligned:
-        spans = _split_for_max_hold(start, end, beat_sentences, min_hold, max_hold)
+    for slot in _enforce_hold_floor(aligned, hold_floor):
+        beat = slot["beat"]
+        spans = _split_for_max_hold(slot["start"], slot["end"], slot["sentences"], min_hold, max_hold)
+        spans = _enforce_hold_ceiling(spans, max_hold, hold_ceiling)
         for j, (s0, s1) in enumerate(spans):
-            visual.append(_visual_item(
+            item = _visual_item(
                 item_id=f"v_{beat['id']}" + (f"_{j}" if len(spans) > 1 else ""),
                 beat=beat,
                 start=s0,
                 end=s1,
                 transition=default_transition,
-            ))
+            )
+            if slot["absorbed"]:
+                item["absorbed_beat_ids"] = list(slot["absorbed"])
+            visual.append(item)
 
     visual.sort(key=lambda v: v["start_s"])
-    _make_contiguous(visual, total_end=vo_start + audio_duration_s)
+    _make_contiguous(visual, total_end=total_end)
 
     # ---- overlays ----
     # captions_enabled is read here, not in the caption block below: it decides
     # where a corner overlay is allowed to sit (see _avoid_caption_band)
     captions_enabled = bool((cfg.get("captions") or {}).get("enabled", True))
     overlays: list[dict[str, Any]] = []
-    for b in timed_beats:
-        item = _compile_overlay(
-            b, float(b["timing"]["start_s"]), float(b["timing"]["end_s"]), captions_enabled
-        )
+    for b, start, end in placed_timed:
+        item = _compile_overlay(b, start, end, captions_enabled)
         if item:
             overlays.append(item)
     for beat, (start, end, _s) in aligned:
@@ -108,7 +112,7 @@ def compile_plan(
         if item:
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
-    _trim_overlay_holds(overlays, total_end=vo_start + audio_duration_s)
+    _trim_overlay_holds(overlays, total_end=total_end)
 
     # ---- captions ----
     theme = cfg.get("theme_doc") or {}
@@ -122,11 +126,13 @@ def compile_plan(
         for t in sentence_timings
     ]
 
+    _place_captions(caption_items, overlays, cfg)
+
     # ---- sound (D48) ----
     # Placed here, at the end, because every input it needs is now settled:
     # overlay starts (for cue timing), transitions, and the absolute sentence
     # timings the ducking envelope is computed from.
-    total_duration_s = vo_start + audio_duration_s
+    total_duration_s = total_end
     audio: dict[str, Any] = {
         "voiceover": {
             "path": "audio.mp3",
@@ -137,8 +143,7 @@ def compile_plan(
     }
 
     beat_times: list[tuple[float, float, str]] = [
-        (float(b["timing"]["start_s"]), float(b["timing"]["end_s"]), sound.normalize_mood(b.get("mood")))
-        for b in timed_beats
+        (start, end, sound.normalize_mood(b.get("mood"))) for b, start, end in placed_timed
     ]
     beat_times += [
         (start, end, sound.normalize_mood(beat.get("mood")))
@@ -178,69 +183,7 @@ def compile_plan(
 # ---------------- helpers ----------------
 
 
-_WORD_CHARS = re.compile(r"[^a-z0-9]")
-_NUM_CHARS = re.compile(r"[^a-z0-9-]")
-_DECADE_FORM = re.compile(r"^(\d+)s$")
 _ALIGN_LOOKAHEAD = 6
-
-_ONES = {
-    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
-    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
-    "seventeen": 17, "eighteen": 18, "nineteen": 19,
-}
-_TENS = {
-    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
-    "seventy": 70, "eighty": 80, "ninety": 90,
-}
-_DECADE_PLURALS = {
-    "twenties": 20, "thirties": 30, "forties": 40, "fifties": 50,
-    "sixties": 60, "seventies": 70, "eighties": 80, "nineties": 90,
-}
-
-
-def _norm_word(word: str) -> str:
-    """Alignment-comparison form: only the letters/digits matter. Strips
-    punctuation (period vs comma is an ASR punctuation choice, not a real
-    divergence) and markdown emphasis (*Alcedo* -> alcedo)."""
-    return _WORD_CHARS.sub("", word.lower())
-
-
-def _parse_cardinal(parts: list[str]) -> int | None:
-    """Sum hyphen-joined number-word parts ('forty', 'seven' -> 47). None
-    if any part isn't a recognized ones/tens word — never guesses."""
-    if not parts:
-        return None
-    total = 0
-    for p in parts:
-        if p in _ONES:
-            total += _ONES[p]
-        elif p in _TENS:
-            total += _TENS[p]
-        else:
-            return None
-    return total
-
-
-def _number_canonical(word: str) -> str | None:
-    """Digit-string form of a number, spoken or written ('fifty' and '50'
-    both -> '50'; 'nineteen-fifties' and '1950s' both -> '1950s'). Only
-    covers 0-99 and simple decade/century-decade compounds (documentary
-    narration's actual range) — deliberately not a general number parser
-    (no hundreds/thousands/ordinals). Returns None for anything else, so
-    it only ever adds matches, never creates a false one."""
-    w = _NUM_CHARS.sub("", word.lower())
-    if w.isdigit() or _DECADE_FORM.match(w):
-        return w
-    parts = w.split("-")
-    if len(parts) >= 2 and parts[-1] in _DECADE_PLURALS:
-        century = _parse_cardinal(parts[:-1])
-        if century is not None:
-            return f"{century * 100 + _DECADE_PLURALS[parts[-1]]}s"
-    if len(parts) == 1 and parts[0] in _DECADE_PLURALS:
-        return f"{_DECADE_PLURALS[parts[0]]}s"
-    value = _parse_cardinal(parts)
-    return str(value) if value is not None else None
 
 
 def _word_timeline(sentence_timings: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -251,39 +194,52 @@ def _word_timeline(sentence_timings: list[dict[str, Any]]) -> list[dict[str, Any
     once we're matching word by word."""
     out: list[dict[str, Any]] = []
     for item in sentence_timings:
-        words = str(item.get("text", "")).split()
+        words = tokenize(str(item.get("text", "")))
         n = len(words)
         if n == 0:
             continue
         start_s, end_s = float(item["start_s"]), float(item["end_s"])
         span = end_s - start_s
         for i, w in enumerate(words):
-            norm = _norm_word(w)
-            if not norm:
-                continue
             out.append({
                 "word": w,
-                "norm": norm,
-                "num": _number_canonical(w),
+                "norm": compare_key(w),
                 "start_s": start_s + span * i / n,
                 "end_s": start_s + span * (i + 1) / n,
             })
     return out
 
 
-def _consume_word(
-    timeline: list[dict[str, Any]], cursor: int, target: str, target_num: str | None
-) -> tuple[int, dict[str, Any] | None]:
-    """Find `target` at or shortly after cursor, tolerating a few stray
-    narration words in between (ASR insertions/mishears). A number word
-    also matches its digit form and vice versa ('fifty' <-> '50'). Returns
-    the new cursor (past the match) and the matched timing, or (cursor,
-    None)."""
-    for p in range(cursor, min(cursor + 1 + _ALIGN_LOOKAHEAD, len(timeline))):
-        tw = timeline[p]
-        if tw["norm"] == target or (target_num is not None and tw["num"] == target_num):
-            return p + 1, tw
-    return cursor, None
+def _consume(
+    timeline: list[dict[str, Any]],
+    narration: list[str],
+    cursor: int,
+    script_tokens: list[str],
+    i: int,
+) -> tuple[int, int, dict[str, Any] | None, dict[str, Any] | None]:
+    """Match the script token(s) at `i` against the narration at or
+    shortly after `cursor`, tolerating a few stray narration words in
+    between (ASR insertions and mishears). A number matches however the
+    other side wrote it — '1945' <-> 'nineteen forty-five' — which may
+    span several tokens on either side (textmatch.py).
+
+    Returns (tokens consumed from the script, new cursor, first matched
+    timing, last matched timing); (0, cursor, None, None) on no match."""
+    window = min(cursor + 1 + _ALIGN_LOOKAHEAD, len(timeline))
+    take, keys = number_run(script_tokens, i)
+    if keys:
+        keys = decade_context(keys, script_tokens[i - 1] if i else None)
+        for p in range(cursor, window):
+            n_take, n_keys = number_run(narration, p)
+            n_keys = decade_context(n_keys, narration[p - 1] if p else None)
+            if n_take and (keys & n_keys):
+                return take, p + n_take, timeline[p], timeline[p + n_take - 1]
+
+    target = compare_key(script_tokens[i])
+    for p in range(cursor, window):
+        if timeline[p]["norm"] == target:
+            return 1, p + 1, timeline[p], timeline[p]
+    return 0, cursor, None, None
 
 
 def _align_beats(
@@ -302,6 +258,7 @@ def _align_beats(
     timeline = _word_timeline(sentence_timings)
     if not timeline:
         raise CompileError("no narration words found in the audio timing")
+    narration = [t["word"] for t in timeline]
 
     result = []
     cursor = 0
@@ -314,24 +271,34 @@ def _align_beats(
         beat_first: dict[str, Any] | None = None
         beat_last: dict[str, Any] | None = None
         for sentence in split_sentences(text) or [text]:
-            words = [w for w in sentence.split() if _norm_word(w)]
+            words = tokenize(sentence)
             if not words:
                 continue
             sent_first: dict[str, Any] | None = None
             sent_last: dict[str, Any] | None = None
-            for w in words:
-                cursor, tw = _consume_word(timeline, cursor, _norm_word(w), _number_canonical(w))
-                if tw is None:
+            i = 0
+            while i < len(words):
+                take, cursor, first, last = _consume(timeline, narration, cursor, words, i)
+                if last is None:
+                    if compare_key(words[i]) in SKIPPABLE:
+                        # a unit the other side wrote as a bare symbol
+                        # ('cinquenta por cento' vs '50%') — not a word
+                        # the narration owes us
+                        i += 1
+                        continue
                     near = min(cursor, len(timeline) - 1)
                     context = " ".join(t["word"] for t in timeline[near : near + 8])
                     raise CompileError(
-                        f"beat {beat.get('id')}: script word {w!r} does not align with the "
+                        f"beat {beat.get('id')}: script word {words[i]!r} does not align with the "
                         f"narration near {timeline[near]['start_s']:.1f}s (narration says "
                         f"{context!r}) — beats must cover the script in order; check the audio "
                         "actually says this (numbers, names, wording), or fix subtitles.srt"
                     )
-                sent_first = sent_first or tw
-                sent_last = tw
+                sent_first = sent_first or first
+                sent_last = last
+                i += take
+            if sent_first is None or sent_last is None:
+                continue
             sentence_spans.append({"start_s": sent_first["start_s"], "end_s": sent_last["end_s"]})
             beat_first = beat_first or sent_first
             beat_last = sent_last
@@ -342,12 +309,161 @@ def _align_beats(
         end = round(beat_last["end_s"] + vo_start, 3)
         result.append((beat, (start, end, sentence_spans)))
 
-    if cursor < len(timeline):
+    trailing = len(timeline) - cursor
+    if trailing > _ALIGN_LOOKAHEAD or not all(is_filler(t["word"]) for t in timeline[cursor:]):
         leftover = " ".join(t["word"] for t in timeline[cursor : cursor + 8])
         raise CompileError(
             f"beats do not cover the whole narration — first uncovered words: {leftover!r}"
         )
+    if trailing and result:
+        # a handful of trailing narration words is the same tolerance the
+        # rest of the alignment gets (a spoken unit the script wrote as a
+        # symbol, an ASR flourish) — the last beat simply runs to the end
+        beat, (start, _end, spans) = result[-1]
+        end = round(timeline[-1]["end_s"] + vo_start, 3)
+        if spans:
+            spans[-1]["end_s"] = timeline[-1]["end_s"]
+        result[-1] = (beat, (start, end, spans))
     return result
+
+
+def _split_timed(
+    timed_beats: list[dict[str, Any]], has_narration: bool
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Which timed beats come BEFORE the narration, and which after (D58).
+
+    Leading beats are the run that starts at 0 and stays contiguous — a cold
+    open, or a title card and then a cold open. The first gap ends the run, and
+    everything from there on is an outro: a card over music after the last
+    word, a credit, a sting.
+
+    With no narration at all, every timed beat is 'leading': the whole video is
+    the timed track and its own timings are the truth.
+    """
+    ordered = sorted(timed_beats, key=lambda b: float((b.get("timing") or {}).get("start_s", 0)))
+    if not has_narration:
+        return ordered, []
+    leading: list[dict[str, Any]] = []
+    trailing: list[dict[str, Any]] = []
+    cursor = 0.0
+    for beat in ordered:
+        timing = beat.get("timing") or {}
+        start, end = float(timing.get("start_s", 0)), float(timing.get("end_s", 0))
+        if not trailing and start <= cursor + 1e-6:
+            leading.append(beat)
+            cursor = max(cursor, end)
+        else:
+            trailing.append(beat)
+    return leading, trailing
+
+
+def _place_timed(
+    leading: list[dict[str, Any]], trailing: list[dict[str, Any]], vo_end: float
+) -> list[tuple[dict[str, Any], float, float]]:
+    """Absolute (start, end) for every timed beat.
+
+    Leading beats keep the times they were written with. Trailing ones keep
+    only their DURATION and their order: where an outro actually starts depends
+    on how long the cold open ran and how long the narration turned out to be,
+    which is arithmetic over the real audio — code's job, not the planner's
+    (Principle 3). A model asked to compute it would be guessing at the TTS.
+
+    They are laid end to end, so two outro beats of 3s each occupy the six
+    seconds after the last word, in the order they were written.
+    """
+    placed = [(b, float(b["timing"]["start_s"]), float(b["timing"]["end_s"])) for b in leading]
+    cursor = vo_end
+    for beat in trailing:
+        timing = beat["timing"]
+        duration = max(float(timing["end_s"]) - float(timing["start_s"]), 0.1)
+        placed.append((beat, round(cursor, 3), round(cursor + duration, 3)))
+        cursor += duration
+    return placed
+
+
+def _enforce_hold_floor(
+    aligned: list[tuple[dict[str, Any], tuple[float, float, list[dict[str, Any]]]]],
+    floor: float,
+) -> list[dict[str, Any]]:
+    """Group the aligned beats into VISUAL SLOTS no shorter than `floor`.
+
+    Beat durations are emergent: the planner writes spans of script, the SRT
+    decides how long they take to say. Nothing checked the result, so a beat
+    could align to 0.8s and flash past before the eye lands on it. A slot under
+    the floor is absorbed into its neighbour — the shot already on screen simply
+    holds through those words (at index 0 there is no previous shot, so the NEXT
+    one starts early instead).
+
+    This is a VISUAL-track decision and nothing else: `aligned` is untouched, so
+    the absorbed beat still compiles its own overlay at its own time, still
+    contributes its mood to the music spans, and the beat sheet — the validated
+    artifact whose verbatim coverage of the script is the whole contract — is
+    never rewritten. The surviving slot keeps the survivor's beat_id (so item
+    ids and per-beat recompile are unchanged) and records who it swallowed in
+    `absorbed_beat_ids`.
+
+    floor <= 0 disables the pass, which is the schema default: a video enqueued
+    before this existed carries a style pack snapshot without the ratio and must
+    re-compile byte-identically (Principle 7).
+    """
+    slots: list[dict[str, Any]] = [
+        {"beat": beat, "start": start, "end": end, "sentences": list(sentences), "absorbed": []}
+        for beat, (start, end, sentences) in aligned
+    ]
+    if floor <= 0:
+        return slots
+
+    i = 0
+    while i < len(slots) and len(slots) > 1:
+        slot = slots[i]
+        if slot["end"] - slot["start"] >= floor - 1e-6:
+            i += 1
+            continue
+        if i == 0:
+            target, victim = slots[1], slots[0]
+            target["start"] = victim["start"]
+        else:
+            target, victim = slots[i - 1], slots[i]
+            target["end"] = victim["end"]
+        target["sentences"] = sorted(
+            target["sentences"] + victim["sentences"], key=lambda s: s["start_s"]
+        )
+        target["absorbed"] = target["absorbed"] + [victim["beat"]["id"]] + victim["absorbed"]
+        slots.pop(i)
+        # i == 0: the target moved into index 0 and only GREW, but it may still
+        # be under the floor, so re-check it. i > 0: the target is behind us and
+        # already passed the check, and index i now holds the next candidate.
+    return slots
+
+
+def _enforce_hold_ceiling(
+    spans: list[tuple[float, float]], max_hold: float, ceiling: float
+) -> list[tuple[float, float]]:
+    """Divide any span still above `ceiling` into equal slots of <= max_hold.
+
+    `_split_for_max_hold` cuts at the beat's own sentence boundaries, so a beat
+    that IS one long sentence comes back uncut and holds one frame for as long
+    as it takes to say it. There is no boundary to respect here, so the cut is
+    arithmetic: enough equal slots to bring every one under max_hold. Each slot
+    resolves its own asset, which is what turns dead air into a second angle.
+
+    ceiling <= 0 disables the pass (see _enforce_hold_floor).
+    """
+    if ceiling <= 0 or max_hold <= 0:
+        return spans
+    out: list[tuple[float, float]] = []
+    for start, end in spans:
+        duration = end - start
+        if duration <= ceiling + 1e-6:
+            out.append((start, end))
+            continue
+        parts = max(2, math.ceil(duration / max_hold))
+        step = duration / parts
+        for k in range(parts):
+            s0 = start if k == 0 else round(start + step * k, 3)
+            s1 = end if k == parts - 1 else round(start + step * (k + 1), 3)
+            out.append((s0, s1))
+    return out
 
 
 def _split_for_max_hold(
@@ -459,6 +575,63 @@ def _trim_overlay_holds(
             ceiling = min(ceiling, float(overlays[i + 1]["start_s"]) - gap)
         end = min(float(item["end_s"]), ceiling)
         item["end_s"] = round(max(end, float(item["start_s"]) + 0.5), 3)
+
+
+def _place_captions(
+    captions: list[dict[str, Any]], overlays: list[dict[str, Any]], cfg: dict[str, Any]
+) -> None:
+    """Raise the captions that a graphic is sitting on, and only those (D56).
+
+    Captions and lower thirds want the same strip of frame, and nothing
+    reconciled them: the renderer lifted every caption that overlapped ANY
+    component overlay, by a fixed amount, because the plan never said which
+    part of the frame a component draws in. The catalog says now, so the
+    decision moves here — deterministic, visible in the plan, and editable.
+
+    An entry with no declared `region` is treated as if it reached the caption
+    band, which is the conservative reading and exactly the old behaviour.
+    """
+    if not captions or not overlays:
+        return
+    settings = cfg.get("captions") or {}
+    safe_bottom = float(settings.get("safe_bottom", 0.06))
+    line = float(settings.get("line_fraction", 0.07))
+    max_lift = float(settings.get("max_lift", 0.3))
+
+    # in the same coordinates as the catalog's region: fractions from the TOP
+    caption_top = 1.0 - safe_bottom - line
+
+    graphics: list[tuple[float, float, float]] = []
+    for item in overlays:
+        if item.get("kind") != "component":
+            continue
+        entry = lusora_contracts.catalog_component(str(item.get("component", "")))
+        region = (entry or {}).get("region")
+        # undeclared: assume it reaches the band (the old blanket rule)
+        # undeclared: assume the worst — a full-frame graphic, which cannot be
+        # cleared by moving the caption, so it takes the blanket step below
+        y_min = float(region["y_min"]) if region else 0.0
+        y_max = float(region["y_max"]) if region else 1.0
+        if y_max <= caption_top:
+            continue  # nowhere near the captions; they stay where they belong
+        graphics.append((float(item["start_s"]), float(item["end_s"]), y_min))
+
+    for caption in captions:
+        clashing = [
+            y_min for start, end, y_min in graphics
+            if caption["start_s"] < end and caption["end_s"] > start
+        ]
+        if not clashing:
+            continue
+        # Rise above the highest graphic in the way — unless that would take the
+        # caption off the bottom third of the frame, which a full-frame
+        # treatment always would. There is no clear space under one of those,
+        # so the caption steps up by its own height instead: enough to leave a
+        # component's credit line at the very bottom, not so much that it lands
+        # on a lower third's footer.
+        needed = (1.0 - min(clashing)) + line - safe_bottom
+        lift = needed if 0 < needed <= max_lift else line
+        caption["bottom_fraction"] = round(safe_bottom + lift, 4)
 
 
 # A caption sits in the bottom strip of the frame, so an overlay parked in a

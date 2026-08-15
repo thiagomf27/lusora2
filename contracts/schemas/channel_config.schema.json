@@ -52,6 +52,29 @@
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]*$",
           "description": "prompt pack name (contracts/prompts/planner/<name>.json)"
+        },
+        "chunk_target_beats": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30,
+          "description": "above this many target beats the script is planned in sentence-aligned CHUNKS, one call each, instead of one call for the whole video. A single call handles ~20-30 beats comfortably; past that it truncates or degrades, and one dropped sentence fails full coverage for the entire sheet."
+        },
+        "spine": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "phase 1 of this agent on a chunked script: one cheap call that finds where the story TURNS, so sections are cut at joints instead of at even word counts. It shares planner.llm/model — it is the same bounded agent (D2), not a fourth one.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "false uses the deterministic word-balanced split, which is also what a failed or malformed spine degrades to"
+            },
+            "prompt": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "description": "prompt pack name (contracts/prompts/spine/<name>.json)"
+            }
+          }
         }
       }
     },
@@ -73,7 +96,28 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean", "default": true }
+        "enabled": { "type": "boolean", "default": true },
+        "safe_bottom": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "default": 0.06,
+          "description": "D56 — where captions sit when nothing is in the way: the gap from the bottom edge, as a fraction of frame height. The renderer's resting position."
+        },
+        "line_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.5,
+          "default": 0.07,
+          "description": "D56 — how tall a caption is, as a fraction of frame height. Used to work out whether a graphic actually lands on it; a caption is not a line, it is a band."
+        },
+        "max_lift": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.8,
+          "default": 0.3,
+          "description": "D56 — how far captions may be raised to clear a graphic. Clearing a full-frame treatment would need more than this (there is no free space under it), and a caption in the middle of the frame is worse than an overlap, so past this limit the caption steps up by one caption height instead."
+        }
       }
     },
     "renderer": { "enum": ["auto", "ffmpeg", "remotion"], "default": "auto" },
@@ -92,6 +136,64 @@
       "additionalProperties": false,
       "properties": {
         "max_usd_per_video": { "type": "number", "minimum": 0 }
+      }
+    },
+    "qa": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D57 — post-render checks on the finished file, run before a video can reach RENDERED. Every number is a threshold on something ffmpeg measures; loosening one is a channel decision, not a code change.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "frame_samples": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 12,
+          "description": "how many frames to look at, spread evenly and inset from both ends (an opening fade is legitimately black)"
+        },
+        "black_luma_max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.06,
+          "description": "mean luma at or under which a sampled frame counts as black"
+        },
+        "max_black_samples": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1,
+          "description": "how many black samples are tolerated before the video fails — a fade_to_black transition can legitimately land on one"
+        },
+        "flat_frame_range": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "default": 2,
+          "description": "brightest minus darkest cell of an 8x8 grey sample, at or under which the frame is a flat fill: an overlay covering the shot, or an asset that never decoded. Mean luma alone cannot see this."
+        },
+        "silence_dbfs": {
+          "type": "number",
+          "maximum": 0,
+          "default": -50,
+          "description": "level at or under which audio counts as silence, for both the whole-mix average and the gap check"
+        },
+        "max_silence_run_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 3,
+          "description": "the longest silent stretch allowed inside the mix — a hole in the narration"
+        },
+        "clip_dbfs": {
+          "type": "number",
+          "maximum": 0,
+          "default": -0.1,
+          "description": "peak level at or over which the mix counts as clipping. D49 delivers at -14 LUFS so the platform leaves the mix alone; a clipped peak defeats that."
+        },
+        "duration_tolerance_s": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1,
+          "description": "how far the finished file may differ from the voiceover's own length before it counts as cut short or padded"
+        }
       }
     },
     "retention": {
@@ -120,7 +222,42 @@
               "description": "order = preference; omission = forbidden; replaced wholesale by overrides"
             },
             "max_clip_seconds": { "type": "number", "exclusiveMinimum": 0, "default": 12 },
-            "orientation": { "enum": ["landscape", "portrait", "square"], "default": "landscape" }
+            "orientation": { "enum": ["landscape", "portrait", "square"], "default": "landscape" },
+            "min_score_floor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0,
+              "description": "D55 — the score under which a match is not worth showing at all. A source's own min_score decides whether to FALL THROUGH; this decides whether the chain's answer is placed or replaced by a typographic card (style_pack.fallback). 0 = off. Only sources that return a score (the library) are judged.",
+              "$comment": "not the same knob as chain[].min_score: that one is per source, this one is the last word"
+            },
+            "short_clip_fallback": {
+              "type": "array",
+              "items": { "enum": ["loop", "slow", "freeze"] },
+              "default": ["loop", "freeze"],
+              "description": "D55 — how to cover a slot longer than its footage, first applicable wins. `loop` repeats the source (both renderers), `slow` ramps playback down to at most 0.5x (Remotion only — the ffmpeg profile rejects speed != 1, so it forces the premium route), `freeze` holds the last frame, which is what both renderers did before this existed.",
+              "minItems": 1
+            },
+            "dedup": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "D54 — how hard this channel works to avoid showing the same thing twice in one video. Per-beat resolution is independent by design, which is what lets two adjacent beats about the same subject fetch the same clip.",
+              "properties": {
+                "reuse_window_items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "how many recent visual items an exact asset id stays blocked for. 0 = the whole video: a segment is spent once. A small number suits a channel with a thin library, where a callback after four minutes reads as a motif rather than as a mistake."
+                },
+                "min_hamming_distance": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 64,
+                  "default": 0,
+                  "description": "near-duplicate threshold on a 64-bit perceptual hash of one frame: a candidate closer than this to a shot already used is skipped. 0 = off (the default, since the check costs one wasted download per repeat); ~6 catches the same footage re-encoded or re-graded, without catching two different shots of the same subject."
+                }
+              }
+            }
           }
         },
         "sound_pack": {
@@ -187,6 +324,7 @@
       "properties": {
         "script": { "$ref": "#/$defs/resolvedPrompt" },
         "planner": { "$ref": "#/$defs/resolvedPrompt" },
+        "spine": { "$ref": "#/$defs/resolvedPrompt" },
         "chat": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }

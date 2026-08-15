@@ -24,6 +24,16 @@
       "enum": ["card", "lower_third", "big_number", "bullet_list", "statement"],
       "description": "code-free path: drawn by the engine's TemplateOverlay from these props instead of a React component in engine/src/components/core. Entries in the generated core pack never set this."
     },
+    "region": {
+      "type": "object",
+      "required": ["y_min", "y_max"],
+      "additionalProperties": false,
+      "description": "the vertical band of the frame this component draws in, as fractions from the TOP (0) to the bottom (1). Declared so the compiler can tell whether a graphic actually lands on the captions (D56) instead of assuming every graphic does. Omit it when the placement depends on a prop the compiler moves (a corner tag) — an entry with no region is treated conservatively, as if it reached the caption band.",
+      "properties": {
+        "y_min": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y_max": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
     "duration_hint_s": {
       "type": "object",
       "additionalProperties": false,

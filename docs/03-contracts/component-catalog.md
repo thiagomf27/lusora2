@@ -79,6 +79,9 @@ quietly rather than loudly:
 
 1. `engine/src/components/core/<Name>.tsx` — takes `{ props, theme }`, all
    appearance from the theme runtime, all sizes relative to `useVideoConfig()`.
+   A component belonging to a non-core pack lives in
+   `engine/src/components/<pack>/<Name>.tsx` instead; the test below checks the
+   file is where the entry's `pack` says it is.
 2. `COMPONENTS` in `engine/src/components/index.ts` — an unregistered name
    renders **nothing** (Composition.tsx returns null).
 3. `CORE_COMPONENTS` in `engine/src/catalog/registry.ts`, then
@@ -86,10 +89,21 @@ quietly rather than loudly:
 4. `allowed_components` in the style packs that should offer it — the
    validator rejects a component the pack does not list.
 
-`engine/test/catalog.test.ts` enforces 2 ↔ 3 parity, that every
-anchor-gated entry actually reads its anchor, and that every entry has
+`region` (D56) is how an entry says which vertical band it draws in, as
+fractions from the top: `{y_min: 0.70, y_max: 0.86}` for a lower third,
+`{0, 0.94}` for a full-frame treatment with its own credit line, `{0.10, 0.86}`
+for a card in the middle. The compiler reads it to decide whether a graphic is
+actually sitting on the captions, and by how much they must rise. Omit it when
+the placement comes from a prop the compiler already moves (a corner tag):
+absent is read as full-frame, which is the conservative answer.
+
+`engine/test/catalog.test.ts` enforces 2 ↔ 3 parity — across the data packs
+too, so a pack entry must be drawn by a component or a template and a
+registered component must be reachable from some entry — that every
+anchor-gated entry actually reads its anchor, and that every *core* entry has
 sample props in `engine/src/catalog/sample-props.json` (shared by
-`preview-all.mjs` and the platform's Overlays screen).
+`preview-all.mjs` and the platform's Overlays screen; a pack entry's preview
+props are synthesized from its prop spec instead).
 
 ### Non-core packs: entries as data
 
@@ -105,6 +119,18 @@ On its own this does **not** remove the need for steps 1 and 2: an entry is
 metadata. Until something can draw it the planner may pick the name and the
 validator will accept it, but the overlay renders as nothing — which is why
 the screen marks such entries *no renderer*.
+
+So a non-core pack comes in two flavours, and they mix inside one file:
+
+- **data + template** — no code at all (see below). `doc-minimal` is this.
+- **data + code** — the entries are still data, but each names a React
+  component under `engine/src/components/<pack>/`. `archive` is this: seven
+  overlays (`ArchiveLowerThird`, `ArchiveCaption`, `ArchiveChapterTitle`,
+  `ArchiveQuoteCard`, `ArchiveCounter`, `ArchiveBarGraph`, `ArchiveLineChart`)
+  built from one pair of parts — a hard-edged paper plate and a tan strip
+  welded to it — with `contracts/themes/archive.json` as the theme they are
+  drawn for and `contracts/style-packs/archive-doc.json` as the style pack
+  that offers them. `core` stays the only pack generated from the registry.
 
 ### Templates: entries that draw themselves
 

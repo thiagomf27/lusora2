@@ -1,0 +1,354 @@
+{
+  "pack": "doc-minimal",
+  "components": [
+    {
+      "name": "MinimalArchivalFrame",
+      "pack": "doc-minimal",
+      "when_to_use": "marking the shot as archive while it plays untouched — one slate line, an optional date or archive under it, no grain and no frame drawn",
+      "when_not_to_use": "the footage itself should carry the archival treatment — grain, gate flicker, sprockets (ArchivalFrame); a still presented as an exhibit with a caption (MinimalFramedExhibit); a date with no slate line (MinimalDateStamp)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 6,
+          "required": true,
+          "description": "the slate line, e.g. 'Soviet newsreel, reel 3'"
+        },
+        "subtext": {
+          "type": "string",
+          "maxWords": 5,
+          "description": "the year, or the archive it came from"
+        },
+        "side": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "left"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 5
+      },
+      "entrance_support": "text",
+      "renderer": "remotion",
+      "template": "lower_third"
+    },
+    {
+      "name": "MinimalChapterCard",
+      "pack": "doc-minimal",
+      "when_to_use": "a full-screen act break between sections — a small kicker naming the part and one line of title, centred over the shot",
+      "when_not_to_use": "the video's opening title (KineticTitle); a heading the narration should not stop for; a person's name (MinimalNamePlate)",
+      "anchor_types": [],
+      "props": {
+        "kicker": {
+          "type": "string",
+          "maxWords": 4,
+          "description": "e.g. 'Part Two', 'Chapter III'"
+        },
+        "text": {
+          "type": "string",
+          "maxWords": 10,
+          "required": true,
+          "description": "the chapter title"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "entrance_support": "text",
+      "renderer": "remotion",
+      "template": "statement"
+    },
+    {
+      "name": "MinimalAnimatedCounter",
+      "pack": "doc-minimal",
+      "when_to_use": "the narration lands a single figure worth dwelling on — the number counts up over a label and nothing else is on screen",
+      "when_not_to_use": "two values being compared (ComparisonSplit); three or more (BarChart); a figure that should sit in a corner while the shot continues (StatTag)",
+      "anchor_types": [
+        "number",
+        "percentage"
+      ],
+      "props": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "from_anchor": "value"
+        },
+        "label": {
+          "type": "string",
+          "maxWords": 6,
+          "required": true
+        },
+        "prefix": {
+          "type": "string",
+          "maxWords": 2,
+          "description": "e.g. a currency symbol"
+        },
+        "suffix": {
+          "type": "string",
+          "maxWords": 3,
+          "description": "e.g. '%', 'tons'"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "accent"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "renderer": "remotion",
+      "template": "big_number"
+    },
+    {
+      "name": "MinimalDateStamp",
+      "pack": "doc-minimal",
+      "when_to_use": "establishing when — and optionally where — a shot happens, as one line the narration runs underneath",
+      "when_not_to_use": "several dates in sequence (Timeline); a date that is itself the figure the beat is about (MinimalAnimatedCounter); locating a place on a map (SatelliteLocate)",
+      "anchor_types": [
+        "date"
+      ],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 4,
+          "required": true,
+          "from_anchor": "value",
+          "description": "pre-formatted for the language of the video, e.g. '31 January 1943'"
+        },
+        "subtext": {
+          "type": "string",
+          "maxWords": 4,
+          "description": "the place"
+        },
+        "side": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "left"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3.5
+      },
+      "entrance_support": "text",
+      "renderer": "remotion",
+      "template": "lower_third"
+    },
+    {
+      "name": "MinimalDocumentCard",
+      "pack": "doc-minimal",
+      "when_to_use": "a written source read as text — an order, a telegram, a signed note — set as plain lines under its title, one line revealed at a time",
+      "when_not_to_use": "the paper itself is the point, with stamp, signature or typewriter face (DocumentCard); a spoken line (QuoteBlock); the video's own list of reasons (BulletList)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 6,
+          "description": "what the document is, e.g. 'Order No. 227'"
+        },
+        "items": {
+          "type": "array",
+          "required": true,
+          "min": 2,
+          "max": 5,
+          "items": {
+            "type": "string",
+            "maxWords": 14
+          },
+          "description": "the lines of the document, quoted or condensed"
+        },
+        "marker": {
+          "enum": [
+            "none",
+            "dot",
+            "number"
+          ],
+          "default": "none"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3.5,
+        "default": 6
+      },
+      "renderer": "remotion",
+      "template": "bullet_list"
+    },
+    {
+      "name": "MinimalFramedExhibit",
+      "pack": "doc-minimal",
+      "when_to_use": "a photograph or artefact is already on screen and needs naming — the caption set beside it, with an optional credit, and no frame drawn around the image",
+      "when_not_to_use": "the image needs a museum frame, a polaroid or a plate around it (FramedExhibit); the shot should read as moving archive (MinimalArchivalFrame); a written document (MinimalDocumentCard)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 8,
+          "required": true,
+          "description": "the caption — what the viewer is looking at"
+        },
+        "body": {
+          "type": "string",
+          "maxWords": 24,
+          "description": "one sentence of detail, only if the caption cannot carry it"
+        },
+        "footnote": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "credit or holding archive"
+        },
+        "position": {
+          "enum": [
+            "left",
+            "right",
+            "center"
+          ],
+          "default": "right"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3,
+        "default": 5
+      },
+      "entrance_support": "text",
+      "renderer": "remotion",
+      "template": "card"
+    },
+    {
+      "name": "MinimalNamePlate",
+      "pack": "doc-minimal",
+      "when_to_use": "introducing a person while the narration continues — the name on the line, role or years under it",
+      "when_not_to_use": "a place (SatelliteLocate); a term (MinimalDefinitionCard); a section heading (MinimalChapterCard); quoting what the person said (QuoteBlock)",
+      "anchor_types": [
+        "name"
+      ],
+      "props": {
+        "text": {
+          "type": "string",
+          "maxWords": 6,
+          "required": true,
+          "from_anchor": "value",
+          "description": "the person's name"
+        },
+        "subtext": {
+          "type": "string",
+          "maxWords": 10,
+          "description": "role, and the years if they earn their place"
+        },
+        "side": {
+          "enum": [
+            "left",
+            "right"
+          ],
+          "default": "left"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "entrance_support": "text",
+      "renderer": "remotion",
+      "template": "lower_third"
+    },
+    {
+      "name": "MinimalDefinitionCard",
+      "pack": "doc-minimal",
+      "when_to_use": "the narration introduces a technical term the viewer is unlikely to know and defines it — the term as the heading, the definition under it",
+      "when_not_to_use": "a claim or a statistic rather than a term (FactCard); a person's name and role (MinimalNamePlate); a quoted line (QuoteBlock)",
+      "anchor_types": [],
+      "props": {
+        "title": {
+          "type": "string",
+          "maxWords": 5,
+          "required": true,
+          "description": "the term being defined"
+        },
+        "body": {
+          "type": "string",
+          "maxWords": 26,
+          "required": true,
+          "description": "the definition, one sentence, in the language of the video"
+        },
+        "footnote": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "origin or literal sense, e.g. 'German: cauldron'"
+        },
+        "position": {
+          "enum": [
+            "left",
+            "right",
+            "center"
+          ],
+          "default": "center"
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3,
+        "default": 5
+      },
+      "entrance_support": "text",
+      "renderer": "remotion",
+      "template": "card"
+    }
+  ]
+}

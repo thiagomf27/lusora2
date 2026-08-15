@@ -1,5 +1,9 @@
 # Cost Tracking — Draft v1
 
+> Changing a price, a budget or a token ceiling? See
+> [Tokens & Pricing](../08-tokens-and-pricing.md) — this file is the
+> design; that one is where every number lives and what breaks.
+
 Costs are architecture, not reporting. Two mechanisms:
 
 ## 1. cost_events with a lifecycle (adopted from OpenMontage)

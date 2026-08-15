@@ -25,6 +25,7 @@ from ..providers import sources, tts, whisper
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
+from . import degrade, qa
 
 # ---------------- script ----------------
 
@@ -213,11 +214,18 @@ def _merge_recompiled(old_plan: dict, new_plan: dict, beats_by_id: dict) -> dict
             if old.get("locked"):
                 merged_items.append(old)
                 continue
-            # carry the resolved asset when the beat's intent didn't change
+            # carry the resolved asset when the beat's intent didn't change.
+            # The stored query is whatever the SOURCE was asked, which since
+            # v1.1 is a keyword query for stock and the intent for the library
+            # (D53) — so any of the beat's current queries counts as unchanged.
             beat = beats_by_id.get(str(item.get("beat_id")))
             old_query = ((old.get("asset") or {}).get("query") or "")[:200]
-            new_intent = (str((beat or {}).get("visual_intent") or ""))[:200]
-            if old_query and new_intent and old_query == new_intent and (old.get("asset") or {}).get("path"):
+            intent = str((beat or {}).get("visual_intent") or "")
+            wanted = {intent[:200]} if intent else set()
+            wanted |= {str(q)[:200] for q in ((beat or {}).get("queries") or [])}
+            if intent:
+                wanted.add(sources.keywords_from_intent(intent)[:200])
+            if old_query and old_query in wanted and (old.get("asset") or {}).get("path"):
                 item["asset"] = old["asset"]
                 item["media_type"] = old.get("media_type", item["media_type"])
                 if "motion" in old:
@@ -260,6 +268,8 @@ def assets_resolved(ctx: StageContext) -> bool:
     except StageError:
         return False
     for item in plan["tracks"]["visual"]:
+        if item.get("media_type") == "color":
+            continue  # a colour fill has nothing to fetch (D55 fallback cards)
         path = str(item["asset"].get("path", ""))
         if not path or not (ctx.folder / path).exists():
             return False
@@ -274,20 +284,45 @@ def run_resolve_assets(ctx: StageContext) -> None:
         raise StageError("resolve_assets", "source_policy.visual.chain is empty — nothing can be sourced")
 
     (ctx.folder / "clips").mkdir(exist_ok=True)
+    # What this video has already put on screen (D54). Rebuilt from the plan,
+    # so a worker killed mid-stage resumes with the ledger it had.
+    ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
     changed = False
+    floor = degrade.source_score_floor(ctx.cfg)
     for item in plan["tracks"]["visual"]:
         path = str(item["asset"].get("path", ""))
         if path and (ctx.folder / path).exists():
             continue  # human-provided or already resolved
+        if item.get("media_type") == "color":
+            continue  # already degraded to a card on an earlier pass
         beat = beats.get(str(item.get("beat_id")))
         query = str((beat or {}).get("visual_intent") or ctx.video.get("title") or "establishing shot")
-        resolved = sources.resolve_item(ctx, item, query, chain)
+        # v1.1 (D53): keyword sources get these instead of the scout sentence
+        queries = [str(q) for q in ((beat or {}).get("queries") or [])]
+        resolved = sources.resolve_item(ctx, item, query, chain, queries, ledger)
         if not resolved:
             raise StageError(
                 "resolve_assets",
                 f"source chain exhausted for beat {item.get('beat_id')} (item {item['id']}) — "
                 f"query was: {query!r}; add sources, lower min_score, or edit the beat",
             )
+        # A score below the floor is a match nobody would have chosen: place a
+        # card that says what the beat is about instead of a clip that is
+        # nearly unrelated (D55). Sources that return no score (stock, ai) are
+        # not judged here — there is nothing to judge them by.
+        score = (item.get("asset") or {}).get("score")
+        if floor > 0 and score is not None and float(score) < floor:
+            used = degrade.to_title_card(ctx, plan, item, beat or {})
+            if used:
+                ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                             f"beat {item.get('beat_id')}: best match scored {float(score):.2f}, "
+                             f"under min_score_floor {floor:g} — showing a {used} instead")
+        else:
+            strategy = degrade.apply_short_clip_policy(ctx, item)
+            if strategy:
+                ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                             f"beat {item.get('beat_id')}: footage shorter than the beat — {strategy}")
+
         # checkpoint after every item so a killed worker resumes without
         # re-downloading what it already has
         ctx.write_json("edit_plan.json", plan)
@@ -436,6 +471,28 @@ def run_render(ctx: StageContext) -> None:
         ctx.log(f"rendered via {info.get('renderer')} ({info.get('duration_s')}s)")
     except (json.JSONDecodeError, IndexError):
         ctx.log("rendered (engine reported no JSON summary)")
+
+
+# ---------------- qa (D57) ----------------
+
+
+def run_qa(ctx: StageContext) -> None:
+    """Look at the finished file. A render that is black, silent or the wrong
+    length has passed every structural check ever written for it."""
+    final = ctx.artifact("final.mp4")
+    expected = probe_duration("qa", ctx.artifact("audio.mp3")) if ctx.has("audio.mp3") else None
+    if ctx.has("edit_plan.json"):
+        # The PLAN is the expectation, not the narration: a cold open delays the
+        # voiceover and an outro outlives it (D58), so the timeline is as long
+        # as its last visual item.
+        plan = ctx.read_json("edit_plan.json")
+        vo = plan["tracks"]["audio"]["voiceover"]
+        visual = plan["tracks"]["visual"]
+        expected = max(
+            float(vo.get("start_s", 0)) + float(vo["duration_s"]),
+            float(visual[-1]["end_s"]) if visual else 0.0,
+        )
+    qa.check(ctx, final, expected)
 
 
 # ---------------- finalize ----------------

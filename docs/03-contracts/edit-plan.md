@@ -80,6 +80,18 @@ Every item carries:
   wiped. The chat agent's plan patches follow the same rule.
 - `asset` provenance feeds the Video screen's "assets used", license
   checks, and `mark_used` bookkeeping.
+- `loop` (D55) — repeat a video source shorter than the item instead of
+  freezing on its last frame. Both renderers honour it, and it does not force
+  the premium route; `speed` (the `slow` fallback) does, since the ffmpeg
+  profile rejects a rate other than 1.
+- `absorbed_beat_ids` — beats whose aligned span was under the style pack's
+  hold floor (`pacing.hold_floor_ratio`) and which now play under THIS
+  item's shot. Provenance only: an absorbed beat keeps its overlay and its
+  mood, and this is what tells the editor why beat b7 has no visual of its
+  own. One caveat: because the merge is derived from the beat sheet and the
+  timings, a *re-*compile against re-synthesised audio can merge differently,
+  and a locked item whose beat has been absorbed has no counterpart to
+  survive into — the same behaviour a beat split has always had.
 
 ## Rejected alternatives (recorded so we don't re-litigate)
 

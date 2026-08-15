@@ -8,12 +8,43 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { CatalogEntry } from "@lusora/contracts";
 import { CORE_COMPONENTS } from "../src/catalog/registry.ts";
+import { isTemplateKind } from "../src/components/templates/registry.ts";
 
-const componentsDir = join(dirname(fileURLToPath(import.meta.url)), "../src/components");
+const here = dirname(fileURLToPath(import.meta.url));
+const componentsDir = join(here, "../src/components");
+const packsDir = join(here, "../../contracts/component-packs");
+
+/**
+ * The data packs (contracts/component-packs/*.json), which the planner and the
+ * validator read merged with the generated core pack. An entry there is drawn
+ * either by a template or — like the `archive` pack — by a React component in
+ * components/<pack>, so the same parity rules apply to it.
+ */
+function dataPackEntries(): CatalogEntry[] {
+  if (!existsSync(packsDir)) return [];
+  return readdirSync(packsDir)
+    .filter((f) => f.endsWith(".json"))
+    .sort()
+    .flatMap((f) => {
+      const pack = JSON.parse(readFileSync(join(packsDir, f), "utf8")) as {
+        pack: string;
+        components?: CatalogEntry[];
+      };
+      return pack.components ?? [];
+    });
+}
+
+const ALL_ENTRIES = [...CORE_COMPONENTS, ...dataPackEntries()];
+
+/** Where a pack's implementations live: core/<Name>.tsx, else <pack>/<Name>.tsx. */
+function implementationPath(entry: CatalogEntry): string {
+  return join(componentsDir, entry.pack === "core" ? "core" : entry.pack, `${entry.name}.tsx`);
+}
 
 /**
  * The registered names, read from the source of components/index.ts rather
@@ -31,31 +62,44 @@ function registeredComponents(): string[] {
 }
 
 test("every catalog component has an implementation, and vice versa", () => {
-  const catalog = CORE_COMPONENTS.map((c) => c.name).sort();
   const implemented = registeredComponents().sort();
   assert.ok(implemented.length > 0, "no components parsed out of the registry");
+
+  // A core entry has no other way to be drawn: `template` is reserved for data
+  // packs, so a missing component means the overlay never appears.
   assert.deepEqual(
-    catalog.filter((n) => !implemented.includes(n)),
+    CORE_COMPONENTS.map((c) => c.name).filter((n) => !implemented.includes(n)),
     [],
-    "catalog entries with no React component (would render nothing)"
+    "core catalog entries with no React component (would render nothing)"
+  );
+  // A pack entry may be drawn by TemplateOverlay instead of by code.
+  assert.deepEqual(
+    dataPackEntries()
+      .filter((e) => !implemented.includes(e.name) && !isTemplateKind(e.template))
+      .map((e) => e.name),
+    [],
+    "pack entries with neither a component nor a template (would render nothing)"
   );
   assert.deepEqual(
-    implemented.filter((n) => !catalog.includes(n)),
+    implemented.filter((n) => !ALL_ENTRIES.some((e) => e.name === n)),
     [],
     "components the planner and validator cannot reach (missing catalog entry)"
   );
-  for (const name of implemented) {
+
+  for (const entry of ALL_ENTRIES) {
+    if (!implemented.includes(entry.name)) continue;
+    const where = entry.pack === "core" ? "core" : entry.pack;
     assert.ok(
-      existsSync(join(componentsDir, "core", `${name}.tsx`)),
-      `${name} is registered but has no file in components/core`
+      existsSync(implementationPath(entry)),
+      `${entry.name} is registered but has no file at components/${where}/${entry.name}.tsx`
     );
   }
 });
 
 test("catalog entries are well formed", () => {
   const seen = new Set<string>();
-  for (const entry of CORE_COMPONENTS) {
-    assert.ok(!seen.has(entry.name), `duplicate catalog entry ${entry.name}`);
+  for (const entry of ALL_ENTRIES) {
+    assert.ok(!seen.has(entry.name), `duplicate catalog entry ${entry.name} (core and packs share one namespace)`);
     seen.add(entry.name);
     assert.match(entry.name, /^[A-Z][A-Za-z0-9]*$/);
     assert.ok(entry.when_to_use.length > 0 && entry.when_not_to_use.length > 0);
