@@ -8,11 +8,35 @@ from __future__ import annotations
 import time
 import traceback
 
+from lusora_contracts.pipelines import (
+    DEFAULT_PIPELINE,
+    PipelineError,
+    load_pipeline,
+    validate_pipeline,
+)
+
 from ..config import WorkerConfig
 from ..context import StageContext
 from ..db import Db
 from ..errors import StageError
-from .stages import STAGES, ensure_claim_materialized
+from .stages import UnknownStageError, build_stages, ensure_claim_materialized
+
+
+def resolve_pipeline(ctx: StageContext) -> dict:
+    """Which pipeline this video runs (D60).
+
+    Selection happened at enqueue: the platform picked a manifest and embedded
+    it as `pipeline_doc`, the same snapshot rule the theme and the style pack
+    follow (Principle 7) — editing a manifest never changes an in-flight video,
+    and a re-run walks the stages it was built with. Falling back to the named
+    manifest on disk, then to `faceless`, is what keeps manual-first true: a
+    hand-written cfg.json, or one snapshotted before this existed, still runs.
+    """
+    doc = ctx.cfg.get("pipeline_doc")
+    if isinstance(doc, dict) and doc:
+        validate_pipeline(doc, where="cfg.json pipeline_doc")
+        return doc
+    return load_pipeline(str(ctx.cfg.get("pipeline") or DEFAULT_PIPELINE))
 
 
 def process_video(db: Db, config: WorkerConfig, video: dict) -> None:
@@ -27,7 +51,16 @@ def process_video(db: Db, config: WorkerConfig, video: dict) -> None:
         db.event(video_id, "claim", "done", f"claimed by {config.worker_id}")
         ctx.log(f"claimed by {config.worker_id}")
 
-        for stage in STAGES:
+        try:
+            manifest = resolve_pipeline(ctx)
+            stages = build_stages(manifest)
+        except (PipelineError, UnknownStageError) as e:
+            raise StageError("pipeline", str(e))
+        pipeline_id = f"{manifest['name']} v{manifest['version']}"
+        db.event(video_id, "pipeline", "started", f"{pipeline_id} — {len(stages)} stages")
+        ctx.log(f"pipeline {pipeline_id} ({', '.join(s.name for s in stages)})")
+
+        for stage in stages:
             if stage.done(ctx):
                 db.event(video_id, stage.name, "done", "output already present — skipped")
                 continue

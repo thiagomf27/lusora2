@@ -286,10 +286,14 @@ version = "0.1.0"
 source = { editable = "../contracts/py" }
 dependencies = [
     { name = "jsonschema" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "jsonschema", specifier = ">=4.23" }]
+requires-dist = [
+    { name = "jsonschema", specifier = ">=4.23" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [[package]]
 name = "lusora-worker"

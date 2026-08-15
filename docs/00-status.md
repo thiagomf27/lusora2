@@ -333,3 +333,9 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
 - Editor ops: `platform/src/lib/planEdit.ts` (plan) /
   `beatEdit.ts` (beats) / `chatAgent.ts` (proposals only; apply is a
   second call).
+- Stage list: `contracts/pipelines/faceless.yaml` (D60) — the ORDER and
+  the artifacts. The bodies and their done-checks are the step registry in
+  `worker/lusora_worker/pipeline/stages.py` (`STEP_REGISTRY`); the
+  orchestrator walks `cfg.pipeline_doc`, falling back to `faceless`.
+  Selection happens once, at enqueue, in
+  `platform/src/lib/pipelines.ts` (`selectPipeline`).

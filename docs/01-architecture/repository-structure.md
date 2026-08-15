@@ -4,7 +4,7 @@ One monorepo. Packages with enforced boundaries: cross-package imports go
 through `contracts` only (lint rule + CI check).
 
 ```
-videofarm/
+lusora/
   contracts/                  # THE source of truth (importable by TS and Py)
     schemas/
       beat_sheet.schema.json
@@ -16,6 +16,10 @@ videofarm/
       renderer_interface.json
       cost_event.schema.json
       prompt.schema.json
+      sound_pack.schema.json
+      pipeline_manifest.schema.json
+    pipelines/                # the stage list as data (D60): one <name>.yaml
+      faceless.yaml           #   per pipeline, selected at enqueue
     prompts/                  # agent prompts as data (D42): roles.json (the
       roles.json              #   variable contract), welded/ (the contract
       welded/                 #   halves, code-appended, never UI-editable),

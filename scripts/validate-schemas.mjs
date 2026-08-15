@@ -9,6 +9,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
+import { parse as parseYaml } from "yaml";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const schemasDir = join(root, "contracts/schemas");
@@ -237,6 +238,56 @@ if (existsSync(promptsRoot)) {
       }
       console.log(`✓ ${where} valid`);
     }
+  }
+}
+
+// 3quater. pipeline manifests (D60): schema-valid, the manifest names its own
+//          file, no stage appears twice, and every `requires` is produced by an
+//          earlier stage or provided at bootstrap. `requires` is advisory at run
+//          time — validating it here is what makes declaring it worth anything.
+//          Whether a stage NAME has a worker step is checked on the Python side
+//          (worker/tests/test_pipelines.py), where the registry lives.
+const pipelinesDir = join(root, "contracts/pipelines");
+const BOOTSTRAP_ARTIFACTS = [
+  "cfg.json",
+  "script.txt",
+  "audio.mp3",
+  "avatar.mp4",
+  "subtitles.srt",
+  "beats.json",
+  "edit_plan.json",
+];
+if (existsSync(pipelinesDir)) {
+  for (const file of readdirSync(pipelinesDir).filter((f) => f.endsWith(".yaml"))) {
+    const stem = file.replace(/\.yaml$/, "");
+    let doc;
+    try {
+      doc = parseYaml(readFileSync(join(pipelinesDir, file), "utf8"));
+    } catch (e) {
+      fail(`pipelines/${file}: not valid YAML: ${e.message}`);
+      continue;
+    }
+    if (!validators.pipeline_manifest(doc)) {
+      fail(`pipelines/${file}: ${ajv.errorsText(validators.pipeline_manifest.errors)}`);
+      continue;
+    }
+    if (doc.name !== stem) fail(`pipelines/${file}: 'name' is ${JSON.stringify(doc.name)}, expected "${stem}"`);
+
+    const seen = new Set();
+    const available = new Set(BOOTSTRAP_ARTIFACTS);
+    for (const stage of doc.stages) {
+      if (seen.has(stage.name)) fail(`pipelines/${file}: duplicate stage '${stage.name}'`);
+      seen.add(stage.name);
+      for (const need of stage.requires ?? []) {
+        if (!available.has(need))
+          fail(
+            `pipelines/${file}: stage '${stage.name}' requires '${need}', which no earlier stage produces ` +
+              `and nothing provides at bootstrap`
+          );
+      }
+      for (const made of stage.produces ?? []) available.add(made);
+    }
+    console.log(`✓ pipeline ${stem} v${doc.version} valid (${doc.stages.length} stages)`);
   }
 }
 

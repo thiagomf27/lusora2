@@ -11,6 +11,7 @@ import { deepMerge } from "./merge.ts";
 import { validateAgainst } from "./validate.ts";
 import { loadEnv, repoRoot } from "./env.ts";
 import { PROMPT_ROLES, resolvePrompt } from "./prompts.ts";
+import { bulkProductionProblem, loadPipeline, selectPipeline } from "./pipelines.ts";
 
 export function videosRoot(): string {
   loadEnv();
@@ -132,13 +133,19 @@ export async function preflight(video: VideoRow): Promise<PreflightResult> {
   return { ok: problems.length === 0, problems };
 }
 
+export interface EnqueueOptions {
+  /** Batch enqueue: pipelines that opt out of bulk production are refused. */
+  bulk?: boolean;
+}
+
 /**
  * Enqueue: pre-flight → merge channel config + overrides into the
- * immutable cfg snapshot → write cfg.json → status QUEUED.
+ * immutable cfg snapshot → select the pipeline → write cfg.json → QUEUED.
  */
 export async function enqueueVideo(
   video: VideoRow,
-  overrides: Record<string, unknown> | null
+  overrides: Record<string, unknown> | null,
+  options: EnqueueOptions = {}
 ): Promise<{ ok: true } | { ok: false; problems: string[] }> {
   if (!["draft", "error", "sent_back"].includes(video.status)) {
     return { ok: false, problems: [`cannot enqueue from status ${video.status}`] };
@@ -212,6 +219,22 @@ export async function enqueueVideo(
     }
   }
 
+  // Select the pipeline and embed the manifest (D60). Selection happens HERE,
+  // once, and the worker walks what it finds: a manifest edited later never
+  // changes this video, and a re-run reproduces the same stage order — the
+  // same snapshot rule as the theme and the style pack (Principle 7).
+  if (snapshot.pipeline_doc === undefined) {
+    const selection = selectPipeline(snapshot as { pipeline?: string });
+    const loaded = loadPipeline(selection.name);
+    if (!loaded.ok) return { ok: false, problems: [loaded.problem] };
+    if (options.bulk) {
+      const problem = bulkProductionProblem(loaded.manifest);
+      if (problem) return { ok: false, problems: [problem] };
+    }
+    snapshot.pipeline = loaded.manifest.name;
+    snapshot.pipeline_doc = loaded.manifest;
+  }
+
   // Resolve each agent's prompt and embed its TEXT (D44). The style pack layer
   // reads style_pack_doc, so this has to run after the embed above. The welded
   // contract half is NOT snapshotted: it must match the validator that will
@@ -240,10 +263,16 @@ export async function enqueueVideo(
        error_reason = NULL, updated_at = now() WHERE id = $1`,
     [video.id, JSON.stringify(snapshot), folder]
   );
+  const pipeline = snapshot.pipeline_doc as { name: string; version: string } | undefined;
   await query(
     `INSERT INTO video_events (video_id, stage, status, message)
-     VALUES ($1, 'enqueue', 'done', 'queued with cfg snapshot')`,
-    [video.id]
+     VALUES ($1, 'enqueue', 'done', $2)`,
+    [
+      video.id,
+      pipeline
+        ? `queued with cfg snapshot — pipeline ${pipeline.name} v${pipeline.version}`
+        : "queued with cfg snapshot",
+    ]
   );
   return { ok: true };
 }

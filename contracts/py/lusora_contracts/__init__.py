@@ -27,6 +27,7 @@ SCHEMA_NAMES = [
     "cost_event",
     "prompt",
     "sound_pack",
+    "pipeline_manifest",
 ]
 
 # Mirrors MOODS in contracts/src/types.ts and the enum in sound_pack.schema.json.

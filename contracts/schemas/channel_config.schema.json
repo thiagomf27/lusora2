@@ -14,6 +14,11 @@
     "theme": { "type": "string", "description": "theme name (themes/<name>.yaml)" },
     "style_pack": { "type": "string", "description": "style pack name (style-packs/<name>.yaml)" },
     "component_pack": { "type": ["string", "null"], "default": null },
+    "pipeline": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "D60 - pipeline manifest name (contracts/pipelines/<name>.yaml). Absent = the selection resolver picks one at enqueue, today always 'faceless'."
+    },
     "voice": {
       "type": "object",
       "required": ["provider"],
@@ -316,6 +321,10 @@
     "sound_pack_doc": {
       "type": "object",
       "description": "full sound pack manifest embedded at enqueue (snapshot). Absent when no pack is resolved, which is how a channel produces silent video."
+    },
+    "pipeline_doc": {
+      "type": "object",
+      "description": "full pipeline manifest embedded at enqueue (D60, snapshot). The worker walks THIS list, so editing the manifest never changes an in-flight video and a re-run reproduces the same stage order."
     },
     "prompts": {
       "type": "object",
