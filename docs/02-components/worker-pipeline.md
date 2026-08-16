@@ -5,7 +5,18 @@ claimed video runs every stage whose output artifact is missing from the
 folder. Stores no state of its own. Emits `video_events` and
 `cost_events` rows throughout.
 
+WHICH stages, in what order, is not in this code: it is a **pipeline
+manifest** (D60), one YAML file per pipeline, chosen at enqueue and
+snapshotted into `cfg.json`. What each stage NAME does — the body and its
+done-check — is the worker's step registry
+(`lusora_worker/pipeline/stages.py`). Adding a stage to a manifest that
+the registry has no entry for fails at load, before any work. See
+[Pipeline Manifest](../03-contracts/pipeline.md).
+
 ## Stages
+
+The `faceless` pipeline (`contracts/pipelines/faceless.yaml`) — the
+default, and the list every video ran before manifests existed:
 
 | # | Stage | Output artifact | AI? |
 |---|---|---|---|
@@ -24,6 +35,11 @@ folder. Stores no state of its own. Emits `video_events` and
 
 Structural validation additionally runs after claim (if a plan was
 provided manually) and after compile.
+
+Bootstrap (row 1) is not a manifest stage: claiming the video and
+materializing `cfg.json` is the precondition for the loop, not a step it
+can skip. Rows without an artifact (`validate`, `qa`) declare no
+`produces`, which is precisely why they always run.
 
 ### `qa` (D57)
 

@@ -39,6 +39,7 @@ docker-compose.
 - [Sound](03-contracts/sound.md) — sound packs, cues, mood music, ducking
 - [Channel Config & Source Policy](03-contracts/channel-config.md)
 - [Component Catalog](03-contracts/component-catalog.md) — the effects menu
+- [Pipeline Manifest](03-contracts/pipeline.md) — the stage list as data (D60)
 - [Database](03-contracts/database.md) — the control plane schema
 - [API Surface](03-contracts/api.md)
 - [Renderer Interface & Routing](03-contracts/renderer-interface.md)
@@ -50,6 +51,8 @@ docker-compose.
 
 ### 05 — Roadmap
 - [Milestones](05-roadmap/milestones.md) — build order for Claude Code
+- [Destination Map](05-roadmap/destination-map.md) — the five changes ahead,
+  in two axes, with the slice order ★ read before starting one of them
 
 ### 07 — Authoring
 - [Authoring Guide](07-authoring.md) — ready-made prompts for adding a

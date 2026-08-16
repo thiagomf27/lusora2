@@ -163,3 +163,23 @@ would catch runs exactly, at a cost that grows with video length.
 `blackdetect` pass, since it is one decode and no seeking; (c) a
 per-channel `qa.thorough` flag. **Trigger:** the first broken render that
 sampling misses.
+
+## Opened by pipelines-as-data (D60), 2026-08-15
+
+**OQ-28 — Who executes the guided checkpoint policy.** The manifest
+schema declares `default_checkpoint_policy: guided` and a per-stage
+`human_approval_on_review_mode`, and `faceless.yaml` marks the two stages
+a review mode would gate (after the script, after the beat sheet).
+Nothing runs them: every video today runs under `auto`. The shape is in
+the schema on purpose — review mode is a POLICY on a pipeline, not a
+separate pipeline, and stating that now is what stops a
+`faceless-review.yaml` fork later — but a pause needs a place to wait,
+and the worker's whole design is that it stores no state of its own.
+**Options:** (a) leave it declared and unexecuted (today); (b) a paused
+video takes a status of its own (`awaiting_approval`), which the queue
+already knows how to show and the orchestrator can resume from, at the
+cost of a status-machine change; (c) the gate writes a marker artifact
+into the folder and the stage's done-check waits on it, which keeps the
+DB untouched and makes the pause invisible in the UI. **Trigger:** the
+first channel that wants to approve a script before paying for
+narration.

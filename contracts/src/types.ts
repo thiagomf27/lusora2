@@ -398,6 +398,8 @@ export interface ChannelConfig {
   theme: string;
   style_pack: string;
   component_pack?: string | null;
+  /** D60: pipeline manifest name (contracts/pipelines/<name>.yaml). */
+  pipeline?: string;
   voice: { provider: string; voice_id?: string };
   script?: {
     generator?: string;
@@ -434,6 +436,8 @@ export interface ChannelConfig {
   theme_doc?: Theme;
   /** Full sound pack manifest, embedded at enqueue. Absent = silent video. */
   sound_pack_doc?: SoundPack;
+  /** Full pipeline manifest, embedded at enqueue (D60, snapshot). */
+  pipeline_doc?: PipelineManifest;
   /** Resolved prompt text per role, snapshotted at enqueue (D44). */
   prompts?: Partial<Record<PromptRole, ResolvedPrompt>>;
 }
@@ -531,4 +535,57 @@ export interface VideoEvent {
   status: EventStatus;
   message?: string | null;
   ts: string;
+}
+
+// ---------- pipeline manifest (D60) ----------
+
+/**
+ * The stage list as data. The manifest declares POLICY (which stages run, in
+ * what order, what each produces); the worker's step registry owns MECHANISM
+ * (the callable behind a name and how it decides it is already done).
+ */
+export interface PipelineStage {
+  name: string;
+  requires?: string[];
+  produces?: string[];
+  checkpoint_required?: boolean;
+  human_approval_on_review_mode?: boolean;
+  substages?: PipelineSubstage[];
+}
+
+export interface PipelineSubstage {
+  name: string;
+  requires?: string[];
+  produces?: string[];
+  checkpoint_required?: boolean;
+}
+
+export type PipelineCategory =
+  | "faceless"
+  | "talking_head"
+  | "ultra_longform"
+  | "shorts"
+  | "animation"
+  | "custom";
+
+export interface PipelineManifest {
+  name: string;
+  version: string;
+  description?: string;
+  category?: PipelineCategory;
+  stability?: "production" | "test";
+  default_checkpoint_policy?: "guided" | "auto";
+  bulk_production_accepted?: boolean;
+  orchestration?: {
+    mode?: "mainly_code";
+    budget_default_usd?: number;
+    max_revisions_per_stage?: number;
+    max_send_backs?: number;
+  };
+  compatible_themes?: {
+    recommended?: string[];
+    also_works?: string[];
+    custom_allowed?: boolean;
+  };
+  stages: PipelineStage[];
 }

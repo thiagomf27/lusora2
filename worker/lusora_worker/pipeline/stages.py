@@ -1,18 +1,33 @@
-"""The stage registry. Each stage: name, done-check, run.
+"""The step registry: what each stage NAME actually does.
 
-M2 ships STUB creative stages (they touch valid placeholder artifacts);
-M3+ replaces the bodies. The orchestrator only ever asks two questions:
-"is this stage's output present?" and "run it".
+D60 split this file in two halves that used to be one list. The manifest
+(`contracts/pipelines/<name>.yaml`) owns POLICY — which stages run, in what
+order, what each produces. This file owns MECHANISM — the callable behind a
+name and how that step decides it is already done (artifact presence vs. a
+freshness check that also compares mtimes). Neither half can be derived from
+the other, which is why the manifest never encodes a done-check and this
+registry never encodes an order.
+
+`build_stages` binds the two: a manifest stage with no entry here is a
+load-time error, not a mid-video surprise.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Any, Callable
 
 from ..context import StageContext
 from ..errors import StageError
 from . import steps
+
+
+@dataclass(frozen=True)
+class Step:
+    """One executable stage body plus its done-check (mechanism only)."""
+
+    run: Callable[[StageContext], None]
+    is_done: Callable[[StageContext], bool] | None = None
 
 
 @dataclass(frozen=True)
@@ -31,30 +46,72 @@ class Stage:
         return ctx.has(self.artifact)
 
 
-STAGES: list[Stage] = [
-    Stage("script", steps.run_script, artifact="script.txt"),
-    Stage("narration", steps.run_narration, artifact="audio.mp3"),
-    Stage("transcript", steps.run_transcript, artifact="subtitles.srt"),
-    Stage("plan_beats", steps.run_plan_beats, artifact="beats.json"),
-    Stage("compile_plan", steps.run_compile_plan, is_done=steps.plan_compiled_and_fresh),
-    Stage("resolve_assets", steps.run_resolve_assets, is_done=steps.assets_resolved),
+# name -> (body, done-check). A stage whose done-check is None falls back to
+# "the artifact the manifest says it produces is present"; a stage that
+# produces nothing (validate, qa) therefore always runs.
+STEP_REGISTRY: dict[str, Step] = {
+    "script": Step(steps.run_script),
+    "narration": Step(steps.run_narration),
+    "transcript": Step(steps.run_transcript),
+    "plan_beats": Step(steps.run_plan_beats),
+    "compile_plan": Step(steps.run_compile_plan, steps.plan_compiled_and_fresh),
+    "resolve_assets": Step(steps.run_resolve_assets, steps.assets_resolved),
     # D48: binds the compiler's cue and bed NAMES to bytes from the sound pack.
     # After resolve_assets so a plan with no audio costs nothing, before
     # validate so the file-existence checks see real files.
-    Stage("resolve_audio", steps.run_resolve_audio, is_done=steps.audio_resolved),
-    Stage("validate", steps.run_validate),  # always runs
-    Stage("render", steps.run_render, is_done=steps.render_fresh),
+    "resolve_audio": Step(steps.run_resolve_audio, steps.audio_resolved),
+    "validate": Step(steps.run_validate),  # judges the plan — always runs
+    "render": Step(steps.run_render, steps.render_fresh),
     # D57: between render and finalize, so a black or silent file never reaches
     # RENDERED — the orchestrator sets that status only after every stage
     # passes, and a StageError here stops the video with one reason. Always
     # runs: it judges the FILE, and the file is what changed.
-    Stage("qa", steps.run_qa),
-    Stage("finalize", steps.run_finalize, is_done=steps.finalize_fresh),
-]
+    "qa": Step(steps.run_qa),
+    "finalize": Step(steps.run_finalize, steps.finalize_fresh),
+}
+
+
+class UnknownStageError(ValueError):
+    """A manifest names a stage this worker cannot run."""
+
+
+def build_stages(manifest: dict[str, Any]) -> list[Stage]:
+    """Bind a manifest's stage list to this worker's step registry.
+
+    Raised early and once per video, before any work is done: a pipeline that
+    names a stage this build has no body for must fail at load, when the reason
+    is still 'the manifest and the worker disagree', rather than nine stages in.
+    """
+    stages: list[Stage] = []
+    for entry in manifest["stages"]:
+        name = entry["name"]
+        step = STEP_REGISTRY.get(name)
+        if step is None:
+            known = ", ".join(sorted(STEP_REGISTRY))
+            raise UnknownStageError(
+                f"pipeline {manifest['name']!r} names stage {name!r}, which this worker "
+                f"has no step for (known: {known})"
+            )
+        produces = entry.get("produces") or []
+        stages.append(
+            Stage(
+                name=name,
+                run=step.run,
+                # the first produced artifact is what the orchestrator asserts
+                # after the body returns; the rest are the stage's own business
+                artifact=produces[0] if produces else None,
+                is_done=step.is_done,
+            )
+        )
+    return stages
 
 
 def ensure_claim_materialized(ctx: StageContext) -> None:
-    """Stage 1: the folder and cfg.json must exist (written at enqueue)."""
+    """Bootstrap: the folder and cfg.json must exist (written at enqueue).
+
+    Not a stage — it is the precondition for the loop, not a step it can skip,
+    which is why no manifest lists it.
+    """
     ctx.folder.mkdir(parents=True, exist_ok=True)
     if not ctx.has("cfg.json"):
         if ctx.cfg:

@@ -1,0 +1,81 @@
+name: faceless
+version: "1.0"
+description: >
+  The default faceless pipeline. Mirrors the stage list that lived in the worker
+  STAGES constant before pipelines became data (D60). Behaviour is unchanged: the
+  list simply moved out of code into this manifest. Selecting this pipeline and
+  running it must produce a byte-identical result to the pre-refactor worker.
+category: faceless
+stability: production
+
+# auto = today's behaviour: run straight through, no human gates.
+# The per-stage human_approval_on_review_mode flags below take effect only
+# when a video is enqueued with the "guided" checkpoint policy (review mode).
+default_checkpoint_policy: auto
+bulk_production_accepted: true
+
+orchestration:
+  mode: mainly_code
+  budget_default_usd: 2.00
+  max_revisions_per_stage: 3
+  max_send_backs: 3
+
+compatible_themes:
+  recommended:
+    - doc-minimal
+    - clean-punchy
+  also_works:
+    - archive
+    - history-dark
+  custom_allowed: true
+
+# NOTE: bootstrap (claim + materialize cfg.json) runs before this list and is
+# NOT a stage — it is the precondition for the loop, not a step it can skip.
+# Done-checks (artifact-presence vs. freshness) live in the worker step
+# registry, keyed by these names — deliberately not encoded here.
+stages:
+  - name: script
+    produces: [script.txt]
+    human_approval_on_review_mode: true   # gate after the script in review mode
+
+  - name: narration
+    requires: [script.txt]
+    produces: [audio.mp3]
+
+  - name: transcript
+    requires: [audio.mp3]
+    produces: [subtitles.srt]
+
+  - name: plan_beats
+    requires: [script.txt, subtitles.srt]
+    produces: [beats.json]
+    human_approval_on_review_mode: true   # gate after the beat sheet in review mode
+
+  - name: compile_plan
+    requires: [beats.json]
+    produces: [edit_plan.json]
+
+  - name: resolve_assets
+    requires: [edit_plan.json]
+    produces: [clips/]
+
+  - name: resolve_audio
+    requires: [edit_plan.json]
+    produces: [audio/]
+
+  - name: validate
+    # judges the compiled plan; produces no artifact, so it always runs
+    requires: [edit_plan.json]
+
+  - name: render
+    requires: [edit_plan.json]
+    produces: [final.mp4]
+
+  - name: qa
+    # judges the rendered FILE (black/silent/duration); produces no artifact,
+    # so it always runs — the gate that keeps a broken render off the review queue
+    requires: [final.mp4]
+
+  - name: finalize
+    requires: [final.mp4]
+    produces: [thumb.jpg, metadata.txt]

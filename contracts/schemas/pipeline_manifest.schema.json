@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/pipeline_manifest.schema.json",
+  "title": "PipelineManifest",
+  "description": "Declarative pipeline definition. Selected by name at enqueue and walked by the deterministic worker orchestrator. The manifest declares POLICY: which stages run, in what order, what each produces, and where review-mode gates. It does NOT declare mechanism: how a stage decides it is 'done' (artifact-presence vs. freshness) lives in the worker step registry, keyed by stage name. Adding a stage here without a matching registry entry is a load-time error.",
+  "type": "object",
+  "required": ["name", "version", "stages"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "Unique manifest name; the file is <name>.yaml and cfg.pipeline references it."
+    },
+    "version": {
+      "type": "string",
+      "description": "Manifest version. Bump on any stage-list change; snapshotted into cfg.json (Principle 7) so a re-run uses the pipeline it was built with."
+    },
+    "description": { "type": "string" },
+    "category": {
+      "enum": ["faceless", "talking_head", "ultra_longform", "shorts", "animation", "custom"],
+      "description": "Coarse family; used by the selection resolver, not by execution."
+    },
+    "stability": {
+      "enum": ["production", "test"],
+      "default": "test",
+      "description": "'test' pipelines are runnable but excluded from bulk production."
+    },
+    "default_checkpoint_policy": {
+      "enum": ["guided", "auto"],
+      "default": "auto",
+      "description": "auto = run straight through (today's behavior). guided = honor per-stage human_approval_on_review_mode. Review mode is a POLICY on any pipeline, not a separate pipeline."
+    },
+    "bulk_production_accepted": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this pipeline may be selected for batch enqueue."
+    },
+    "orchestration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": ["mainly_code"],
+          "default": "mainly_code",
+          "description": "Lusora orchestrates in code (a deterministic loop), not by an AI agent. AI appears only in bounded stage bodies (script, plan_beats). The enum is intentionally single-valued to keep that decision explicit."
+        },
+        "budget_default_usd": { "type": "number", "exclusiveMinimum": 0 },
+        "max_revisions_per_stage": { "type": "integer", "minimum": 0 },
+        "max_send_backs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "compatible_themes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recommended": { "type": "array", "items": { "type": "string" } },
+        "also_works": { "type": "array", "items": { "type": "string" } },
+        "custom_allowed": { "type": "boolean", "default": true }
+      },
+      "description": "Advisory theme compatibility for the selection UI; not enforced at run time."
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered list. The orchestrator runs each stage whose produced artifact is absent (resume = skip what exists). Bootstrap (claim + materialize cfg.json) runs BEFORE this list and is not a stage.",
+      "items": { "$ref": "#/$defs/stage" }
+    }
+  },
+  "$defs": {
+    "stage": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Must match a key in the worker step registry."
+        },
+        "requires": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact names expected present before this stage runs. ADVISORY in v1: the orchestrator runs stages in manifest order and each stage reads what it needs; declared so the loader can validate the DAG and future selection/skip logic has the data."
+        },
+        "produces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Artifact name(s) this stage writes to the video folder. A stage with no 'produces' (e.g. validate, qa) judges rather than emits and therefore always runs."
+        },
+        "checkpoint_required": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reserved for guided policy; ignored under auto."
+        },
+        "human_approval_on_review_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Under guided policy, pause for human approval after this stage."
+        },
+        "substages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/substage" },
+          "description": "Optional finer phases (e.g. the beats process). Faceless v1 declares none - model the flat reality; add when the beats restructure lands."
+        }
+      }
+    },
+    "substage": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "requires": { "type": "array", "items": { "type": "string" } },
+        "produces": { "type": "array", "items": { "type": "string" } },
+        "checkpoint_required": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}

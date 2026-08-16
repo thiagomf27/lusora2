@@ -15,7 +15,7 @@ export const POST = handler(async (req: Request) => {
       const video = await getVideo(id);
       await requireChannelAccess(user, video.channel_id);
       const draftCfg = video.cfg as unknown as { __draft_overrides?: Record<string, unknown> } | null;
-      const r = await enqueueVideo(video, draftCfg?.__draft_overrides ?? null);
+      const r = await enqueueVideo(video, draftCfg?.__draft_overrides ?? null, { bulk: true });
       results[id] = r.ok ? { ok: true } : { ok: false, problems: r.problems };
     } catch (e) {
       results[id] = { ok: false, problems: [e instanceof Error ? e.message : String(e)] };

@@ -12,6 +12,7 @@ video_type: doc                    # selects default style pack
 theme: history-dark
 style_pack: doc-slow
 component_pack: null               # or a named engine pack
+pipeline: faceless                 # D60 — stage list; omit to let enqueue pick
 voice: { provider: ai33, voice_id: "…" }
 script: { generator: scriptforge, llm: deepseek }
 captions: { enabled: true }        # preset comes from the theme
@@ -54,6 +55,13 @@ source_policy:
 
 ## Semantics (Decided)
 
+- `pipeline` (D60) names the stage list this channel's videos run
+  (`contracts/pipelines/<name>.yaml`). Omitted, the selection resolver at
+  enqueue picks one — today always `faceless`. Whichever wins, the whole
+  manifest is embedded as `pipeline_doc` in the snapshot, beside
+  `theme_doc` / `style_pack_doc` / `sound_pack_doc` and for the same
+  reason (Principle 7): a later edit to the manifest never changes this
+  video. See [Pipeline Manifest](pipeline.md).
 - `visual.chain` order = preference; omission = forbidden. Per beat,
   `resolve_assets` walks the chain and stops at the first acceptable
   asset; `min_score` is what makes fallthrough honest (without it the
