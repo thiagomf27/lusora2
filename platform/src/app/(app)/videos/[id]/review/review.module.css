@@ -1,0 +1,179 @@
+/* Beat review — ported from VidRush.dc.html (isVideoReview). */
+.titleRow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.title { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.reviewTag {
+  display: inline-flex;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: rgba(217, 154, 61, 0.16);
+  color: var(--amber-400);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.subtitle { margin-top: 6px; font-size: 13px; color: var(--text-muted); }
+
+/* Stage strip */
+.stages { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0; }
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-field);
+}
+.stageMark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.stage.done .stageMark { border-color: var(--green-500); color: var(--green-400); }
+.stage.running .stageMark { border-color: var(--accent-primary); background: rgba(59, 130, 246, 0.14); color: var(--blue-400); }
+.stage.failed .stageMark { border-color: var(--red-500); color: var(--red-400); }
+.stageName { font-size: 13px; color: var(--text-secondary); }
+.stageNote { font-size: 11.5px; color: var(--text-faint); }
+
+/* Progress + bulk actions */
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.bulkMain { flex: 1; min-width: 220px; }
+.bulkLabel { font-size: 13px; color: var(--text-secondary); }
+.bar {
+  margin-top: 8px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--gray-700);
+  overflow: hidden;
+}
+.barFill { height: 100%; background: var(--accent-primary); transition: width 0.2s ease; }
+.barFill.full { background: var(--green-500); }
+.bulkActions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Beat cards */
+.beats { display: flex; flex-direction: column; gap: 14px; }
+.beat {
+  display: flex;
+  gap: 18px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+.beat.unresolved { border-color: var(--amber-500); }
+.beatLeft { width: 190px; flex: none; }
+.plate {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(160deg, #1a1a1d, #0d0d0f);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.plate img, .plate video { width: 100%; height: 100%; object-fit: cover; }
+.plateNote { font-size: 11px; color: var(--text-faint); text-align: center; padding: 8px; }
+.beatTime { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-faint); margin-top: 7px; }
+.beatSource { font-size: 11.5px; color: var(--text-faint); margin-top: 3px; overflow-wrap: anywhere; }
+
+.beatMain { flex: 1; min-width: 0; }
+.beatHead { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.beatLabel { font-size: 13.5px; font-weight: 600; }
+.beatText { margin: 10px 0 12px; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.beatGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.beatCell {
+  background: var(--surface-field);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+}
+.beatCellLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+.beatCellValue { font-size: 12.5px; overflow-wrap: anywhere; }
+.beatActions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Edit mode */
+.editHead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.editMain { flex: 1; min-width: 240px; }
+.editMeta { font-size: 12.5px; color: var(--text-muted); margin-top: 5px; }
+.editLayout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start; }
+@media (max-width: 1080px) { .editLayout { grid-template-columns: 1fr; } }
+
+.strip { margin-top: 22px; }
+.stripHead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.stripNote { font-size: 12px; color: var(--text-faint); }
+.stripRow { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.stripItem {
+  width: 150px;
+  flex: none;
+  text-align: left;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-field);
+  cursor: pointer;
+  opacity: 0.62;
+  font-weight: 400;
+  overflow: hidden;
+}
+.stripItem.on { border-color: var(--accent-primary); opacity: 1; }
+.stripPlate {
+  height: 56px;
+  background: linear-gradient(160deg, #1a1a1d, #0d0d0f);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 5px 6px;
+}
+.stripDot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber-500); }
+.stripDot.ok { background: var(--green-500); }
+.stripTime { font-family: var(--font-mono); font-size: 10px; color: #f4f4f5; }
+.stripLabel {
+  padding: 7px 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stripItem.on .stripLabel { color: var(--text-primary); }
+
+.message {
+  margin-bottom: 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--status-danger-fg);
+  background: var(--status-danger-bg);
+  border: 1px solid var(--status-danger-border);
+  border-radius: var(--radius-md);
+  padding: 10px 13px;
+}
+.okMessage {
+  composes: message;
+  color: var(--status-info-fg);
+  background: var(--status-info-bg);
+  border-color: rgba(59, 130, 246, 0.3);
+}

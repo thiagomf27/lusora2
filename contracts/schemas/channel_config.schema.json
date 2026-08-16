@@ -126,6 +126,52 @@
       }
     },
     "renderer": { "enum": ["auto", "ffmpeg", "remotion"], "default": "auto" },
+    "look": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The SUBTRACTIVE half of the look. The theme and the style pack say what is AVAILABLE; this says what this channel (or this one video) leaves out, plus the plate that sits behind anything that does not fill the frame. Applied to the embedded theme_doc / style_pack_doc at enqueue, so every stage downstream sees an already-narrowed pack and no agent, compiler or renderer has to know this block exists.",
+      "properties": {
+        "background": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The plate drawn behind an overlay that does not fill the frame - the D55 fallback card above all. Absent = the flat colour fill both renderers drew before this existed.",
+          "properties": {
+            "image": {
+              "type": ["string", "null"],
+              "description": "file name in the channel's background library. Rewritten at enqueue to the copy inside the video folder, so the render resolves it like any other asset and a later change to the library never alters a finished video."
+            },
+            "fit": { "enum": ["cover", "contain"], "default": "cover" }
+          }
+        },
+        "exclude": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Names removed from what the pack offers. Excluding everything a required list holds, or the style pack's default transition, is refused at enqueue rather than silently repaired.",
+          "properties": {
+            "components": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "catalog components removed from style_pack.overlays.allowed_components"
+            },
+            "transitions": {
+              "type": "array",
+              "items": { "enum": ["cut", "crossfade", "fade", "fade_to_black"] },
+              "description": "kinds removed from style_pack.transitions.allowed"
+            },
+            "sfx_cues": {
+              "type": "array",
+              "items": { "enum": ["entrance", "transition"] },
+              "description": "events removed from style_pack.sfx.cues"
+            },
+            "moods": {
+              "type": "array",
+              "items": { "enum": ["neutral", "tense", "somber", "hopeful", "urgent", "triumphant", "reflective", "playful"] },
+              "description": "moods removed from theme.sound.mood_beds - that span plays with no bed"
+            }
+          }
+        }
+      }
+    },
     "output": {
       "type": "object",
       "additionalProperties": false,

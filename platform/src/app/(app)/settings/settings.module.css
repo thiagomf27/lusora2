@@ -1,0 +1,120 @@
+/* Settings — ported from VidRush.dc.html (isSettings). */
+.member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-field);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 11px 13px;
+}
+.avatar {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent-decorative);
+  color: #1a2405;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+.memberMain { flex: 1; min-width: 0; }
+.memberName { font-size: 13.5px; font-weight: 500; }
+.memberEmail {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.memberRole { width: 150px; flex: none; }
+.inactive { opacity: 0.5; }
+
+.invite {
+  background: var(--surface-field);
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.inviteTitle { font-size: 13.5px; font-weight: 600; }
+.inviteNote { font-size: 12px; color: var(--text-muted); margin: 4px 0 14px; }
+.inviteGrid { display: grid; grid-template-columns: 1fr 1fr 180px; gap: 12px; align-items: end; }
+@media (max-width: 900px) { .inviteGrid { grid-template-columns: 1fr; } }
+.inviteActions { display: flex; gap: 8px; margin-top: 14px; }
+
+/* Role cards */
+.roleGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.roleCard {
+  background: var(--surface-field);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.roleHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.roleName { font-size: 13.5px; font-weight: 600; }
+.roleCount {
+  font-size: 11px;
+  color: var(--text-faint);
+  background: var(--status-neutral-bg);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+.perm { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); padding: 4px 0; }
+.permIcon { display: flex; color: var(--green-500); }
+.permIcon.no { color: var(--text-faint); }
+
+/* Cost bars */
+.costRow { margin-bottom: 14px; }
+.costHead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.costName { font-size: 13px; }
+.costValue { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); }
+.track { height: 6px; border-radius: var(--radius-pill); background: var(--gray-700); overflow: hidden; }
+.fill { height: 100%; background: var(--accent-primary); }
+.costDetail { font-size: 11.5px; color: var(--text-faint); margin-top: 5px; }
+
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.total {
+  background: var(--surface-field);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.totalLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.totalValue { font-family: var(--font-mono); font-size: 20px; margin-top: 6px; }
+.totalNote { font-size: 11.5px; color: var(--text-faint); margin-top: 4px; }
+
+/* Monitor rows */
+.monitorRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-field);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 11px 13px;
+}
+.pulse { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--green-500); }
+.pulse.bad { background: var(--red-500); }
+.pulse.idle { background: var(--text-faint); }
+.monitorMain { flex: 1; min-width: 0; }
+.monitorName { font-size: 13px; }
+.monitorNote {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.message { font-size: 12.5px; color: var(--status-danger-fg); margin-top: 12px; }
+.okMessage { font-size: 12.5px; color: var(--status-success-fg); margin-top: 12px; }

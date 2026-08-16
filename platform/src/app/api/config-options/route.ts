@@ -6,6 +6,8 @@ import { handler, requireUser } from "@/lib/auth";
 import { packNames } from "@/lib/catalog";
 import { repoRoot } from "@/lib/env";
 import { PROMPT_ROLES, listPrompts } from "@/lib/prompts";
+import { listPipelines } from "@/lib/pipelines";
+import { listSoundPacks } from "@/lib/soundPacks";
 import { stylePacksDir } from "@/lib/stylePacks";
 
 /** Enumerable channel-config options sourced from the contracts data files:
@@ -65,6 +67,9 @@ export const GET = handler(async () => {
 
   return NextResponse.json({
     themes: listNames("themes"),
+    // D60 — the stage lists a channel (or the home composer) can pin.
+    pipelines: listPipelines(),
+    soundPacks: listSoundPacks(),
     stylePacks: stylePackOptions(),
     componentPacks,
     prompts,

@@ -88,6 +88,28 @@ def test_a_below_floor_match_becomes_a_card_not_a_bad_clip(tmp_path):
     assert 0.0 <= card["start_s"] < card["end_s"] <= item["end_s"]
 
 
+def test_the_card_sits_on_the_background_image_when_the_look_names_one(tmp_path):
+    """A card does not fill the frame, which is what look.background is for."""
+    ctx = make_ctx(tmp_path, min_score_floor=0.5)
+    ctx.cfg["look"] = {"background": {"image": "background.png"}}
+    item = weak_item()
+    plan = plan_with(item)
+
+    assert degrade.to_title_card(ctx, plan, item, BEAT) == "ChapterCard"
+    assert item["media_type"] == "image", "the plate is a picture, not a colour fill"
+    assert item["asset"]["path"] == "background.png"
+    assert "motion" not in item, "the plate is a backdrop; ken burns belongs to real footage"
+    assert plan["tracks"]["overlays"][0]["component"] == "ChapterCard"
+
+
+def test_an_empty_background_still_gives_a_colour_fill(tmp_path):
+    ctx = make_ctx(tmp_path, min_score_floor=0.5)
+    ctx.cfg["look"] = {"background": {"image": None}}
+    item = weak_item()
+    degrade.to_title_card(ctx, plan_with(item), item, BEAT)
+    assert item["media_type"] == "color" and item["asset"]["path"] == ""
+
+
 def test_the_card_falls_back_to_the_visual_intent_on_a_v1_0_beat():
     v10 = {"id": "b1", "visual_intent": "aerial view of a 1940s industrial district"}
     assert degrade.card_text(v10, 8) == "Aerial View 1940s Industrial District"

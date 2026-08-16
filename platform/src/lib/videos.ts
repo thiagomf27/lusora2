@@ -2,8 +2,8 @@
  * Video lifecycle helpers: folder layout, upload materialization,
  * pre-flight validation, cfg snapshot, enqueue.
  */
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
-import { join, isAbsolute } from "node:path";
+import { copyFileSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { join, isAbsolute, extname } from "node:path";
 import type { ChannelConfig } from "@lusora/contracts";
 import { query, one } from "../db/pool.ts";
 import { ApiError } from "./auth.ts";
@@ -12,6 +12,8 @@ import { validateAgainst } from "./validate.ts";
 import { loadEnv, repoRoot } from "./env.ts";
 import { PROMPT_ROLES, resolvePrompt } from "./prompts.ts";
 import { bulkProductionProblem, loadPipeline, selectPipeline } from "./pipelines.ts";
+import { backgroundPath } from "./backgrounds.ts";
+import { applyLook } from "./look.ts";
 
 export function videosRoot(): string {
   loadEnv();
@@ -249,6 +251,22 @@ export async function enqueueVideo(
     snapshot.prompts = prompts;
   }
 
+  // Narrow the embedded docs by `look` (subtractive), and copy the chosen
+  // background into the video folder so the render resolves it like any other
+  // asset — a later change to the library never alters a finished video.
+  const lookProblems = applyLook(snapshot);
+  const background = (snapshot.look as ChannelConfig["look"])?.background?.image;
+  if (background) {
+    try {
+      if (!existsSync(backgroundPath(video.channel_id, background))) {
+        lookProblems.push(`look.background.image '${background}' is not in the channel's background library`);
+      }
+    } catch (e) {
+      lookProblems.push(`look.background.image: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  if (lookProblems.length) return { ok: false, problems: lookProblems };
+
   const check = validateAgainst("channel_config", snapshot);
   if (!check.ok) {
     return { ok: false, problems: check.errors.map((e) => `merged cfg: ${e}`) };
@@ -256,6 +274,14 @@ export async function enqueueVideo(
 
   const folder = videoFolder(video.id);
   mkdirSync(folder, { recursive: true });
+
+  const chosenBackground = (snapshot.look as ChannelConfig["look"])?.background?.image;
+  if (chosenBackground) {
+    const copied = `background${extname(chosenBackground).toLowerCase()}`;
+    copyFileSync(backgroundPath(video.channel_id, chosenBackground), join(folder, copied));
+    (snapshot.look as ChannelConfig["look"])!.background!.image = copied;
+  }
+
   writeFileSync(join(folder, "cfg.json"), JSON.stringify(snapshot, null, 2));
 
   await query(

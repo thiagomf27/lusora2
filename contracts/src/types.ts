@@ -290,8 +290,16 @@ export interface StylePack {
     min_hold: number;
     max_hold: number;
     arc?: "three_act" | "linear" | "listicle";
+    /** D55/D58: post-alignment floor and ceiling, as multiples of min/max hold. */
+    hold_floor_ratio?: number;
+    hold_ceiling_ratio?: number;
   };
-  overlays: { density: OverlayDensity; allowed_components?: string[] };
+  overlays: {
+    density: OverlayDensity;
+    allowed_components?: string[];
+    /** D59: a second overlay class, counted under its own budget. */
+    emphasis?: { enabled?: boolean; per_minute?: number };
+  };
   transitions: { allowed: TransitionType[]; default: TransitionType };
   script_persona?: string;
   visual_language?: string;
@@ -307,6 +315,8 @@ export interface StylePack {
   };
   /** D48: how background music is shaped across the video. */
   music?: { enabled?: boolean; min_span_s?: number; crossfade_s?: number };
+  /** D55: the card drawn instead of an asset the chain could not match well. */
+  fallback?: { component?: string; text_prop?: string };
 }
 
 // ---------- sound pack (D48) ----------
@@ -412,6 +422,21 @@ export interface ChannelConfig {
   chat?: { llm?: string; model?: string; prompt?: string };
   captions?: { enabled?: boolean };
   renderer?: "auto" | "ffmpeg" | "remotion";
+  /**
+   * The SUBTRACTIVE half of the look: what this channel (or this one video)
+   * leaves out of what the theme and style pack offer, plus the plate drawn
+   * behind an overlay that does not fill the frame. Applied to the embedded
+   * theme_doc / style_pack_doc at enqueue, so nothing downstream reads it.
+   */
+  look?: {
+    background?: { image?: string | null; fit?: "cover" | "contain" };
+    exclude?: {
+      components?: string[];
+      transitions?: TransitionType[];
+      sfx_cues?: ("entrance" | "transition")[];
+      moods?: Mood[];
+    };
+  };
   output?: { fps?: number; width?: number; height?: number };
   budget?: { max_usd_per_video: number };
   retention?: { clips?: "on_render" | "on_posted" | "keep"; final_mp4_days_after_posted?: number };
@@ -421,6 +446,13 @@ export interface ChannelConfig {
       chain: VisualSource[];
       max_clip_seconds?: number;
       orientation?: "landscape" | "portrait" | "square";
+      /** D55: under this score the chain's answer is replaced by a typographic
+       *  card instead of placed. 0 = off. */
+      min_score_floor?: number;
+      /** D55: how a slot longer than its footage is covered, first applicable wins. */
+      short_clip_fallback?: ("loop" | "slow" | "freeze")[];
+      /** D54: how hard this channel works not to show the same shot twice. */
+      dedup?: { reuse_window_items?: number; min_hamming_distance?: number };
     };
     /** D48: overrides theme.sound.pack. */
     sound_pack?: string;

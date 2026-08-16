@@ -1,27 +1,132 @@
+/* ---------------------------------------------------------------------------
+   Design tokens — adopted from the Claude Design "Lusora Design System"
+   (VidRush.dc.html + _ds/tokens/*.css). The DS names below are the source of
+   truth; the short legacy names underneath are aliases so screens that have
+   not been re-skinned yet inherit the new look without being touched.
+   --------------------------------------------------------------------------- */
 :root {
-  /* Adopted from the Claude Design redesign — navy surfaces + teal accent.
-     Token names are unchanged so existing screens inherit the new look. */
-  --bg: #0b0e13;          /* app background */
-  --bg-2: #0d1017;        /* sidebar / deepest surface */
-  --panel: #11151c;       /* cards, composer */
-  --panel-2: #0f1319;     /* table / inset surface */
-  --border: #232a36;      /* default border */
-  --border-2: #1c222d;    /* subtle divider */
-  --text: #e7eaf0;
-  --muted: #8a93a3;
-  --muted-2: #5d6675;     /* dim labels, captions */
-  --accent: #35d0a0;      /* teal */
-  --accent-ink: #06231b;  /* text on accent fills */
-  --danger: #e5646c;
-  --warn: #e0a458;
-  --ok: #35d0a0;
-  --field: #161b24;       /* form control background */
-  --field-border: #2a3240;
+  /* --- greys ------------------------------------------------------------- */
+  --gray-950: #0c0c0d;
+  --gray-900: #131316;
+  --gray-850: #17171a;
+  --gray-800: #1b1b1e;
+  --gray-750: #1e1e22;
+  --gray-700: #212124;
+  --gray-650: #232326;
+  --gray-600: #2a2a2e;
+  --gray-550: #2e2e33;
+  --gray-500: #3a3a40;
+  --gray-450: #55555c;
+  --gray-400: #6f6f76;
+  --gray-300: #8a8a91;
+  --gray-250: #9a9aa0;
+  --gray-200: #a1a1aa;
+  --gray-150: #c7c7cc;
+  --gray-100: #d4d4d8;
+  --gray-50: #e4e4e7;
+  --gray-0: #f4f4f5;
 
-  /* Layout — single source of truth for the shell dimensions.
-     The sidebar width and the page gutter used to be magic numbers
-     duplicated across modules; keep them here. */
-  --sidebar-w: 216px;
+  /* --- hues -------------------------------------------------------------- */
+  --blue-400: #60a5fa;
+  --blue-450: #93c5fd;
+  --blue-500: #3b82f6;
+  --blue-600: #2f6fe0;
+  --blue-700: #2760c9;
+  --green-500: #22c55e;
+  --green-400: #4ade80;
+  --red-500: #ef4444;
+  --red-400: #f87171;
+  --amber-500: #d99a3d;
+  --amber-400: #e0a94f;
+  --amber-900: #241a05;
+  --lime-400: #a3e635;
+
+  /* --- surfaces ---------------------------------------------------------- */
+  --surface-app: var(--gray-950);
+  --surface-sidebar: var(--gray-900);
+  --surface-card: var(--gray-850);
+  --surface-table-head: var(--gray-800);
+  --surface-field: var(--gray-750);
+  --surface-secondary-btn: var(--gray-650);
+
+  --border-subtle: var(--gray-700);
+  --border-default: var(--gray-600);
+  --border-field: var(--gray-550);
+  --border-strong: var(--gray-500);
+
+  --text-primary: var(--gray-0);
+  --text-secondary: var(--gray-200);
+  --text-tertiary: var(--gray-250);
+  --text-muted: var(--gray-400);
+  --text-faint: var(--gray-450);
+  --text-label: var(--gray-100);
+  --text-disabled: var(--gray-400);
+
+  --accent-primary: var(--blue-500);
+  --accent-primary-hover: var(--blue-600);
+  --accent-primary-active: var(--blue-700);
+  --accent-link: var(--blue-400);
+  --accent-link-hover: var(--blue-450);
+  --focus-ring: rgba(59, 130, 246, 0.25);
+
+  --status-success-bg: rgba(34, 197, 94, 0.12);
+  --status-success-fg: var(--green-400);
+  --status-info-bg: rgba(59, 130, 246, 0.14);
+  --status-info-fg: var(--blue-400);
+  --status-neutral-bg: rgba(255, 255, 255, 0.08);
+  --status-neutral-fg: var(--gray-200);
+  --status-danger-bg: rgba(239, 68, 68, 0.12);
+  --status-danger-fg: var(--red-400);
+  --status-danger-border: rgba(239, 68, 68, 0.3);
+  --status-warning-bg: var(--amber-500);
+  --status-warning-fg: var(--amber-900);
+  --status-warning-hover: var(--amber-400);
+
+  --accent-decorative: var(--lime-400);
+
+  /* --- typography -------------------------------------------------------- */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Menlo, Consolas, ui-monospace, monospace;
+
+  /* --- spacing / effects ------------------------------------------------- */
+  --space-1: 4px;  --space-2: 6px;  --space-3: 8px;  --space-4: 10px;
+  --space-5: 12px; --space-6: 14px; --space-7: 16px; --space-8: 18px;
+  --space-9: 20px; --space-10: 24px; --space-11: 28px; --space-12: 32px;
+  --space-14: 40px; --space-16: 48px; --space-18: 56px;
+
+  --radius-sm: 7px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+  --shadow-dropdown: 0 12px 24px rgba(0, 0, 0, 0.4);
+  --shadow-focus: 0 0 0 3px var(--focus-ring);
+  --transition-fast: 0.15s ease;
+
+  /* --- legacy aliases ----------------------------------------------------
+     Kept so the screens that have not been ported yet (themes, style packs,
+     prompts, overlays, sounds, pipeline, library, admin, panel, editor…)
+     pick up the new palette without an edit. */
+  --bg: var(--surface-app);
+  --bg-2: var(--surface-sidebar);
+  --panel: var(--surface-card);
+  --panel-2: var(--surface-table-head);
+  --border: var(--border-default);
+  --border-2: var(--border-subtle);
+  --text: var(--text-primary);
+  --muted: var(--text-muted);
+  --muted-2: var(--text-faint);
+  --accent: var(--accent-primary);
+  --accent-ink: #ffffff;
+  --danger: var(--red-400);
+  --warn: var(--amber-400);
+  --ok: var(--green-400);
+  --field: var(--surface-field);
+  --field-border: var(--border-field);
+
+  /* Layout — single source of truth for the shell dimensions. */
+  --sidebar-w: 236px;
+  --sidebar-w-collapsed: 62px;
   --gutter: 32px;
 }
 
@@ -29,57 +134,82 @@
 
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Helvetica, Arial, sans-serif;
+  background: var(--surface-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
   font-size: 14px;
 }
 
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
+a { color: var(--accent-link); text-decoration: none; }
+a:hover { color: var(--accent-link-hover); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--gray-600);
+  border-radius: var(--radius-pill);
+  border: 3px solid var(--surface-app);
+}
 
 input, select, textarea, button {
   font: inherit;
-  color: var(--text);
-  background: var(--field);
-  border: 1px solid var(--field-border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--surface-field);
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-focus);
 }
 
-button { cursor: pointer; }
-button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+button { cursor: pointer; font-weight: 600; }
+button.primary {
+  background: var(--accent-primary);
+  color: #fff;
+  border-color: transparent;
+}
+button.primary:hover:not(:disabled) { background: var(--accent-primary-hover); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 table { border-collapse: collapse; width: 100%; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-th { color: var(--muted); font-weight: 500; font-size: 13px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--surface-table-head);
+}
 
 .panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 20px;
 }
 
-/* Shared page container — plain pages wrap their content in this so they
-   get a consistent gutter inside the shell's padding-less <main>. The
-   mockup-ported full-bleed pages (queue/video/editor) do NOT use this. */
+/* Shared page container — plain pages wrap their content in this so they get
+   a consistent gutter inside the shell's padding-less <main>. The ported
+   screens are full-bleed and do NOT use it. */
 .page { padding: 26px var(--gutter) 40px; max-width: 1200px; }
 .pageHead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.pageTitle { margin: 0; font-size: 22px; font-weight: 600; }
-.pageSub { color: var(--muted); font-size: 13px; margin-top: 5px; }
+.pageTitle { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.pageSub { color: var(--text-muted); font-size: 13px; margin-top: 5px; }
 
 .badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
   font-size: 12px;
-  border: 1px solid var(--border);
-  color: var(--muted);
+  font-weight: 600;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-fg);
 }
-.badge.queued { color: #6ea8dc; border-color: #6ea8dc44; }
-.badge.producing { color: var(--accent); border-color: #35d0a044; }
-.badge.rendered, .badge.approved { color: var(--ok); border-color: #35d0a044; }
-.badge.error { color: var(--danger); border-color: #e5646c44; }
-.badge.in_review, .badge.sent_back { color: var(--warn); border-color: #e0a45844; }
+.badge.queued, .badge.producing { background: var(--status-info-bg); color: var(--status-info-fg); }
+.badge.rendered, .badge.approved, .badge.posted { background: var(--status-success-bg); color: var(--status-success-fg); }
+.badge.error { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+.badge.in_review, .badge.sent_back { background: rgba(217, 154, 61, 0.16); color: var(--amber-400); }
