@@ -17,6 +17,16 @@ voice: { provider: ai33, voice_id: "…" }
 script: { generator: scriptforge, llm: deepseek }
 captions: { enabled: true }        # preset comes from the theme
 renderer: auto                     # auto | ffmpeg | remotion (pin)
+
+look:                              # the SUBTRACTIVE half of the look
+  background:
+    image: parchment.png           # plate behind anything not filling the frame
+    fit: cover
+  exclude:                         # names removed from what the pack/theme offer
+    components: [Timeline]         # <- style_pack.overlays.allowed_components
+    transitions: [fade_to_black]   # <- style_pack.transitions.allowed
+    sfx_cues: [transition]         # <- style_pack.sfx.cues
+    moods: [playful]               # <- theme.sound.mood_beds
 budget: { max_usd_per_video: 0.80 }
 retention: { clips: on_render, final_mp4_days_after_posted: 30 }
 
@@ -109,6 +119,26 @@ source_policy:
   drift from the voiceover's length. They are numbers on things ffmpeg
   measures, so loosening one is a channel decision rather than a code change;
   `qa.enabled: false` skips the stage entirely.
+- `look` is **subtractive, and applied at enqueue**. The theme and the style
+  pack say what is AVAILABLE; `look.exclude` says what this channel — or this
+  one video, since `look` deep-merges like any other field — leaves out. The
+  narrowing happens once, against the `style_pack_doc` / `theme_doc` already
+  embedded in the snapshot, so the planner, the compiler, the validator and
+  both renderers all read an already-narrowed pack and none of them has to know
+  the block exists. There is deliberately no way to ADD here: a component this
+  channel wants but the pack does not offer is a change to the pack.
+- Emptying a list the pipeline requires — every transition, every component, or
+  the style pack's own `transitions.default` — is REFUSED at enqueue with an
+  actionable message, not silently repaired. A video that quietly lost every
+  transition is a worse outcome than one that will not queue.
+- `look.background.image` is the plate drawn behind an overlay that does not
+  fill the frame — the D55 fallback card above all, which is a component over a
+  fill. It names a file in the channel's background library
+  (`data/brand-backgrounds/<channel_id>/`); at enqueue the chosen file is COPIED
+  into the video folder and the reference rewritten to that copy, so the render
+  resolves it like any other asset and re-uploading the library never alters a
+  video that already shipped (Principle 7). With no background the item stays a
+  colour fill, exactly as before.
 - `budget.max_usd_per_video` is enforced pre-spend by the cost gate (see
   [Costs](costs.md)); a video that would exceed it stops with an
   actionable event before generating.

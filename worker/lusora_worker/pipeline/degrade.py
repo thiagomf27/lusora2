@@ -102,10 +102,9 @@ def to_title_card(
     """Replace a weak asset with a clean typographic card.
 
     A card that says what the beat is about is honest; a clip that is nearly
-    unrelated is a lie the viewer notices and cannot name. The item becomes a
-    plain colour fill (both renderers draw it with no file, which is why the
-    validator lets a colour item carry no asset) and the theme's own card
-    component is placed over it.
+    unrelated is a lie the viewer notices and cannot name. The item becomes the
+    channel's background image, or a plain colour fill when it has none, and
+    the theme's own card component is placed over it.
 
     Returns the component used, or None when the style pack names no card —
     in which case the weak clip stays, because a beat with nothing on it is
@@ -139,8 +138,19 @@ def to_title_card(
                      f"fallback component '{name}' needs props {missing} nothing can fill — keeping the weak asset")
         return None
 
-    item["media_type"] = "color"
-    item["asset"] = {"source": "manual", "path": ""}
+    # The plate under the card. `look.background.image` (copied into the video
+    # folder at enqueue) is there precisely because a card does not fill the
+    # frame; without one, both renderers draw a flat colour fill, which is why
+    # the validator lets a colour item carry no asset.
+    background = str(
+        (((ctx.cfg.get("look") or {}).get("background") or {}).get("image")) or ""
+    )
+    if background:
+        item["media_type"] = "image"
+        item["asset"] = {"source": "manual", "path": background}
+    else:
+        item["media_type"] = "color"
+        item["asset"] = {"source": "manual", "path": ""}
     item.pop("motion", None)
     item.pop("loop", None)
     item.pop("speed", None)
