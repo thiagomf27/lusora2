@@ -417,6 +417,12 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   (default, free, from the TTS adapter's per-sentence timings), `word`
   (always costs a whisper pass; needs `faster-whisper` installed) or
   `segment`.
+- Beats phases (D65): `worker/lusora_worker/beatphases.py` holds
+  `script_split` / `srt_alignment` / `beat_parts`. The deterministic planner
+  uses them, so beat boundaries follow `style_pack.pacing.min_hold` and the
+  real `subtitles.srt` instead of a sentence count. `faceless_v2` declares the
+  six phases as substages; they are declarative (the orchestrator never walks
+  them) but a phase with no implementation fails at load.
 - `faceless_v2` (D64) is a `stability: test` pipeline: faceless plus a
   `research` stage that writes `research.md` before the script. Research is
   phase 0 of the SCRIPT agent (shares `script.llm`/`model`, configured under

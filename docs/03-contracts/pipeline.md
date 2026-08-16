@@ -154,15 +154,20 @@ been true; `resolve_assets` onward are machine products and are not.
 
 - **`success_criteria` per stage** — add when a validator exists to read
   it; a criterion nothing checks is prose in a schema.
-- **`substages`** — the slot is in the schema, and the beats process
-  (spine → chunk → beat writing) is the obvious first user. Both shipped
-  manifests declare none: model the flat reality until the beats
-  restructure lands (slice 5 of the destination map).
-- **Deriving the upload API from `receivable_on_upload`** — the flag is
-  declared and documented; the upload endpoint still carries its own
-  field-name map, because uploads happen at video CREATION, before a
-  pipeline has been selected. Wiring the two together needs the resolver
-  to run earlier, which is a change worth making on its own.
+- **Substages are declarative only.** `faceless_v2` declares the six
+  phases of `plan_beats` (D65) and the loader checks each against the
+  worker's `SUBSTAGE_REGISTRY`, so a phase this build cannot run fails at
+  load. The orchestrator does **not** walk them: they share one in-memory
+  pass and emit no artifact between them, so none is resumable on its own.
+  They buy a readable process and the load-time check — not execution.
+- **The visual half of the beats process** — what a beat SHOWS. Waits on
+  the catalog's `type_name` vocabulary (slice 2) and the style pack's
+  overlay priority/density numbers (slice 4); building it against
+  unsettled shapes would mean building it twice.
+- **A schema for the visual ledger** — the destination map asks for one,
+  but the ledger is a formatted prompt FRAGMENT, not a structure crossing
+  two parts. It becomes a schema the day it is persisted or exchanged;
+  until then a JSON Schema for a string is ceremony.
 
 ## Where the checks live
 

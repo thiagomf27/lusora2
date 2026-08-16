@@ -74,6 +74,20 @@ STEP_REGISTRY: dict[str, Step] = {
 }
 
 
+# Substages are the named PHASES inside a stage body (the beats process: split
+# the script, align it to the transcript, join pieces into beats). They are
+# declarative only — the stage body calls them in its own order, and the
+# orchestrator never walks them, because a phase is not resumable on its own:
+# they share one in-memory pass and produce no artifact between them.
+#
+# They are registered for exactly one reason: a manifest that declares a phase
+# this build cannot run must fail at LOAD, the same rule stage names follow.
+# A substage list that could name anything would be a comment.
+SUBSTAGE_REGISTRY: dict[str, set[str]] = {
+    "plan_beats": {"spine_pass", "script_split", "srt_alignment", "beat_parts", "chunking", "beat_writing"},
+}
+
+
 class UnknownStageError(ValueError):
     """A manifest names a stage this worker cannot run."""
 
@@ -95,6 +109,14 @@ def build_stages(manifest: dict[str, Any]) -> list[Stage]:
                 f"pipeline {manifest['name']!r} names stage {name!r}, which this worker "
                 f"has no step for (known: {known})"
             )
+        for sub in entry.get("substages") or []:
+            known_subs = SUBSTAGE_REGISTRY.get(name, set())
+            if sub["name"] not in known_subs:
+                raise UnknownStageError(
+                    f"pipeline {manifest['name']!r} declares substage {sub['name']!r} of "
+                    f"stage {name!r}, which this worker has no phase for "
+                    f"(known: {', '.join(sorted(known_subs)) or 'none'})"
+                )
         produces = entry.get("produces") or []
         stages.append(
             Stage(

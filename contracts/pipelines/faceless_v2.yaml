@@ -69,6 +69,23 @@ stages:
     produces: [beats.json]
     receivable_on_upload: true
     human_approval_on_review_mode: true   # gate 2 — nothing is RENDERED unapproved
+    # The phases this stage is made of, declared so the process is READABLE
+    # here rather than only in the planner's source. They are not walked by the
+    # orchestrator and produce no artifact between them: they share one
+    # in-memory pass, so none is resumable on its own. Declaring one this build
+    # cannot run is a load-time error, the same rule stage names follow.
+    #
+    # spine_pass -> chunking -> beat_writing are the AI half (D52).
+    # script_split -> srt_alignment -> beat_parts are deterministic: where the
+    # narration may be cut, when each piece is spoken, and which pieces join
+    # into one beat. Only the deterministic half decides boundaries today.
+    substages:
+      - name: spine_pass
+      - name: script_split
+      - name: srt_alignment
+      - name: beat_parts
+      - name: chunking
+      - name: beat_writing
 
   - name: compile_plan
     requires: [beats.json]

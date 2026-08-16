@@ -108,7 +108,7 @@ fields already exist (`avg/min/max_hold`, `arc`, `hold_floor/ceiling_ratio`,
 `overlays.density`); add **overlay priority** and **density-counting** rules
 here as *data*, not prompt prose (Principle 3). **Format:** YAML.
 
-### 5. Beats process  ·  top of stack  ·  **do last**
+### 5. Beats process  ·  top of stack  ·  **front half SHIPPED (D65)**
 **Goal:** make the internal phases explicit/modular (your PDF: spine →
 script_split → srt_alignment → beat_parts → chunking → beat_writing). Some
 already exist inside `run_plan_beats` (the D52 two-phase spine/chunk).
@@ -117,6 +117,15 @@ the slot) or a documented sub-registry inside the beats step; a schema for the
 **running visual ledger** (currently behavior-only, no contract).
 **Depends on:** overlays (catalog `when_to_use`) + style pack (pacing/density) —
 which is exactly why it's last.
+**Shipped (D65):** the phases that depend on NEITHER — `script_split`,
+`srt_alignment`, `beat_parts` — are real code in
+`worker/lusora_worker/beatphases.py`, declared as substages on `plan_beats` in
+`faceless_v2` and checked at load against a worker sub-registry. Beat
+boundaries now follow the style pack's hold floor and the real transcript.
+**Still waiting:** the VISUAL half (what a beat shows) — that is the part that
+needs `type_name` and the overlay priority/density numbers. The visual-ledger
+schema is deliberately not built: the ledger is a prompt fragment, not a shape
+crossing two parts.
 
 ---
 

@@ -22,6 +22,7 @@ from ..context import StageContext
 from ..errors import StageError
 from ..media import extract_audio, probe_duration, run_ffmpeg
 from ..providers import sources, tts, whisper
+from .. import beatphases
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
@@ -133,7 +134,7 @@ def run_plan_beats(ctx: StageContext) -> None:
         ctx.log(f"beat sheet planned by llm '{llm}' ({len(beats_doc['beats'])} beats)")
         return
 
-    beats_doc = _fallback_planner(ctx, script)
+    beats_doc = _fallback_planner(ctx, script, audio_duration)
     violations = validate_beat_sheet(beats_doc, script, ctx.cfg, audio_duration)
     if violations:
         raise StageError(
@@ -149,21 +150,37 @@ _STOPWORDS = set(
 )
 
 
-def _fallback_planner(ctx: StageContext, script: str) -> dict:
-    """Deterministic no-LLM planner: one beat per 1–2 sentences, visual
-    intent derived from the sentence's content words. The manual fallback
-    for every AI failure (D2) — and the M3 default."""
-    sentences = split_sentences(script)
+def _fallback_planner(ctx: StageContext, script: str, audio_duration: float = 0.0) -> dict:
+    """Deterministic no-LLM planner. The manual fallback for every AI failure
+    (D2) — and the M3 default.
+
+    Beat BOUNDARIES come from the named phases (`beatphases`): split the script
+    at punctuation, align the pieces to the real transcript, then join anything
+    under the style pack's hold floor. It used to cut every 1–2 sentences on an
+    avg_hold guess, which ignored both the pack's hold window and the timings
+    that were sitting in subtitles.srt the whole time — so a slow pack and a
+    fast one produced the same beats.
+
+    Only the boundaries changed. What a beat SHOWS is still the same keyword
+    heuristic, because choosing visuals well needs the catalog's `type_name`
+    vocabulary and the pack's overlay priority numbers, and neither is settled.
+    """
     style = ctx.cfg.get("style_pack_doc") or {}
-    avg_hold = float((style.get("pacing") or {}).get("avg_hold_seconds", 4.0))
-    per_beat = 1 if avg_hold <= 4.0 else 2
+    pacing = style.get("pacing") or {}
+    min_hold = float(pacing.get("min_hold", 0) or 0)
+
+    srt = read_srt(ctx.artifact("subtitles.srt")) if ctx.has("subtitles.srt") else []
+    pieces = beatphases.script_split(
+        script, srt, granularity=srt_granularity(ctx.cfg)
+    )
+    aligned = beatphases.srt_alignment(pieces, srt, audio_duration)
+    parts = beatphases.beat_parts(aligned, min_hold)
 
     beats = []
-    for i in range(0, len(sentences), per_beat):
-        chunk = sentences[i : i + per_beat]
+    for i, part in enumerate(parts, start=1):
         words = [
             w.lower().strip(".,!?…:;\"'")
-            for w in " ".join(chunk).split()
+            for w in part.text.split()
             if w.lower().strip(".,!?…:;\"'") not in _STOPWORDS
         ]
         subject = " ".join(words[:8]) or "establishing shot"
@@ -171,9 +188,9 @@ def _fallback_planner(ctx: StageContext, script: str) -> dict:
         intent = f"{subject}, wide establishing shot" + (f", {visual.rstrip('.').lower()}" if visual else "")
         beats.append(
             {
-                "id": f"b{i // per_beat + 1}",
+                "id": f"b{i}",
                 "kind": "narration",
-                "script_text": " ".join(chunk),
+                "script_text": part.text,
                 "visual_intent": intent[:300],
                 "mood": "neutral",
                 "media_preference": "any",

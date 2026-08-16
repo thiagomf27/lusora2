@@ -561,3 +561,42 @@ def test_faceless_v2_gates_the_script_and_the_beat_sheet(tmp_path):
     # the gates must sit BEFORE the expensive irreversible stages
     assert names.index("plan_beats") < names.index("render")
     assert manifest["stages"][0]["name"] == "research"
+
+
+# ---------------- substages: declared phases must exist (slice 5) ----------------
+
+
+def test_declared_substages_must_have_a_phase_in_this_build():
+    """The same rule stage names follow: a manifest that names a phase this
+    worker cannot run fails at LOAD, not mid-video. Without the check a
+    substage list would be a comment."""
+    manifest = {
+        "name": "subs",
+        "version": "1.0",
+        "stages": [
+            {"name": "plan_beats", "produces": ["beats.json"],
+             "substages": [{"name": "telepathy_pass"}]},
+        ],
+    }
+    with pytest.raises(UnknownStageError, match="telepathy_pass"):
+        build_stages(manifest)
+
+
+def test_the_shipped_substages_all_resolve():
+    from lusora_worker.pipeline.stages import SUBSTAGE_REGISTRY
+
+    for name in list_pipelines():
+        manifest = load_pipeline(name)
+        build_stages(manifest)  # raises if a declared phase has no implementation
+        for stage in manifest["stages"]:
+            for sub in stage.get("substages") or []:
+                assert sub["name"] in SUBSTAGE_REGISTRY.get(stage["name"], set())
+
+
+def test_substages_are_declarative_and_do_not_become_stages():
+    """The orchestrator walks stages, never phases: they share one in-memory
+    pass and produce no artifact between them, so none is resumable alone."""
+    manifest = load_pipeline("faceless_v2")
+    stages = build_stages(manifest)
+    assert [s.name for s in stages] == stage_names(manifest)
+    assert "script_split" not in [s.name for s in stages]
