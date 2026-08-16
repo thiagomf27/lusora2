@@ -27,6 +27,25 @@ from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
 from . import degrade, qa
 
+# ---------------- research (D64) ----------------
+
+
+def run_research(ctx: StageContext) -> None:
+    """Phase 0: establish what is true before anything writes prose.
+
+    Only pipelines that declare a `research` stage run this; faceless v1 has
+    none, so nothing about it changed. The brief is markdown because its only
+    reader is another prompt — there is nothing here for code to parse, and a
+    JSON envelope would buy a schema nobody consults.
+    """
+    title = str(ctx.video.get("title") or "").strip()
+    if not title:
+        raise StageError("research", "video has no title and no research.md was provided")
+    brief = script_agent.generate_research(ctx)
+    ctx.artifact("research.md").write_text(brief.rstrip() + "\n", encoding="utf-8")
+    ctx.log(f"research brief written ({len(brief.split())} words)")
+
+
 # ---------------- script ----------------
 
 
@@ -68,17 +87,36 @@ def run_narration(ctx: StageContext) -> None:
 # ---------------- transcript ----------------
 
 
+def srt_granularity(cfg: dict) -> str:
+    """D63: what one cue in subtitles.srt spans, per channel.
+
+    Per channel rather than per pipeline: two channels running the same
+    faceless manifest legitimately want different cue sizes, and a manifest
+    carrying this would have to fork once per answer. 'sentence' is the floor
+    for anything unreadable — it is what every video produced before this
+    existed, so an old snapshot re-runs byte-identically (Principle 7).
+    """
+    value = ((cfg.get("transcript") or {}).get("granularity"))
+    return str(value) if value in ("sentence", "word", "segment") else "sentence"
+
+
 def run_transcript(ctx: StageContext) -> None:
-    if ctx.has("tts_timings.json"):
+    granularity = srt_granularity(ctx.cfg)
+
+    # The TTS adapters synthesize one SENTENCE at a time and report exact
+    # per-sentence timings, so they can answer 'sentence' for free and cannot
+    # answer 'word' at all — there is no timing inside a sentence to report.
+    if granularity == "sentence" and ctx.has("tts_timings.json"):
         timings = ctx.read_json("tts_timings.json")["items"]
         write_srt(
             ctx.artifact("subtitles.srt"),
             [SrtItem(t["start_s"], t["end_s"], t["text"]) for t in timings],
         )
-        ctx.log("subtitles built from TTS adapter timings")
+        ctx.log("subtitles built from TTS adapter timings (sentence cues)")
         return
-    whisper.transcribe(ctx, ctx.artifact("audio.mp3"))
-    ctx.log("subtitles transcribed by local whisper")
+
+    whisper.transcribe(ctx, ctx.artifact("audio.mp3"), words=granularity == "word")
+    ctx.log(f"subtitles transcribed by local whisper ({granularity} cues)")
 
 
 # ---------------- plan_beats ----------------

@@ -3,15 +3,20 @@
  * pre-flight validation, cfg snapshot, enqueue.
  */
 import { copyFileSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
-import { join, isAbsolute, extname } from "node:path";
-import type { ChannelConfig } from "@lusora/contracts";
+import { join, isAbsolute, extname, dirname } from "node:path";
+import type { ChannelConfig, PipelineManifest } from "@lusora/contracts";
 import { query, one } from "../db/pool.ts";
 import { ApiError } from "./auth.ts";
 import { deepMerge } from "./merge.ts";
 import { validateAgainst } from "./validate.ts";
 import { loadEnv, repoRoot } from "./env.ts";
 import { PROMPT_ROLES, resolvePrompt } from "./prompts.ts";
-import { bulkProductionProblem, loadPipeline, selectPipeline } from "./pipelines.ts";
+import {
+  bulkProductionProblem,
+  loadPipeline,
+  receivableArtifacts,
+  selectPipeline,
+} from "./pipelines.ts";
 import { backgroundPath } from "./backgrounds.ts";
 import { applyLook } from "./look.ts";
 
@@ -57,9 +62,32 @@ export async function getVideo(id: string): Promise<VideoRow> {
   return row;
 }
 
+/**
+ * What this channel's pipeline is willing to be handed (D62).
+ *
+ * Resolved from the CHANNEL here, because an upload happens at video creation,
+ * before the enqueue that snapshots a manifest. That is a different moment
+ * from selection, so it can in principle disagree with the manifest the video
+ * ends up running — which is harmless for an allow-list, and much better than
+ * the alternative of a hardcoded list that cannot disagree because it never
+ * knew which pipeline was involved at all.
+ *
+ * An unresolvable pipeline returns null, meaning "no opinion": creating a
+ * draft must not fail because of a misconfiguration that enqueue will report
+ * far more clearly.
+ */
+export function receivableForChannel(cfg: ChannelConfig | null): Set<string> | null {
+  if (!cfg) return null;
+  const selection = selectPipeline(cfg);
+  if (!selection.ok) return null;
+  const loaded = loadPipeline(selection.name);
+  return loaded.ok ? receivableArtifacts(loaded.manifest) : null;
+}
+
 export async function materializeUploads(
   videoId: string,
-  form: FormData
+  form: FormData,
+  receivable?: Set<string> | null
 ): Promise<string[]> {
   const folder = videoFolder(videoId);
   mkdirSync(folder, { recursive: true });
@@ -67,6 +95,13 @@ export async function materializeUploads(
   for (const [field, filename] of Object.entries(UPLOADABLE)) {
     const file = form.get(field);
     if (file && file instanceof File && file.size > 0) {
+      if (receivable && !receivable.has(filename)) {
+        throw new ApiError(
+          400,
+          `${field}: this channel's pipeline does not accept an uploaded ${filename} — ` +
+            `it must be produced (accepts: ${[...receivable].sort().join(", ") || "nothing"})`
+        );
+      }
       const buf = Buffer.from(await file.arrayBuffer());
       if (filename.endsWith(".json")) {
         // validate provided beats/plan before accepting (manual-first, but never unvalidated)
@@ -226,7 +261,8 @@ export async function enqueueVideo(
   // changes this video, and a re-run reproduces the same stage order — the
   // same snapshot rule as the theme and the style pack (Principle 7).
   if (snapshot.pipeline_doc === undefined) {
-    const selection = selectPipeline(snapshot as { pipeline?: string });
+    const selection = selectPipeline(snapshot as Pick<ChannelConfig, "pipeline" | "production_style">);
+    if (!selection.ok) return { ok: false, problems: [selection.problem] };
     const loaded = loadPipeline(selection.name);
     if (!loaded.ok) return { ok: false, problems: [loaded.problem] };
     if (options.bulk) {
@@ -299,6 +335,85 @@ export async function enqueueVideo(
         ? `queued with cfg snapshot — pipeline ${pipeline.name} v${pipeline.version}`
         : "queued with cfg snapshot",
     ]
+  );
+  return { ok: true };
+}
+
+/* ---------------- review-mode checkpoints (D62) ---------------- */
+
+/** Where an approval lives. The folder is the data plane of record, so a
+ *  passed gate is a FILE — the worker's resume ("skip what exists") then
+ *  covers checkpoints for free, and an approval survives a worker restart. */
+export function approvalPath(videoId: string, stage: string): string {
+  return join(videoFolder(videoId), "approvals", `${stage}.json`);
+}
+
+/** The stages a video's OWN pipeline snapshot would stop after. Read from
+ *  `pipeline_doc`, never from the manifest on disk: editing faceless.yaml must
+ *  not move the gates of a video already in flight (Principle 7). */
+export function gatedStages(video: VideoRow): string[] {
+  const doc = (video.cfg as { pipeline_doc?: PipelineManifest } | null)?.pipeline_doc;
+  return (doc?.stages ?? [])
+    .filter((s) => s.human_approval_on_review_mode)
+    .map((s) => s.name);
+}
+
+/**
+ * The gate this video is actually stopped at: the first declared gate with no
+ * approval file yet. The worker walks stages in order and stops at the first
+ * unapproved gate, so "first without a file" is the same answer it reached —
+ * derived from the folder rather than tracked in a column that could drift.
+ */
+export function pendingGate(video: VideoRow): string | null {
+  for (const stage of gatedStages(video)) {
+    if (!existsSync(approvalPath(video.id, stage))) return stage;
+  }
+  return null;
+}
+
+export interface ApprovalResult {
+  ok: boolean;
+  problem?: string;
+}
+
+/**
+ * Approve one gate and put the video back in the queue.
+ *
+ * The worker re-claims it, finds the stage's artifact already present (so it
+ * skips the body) and its approval file present (so it passes the gate) and
+ * carries on to the next one. Nothing here needs to know how far the pipeline
+ * got — the folder already says.
+ */
+export async function approveStage(
+  video: VideoRow,
+  stage: string,
+  by: string
+): Promise<ApprovalResult> {
+  if (video.status !== "awaiting_approval") {
+    return { ok: false, problem: `video is ${video.status}, not waiting for an approval` };
+  }
+  const gates = gatedStages(video);
+  if (!gates.includes(stage)) {
+    const known = gates.join(", ") || "none";
+    return { ok: false, problem: `'${stage}' is not a review gate in this video's pipeline (gates: ${known})` };
+  }
+  const path = approvalPath(video.id, stage);
+  mkdirSync(dirname(path), { recursive: true });
+  // Field names are the contract with the worker's checkpoints.approval_note,
+  // which reads this file to say WHO cleared the gate in the event log.
+  writeFileSync(
+    path,
+    JSON.stringify({ stage, approved_by: by, approved_at: new Date().toISOString() }, null, 2) + "\n"
+  );
+
+  await query(
+    `UPDATE videos SET status = 'queued', error_reason = NULL, updated_at = now() WHERE id = $1`,
+    [video.id]
+  );
+  await query(
+    `INSERT INTO video_events (video_id, stage, status, message)
+     VALUES ($1, $2, 'done', $3)`,
+    [video.id, stage, `approved by ${by} — re-queued`]
   );
   return { ok: true };
 }

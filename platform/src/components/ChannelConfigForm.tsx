@@ -4,6 +4,16 @@ import type { ChannelConfig, VideoType, VisualSource, LicenseKind } from "@lusor
 import s from "./ChannelConfigForm.module.css";
 
 const VIDEO_TYPES = ["doc", "explainer", "breakdown", "listicle"] as const;
+/** D62 — how far the worker runs before asking a human. The schema value is
+ *  `guided`; the UI has always called that shape "review mode". */
+const CHECKPOINT_POLICIES = ["auto", "guided"] as const;
+/** D63 — what one cue in subtitles.srt spans. */
+const SRT_GRANULARITIES = ["sentence", "word", "segment"] as const;
+/** D61 — HOW the video is made (mirrors pipeline_manifest.category), as
+ *  opposed to VIDEO_TYPES, which is WHAT it is. */
+const PRODUCTION_STYLES = [
+  "faceless", "talking_head", "animation", "shorts", "ultra_longform", "custom",
+] as const;
 const RENDERERS = ["auto", "ffmpeg", "remotion"] as const;
 const CLIP_RETENTION = ["on_render", "on_posted", "keep"] as const;
 const ORIENTATIONS = ["landscape", "portrait", "square"] as const;
@@ -29,10 +39,20 @@ interface StylePackOption {
   video_type?: VideoType;
 }
 
+/** One manifest as the config-options route summarises it (D60/D61). */
+interface PipelineOption {
+  name: string;
+  category?: string;
+  stability: "production" | "test";
+  stage_count: number;
+  problem?: string;
+}
+
 interface ConfigOptions {
   themes: string[];
   stylePacks: StylePackOption[];
   componentPacks: string[];
+  pipelines: PipelineOption[];
   /** Prompt pack names per role (D42) — layer 2 of the resolution ladder. */
   prompts: { script: string[]; planner: string[]; chat: string[] };
 }
@@ -44,6 +64,7 @@ export function defaultChannelConfig(): ChannelConfig {
     name: "",
     language: "en-US",
     video_type: "doc",
+    production_style: "faceless",
     theme: "history-dark",
     style_pack: "doc-slow",
     component_pack: null,
@@ -126,6 +147,7 @@ export default function ChannelConfigForm({
     themes: [],
     stylePacks: [],
     componentPacks: [],
+    pipelines: [],
     prompts: { script: [], planner: [], chat: [] },
   });
 
@@ -145,6 +167,21 @@ export default function ChannelConfigForm({
     return [...opts.stylePacks].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
       .map((p) => p.name);
   }, [opts.stylePacks, value.video_type]);
+
+  // Reports what the production style's family CONTAINS rather than
+  // re-deriving which member wins — the resolver at enqueue owns that rule
+  // (D60), and a second copy of it here is a second thing to keep in step.
+  const productionStyleHint = useMemo(() => {
+    const style = value.production_style ?? "faceless";
+    if (value.pipeline) return `overridden: this channel is pinned to ${value.pipeline}`;
+    if (style === "custom") return "custom requires a pipeline named below";
+    const family = opts.pipelines.filter(
+      (p) => !p.problem && p.category === style && p.stability === "production"
+    );
+    if (family.length === 1) return `how it is MADE — runs the ${family[0].name} pipeline`;
+    if (family.length === 0) return `no pipeline carries category: ${style} yet`;
+    return `${family.length} pipelines carry this category — pin one below`;
+  }, [value.production_style, value.pipeline, opts.pipelines]);
 
   const chosenPack = opts.stylePacks.find((p) => p.name === value.style_pack);
   const packMismatch =
@@ -199,6 +236,59 @@ export default function ChannelConfigForm({
               options={VIDEO_TYPES}
               onChange={(v) => up({ video_type: v as ChannelConfig["video_type"] })}
             />
+            <span className={s.hint}>what the video IS — picks the style pack</span>
+          </label>
+          <label className={s.field}>
+            <span className={s.label}>Production style</span>
+            <Select
+              value={value.production_style ?? "faceless"}
+              options={PRODUCTION_STYLES}
+              onChange={(v) => up({ production_style: v as ChannelConfig["production_style"] })}
+            />
+            <span className={s.hint}>{productionStyleHint}</span>
+          </label>
+          <label className={s.field}>
+            <span className={s.label}>Pipeline</span>
+            <Select
+              value={value.pipeline ?? ""}
+              options={opts.pipelines.map((p) => p.name)}
+              empty="from the production style"
+              onChange={(v) => up({ pipeline: v || undefined })}
+            />
+            <span className={s.hint}>
+              blank = resolved from the production style; naming one pins it, which is how a
+              `stability: test` variant is run
+            </span>
+          </label>
+          <label className={s.field}>
+            <span className={s.label}>Production mode</span>
+            <Select
+              value={value.checkpoint_policy ?? ""}
+              options={CHECKPOINT_POLICIES}
+              empty="from the pipeline"
+              onChange={(v) => up({ checkpoint_policy: (v || undefined) as ChannelConfig["checkpoint_policy"] })}
+            />
+            <span className={s.hint}>
+              auto runs straight through; guided (REVIEW) stops at every gate the pipeline
+              marks — for faceless, after the script and after the beat sheet
+            </span>
+          </label>
+          <label className={s.field}>
+            <span className={s.label}>Subtitle cues</span>
+            <Select
+              value={value.transcript?.granularity ?? "sentence"}
+              options={SRT_GRANULARITIES}
+              onChange={(v) =>
+                up({ transcript: { ...value.transcript, granularity: v as NonNullable<ChannelConfig["transcript"]>["granularity"] } })
+              }
+            />
+            <span className={s.hint}>
+              {value.transcript?.granularity === "word"
+                ? "one cue per word — needs ASR, so it always costs a transcription pass"
+                : value.transcript?.granularity === "segment"
+                  ? "whatever chunks the ASR chose — the shape an uploaded .srt already has"
+                  : "one cue per sentence, timed exactly by the TTS adapter (today's default)"}
+            </span>
           </label>
           <label className={s.field}>
             <span className={s.label}>Theme</span>

@@ -13,7 +13,7 @@ from ..srt import SrtItem, write_srt
 STAGE = "transcript"
 
 
-def transcribe(ctx: StageContext, audio: Path) -> None:
+def transcribe(ctx: StageContext, audio: Path, words: bool = False) -> None:
     try:
         from faster_whisper import WhisperModel  # type: ignore[import-not-found]
     except ImportError:
@@ -36,9 +36,27 @@ def transcribe(ctx: StageContext, audio: Path) -> None:
 
     model = WhisperModel("small", device="cpu", compute_type="int8")
     segments, _info = model.transcribe(
-        str(audio), vad_filter=True, language=language, initial_prompt=prompt
+        str(audio),
+        vad_filter=True,
+        language=language,
+        initial_prompt=prompt,
+        word_timestamps=words,
     )
-    items = [SrtItem(s.start, s.end, s.text.strip()) for s in segments if s.text.strip()]
+
+    # D63: one cue per WORD, or one per ASR segment. Word timings are the only
+    # thing the TTS adapters cannot produce (they time whole sentences), which
+    # is why asking for them always costs a transcription pass.
+    items: list[SrtItem] = []
+    for segment in segments:
+        if words:
+            for w in getattr(segment, "words", None) or []:
+                text = str(w.word).strip()
+                if text:
+                    items.append(SrtItem(w.start, w.end, text))
+        elif segment.text.strip():
+            items.append(SrtItem(segment.start, segment.end, segment.text.strip()))
+
     if not items:
-        raise StageError(STAGE, "whisper produced no segments from audio.mp3 — is the audio silent?")
+        unit = "words" if words else "segments"
+        raise StageError(STAGE, f"whisper produced no {unit} from audio.mp3 — is the audio silent?")
     write_srt(ctx.artifact("subtitles.srt"), items)

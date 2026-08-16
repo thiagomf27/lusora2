@@ -69,7 +69,9 @@ hardcoded menu.
 API additions this needed: `PATCH /api/videos/[id]` (rename),
 `GET|POST|DELETE /api/channels/[id]/backgrounds` (+ `/[name]` to serve one),
 `GET /api/channels/[id]/look-options`, and `pipelines` + `soundPacks` in
-`GET /api/config-options`. `ChannelConfig` and `StylePack` in
+`GET /api/config-options` (`pipelines` returns manifest SUMMARIES — name,
+category, stability, stage count — not bare names, so a picker can show what
+a production style resolves to). `ChannelConfig` and `StylePack` in
 `contracts/src/types.ts` also picked up the D54/D55/D59 fields the schemas
 already had (`min_score_floor`, `short_clip_fallback`, `dedup`, `fallback`,
 `overlays.emphasis`, the hold ratios).
@@ -397,4 +399,27 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   `worker/lusora_worker/pipeline/stages.py` (`STEP_REGISTRY`); the
   orchestrator walks `cfg.pipeline_doc`, falling back to `faceless`.
   Selection happens once, at enqueue, in
-  `platform/src/lib/pipelines.ts` (`selectPipeline`).
+  `platform/src/lib/pipelines.ts` (`selectPipeline`), down the D61 ladder:
+  a pinned `pipeline` name, else the manifest whose `category` matches the
+  channel's `production_style`, else `faceless`. A style with no matching
+  manifest fails the enqueue instead of defaulting — so adding talking-head
+  production means one `.yaml` with `category: talking_head`, and the
+  Channels screen offers it the moment the file exists.
+- Review mode (D62): a video with `cfg.checkpoint_policy: guided` stops after
+  every stage the manifest flags, sets status `awaiting_approval` and waits.
+  Approving is `POST /api/videos/[id]/approve` (editors may), which writes
+  `approvals/<stage>.json` into the video folder and re-queues it. Both
+  shipped manifests gate after `script` and after `plan_beats`, so nothing is
+  rendered before the beat sheet is approved. Needs migration
+  `contracts/db/0002_awaiting_approval.sql` — run `npm run db:migrate` in
+  platform/ before using it.
+- Subtitle cue size (D63): `cfg.transcript.granularity` — `sentence`
+  (default, free, from the TTS adapter's per-sentence timings), `word`
+  (always costs a whisper pass; needs `faster-whisper` installed) or
+  `segment`.
+- `faceless_v2` (D64) is a `stability: test` pipeline: faceless plus a
+  `research` stage that writes `research.md` before the script. Research is
+  phase 0 of the SCRIPT agent (shares `script.llm`/`model`, configured under
+  `script.research`), so it is still three bounded agents. Not selectable by
+  `production_style` and excluded from batch — pin it with `pipeline:
+  faceless_v2`.

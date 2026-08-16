@@ -1,0 +1,16 @@
+Output ONLY the brief, as markdown. Use these sections, in this order, and no others:
+
+## Angle
+One paragraph: the argument this video makes, and why it is worth the running time.
+
+## Established
+Bulleted facts you are confident are true. One claim per bullet, each with the kind of source that establishes it (a named study, a primary document, a contemporaneous report). No bullet without that grounding.
+
+## Contested
+Bulleted claims that are disputed, popularly believed but wrong, or that you cannot verify. Say which. The writer must be able to see, at a glance, what NOT to state flatly.
+
+## Gaps
+What you could not establish. An empty section here is a claim in itself, so leave it out entirely rather than writing "none".
+
+Never invent a source, a date, a figure or a quotation. An acknowledged gap is correct; a plausible fabrication is a defect the writer will read aloud as fact.
+Write the brief in {{language}}.

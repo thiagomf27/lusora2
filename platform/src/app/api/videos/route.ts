@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { query } from "@/db/pool";
+import type { ChannelConfig } from "@lusora/contracts";
+import { query, one } from "@/db/pool";
 import { handler, requireUser, requireRole, requireChannelAccess, grantedChannelIds, ApiError } from "@/lib/auth";
 import { newId } from "@/lib/ids";
-import { materializeUploads } from "@/lib/videos";
+import { materializeUploads, receivableForChannel } from "@/lib/videos";
 
 export const GET = handler(async (req: Request) => {
   const user = await requireUser();
@@ -67,6 +68,13 @@ export const POST = handler(async (req: Request) => {
       JSON.stringify({ __draft_overrides: overrides }),
     ]);
   }
-  const written = await materializeUploads(id, form);
+  // D62: which artifacts this channel's pipeline is willing to be handed.
+  // Derived from the manifest rather than from a constant beside the route, so
+  // a pipeline that adds a stage gains its upload slot with no change here.
+  const channel = await one<{ config: ChannelConfig }>(
+    "SELECT config FROM channels WHERE id = $1",
+    [channelId]
+  );
+  const written = await materializeUploads(id, form, receivableForChannel(channel?.config ?? null));
   return NextResponse.json({ id, uploads: written }, { status: 201 });
 });

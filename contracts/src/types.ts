@@ -351,7 +351,7 @@ export interface SoundPack {
 
 // ---------- prompts (D42-D44) ----------
 
-export type PromptRole = "script" | "planner" | "chat";
+export type PromptRole = "script" | "research" | "planner" | "spine" | "chat";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */
@@ -408,8 +408,23 @@ export interface ChannelConfig {
   theme: string;
   style_pack: string;
   component_pack?: string | null;
-  /** D60: pipeline manifest name (contracts/pipelines/<name>.yaml). */
+  /**
+   * D61: HOW this channel's videos are produced — the channel-side counterpart
+   * of a manifest's `category`. The resolver at enqueue turns it into a
+   * pipeline name. Orthogonal to `video_type`, which is WHAT the video is.
+   */
+  production_style?: PipelineCategory;
+  /** D60: pipeline manifest name (contracts/pipelines/<name>.yaml), pinning
+   *  one exact stage list and overriding `production_style`. */
   pipeline?: string;
+  /**
+   * D62: how far the worker runs before asking a human. `guided` (REVIEW in
+   * the UI) stops after every stage the manifest gates; `auto` runs straight
+   * through. Absent = the manifest's `default_checkpoint_policy`.
+   */
+  checkpoint_policy?: CheckpointPolicy;
+  /** D63: what a cue in subtitles.srt is — read by the transcript stage. */
+  transcript?: { granularity?: SrtGranularity };
   voice: { provider: string; voice_id?: string };
   script?: {
     generator?: string;
@@ -417,6 +432,10 @@ export interface ChannelConfig {
     model?: string;
     prompt?: string;
     target_seconds?: number;
+    /** D64: phase 0 of this agent — a research brief written before any
+     *  prose. Shares script.llm/model, exactly as the spine shares the
+     *  planner's, so it is a phase of a bounded agent and not a new one. */
+    research?: { enabled?: boolean; prompt?: string };
   };
   planner?: { llm?: string; model?: string; prompt?: string };
   chat?: { llm?: string; model?: string; prompt?: string };
@@ -547,10 +566,19 @@ export interface CostEvent {
 
 export type UserRole = "admin" | "manager" | "editor";
 
+/** D62 — the same enum as a manifest's `default_checkpoint_policy`: the
+ *  video-level value overrides the manifest-level one. */
+export type CheckpointPolicy = "auto" | "guided";
+
+/** D63 — what one cue in subtitles.srt spans. */
+export type SrtGranularity = "sentence" | "word" | "segment";
+
 export type VideoStatus =
   | "draft"
   | "queued"
   | "producing"
+  /** D62: stopped at a review-mode gate, waiting for a human to approve. */
+  | "awaiting_approval"
   | "rendered"
   | "in_review"
   | "approved"
@@ -581,7 +609,10 @@ export interface PipelineStage {
   requires?: string[];
   produces?: string[];
   checkpoint_required?: boolean;
+  /** D62: under guided policy the worker stops here and waits for a human. */
   human_approval_on_review_mode?: boolean;
+  /** D62: a human may hand this stage's artifact in instead (manual-first). */
+  receivable_on_upload?: boolean;
   substages?: PipelineSubstage[];
 }
 
@@ -590,6 +621,7 @@ export interface PipelineSubstage {
   requires?: string[];
   produces?: string[];
   checkpoint_required?: boolean;
+  receivable_on_upload?: boolean;
 }
 
 export type PipelineCategory =
@@ -606,7 +638,7 @@ export interface PipelineManifest {
   description?: string;
   category?: PipelineCategory;
   stability?: "production" | "test";
-  default_checkpoint_policy?: "guided" | "auto";
+  default_checkpoint_policy?: CheckpointPolicy;
   bulk_production_accepted?: boolean;
   orchestration?: {
     mode?: "mainly_code";

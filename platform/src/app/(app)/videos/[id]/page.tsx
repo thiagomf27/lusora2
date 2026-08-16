@@ -28,6 +28,10 @@ interface VideoRow {
   youtube_id: string | null;
   created_at: string;
   updated_at: string;
+  /** D62 — the gates this video's own pipeline snapshot declares, in order. */
+  review_gates?: string[];
+  /** D62 — the one it is stopped at, when it is stopped at all. */
+  pending_gate?: string | null;
 }
 interface EventRow { id: number; stage: string; status: string; message: string | null; ts: string }
 interface NoteRow { id: number; text: string; ts: string; user_name: string }
@@ -57,7 +61,7 @@ function toneFor(status: string): Tone {
   if (status === "posted" || status === "approved" || status === "rendered") return "success";
   if (status === "queued" || status === "producing") return "info";
   if (status === "error") return "danger";
-  if (status === "in_review" || status === "sent_back") return "warning";
+  if (status === "in_review" || status === "sent_back" || status === "awaiting_approval") return "warning";
   return "neutral";
 }
 
@@ -90,6 +94,10 @@ export default function VideoPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const canManage = role !== "" && role !== "editor";
+  // D62: editors approve review-mode gates. Reviewing the script and the beat
+  // sheet IS the editing job, so gating it behind manager would make review
+  // mode cost a manager per video — the API takes the same view.
+  const canReview = role !== "";
 
   const load = useCallback(async () => {
     const [v, e, n, a, me] = await Promise.all([
@@ -128,6 +136,24 @@ export default function VideoPage() {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       setMessage(err.problems?.join("; ") ?? err.error ?? `transition failed (${res.status})`);
+    }
+    load();
+  }
+
+  /** D62 — pass the gate this video is stopped at. The stage is not sent: the
+   *  server derives it the same way the worker did (first gate with no
+   *  approval file), so the button cannot approve a different one than the
+   *  screen is showing. */
+  async function approveGate() {
+    setMessage(null);
+    const res = await fetch(`/api/videos/${id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setMessage(err.error ?? `approval failed (${res.status})`);
     }
     load();
   }
@@ -261,6 +287,27 @@ export default function VideoPage() {
                   <div className={s.progressTrack}>
                     <div className={s.progressFill} style={{ width: video.status === "producing" ? "57%" : "12%" }} />
                   </div>
+                </div>
+              ) : video.status === "awaiting_approval" ? (
+                <div className={s.stage}>
+                  <div className={s.stageText}>
+                    Review mode — waiting for approval of <strong>{video.pending_gate ?? "a stage"}</strong>
+                  </div>
+                  <div className={s.stageMono}>
+                    Nothing after this stage runs until it is approved, so the video is not rendered
+                    yet. Edit {video.pending_gate === "plan_beats" ? "the beat sheet" : "the script"} below
+                    first if it needs changes — approving re-queues the video from here.
+                  </div>
+                  {(video.review_gates?.length ?? 0) > 1 && (
+                    <div className={s.stageMono}>
+                      Gates in this pipeline: {video.review_gates!.join(" → ")}
+                    </div>
+                  )}
+                  {canReview && (
+                    <Button size="sm" onClick={approveGate}>
+                      Approve {video.pending_gate ?? ""} and continue
+                    </Button>
+                  )}
                 </div>
               ) : video.status === "error" ? (
                 <div className={s.stage}>

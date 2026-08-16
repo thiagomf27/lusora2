@@ -13,6 +13,8 @@ import { useRouter } from "next/navigation";
 import type { ChannelConfig } from "@lusora/contracts";
 import { Button, Dropdown, TextInput, Toggle } from "@/components/ds";
 import { defaultChannelConfig } from "@/components/ChannelConfigForm";
+// type-only: erased at compile time, so the client bundle never pulls the loader in
+import type { PipelineSummary } from "@/lib/pipelines";
 import scr from "../screen.module.css";
 import s from "./channels.module.css";
 
@@ -28,15 +30,32 @@ interface ChannelRow {
 
 const VIDEO_TYPES = ["doc", "explainer", "breakdown", "listicle"];
 
+/**
+ * D61 — HOW a channel's videos are made, as opposed to WHAT they are
+ * (`video_type`). The list mirrors `pipeline_manifest.category`, because a
+ * production style is resolved at enqueue by matching it against exactly that
+ * field. `custom` is the "I name the file myself" answer and requires a
+ * pinned pipeline, so it is offered last.
+ */
+const PRODUCTION_STYLES = [
+  { value: "faceless", label: "Faceless" },
+  { value: "talking_head", label: "Talking head" },
+  { value: "animation", label: "Animation" },
+  { value: "shorts", label: "Shorts" },
+  { value: "ultra_longform", label: "Ultra longform" },
+  { value: "custom", label: "Custom (pin a pipeline)" },
+];
+
 export default function ChannelsPage() {
   const router = useRouter();
   const [channels, setChannels] = useState<ChannelRow[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [cfg, setCfg] = useState<ChannelConfig | null>(null);
-  const [options, setOptions] = useState<{ themes: string[]; stylePacks: { name: string }[] }>({
-    themes: [],
-    stylePacks: [],
-  });
+  const [options, setOptions] = useState<{
+    themes: string[];
+    stylePacks: { name: string }[];
+    pipelines: PipelineSummary[];
+  }>({ themes: [], stylePacks: [], pipelines: [] });
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null);
   const [role, setRole] = useState("");
@@ -56,7 +75,11 @@ export default function ChannelsPage() {
     fetch("/api/auth/me").then(async (r) => r.ok && setRole((await r.json()).role ?? ""));
     fetch("/api/config-options")
       .then((r) => (r.ok ? r.json() : null))
-      .then((o) => o && setOptions({ themes: o.themes ?? [], stylePacks: o.stylePacks ?? [] }))
+      .then((o) => o && setOptions({
+        themes: o.themes ?? [],
+        stylePacks: o.stylePacks ?? [],
+        pipelines: o.pipelines ?? [],
+      }))
       .catch(() => undefined);
   }, [loadChannels]);
 
@@ -120,6 +143,24 @@ export default function ChannelsPage() {
     setSelected(body.id);
   }
 
+  // What the chosen production style resolves to. Deliberately NOT a second
+  // copy of the resolver's tie-break (D60: two places that pick a pipeline is
+  // two places to disagree) — this reports what the family CONTAINS, and only
+  // names a pipeline when the family has exactly one.
+  const style = cfg?.production_style ?? "faceless";
+  const family = options.pipelines.filter(
+    (p) => !p.problem && p.category === style && p.stability === "production"
+  );
+  const styleNote = cfg?.pipeline
+    ? `Pinned to the ${cfg.pipeline} pipeline, so the production style is not consulted.`
+    : style === "custom"
+      ? "Custom needs a pipeline named explicitly — set one on the video, or enqueue is refused."
+      : family.length === 1
+        ? `Runs the ${family[0].name} pipeline — ${family[0].stage_count} stages.`
+        : family.length === 0
+          ? `Nothing in contracts/pipelines carries category: ${style} yet, so enqueue would be refused.`
+          : `${family.length} pipelines carry this category; pin one on the video to be explicit.`;
+
   return (
     <div className={scr.screen}>
       <div className={scr.wrap}>
@@ -127,8 +168,8 @@ export default function ChannelsPage() {
           <div className={scr.headMain}>
             <h1 className={scr.h1}>Channels</h1>
             <p className={scr.sub}>
-              A channel carries the defaults every video starts from: language, video type, theme, style pack
-              and the voice its narration is synthesised with.
+              A channel carries the defaults every video starts from: language, video type, production style,
+              theme, style pack and the voice its narration is synthesised with.
             </p>
           </div>
           {canEdit && (
@@ -177,7 +218,13 @@ export default function ChannelsPage() {
                               onChange={(v) => patch((d) => { d.video_type = v as ChannelConfig["video_type"]; })} />
                     <Dropdown label="Style pack" options={options.stylePacks.map((p) => p.name)} value={cfg.style_pack} disabled={!canEdit}
                               onChange={(v) => patch((d) => { d.style_pack = v; })} />
+                    <Dropdown label="Production style" options={PRODUCTION_STYLES} value={style} disabled={!canEdit}
+                              onChange={(v) => patch((d) => { d.production_style = v as ChannelConfig["production_style"]; })} />
                   </div>
+                  <p className={scr.toggleDesc} style={{ marginTop: 10 }}>
+                    <strong>Video type</strong> is what the video is and picks the style pack;{" "}
+                    <strong>production style</strong> is how it gets made and picks the pipeline. {styleNote}
+                  </p>
                   <div className={scr.section} style={{ marginTop: 16 }}>
                     <div className={scr.fieldLabel}>Content rules</div>
                     <textarea

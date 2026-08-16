@@ -82,10 +82,24 @@ test("validatePrompt rejects a prompt that drops a required variable", () => {
   assert.ok(validatePrompt(doc).some((e) => /required variable \{\{script\}\}/.test(e)));
 });
 
-test("roles.json declares the three bounded agents, plus the planner's spine phase", () => {
-  // Four prompt roles, still three agents (D2): `spine` is phase 1 of the beat
-  // planner on a long script (D52) and shares planner.llm/model.
-  assert.deepEqual(Object.keys(loadRoles()).sort(), ["chat", "planner", "script", "spine"]);
+test("roles.json declares the three bounded agents, plus their phase roles", () => {
+  // Five prompt roles, still three agents (D2). Two roles are PHASES of an
+  // agent rather than agents of their own, and each shares its agent's
+  // llm/model: `spine` is phase 1 of the beat planner on a long script (D52),
+  // `research` is phase 0 of the script agent (D64).
+  assert.deepEqual(
+    Object.keys(loadRoles()).sort(),
+    ["chat", "planner", "research", "script", "spine"]
+  );
+});
+
+test("the research phase's channel layer sits under script.research", () => {
+  // Mirrors the spine: a phase configures under its agent, not beside it.
+  const cfg = { channel_id: "C1", script: { research: { prompt: "default" } } };
+  const result = resolvePrompt(cfg, "research");
+  assert.ok("resolved" in result, JSON.stringify(result));
+  assert.equal(result.resolved.name, "default");
+  assert.equal(result.resolved.source, "channel");
 });
 
 test("the spine's channel layer sits under planner.spine", () => {

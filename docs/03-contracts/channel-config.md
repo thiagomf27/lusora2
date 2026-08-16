@@ -8,11 +8,14 @@ replace wholesale (no list merging). Result is the immutable `cfg.json`.
 channel_id: HIST_BR_01
 name: "Histórias da Guerra"
 language: pt-BR
-video_type: doc                    # selects default style pack
+video_type: doc                    # WHAT it is — selects default style pack
+production_style: faceless         # D61 — HOW it is made; selects the pipeline
 theme: history-dark
 style_pack: doc-slow
 component_pack: null               # or a named engine pack
-pipeline: faceless                 # D60 — stage list; omit to let enqueue pick
+pipeline: faceless                 # D60 — PINS one manifest, overriding the style
+checkpoint_policy: auto            # D62 — auto | guided (REVIEW mode in the UI)
+transcript: { granularity: sentence }   # D63 — what one subtitle cue spans
 voice: { provider: ai33, voice_id: "…" }
 script: { generator: scriptforge, llm: deepseek }
 captions: { enabled: true }        # preset comes from the theme
@@ -65,13 +68,45 @@ source_policy:
 
 ## Semantics (Decided)
 
-- `pipeline` (D60) names the stage list this channel's videos run
-  (`contracts/pipelines/<name>.yaml`). Omitted, the selection resolver at
-  enqueue picks one — today always `faceless`. Whichever wins, the whole
-  manifest is embedded as `pipeline_doc` in the snapshot, beside
-  `theme_doc` / `style_pack_doc` / `sound_pack_doc` and for the same
-  reason (Principle 7): a later edit to the manifest never changes this
-  video. See [Pipeline Manifest](pipeline.md).
+- **`video_type` and `production_style` are orthogonal.** `video_type`
+  (doc, explainer, breakdown, listicle) is WHAT the video is and picks the
+  style pack; `production_style` (D61) is HOW it gets made and picks the
+  pipeline. A faceless doc and a talking-head doc are the same content
+  shape produced two different ways, which is exactly why one field
+  cannot carry both.
+- `production_style` (D61) holds the same enum as a manifest's
+  `category` — `faceless`, `talking_head`, `animation`, `shorts`,
+  `ultra_longform`, `custom` — because the resolver at enqueue turns one
+  into the other by matching them: the single `stability: production`
+  manifest of that category wins. A style with no matching manifest is
+  **refused** at enqueue, not defaulted; running `faceless` for a
+  talking-head channel would deliver a wrong video that looks successful.
+  `custom` means "I name the file myself" and requires `pipeline`.
+- `pipeline` (D60) **pins** the stage list this channel's videos run
+  (`contracts/pipelines/<name>.yaml`), overriding `production_style` —
+  the escape hatch for running a `stability: test` variant of a style
+  without changing what the style means. With neither field set the
+  resolver picks `faceless`. Whichever wins, the whole manifest is
+  embedded as `pipeline_doc` in the snapshot, beside `theme_doc` /
+  `style_pack_doc` / `sound_pack_doc` and for the same reason
+  (Principle 7): a later edit to the manifest never changes this video.
+  See [Pipeline Manifest](pipeline.md).
+- `checkpoint_policy` (D62) is how far the worker runs before asking a
+  human. `auto` walks the whole manifest; `guided` — shown as **Review**
+  in the UI — stops after every stage the manifest marks
+  `human_approval_on_review_mode` and parks the video in
+  `awaiting_approval` until someone approves it. It overrides the
+  manifest's `default_checkpoint_policy`, which is what lets one channel
+  run the same pipeline both ways. Overridable per video, like any field:
+  the composer's **Production mode** control writes exactly this.
+- `transcript.granularity` (D63) is what one cue in `subtitles.srt`
+  spans. `sentence` (the default) is free — the TTS adapters synthesize
+  one sentence at a time and report exact timings, so a cue already is a
+  sentence. `word` is the only answer they cannot give, so it always
+  costs an ASR pass. `segment` keeps whatever chunks the ASR chose, which
+  is the shape an uploaded `.srt` already has. It is a channel field
+  rather than a pipeline field on purpose: two channels running the same
+  manifest legitimately want different cue sizes.
 - `visual.chain` order = preference; omission = forbidden. Per beat,
   `resolve_assets` walks the chain and stops at the first acceptable
   asset; `min_score` is what makes fallthrough honest (without it the

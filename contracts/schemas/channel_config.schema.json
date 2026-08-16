@@ -14,10 +14,50 @@
     "theme": { "type": "string", "description": "theme name (themes/<name>.yaml)" },
     "style_pack": { "type": "string", "description": "style pack name (style-packs/<name>.yaml)" },
     "component_pack": { "type": ["string", "null"], "default": null },
+    "production_style": {
+      "enum": ["faceless", "talking_head", "ultra_longform", "shorts", "animation", "custom"],
+      "default": "faceless",
+      "description": "D61 - HOW this channel's videos are produced: the durable creative decision a human makes once per channel. It is the channel-side counterpart of a manifest's `category`, and the selection resolver at enqueue turns it into a pipeline name by picking the production-stability manifest of that category. Distinct from `video_type`, which is WHAT the video is (doc, explainer...) and selects a style pack: a faceless doc and a talking-head doc are the same content shape produced two different ways.",
+      "$comment": "same enum as pipeline_manifest.category, deliberately - the two must stay comparable"
+    },
     "pipeline": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]*$",
-      "description": "D60 - pipeline manifest name (contracts/pipelines/<name>.yaml). Absent = the selection resolver picks one at enqueue, today always 'faceless'."
+      "description": "D60 - pipeline manifest name (contracts/pipelines/<name>.yaml). PINS one exact stage list, overriding production_style: the escape hatch for running a `stability: test` variant of a style. Absent = the resolver picks the manifest matching production_style, and with neither field set, 'faceless'."
+    },
+    "checkpoint_policy": {
+      "enum": ["auto", "guided"],
+      "description": "D62 - HOW FAR the worker runs before asking a human. 'auto' walks the whole manifest straight through (what every video has done until now). 'guided' - shown as REVIEW mode in the UI - stops after every stage the manifest marks `human_approval_on_review_mode` and leaves the video in `awaiting_approval` until someone approves it. Absent = the manifest's own `default_checkpoint_policy`. This is a POLICY ON a pipeline, never a separate pipeline: the same faceless.yaml runs both ways, which is what stops a `faceless-review.yaml` fork existing.",
+      "$comment": "same enum as pipeline_manifest.default_checkpoint_policy, deliberately - the video-level value overrides the manifest-level one"
+    },
+    "transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D63 - what a subtitle CUE is in this channel's subtitles.srt. Read by the transcript stage, which produces the file, and by the beats process, which takes its script breaks from it. Per channel rather than per pipeline: two channels running the same faceless manifest legitimately want different cue sizes, and putting this in the manifest would fork it once per answer.",
+      "properties": {
+        "granularity": {
+          "enum": ["sentence", "word", "segment"],
+          "default": "sentence",
+          "description": "'sentence' is what every video has produced until now: the TTS adapter synthesizes one sentence at a time and reports exact per-sentence timings (ai33, flite, mock all do this), so a cue IS a sentence. 'word' emits one cue per word, which is what a beats process that aligns its own script splits needs - it requires ASR (the TTS adapters cannot time inside a sentence), so it re-transcribes the audio. 'segment' keeps whatever chunks the ASR chose, the shape an uploaded subtitles.srt already has."
+        }
+      }
+    },
+    "checkpoint_policy": {
+      "enum": ["auto", "guided"],
+      "description": "D62 - production MODE. `auto` runs the pipeline straight through (what every video did before this existed). `guided` (shown as 'Review' in the UI) stops after every stage the manifest marks `human_approval_on_review_mode` and waits for a human, so nothing downstream - the render above all - happens on unapproved work. A POLICY on any pipeline, never a separate pipeline: the same manifest runs both ways. Absent = the manifest's `default_checkpoint_policy`, then `auto`.",
+      "$comment": "the enum matches pipeline_manifest.default_checkpoint_policy so one can fall back to the other"
+    },
+    "transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D63 - how finely the transcript stage cuts subtitles.srt. This is what the beat sheet's timing is built from, so it decides where a beat is ALLOWED to start, not just what a caption looks like.",
+      "properties": {
+        "granularity": {
+          "enum": ["sentence", "segment", "word"],
+          "default": "sentence",
+          "description": "`sentence` (default, and what every video did before this existed): one cue per sentence, timed exactly by the TTS adapter, which synthesises sentence by sentence. `segment`: the ASR's own segmentation, ignoring TTS timings - arbitrary breaks that follow delivery rather than punctuation. `word`: one cue per word, which is what lets a later beats process split the script wherever it likes and still know when each piece is spoken. `segment` and `word` both require local Whisper and cost a transcription pass over audio the TTS already timed."
+        }
+      }
     },
     "voice": {
       "type": "object",
@@ -44,6 +84,23 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "D45 per-video/per-channel override of style_pack.script.target_seconds"
+        },
+        "research": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "D64 - phase 0 of this agent: one call that gathers what the video is ABOUT before anything writes prose, so the script argues from a brief instead of inventing as it goes. It shares script.llm/model - it is the same bounded agent (D2), not a fourth one, exactly as the spine is a phase of the planner.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "false makes the stage write a title-only brief, which is also what a mock provider produces - the script then behaves exactly as it did before research existed"
+            },
+            "prompt": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*$",
+              "description": "prompt pack name (contracts/prompts/research/<name>.json)"
+            }
+          }
         }
       }
     },
@@ -378,6 +435,7 @@
       "description": "resolved prompt TEXT per role, embedded at enqueue (D44). Editing a prompt afterwards never changes this video; a re-run reproduces the same words.",
       "properties": {
         "script": { "$ref": "#/$defs/resolvedPrompt" },
+        "research": { "$ref": "#/$defs/resolvedPrompt" },
         "planner": { "$ref": "#/$defs/resolvedPrompt" },
         "spine": { "$ref": "#/$defs/resolvedPrompt" },
         "chat": { "$ref": "#/$defs/resolvedPrompt" }

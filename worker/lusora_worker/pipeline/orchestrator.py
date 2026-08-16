@@ -19,6 +19,7 @@ from ..config import WorkerConfig
 from ..context import StageContext
 from ..db import Db
 from ..errors import StageError
+from . import checkpoints
 from .stages import UnknownStageError, build_stages, ensure_claim_materialized
 
 
@@ -58,23 +59,45 @@ def process_video(db: Db, config: WorkerConfig, video: dict) -> None:
             raise StageError("pipeline", str(e))
         pipeline_id = f"{manifest['name']} v{manifest['version']}"
         db.event(video_id, "pipeline", "started", f"{pipeline_id} — {len(stages)} stages")
+
+        # D62: which gates are live for THIS video. Resolved once, before the
+        # loop, so a run cannot change its mind halfway down the stage list.
+        policy = checkpoints.policy(ctx.cfg, manifest)
+        gates = set(checkpoints.gated_stages(manifest)) if policy == checkpoints.GUIDED else set()
+        if gates:
+            db.event(video_id, "pipeline", "progress",
+                     f"review mode — stops after {', '.join(checkpoints.gated_stages(manifest))}")
+            ctx.log(f"review mode: gates after {', '.join(sorted(gates))}")
         ctx.log(f"pipeline {pipeline_id} ({', '.join(s.name for s in stages)})")
 
         for stage in stages:
             if stage.done(ctx):
                 db.event(video_id, stage.name, "done", "output already present — skipped")
-                continue
-            db.event(video_id, stage.name, "started", None)
-            ctx.log(f"stage {stage.name} started")
-            stage.run(ctx)
-            if stage.artifact is not None and not stage.done(ctx):
-                raise StageError(
-                    stage.name,
-                    f"stage completed but expected artifact '{stage.artifact}' is missing from {folder}",
-                )
-            db.event(video_id, stage.name, "done", None)
-            ctx.log(f"stage {stage.name} done")
-            db.heartbeat(config.worker_id, video_id)
+            else:
+                db.event(video_id, stage.name, "started", None)
+                ctx.log(f"stage {stage.name} started")
+                stage.run(ctx)
+                if stage.artifact is not None and not stage.done(ctx):
+                    raise StageError(
+                        stage.name,
+                        f"stage completed but expected artifact '{stage.artifact}' is missing from {folder}",
+                    )
+                db.event(video_id, stage.name, "done", None)
+                ctx.log(f"stage {stage.name} done")
+                db.heartbeat(config.worker_id, video_id)
+
+            # The gate fires whether the stage just ran or was skipped as
+            # already-present: on the re-claim after an approval the artifact
+            # exists, so only the approval file can tell the loop to carry on.
+            if stage.name in gates:
+                if not checkpoints.approved(ctx, stage.name):
+                    db.set_status(video_id, "awaiting_approval")
+                    db.event(video_id, stage.name, "progress",
+                             "waiting for human approval (review mode)")
+                    ctx.log(f"stopped after {stage.name} — waiting for approval")
+                    return
+                db.event(video_id, stage.name, "done",
+                         f"gate passed — {checkpoints.approval_note(ctx, stage.name)}")
 
         db.set_status(video_id, "rendered")
         db.event(video_id, "pipeline", "done", "video rendered — ready for review")

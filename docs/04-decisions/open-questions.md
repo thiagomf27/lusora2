@@ -166,20 +166,15 @@ sampling misses.
 
 ## Opened by pipelines-as-data (D60), 2026-08-15
 
-**OQ-28 — Who executes the guided checkpoint policy.** The manifest
-schema declares `default_checkpoint_policy: guided` and a per-stage
-`human_approval_on_review_mode`, and `faceless.yaml` marks the two stages
-a review mode would gate (after the script, after the beat sheet).
-Nothing runs them: every video today runs under `auto`. The shape is in
-the schema on purpose — review mode is a POLICY on a pipeline, not a
-separate pipeline, and stating that now is what stops a
-`faceless-review.yaml` fork later — but a pause needs a place to wait,
-and the worker's whole design is that it stores no state of its own.
-**Options:** (a) leave it declared and unexecuted (today); (b) a paused
-video takes a status of its own (`awaiting_approval`), which the queue
-already knows how to show and the orchestrator can resume from, at the
-cost of a status-machine change; (c) the gate writes a marker artifact
-into the folder and the stage's done-check waits on it, which keeps the
-DB untouched and makes the pause invisible in the UI. **Trigger:** the
-first channel that wants to approve a script before paying for
-narration.
+**OQ-28 — Who executes the guided checkpoint policy.** ✅ DECIDED (D62):
+**the orchestrator, against a file in the video folder.** A video carries
+`checkpoint_policy`, overriding the manifest's default, so review mode
+stays a POLICY on a pipeline and no `faceless-review.yaml` fork exists.
+Under `guided` the loop stops after each gated stage and parks the video
+in a new `awaiting_approval` status; the approval is
+`approvals/<stage>.json`, which is what lets the worker keep storing no
+state of its own — on the re-claim the artifact is present so the stage
+skips, the approval is present so the gate passes, and resume ("skip what
+exists") covers checkpoints for free. The pending gate is derived (the
+first gate with no file) rather than tracked, so nothing can drift.
+

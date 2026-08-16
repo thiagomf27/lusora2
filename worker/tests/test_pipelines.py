@@ -288,3 +288,276 @@ def test_an_unrunnable_pipeline_fails_the_video_with_one_reason(tmp_path):
     assert status == "error"
     assert "teleport" in reason
     assert [(stage, st) for stage, st, _ in db.events if st == "failed"] == [("pipeline", "failed")]
+
+
+# ---------------- review mode: the gates actually stop the loop (D62) ----------------
+
+
+def _gated_manifest(policy="auto"):
+    return {
+        "name": "gated",
+        "version": "1.0",
+        "default_checkpoint_policy": policy,
+        "stages": [
+            {"name": "script", "produces": ["script.txt"], "human_approval_on_review_mode": True},
+            {"name": "render", "requires": ["script.txt"], "produces": ["final.mp4"]},
+        ],
+    }
+
+
+def _review_db():
+    from test_agents import FakeDb
+
+    class Db(FakeDb):
+        def __init__(self):
+            super().__init__()
+            self.statuses = []
+
+        def set_status(self, video_id, status, reason=None):
+            self.statuses.append((status, reason))
+
+        def heartbeat(self, worker_id, video_id):
+            pass
+
+    return Db()
+
+
+def _run_gated(tmp_path, monkeypatch, cfg, folder_name="vid_g"):
+    """Run a two-stage manifest whose first stage is a review gate."""
+    from types import SimpleNamespace
+
+    from lusora_worker.pipeline import orchestrator
+    from lusora_worker.pipeline import stages as stages_mod
+
+    ran: list[str] = []
+
+    def stub(name, artifact):
+        def run(ctx):
+            ran.append(name)
+            (ctx.folder / artifact).write_text("x", encoding="utf-8")
+
+        return stages_mod.Step(run)
+
+    for name, artifact in (("script", "script.txt"), ("render", "final.mp4")):
+        monkeypatch.setitem(stages_mod.STEP_REGISTRY, name, stub(name, artifact))
+
+    folder = tmp_path / folder_name
+    folder.mkdir(exist_ok=True)
+    db = _review_db()
+    config = SimpleNamespace(videos_root=tmp_path, worker_id="w1")
+    orchestrator.process_video(
+        db, config, {"id": folder_name, "channel_id": "CH", "title": "T", "cfg": cfg}
+    )
+    return ran, db, folder
+
+
+def test_auto_policy_ignores_the_gates(tmp_path, monkeypatch):
+    """The flags are declarative: under auto they change nothing, which is what
+    every video did before review mode existed (Principle 7)."""
+    ran, db, _ = _run_gated(tmp_path, monkeypatch, {"pipeline_doc": _gated_manifest("auto")})
+    assert ran == ["script", "render"]
+    assert db.statuses == [("rendered", None)]
+
+
+def test_guided_policy_stops_at_the_gate_and_renders_nothing(tmp_path, monkeypatch):
+    """The load-bearing claim: nothing downstream of an unapproved gate runs."""
+    ran, db, folder = _run_gated(
+        tmp_path, monkeypatch, {"pipeline_doc": _gated_manifest("guided")}
+    )
+    assert ran == ["script"], "render is past the gate and must not have run"
+    assert db.statuses == [("awaiting_approval", None)]
+    assert not (folder / "final.mp4").exists()
+
+
+def test_the_video_level_policy_overrides_the_manifest(tmp_path, monkeypatch):
+    """Review mode is a policy ON a pipeline: the same manifest runs both ways,
+    which is what stops a faceless-review.yaml fork existing."""
+    ran, db, _ = _run_gated(
+        tmp_path,
+        monkeypatch,
+        {"checkpoint_policy": "guided", "pipeline_doc": _gated_manifest("auto")},
+    )
+    assert ran == ["script"]
+    assert db.statuses == [("awaiting_approval", None)]
+
+
+def test_an_approval_file_lets_the_run_continue(tmp_path, monkeypatch):
+    """The re-claim after approval: the artifact exists so the stage skips, and
+    only the approval file can tell the loop to pass the gate."""
+    folder = tmp_path / "vid_a"
+    folder.mkdir()
+    (folder / "script.txt").write_text("already written", encoding="utf-8")
+    (folder / "approvals").mkdir()
+    (folder / "approvals" / "script.json").write_text(
+        '{"approved_by": "editor@example.com"}', encoding="utf-8"
+    )
+
+    ran, db, _ = _run_gated(
+        tmp_path, monkeypatch, {"pipeline_doc": _gated_manifest("guided")}, folder_name="vid_a"
+    )
+    assert ran == ["render"], "script was already done; the gate was approved"
+    assert db.statuses == [("rendered", None)]
+    assert any("approved by editor@example.com" in (msg or "") for _, _, msg in db.events)
+
+
+def test_an_unreadable_policy_falls_back_to_auto(tmp_path, monkeypatch):
+    """A snapshot from before this existed must re-run byte-identically."""
+    ran, db, _ = _run_gated(
+        tmp_path,
+        monkeypatch,
+        {"checkpoint_policy": "nonsense", "pipeline_doc": _gated_manifest()},
+    )
+    assert ran == ["script", "render"]
+    assert db.statuses == [("rendered", None)]
+
+
+def test_faceless_gates_are_the_script_and_the_beat_sheet():
+    """Where the shipped pipelines wait, pinned: nothing is narrated before the
+    script is approved, and nothing is RENDERED before the beats are."""
+    from lusora_worker.pipeline import checkpoints
+
+    for name in ("faceless", "faceless_v2"):
+        assert checkpoints.gated_stages(load_pipeline(name)) == ["script", "plan_beats"], name
+
+
+def test_every_shipped_manifest_defaults_to_auto():
+    """Review mode is opt-in per video; a manifest that gated by default would
+    park every batch-enqueued video on a human."""
+    for name in list_pipelines():
+        manifest = load_pipeline(name)
+        assert checkpoints_policy(manifest) == "auto", name
+
+
+def checkpoints_policy(manifest):
+    from lusora_worker.pipeline import checkpoints
+
+    return checkpoints.policy({}, manifest)
+
+
+# ---------------- review mode (D62) ----------------
+
+
+def _review_db():
+    """FakeDb that records statuses, so a test can prove the video was parked."""
+    from test_agents import FakeDb
+
+    class Db(FakeDb):
+        def __init__(self):
+            super().__init__()
+            self.statuses = []
+
+        def set_status(self, video_id, status, reason=None):
+            self.statuses.append((status, reason))
+
+        def heartbeat(self, worker_id, video_id):
+            pass
+
+    return Db()
+
+
+REVIEW_MANIFEST = {
+    "name": "gated",
+    "version": "1.0",
+    "default_checkpoint_policy": "auto",
+    "stages": [
+        {"name": "script", "produces": ["script.txt"], "human_approval_on_review_mode": True},
+        {"name": "render", "requires": ["script.txt"], "produces": ["final.mp4"]},
+    ],
+}
+
+
+def _run_gated(tmp_path, monkeypatch, cfg_extra, folder_name="vid_g"):
+    from types import SimpleNamespace
+
+    from lusora_worker.pipeline import orchestrator
+    from lusora_worker.pipeline import stages as stages_mod
+
+    ran: list[str] = []
+
+    def stub(name, artifact):
+        def run(ctx):
+            ran.append(name)
+            (ctx.folder / artifact).write_text("x", encoding="utf-8")
+
+        return stages_mod.Step(run)
+
+    monkeypatch.setitem(stages_mod.STEP_REGISTRY, "script", stub("script", "script.txt"))
+    monkeypatch.setitem(stages_mod.STEP_REGISTRY, "render", stub("render", "final.mp4"))
+
+    folder = tmp_path / folder_name
+    folder.mkdir(exist_ok=True)
+    db = _review_db()
+    orchestrator.process_video(
+        db,
+        SimpleNamespace(videos_root=tmp_path, worker_id="w1"),
+        {
+            "id": folder_name,
+            "channel_id": "CH",
+            "title": "T",
+            "cfg": {"pipeline_doc": REVIEW_MANIFEST, **cfg_extra},
+        },
+    )
+    return ran, db, folder
+
+
+def test_auto_policy_runs_straight_through_the_gate(tmp_path, monkeypatch):
+    """The gates are declared on every video; under `auto` they do nothing.
+    This is what makes review a POLICY rather than a second pipeline."""
+    ran, db, _ = _run_gated(tmp_path, monkeypatch, {})
+    assert ran == ["script", "render"]
+    assert db.statuses == [("rendered", None)]
+
+
+def test_guided_policy_stops_at_the_gate_before_rendering(tmp_path, monkeypatch):
+    """The load-bearing claim: nothing downstream of an unapproved gate runs.
+    `render` must not have executed."""
+    ran, db, folder = _run_gated(tmp_path, monkeypatch, {"checkpoint_policy": "guided"})
+    assert ran == ["script"], "render ran on unapproved work"
+    assert db.statuses == [("awaiting_approval", None)]
+    assert not (folder / "final.mp4").exists()
+
+
+def test_an_approval_file_lets_the_re_claim_carry_on(tmp_path, monkeypatch):
+    """Resume after approval: the stage is skipped (its artifact exists) and
+    the gate passes (its approval exists), so only `render` runs."""
+    ran, db, folder = _run_gated(tmp_path, monkeypatch, {"checkpoint_policy": "guided"})
+    assert ran == ["script"]
+
+    (folder / "approvals").mkdir()
+    (folder / "approvals" / "script.json").write_text(
+        '{"approved_by": "a@b.c", "approved_at": "2026-08-16T10:00:00Z"}', encoding="utf-8"
+    )
+    ran2, db2, _ = _run_gated(tmp_path, monkeypatch, {"checkpoint_policy": "guided"})
+    assert ran2 == ["render"], "the approved stage should skip, and render should now run"
+    assert db2.statuses == [("rendered", None)]
+
+
+def test_the_manifest_default_applies_when_the_cfg_is_silent(tmp_path, monkeypatch):
+    from lusora_worker.pipeline import checkpoints
+
+    guided = {**REVIEW_MANIFEST, "default_checkpoint_policy": "guided"}
+    assert checkpoints.policy({}, guided) == "guided"
+    # ...and a video overrides its pipeline's default in either direction
+    assert checkpoints.policy({"checkpoint_policy": "auto"}, guided) == "auto"
+    assert checkpoints.policy({"checkpoint_policy": "guided"}, REVIEW_MANIFEST) == "guided"
+
+
+def test_an_unknown_policy_degrades_to_auto_rather_than_stalling(tmp_path):
+    """The schema rejects this at enqueue; a snapshot that carries it anyway
+    must still produce a video rather than park it forever."""
+    from lusora_worker.pipeline import checkpoints
+
+    assert checkpoints.policy({"checkpoint_policy": "REVIEW"}, REVIEW_MANIFEST) == "auto"
+
+
+def test_faceless_v2_gates_the_script_and_the_beat_sheet(tmp_path):
+    """The shipped pipeline's promise: nothing is narrated on an unapproved
+    script, and nothing is rendered on an unapproved beat sheet."""
+    from lusora_worker.pipeline import checkpoints
+
+    manifest = load_pipeline("faceless_v2")
+    assert checkpoints.gated_stages(manifest) == ["script", "plan_beats"]
+    names = stage_names(manifest)
+    # the gates must sit BEFORE the expensive irreversible stages
+    assert names.index("plan_beats") < names.index("render")
+    assert manifest["stages"][0]["name"] == "research"

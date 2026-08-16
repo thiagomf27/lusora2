@@ -16,6 +16,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ChannelConfig } from "@lusora/contracts";
+import type { PipelineSummary } from "@/lib/pipelines";
 import { Dropdown, TextInput, Toggle } from "@/components/ds";
 import SourcePolicyEditor from "@/components/SourcePolicyEditor";
 import LookEditor from "@/components/LookEditor";
@@ -69,7 +70,7 @@ function QuoteScreen() {
     stylePacks: { name: string }[];
     componentPacks: string[];
     soundPacks: string[];
-    pipelines: string[];
+    pipelines: PipelineSummary[];
   }>({ themes: [], stylePacks: [], componentPacks: [], soundPacks: [], pipelines: [] });
   const [spend, setSpend] = useState<{ month: string; usd: number; events: number }[]>([]);
   const [files, setFiles] = useState<Record<string, File>>({});
@@ -117,6 +118,21 @@ function QuoteScreen() {
 
   const chain = draft?.source_policy?.visual?.chain ?? [];
   const chainOf = (name: string) => chain.find((c) => c.source === name);
+
+  // Where this draft would wait. Same rule as the Channels screen: report what
+  // the style's family CONTAINS rather than re-deriving the resolver's
+  // tie-break (D60 — two places that pick a pipeline is two places to disagree).
+  const reviewGates = useMemo(() => {
+    if (!draft) return [];
+    if (draft.pipeline) {
+      return options.pipelines.find((p) => p.name === draft.pipeline)?.gates ?? [];
+    }
+    const style = draft.production_style ?? "faceless";
+    const family = options.pipelines.filter(
+      (p) => !p.problem && p.category === style && p.stability === "production"
+    );
+    return family.length === 1 ? family[0].gates : [];
+  }, [draft, options.pipelines]);
 
   const overrides = useMemo(
     () => (base && draft ? (diff(base, draft) as Record<string, unknown> | undefined) : undefined),
@@ -238,10 +254,34 @@ function QuoteScreen() {
                 <div className={scr.grid2}>
                   <Dropdown label="Style pack" options={options.stylePacks.map((p) => p.name)} value={draft.style_pack}
                             onChange={(v) => patch((d) => { d.style_pack = v; })} />
-                  <Dropdown label="Pipeline (production style)"
-                            options={["", ...options.pipelines].map((p) => ({ value: p, label: p || "resolve at enqueue" }))}
+                  <Dropdown label="Pipeline"
+                            options={[
+                              { value: "", label: `from the channel (${draft.production_style ?? "faceless"})` },
+                              ...options.pipelines.map((p) => ({
+                                value: p.name,
+                                label: p.stability === "test" ? `${p.name} · test` : p.name,
+                              })),
+                            ]}
                             value={draft.pipeline ?? ""}
                             onChange={(v) => patch((d) => { if (v) d.pipeline = v; else delete d.pipeline; })} />
+                </div>
+
+                {/* D62 — production mode. The schema value is `guided`; this is
+                    the review mode the pipeline's gates were written for. */}
+                <div className={scr.grid2}>
+                  <Dropdown label="Production mode"
+                            options={[
+                              { value: "auto", label: "Auto — run straight through" },
+                              { value: "guided", label: "Review — stop at each gate" },
+                            ]}
+                            value={draft.checkpoint_policy ?? "auto"}
+                            onChange={(v) => patch((d) => { d.checkpoint_policy = v as ChannelConfig["checkpoint_policy"]; })} />
+                  <div className={scr.tile}>
+                    <div className={scr.tileLabel}>Waits for approval at</div>
+                    <div className={scr.tileValue}>
+                      {draft.checkpoint_policy === "guided" ? (reviewGates.join(" → ") || "no gates in this pipeline") : "nothing — auto"}
+                    </div>
+                  </div>
                 </div>
 
                 <div className={scr.grid2}>
@@ -359,6 +399,8 @@ function QuoteScreen() {
                     ["Channel", draft.name],
                     ["Theme", draft.theme],
                     ["Style pack", draft.style_pack],
+                    ["Production mode", draft.checkpoint_policy === "guided" ? "review" : "auto"],
+                    ["Production style", draft.production_style ?? "faceless"],
                     ["Pipeline", draft.pipeline ?? "resolved at enqueue"],
                     ["Renderer", draft.renderer ?? "auto"],
                     ["Voice", draft.voice?.voice_id ?? draft.voice?.provider ?? "—"],

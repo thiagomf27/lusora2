@@ -29,7 +29,7 @@ from . import CONTRACTS_ROOT
 
 PROMPTS_DIR = CONTRACTS_ROOT / "prompts"
 
-ROLES = ("script", "planner", "spine", "chat")
+ROLES = ("research", "script", "planner", "spine", "chat")
 
 _SECTION_RE = re.compile(r"\{\{#([a-z_][a-z0-9_]*)\}\}(.*?)\{\{/\1\}\}", re.DOTALL)
 _VAR_RE = re.compile(r"\{\{([a-z_][a-z0-9_]*)\}\}")
@@ -142,6 +142,11 @@ def resolve(cfg: dict[str, Any], role: str) -> dict[str, Any]:
     if role == "spine":
         # phase 1 of the planner agent, so its channel layer sits with it
         name = (((cfg.get("planner") or {}).get("spine") or {}).get("prompt")) or None
+    elif role == "research":
+        # phase 0 of the SCRIPT agent (D64), same shape one level up: there is
+        # no top-level `research` block in a channel config, so looking there
+        # would silently resolve to the default for every channel
+        name = (((cfg.get("script") or {}).get("research") or {}).get("prompt")) or None
     else:
         name = ((cfg.get(role) or {}).get("prompt")) or None
     source = "channel"

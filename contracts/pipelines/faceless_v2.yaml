@@ -1,0 +1,101 @@
+name: faceless_v2
+version: "1.0"
+description: >
+  Faceless production with a research pass in front of the script, and the two
+  review gates wired to actually stop the worker (D62). Everything downstream of
+  plan_beats is unchanged from faceless v1 — this pipeline differs in what it
+  knows before it writes, and in where it is willing to wait for a human.
+
+  Ships as `stability: test`: the research stage has a prompt but no track
+  record, and a test pipeline is runnable one video at a time while being
+  excluded from batch enqueue. Promoting it is two lines — stability:
+  production here, and it wins `production_style: faceless` on name order
+  only if faceless.yaml is removed, so promotion is a deliberate act.
+category: faceless
+stability: test
+
+# The gates below do nothing under `auto`. A channel or a single video opts in
+# with checkpoint_policy: guided, and the same manifest then runs as review
+# mode — a policy on a pipeline, never a separate pipeline.
+default_checkpoint_policy: auto
+bulk_production_accepted: false
+
+orchestration:
+  mode: mainly_code
+  budget_default_usd: 2.50      # + one research call over v1
+  max_revisions_per_stage: 3
+  max_send_backs: 3
+
+compatible_themes:
+  recommended:
+    - doc-minimal
+    - clean-punchy
+  also_works:
+    - archive
+    - history-dark
+  custom_allowed: true
+
+# `receivable_on_upload` says a human may hand the artifact in instead of having
+# it produced. It is not decoration: the upload API derives its allow-list from
+# THIS list, so a stage marked false rejects the upload.
+#
+# Done-checks (artifact-presence vs. freshness) still live in the worker step
+# registry, keyed by these names — deliberately not encoded here.
+stages:
+  # D64 — phase 0 of the script agent: establish what is true, and where the
+  # angle is, before anything writes a sentence the audience will hear.
+  - name: research
+    produces: [research.md]
+    receivable_on_upload: true
+
+  - name: script
+    requires: [research.md]
+    produces: [script.txt]
+    receivable_on_upload: true
+    human_approval_on_review_mode: true   # gate 1 — nothing is narrated unapproved
+
+  - name: narration
+    requires: [script.txt]
+    produces: [audio.mp3]
+    receivable_on_upload: true
+
+  - name: transcript
+    requires: [audio.mp3]
+    produces: [subtitles.srt]
+    receivable_on_upload: true
+
+  - name: plan_beats
+    requires: [script.txt, subtitles.srt]
+    produces: [beats.json]
+    receivable_on_upload: true
+    human_approval_on_review_mode: true   # gate 2 — nothing is RENDERED unapproved
+
+  - name: compile_plan
+    requires: [beats.json]
+    produces: [edit_plan.json]
+    receivable_on_upload: true
+
+  - name: resolve_assets
+    requires: [edit_plan.json]
+    produces: [clips/]
+
+  - name: resolve_audio
+    requires: [edit_plan.json]
+    produces: [audio/]
+
+  - name: validate
+    # judges the compiled plan; produces no artifact, so it always runs
+    requires: [edit_plan.json]
+
+  - name: render
+    requires: [edit_plan.json]
+    produces: [final.mp4]
+
+  - name: qa
+    # judges the rendered FILE (black/silent/duration); produces no artifact,
+    # so it always runs — the gate that keeps a broken render off the queue
+    requires: [final.mp4]
+
+  - name: finalize
+    requires: [final.mp4]
+    produces: [thumb.jpg, metadata.txt]

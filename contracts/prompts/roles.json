@@ -2,65 +2,221 @@
   "version": "1.0",
   "comment": "Role definitions for prompt packs (D42-D44). The variable set is a contract: a prompt may only use these names, and `required` ones must survive into the composed text. Both the worker (lusora_contracts) and the platform (lib/prompts.ts) read this file — no mirrored list to drift.",
   "roles": {
+    "research": {
+      "description": "Topic -> a documentary research brief the SCRIPT agent writes from (D64). Produces research.md; never produces narration. Its output is prose for another agent to read, so it is checked for shape (the welded section list) rather than parsed.",
+      "welded": {
+        "system": true,
+        "user": false
+      },
+      "variables": {
+        "language": {
+          "required": true,
+          "source": "cfg.language"
+        },
+        "title": {
+          "required": true,
+          "source": "video.title"
+        },
+        "target_seconds": {
+          "required": false,
+          "source": "style_pack.script.target_seconds (D45) — brief to the depth the script will actually use"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        }
+      }
+    },
     "script": {
       "description": "Narration writer. Output is spoken verbatim by TTS and quoted verbatim by the planner.",
-      "welded": { "system": true, "user": false },
+      "welded": {
+        "system": true,
+        "user": false
+      },
       "variables": {
-        "persona": { "required": false, "source": "style_pack.script_persona" },
-        "language": { "required": true, "source": "cfg.language" },
-        "title": { "required": true, "source": "video.title" },
-        "target_seconds": { "required": false, "source": "style_pack.script.target_seconds (D45)" },
-        "target_words": { "required": false, "source": "derived from target_seconds at 2.5 words/second" },
-        "content_rules": { "required": false, "source": "cfg.content_rules" },
-        "instructions": { "required": false, "source": "cfg.overrides.instructions" }
+        "persona": {
+          "required": false,
+          "source": "style_pack.script_persona"
+        },
+        "language": {
+          "required": true,
+          "source": "cfg.language"
+        },
+        "title": {
+          "required": true,
+          "source": "video.title"
+        },
+        "target_seconds": {
+          "required": false,
+          "source": "style_pack.script.target_seconds (D45)"
+        },
+        "target_words": {
+          "required": false,
+          "source": "derived from target_seconds at 2.5 words/second"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        },
+        "research": {
+          "required": false,
+          "source": "research.md, when the pipeline runs a research stage (D64) — absent renders the block away, so a pipeline without research composes byte-identically"
+        }
       }
     },
     "planner": {
       "description": "Script + style pack + catalog -> beat sheet JSON. Output is schema- and validator-checked, then repaired up to 3 times.",
-      "welded": { "system": true, "user": true },
+      "welded": {
+        "system": true,
+        "user": true
+      },
       "variables": {
-        "script": { "required": true, "source": "script.txt" },
-        "audio_duration_s": { "required": true, "source": "probed audio.mp3 duration" },
-        "target_beats": { "required": false, "source": "derived: audio_duration_s / avg_hold" },
-        "avg_hold": { "required": false, "source": "style_pack.pacing.avg_hold_seconds" },
-        "min_hold": { "required": false, "source": "style_pack.pacing.min_hold" },
-        "max_hold": { "required": false, "source": "style_pack.pacing.max_hold" },
-        "arc": { "required": false, "source": "style_pack.pacing.arc" },
-        "density": { "required": false, "source": "style_pack.overlays.density" },
-        "visual_language": { "required": false, "source": "style_pack.visual_language" },
-        "content_rules": { "required": false, "source": "cfg.content_rules" },
-        "instructions": { "required": false, "source": "cfg.overrides.instructions" },
-        "component_menu": { "required": true, "source": "catalog, filtered by allowed_components" },
-        "video_id": { "required": true, "source": "the video id" },
-        "coverage_scope": { "required": true, "source": "derived: 'the ENTIRE script' for a single call, or a section-scoped phrase when the script is split into chunks" },
-        "full_script": { "required": false, "source": "the whole script.txt, for context only; set only when this call is one of several chunks" },
-        "carry_forward": { "required": false, "source": "the previous chunk's last beats (id/mood/visual_intent), for continuity across a chunk boundary" },
-        "chunk_position": { "required": false, "source": "e.g. 'part 2 of 5'; set only when this call is one of several chunks" },
-        "max_overlays": { "required": false, "source": "derived: this chunk's slack-free share of the whole-video overlay density budget; set only when chunked" },
-        "spine": { "required": false, "source": "the spine pass's arc + section summaries, with THIS section marked; set only when chunked" },
-        "visual_ledger": { "required": false, "source": "visual subjects already used by earlier sections, so the video does not shoot the same image twice; set only when chunked" },
-        "emphasis_per_minute": { "required": false, "source": "style_pack.overlays.emphasis.per_minute, and only when that class is enabled (D59) — empty otherwise, which is what keeps the prompt byte-identical for a pack that does not use it" }
+        "script": {
+          "required": true,
+          "source": "script.txt"
+        },
+        "audio_duration_s": {
+          "required": true,
+          "source": "probed audio.mp3 duration"
+        },
+        "target_beats": {
+          "required": false,
+          "source": "derived: audio_duration_s / avg_hold"
+        },
+        "avg_hold": {
+          "required": false,
+          "source": "style_pack.pacing.avg_hold_seconds"
+        },
+        "min_hold": {
+          "required": false,
+          "source": "style_pack.pacing.min_hold"
+        },
+        "max_hold": {
+          "required": false,
+          "source": "style_pack.pacing.max_hold"
+        },
+        "arc": {
+          "required": false,
+          "source": "style_pack.pacing.arc"
+        },
+        "density": {
+          "required": false,
+          "source": "style_pack.overlays.density"
+        },
+        "visual_language": {
+          "required": false,
+          "source": "style_pack.visual_language"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        },
+        "component_menu": {
+          "required": true,
+          "source": "catalog, filtered by allowed_components"
+        },
+        "video_id": {
+          "required": true,
+          "source": "the video id"
+        },
+        "coverage_scope": {
+          "required": true,
+          "source": "derived: 'the ENTIRE script' for a single call, or a section-scoped phrase when the script is split into chunks"
+        },
+        "full_script": {
+          "required": false,
+          "source": "the whole script.txt, for context only; set only when this call is one of several chunks"
+        },
+        "carry_forward": {
+          "required": false,
+          "source": "the previous chunk's last beats (id/mood/visual_intent), for continuity across a chunk boundary"
+        },
+        "chunk_position": {
+          "required": false,
+          "source": "e.g. 'part 2 of 5'; set only when this call is one of several chunks"
+        },
+        "max_overlays": {
+          "required": false,
+          "source": "derived: this chunk's slack-free share of the whole-video overlay density budget; set only when chunked"
+        },
+        "spine": {
+          "required": false,
+          "source": "the spine pass's arc + section summaries, with THIS section marked; set only when chunked"
+        },
+        "visual_ledger": {
+          "required": false,
+          "source": "visual subjects already used by earlier sections, so the video does not shoot the same image twice; set only when chunked"
+        },
+        "emphasis_per_minute": {
+          "required": false,
+          "source": "style_pack.overlays.emphasis.per_minute, and only when that class is enabled (D59) — empty otherwise, which is what keeps the prompt byte-identical for a pack that does not use it"
+        }
       }
     },
     "spine": {
       "description": "Phase 1 of the beat planner on a long script: the whole script -> section boundaries + a one-line summary each + the arc. Emits INDICES into a sentence list the code numbered, never script text, so its output is checked by arithmetic and a bad spine degrades to the deterministic word-balanced split instead of failing a video.",
-      "welded": { "system": true, "user": true },
+      "welded": {
+        "system": true,
+        "user": true
+      },
       "variables": {
-        "script": { "required": true, "source": "script.txt, one numbered sentence per line" },
-        "section_count": { "required": true, "source": "derived: ceil(target_beats / planner.chunk_target_beats)" },
-        "sentence_count": { "required": true, "source": "how many numbered sentences the script has" },
-        "arc": { "required": false, "source": "style_pack.pacing.arc" },
-        "content_rules": { "required": false, "source": "cfg.content_rules" }
+        "script": {
+          "required": true,
+          "source": "script.txt, one numbered sentence per line"
+        },
+        "section_count": {
+          "required": true,
+          "source": "derived: ceil(target_beats / planner.chunk_target_beats)"
+        },
+        "sentence_count": {
+          "required": true,
+          "source": "how many numbered sentences the script has"
+        },
+        "arc": {
+          "required": false,
+          "source": "style_pack.pacing.arc"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        }
       }
     },
     "chat": {
       "description": "Editor request -> proposed beat ops + plan ops. Never applies anything (D15).",
-      "welded": { "system": true, "user": true },
+      "welded": {
+        "system": true,
+        "user": true
+      },
       "variables": {
-        "component_menu": { "required": true, "source": "merged catalog" },
-        "beats": { "required": true, "source": "beats.json" },
-        "plan_tracks": { "required": true, "source": "edit_plan.json tracks" },
-        "message": { "required": true, "source": "the editor's request" }
+        "component_menu": {
+          "required": true,
+          "source": "merged catalog"
+        },
+        "beats": {
+          "required": true,
+          "source": "beats.json"
+        },
+        "plan_tracks": {
+          "required": true,
+          "source": "edit_plan.json tracks"
+        },
+        "message": {
+          "required": true,
+          "source": "the editor's request"
+        }
       }
     }
   }

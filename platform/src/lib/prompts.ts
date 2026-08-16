@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { repoRoot } from "./env.ts";
 import { validateAgainst } from "./validate.ts";
 
-export const PROMPT_ROLES = ["script", "planner", "spine", "chat"] as const;
+export const PROMPT_ROLES = ["research", "script", "planner", "spine", "chat"] as const;
 export type PromptRole = (typeof PROMPT_ROLES)[number];
 
 export const PROMPT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -212,12 +212,17 @@ export function resolvePrompt(
   role: PromptRole,
   overrides?: Record<string, unknown> | null
 ): { resolved: ResolvedPrompt } | { problem: string } {
-  // The spine is phase 1 of the planner agent (D52), so its channel layer sits
-  // with the planner rather than in a `spine` block of its own.
+  // Two roles are PHASES of another agent, so their channel layer sits inside
+  // that agent's block rather than in one of their own: the spine under the
+  // planner (D52), research under the script (D64). Neither exists as a
+  // top-level channel-config field, so reading cfg[role] would silently
+  // resolve every channel to the default.
   const roleCfg = (
     role === "spine"
       ? ((cfg.planner as { spine?: { prompt?: string } } | undefined)?.spine ?? {})
-      : (cfg[role] ?? {})
+      : role === "research"
+        ? ((cfg.script as { research?: { prompt?: string } } | undefined)?.research ?? {})
+        : (cfg[role] ?? {})
   ) as { prompt?: string };
   const overrideCfg = ((overrides?.[role] ?? {}) as { prompt?: string }).prompt;
   const packCfg =

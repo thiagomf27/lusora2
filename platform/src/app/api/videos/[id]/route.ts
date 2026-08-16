@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { NextResponse } from "next/server";
 import { handler, requireUser, requireRole, requireChannelAccess, ApiError } from "@/lib/auth";
 import { query } from "@/db/pool";
-import { getVideo, videoFolder } from "@/lib/videos";
+import { gatedStages, getVideo, pendingGate, videoFolder } from "@/lib/videos";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -11,7 +11,14 @@ export const GET = handler(async (_req: Request, ctx: Ctx) => {
   const { id } = await ctx.params;
   const video = await getVideo(id);
   await requireChannelAccess(user, video.channel_id);
-  return NextResponse.json(video);
+  // D62: which gate this video is stopped at, and which its pipeline declares.
+  // Derived from the snapshot + the folder on every read rather than stored,
+  // so it cannot drift from what the worker will do on the next claim.
+  return NextResponse.json({
+    ...video,
+    review_gates: gatedStages(video),
+    pending_gate: video.status === "awaiting_approval" ? pendingGate(video) : null,
+  });
 });
 
 /** Rename a video. The title is only an editorial label after enqueue — the

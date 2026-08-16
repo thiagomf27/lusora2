@@ -11,6 +11,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+// type-only: erased at compile time, so the client bundle never pulls the loader in
+import type { PipelineSummary } from "@/lib/pipelines";
 import s from "./home.module.css";
 
 interface ChannelRow {
@@ -48,7 +50,7 @@ export default function HomePage() {
   const router = useRouter();
   const [channels, setChannels] = useState<ChannelRow[]>([]);
   const [channelId, setChannelId] = useState("");
-  const [pipelines, setPipelines] = useState<string[]>([]);
+  const [pipelines, setPipelines] = useState<PipelineSummary[]>([]);
   const [pipeline, setPipeline] = useState(""); // "" = let enqueue resolve it
   const [cfg, setCfg] = useState<ChannelConfigLite | null>(null);
   const [recent, setRecent] = useState<VideoRow[]>([]);
@@ -174,9 +176,15 @@ export default function HomePage() {
                 </span>
               </button>
               {pipelines.map((p) => (
-                <button key={p} type="button" className={`${s.menuItem}${p === pipeline ? " " + s.on : ""}`}
-                        onClick={() => { setPipeline(p); setMenu(null); }}>
-                  <span className={s.menuName}>{p}</span>
+                <button key={p.name} type="button" className={`${s.menuItem}${p.name === pipeline ? " " + s.on : ""}`}
+                        onClick={() => { setPipeline(p.name); setMenu(null); }}>
+                  <span style={{ flex: 1 }}>
+                    <span className={s.menuName}>{p.name}</span>
+                    <div className={s.menuNote}>
+                      {p.category ?? "uncategorised"}
+                      {p.stability === "test" ? " · test" : ""}
+                    </div>
+                  </span>
                 </button>
               ))}
             </div>

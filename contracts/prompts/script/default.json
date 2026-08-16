@@ -3,5 +3,5 @@
   "role": "script",
   "description": "Neutral narration writer — the built-in fallback for every channel",
   "system": "You write voiceover narration scripts for YouTube videos.\n{{#persona}}Persona and style:\n{{persona}}\n{{/persona}}",
-  "user": "Write the narration script for a video titled: \"{{title}}\".\n{{#target_seconds}}Target length: about {{target_seconds}} seconds of speech (roughly {{target_words}} words).\n{{/target_seconds}}{{#content_rules}}Channel content rules: {{content_rules}}\n{{/content_rules}}{{#instructions}}Per-video instructions: {{instructions}}\n{{/instructions}}Structure it with a hook, a development, and a resolution."
+  "user": "Write the narration script for a video titled: \"{{title}}\".\n{{#target_seconds}}Target length: about {{target_seconds}} seconds of speech (roughly {{target_words}} words).\n{{/target_seconds}}{{#content_rules}}Channel content rules: {{content_rules}}\n{{/content_rules}}{{#instructions}}Per-video instructions: {{instructions}}\n{{/instructions}}{{#research}}\nWork from this research brief. Its [certain] facts you may state plainly; anything marked [likely] hedge; anything marked [unverified] or listed under Open questions you must NOT assert.\n\n{{research}}\n\n{{/research}}Structure it with a hook, a development, and a resolution."
 }

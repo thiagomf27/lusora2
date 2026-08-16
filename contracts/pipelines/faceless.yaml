@@ -1,16 +1,23 @@
 name: faceless
-version: "1.0"
+version: "1.1"
 description: >
   The default faceless pipeline. Mirrors the stage list that lived in the worker
   STAGES constant before pipelines became data (D60). Behaviour is unchanged: the
   list simply moved out of code into this manifest. Selecting this pipeline and
   running it must produce a byte-identical result to the pre-refactor worker.
+
+  v1.1 adds `receivable_on_upload` — which artifacts a human may hand in instead
+  of having produced (D62). No stage was added, removed or reordered: the flags
+  DECLARE what manual-first already allowed, so a v1.0 snapshot and a v1.1 run
+  walk the same list.
 category: faceless
 stability: production
 
-# auto = today's behaviour: run straight through, no human gates.
-# The per-stage human_approval_on_review_mode flags below take effect only
-# when a video is enqueued with the "guided" checkpoint policy (review mode).
+# auto = run straight through, no human gates. The per-stage
+# human_approval_on_review_mode flags below take effect only when a video is
+# enqueued with the "guided" checkpoint policy — REVIEW mode in the UI (D62).
+# A video's own cfg.checkpoint_policy overrides this default, which is what
+# lets one channel run the same manifest both ways.
 default_checkpoint_policy: auto
 bulk_production_accepted: true
 
@@ -36,24 +43,31 @@ compatible_themes:
 stages:
   - name: script
     produces: [script.txt]
+    receivable_on_upload: true            # bring your own narration text
     human_approval_on_review_mode: true   # gate after the script in review mode
 
   - name: narration
     requires: [script.txt]
     produces: [audio.mp3]
+    receivable_on_upload: true            # bring your own voiceover
 
   - name: transcript
     requires: [audio.mp3]
     produces: [subtitles.srt]
+    receivable_on_upload: true            # bring your own subtitles
 
   - name: plan_beats
     requires: [script.txt, subtitles.srt]
     produces: [beats.json]
+    receivable_on_upload: true            # hand-written beat sheet (schema-checked)
     human_approval_on_review_mode: true   # gate after the beat sheet in review mode
+    # Everything below runs only once this gate is passed, which is what makes
+    # "nothing renders before the beats are approved" true rather than a habit.
 
   - name: compile_plan
     requires: [beats.json]
     produces: [edit_plan.json]
+    receivable_on_upload: true            # hand-written edit plan (schema-checked)
 
   - name: resolve_assets
     requires: [edit_plan.json]

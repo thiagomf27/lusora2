@@ -50,6 +50,9 @@ class Stage:
 # "the artifact the manifest says it produces is present"; a stage that
 # produces nothing (validate, qa) therefore always runs.
 STEP_REGISTRY: dict[str, Step] = {
+    # D64: phase 0 of the script agent — what the video is ABOUT, before
+    # anything writes a sentence the audience will hear.
+    "research": Step(steps.run_research),
     "script": Step(steps.run_script),
     "narration": Step(steps.run_narration),
     "transcript": Step(steps.run_transcript),

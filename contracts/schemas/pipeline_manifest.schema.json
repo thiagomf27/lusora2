@@ -96,7 +96,12 @@
         "human_approval_on_review_mode": {
           "type": "boolean",
           "default": false,
-          "description": "Under guided policy, pause for human approval after this stage."
+          "description": "Under guided policy (D62), the worker stops after this stage and leaves the video in `awaiting_approval`. Approving writes approvals/<stage>.json into the video folder and re-queues it; the loop then skips the stage (its artifact exists), passes the gate (its approval exists) and carries on to the next one. Ignored under auto."
+        },
+        "receivable_on_upload": {
+          "type": "boolean",
+          "default": false,
+          "description": "D62 - whether a human may hand this stage's artifact in instead of having it produced (manual-first). Declaring it here is what lets the upload surface be DERIVED from the pipeline rather than hardcoded beside it: a stage that is not receivable rejects the upload, and a pipeline that adds a stage gains its upload slot with no platform change. A stage with no `produces` has nothing to receive, so the flag is meaningless on it."
         },
         "substages": {
           "type": "array",
@@ -113,7 +118,8 @@
         "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
         "requires": { "type": "array", "items": { "type": "string" } },
         "produces": { "type": "array", "items": { "type": "string" } },
-        "checkpoint_required": { "type": "boolean", "default": false }
+        "checkpoint_required": { "type": "boolean", "default": false },
+        "receivable_on_upload": { "type": "boolean", "default": false }
       }
     }
   }

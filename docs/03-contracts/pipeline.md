@@ -1,8 +1,8 @@
 # Pipeline Manifest — the stage list as data
 
-**Status: Decided (D60).** Schema:
+**Status: Decided (D60–D62, D64).** Schema:
 `contracts/schemas/pipeline_manifest.schema.json`. Files:
-`contracts/pipelines/<name>.yaml`. Shipped: `faceless.yaml`.
+`contracts/pipelines/<name>.yaml`. Shipped: `faceless.yaml` (production), `faceless_v2.yaml` (test — adds a research stage).
 
 A manifest is the ordered list of stages a video goes through. It replaced
 the `STAGES` constant that lived in the worker, so adding a pipeline is a
@@ -33,7 +33,8 @@ order. It is a dictionary, not a list.
 ```yaml
 name: faceless          # == the filename; cfg.pipeline references it
 version: "1.0"          # bump on any stage-list change; snapshotted at enqueue
-category: faceless      # coarse family, used by selection, never by execution
+category: faceless      # the family a channel's production_style matches (D61);
+                        # used by selection, never by execution
 stability: production   # 'test' pipelines are excluded from bulk production
 default_checkpoint_policy: auto
 bulk_production_accepted: true
@@ -71,8 +72,30 @@ Selection happens **once, at enqueue, in one function**
 (`platform/src/lib/pipelines.ts: selectPipeline`). Everything that could
 ever pick a pipeline — the video's format, the model behind it, review
 mode, what the human uploaded — belongs there rather than spread across
-routes. Today one rule fires, because one pipeline exists: a config that
-names `pipeline` gets it, anything else gets `faceless`.
+routes. The ladder, most specific first:
+
+| # | Field | Wins when | Reason recorded |
+|---|---|---|---|
+| 1 | `pipeline` | the config pins a manifest by name | `named in the config` |
+| 2 | `production_style` (D61) | a style is set and a manifest matches | `production style '<x>'` |
+| 3 | — | neither is set | `default` |
+
+Rule 2 is a **match on `category`**, not a mapping table: the channel's
+`production_style` and the manifest's `category` hold the same enum, so
+the resolver looks for the `stability: production` manifest carrying that
+category. That is what makes adding talking-head production one `.yaml`
+with `category: talking_head` and no code change here. Rule 1 stays above
+it as the escape hatch — pinning is how a `stability: test` variant of a
+style is run without changing what the style means.
+
+A style with **no matching manifest is refused**, and the message lists
+the categories that do exist. Falling back to `faceless` would deliver a
+wrong video that looks successful, which is the failure mode this whole
+split exists to prevent. `custom` is the explicit "I name the file
+myself" answer, so reaching rule 2 with `custom` and no pin is refused
+too. `selectPipeline` therefore returns
+`{ ok: true, name, reason } | { ok: false, problem }` — the enqueue
+reports the problem the way it reports a bad style pack.
 
 The chosen manifest is embedded in the cfg snapshot as `pipeline_doc`,
 the same rule the theme, the style pack and the sound pack follow
@@ -85,24 +108,61 @@ the snapshot, falls back to the named manifest on disk, then to
 A batch enqueue additionally refuses any manifest with
 `stability: test` or `bulk_production_accepted: false`.
 
-## Checkpoints (declared, not yet executed)
+## Review mode (D62 — executed)
 
-`default_checkpoint_policy: guided` and the per-stage
-`human_approval_on_review_mode` flags describe a review mode that pauses
-after the script and after the beat sheet. **Nothing executes them yet** —
-today every pipeline runs under `auto`, which is what every video has
-always done. They are in the schema because review mode is a *policy on a
-pipeline*, not a separate pipeline, and knowing that shape now is what
-stops someone forking `faceless-review.yaml` later. See OQ-28.
+`default_checkpoint_policy` and the per-stage
+`human_approval_on_review_mode` flags describe where a run waits. A video
+carries its own `checkpoint_policy`, which **overrides** the manifest's:
+that is what makes review mode a *policy on a pipeline* rather than a
+separate pipeline, so one `faceless.yaml` runs both ways and nobody has to
+fork `faceless-review.yaml`. Unreadable or absent, the policy is `auto` —
+what every video did before this existed.
+
+Under `guided` the orchestrator stops after each gated stage, sets the
+video to **`awaiting_approval`** and returns. Both shipped manifests gate
+in the same two places, which is where the money and the mistakes are:
+
+| Gate | What it protects |
+|---|---|
+| after `script` | nothing is narrated before the words are approved |
+| after `plan_beats` | nothing is **rendered** before the beat sheet is |
+
+**An approval is a file:** `approvals/<stage>.json` in the video folder.
+The folder is the data plane of record and resume is "skip what exists",
+so a gate needs no new bookkeeping — on the re-claim the stage's artifact
+is present (the body skips) and its approval is present (the gate passes),
+and the loop carries on with no memory of having stopped. That is also why
+the gate is checked **whether the stage ran or was skipped**: on the
+re-claim, only the approval file can say "continue". The pending gate is
+therefore *derived* — the first declared gate with no file — so no column
+can drift from the truth, and a hand-run video clears a gate with `touch`.
+
+`awaiting_approval` is its own status because the orphan sweep re-queues
+anything stuck in `producing`, and a video parked on a human is not stuck.
+Approving (`POST /api/videos/[id]/approve`) writes the file and returns
+the video to `queued`; editors may approve, since reviewing the script and
+the beat sheet is the editing job.
+
+## Uploads (D62)
+
+`receivable_on_upload` declares which stages a human may hand the artifact
+to instead of having it produced — the manual-first rule, written down.
+Faceless marks its first five stages receivable, which is what has always
+been true; `resolve_assets` onward are machine products and are not.
 
 ## Deferred on purpose
 
 - **`success_criteria` per stage** — add when a validator exists to read
   it; a criterion nothing checks is prose in a schema.
 - **`substages`** — the slot is in the schema, and the beats process
-  (spine → chunk → beat writing) is the obvious first user. Faceless
-  declares none: model the flat reality until the beats restructure lands
-  (slice 5 of the destination map).
+  (spine → chunk → beat writing) is the obvious first user. Both shipped
+  manifests declare none: model the flat reality until the beats
+  restructure lands (slice 5 of the destination map).
+- **Deriving the upload API from `receivable_on_upload`** — the flag is
+  declared and documented; the upload endpoint still carries its own
+  field-name map, because uploads happen at video CREATION, before a
+  pipeline has been selected. Wiring the two together needs the resolver
+  to run earlier, which is a change worth making on its own.
 
 ## Where the checks live
 
@@ -111,3 +171,5 @@ stops someone forking `faceless-review.yaml` later. See OQ-28.
 | schema, name matches filename, no duplicate stage, `requires` DAG closes | `scripts/validate-schemas.mjs` (CI) and `lusora_contracts.pipelines` (load time) |
 | every stage name has a worker step | `worker/tests/test_pipelines.py` — the registry is in Python |
 | faceless still equals the pre-refactor list | `worker/tests/test_pipelines.py` |
+| every manifest declares a `category`, so a production style can find it | `platform/test/pipelines.test.ts` |
+| the selection ladder, including the refusals | `platform/test/pipelines.test.ts` |
