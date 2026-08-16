@@ -1,0 +1,135 @@
+/* Quote statement — ported from VidRush.dc.html (isQuote). */
+.estimate { text-align: right; }
+.estimateLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.estimateValue { font-family: var(--font-mono); font-size: 16px; color: var(--text-primary); }
+
+.primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary:hover:not(:disabled) { background: var(--accent-primary-hover); }
+.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Attachments */
+.attachment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-field);
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
+  padding: 11px 12px;
+}
+.attachment.filled { border-color: var(--accent-primary); }
+.attachDot { display: flex; color: var(--text-faint); }
+.attachment.filled .attachDot { color: var(--green-500); }
+.attachMain { flex: 1; min-width: 0; }
+.attachName { font-size: 13px; }
+.attachNote {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attachBtn {
+  padding: 5px 11px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-secondary-btn);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hiddenInput { display: none; }
+
+/* Themes */
+.themeOption {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-field);
+  text-align: left;
+  width: 100%;
+}
+.themeOption.on { border-color: var(--accent-primary); background: rgba(59, 130, 246, 0.08); }
+.themePlate { width: 82px; height: 50px; flex: none; border-radius: 6px; }
+.themeName { font-size: 13.5px; font-weight: 600; }
+.themeDesc { font-size: 12px; line-height: 1.5; color: var(--text-muted); margin-top: 3px; }
+
+/* Cost tab */
+.costRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.costMain { flex: 1; min-width: 0; }
+.costName { font-size: 13.5px; }
+.costDetail { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+.costValue { font-family: var(--font-mono); font-size: 13.5px; color: var(--text-secondary); }
+.costTotal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0 0;
+  margin-top: 6px;
+  border-top: 1px solid var(--border-strong);
+}
+.costTotalLabel { font-size: 15px; font-weight: 600; }
+.costTotalValue { font-family: var(--font-mono); font-size: 20px; color: var(--text-primary); }
+
+.check2 { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: var(--text-secondary); }
+.checkIcon { display: flex; color: var(--green-500); margin-top: 1px; }
+.checkIcon.warn { color: var(--amber-400); }
+
+.approve {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.approve:hover:not(:disabled) { background: var(--accent-primary-hover); }
+.approve:disabled { opacity: 0.5; cursor: not-allowed; }
+.approveNote { margin: 12px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--text-faint); }
+
+.problems { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.problem {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--status-danger-fg);
+  background: var(--status-danger-bg);
+  border: 1px solid var(--status-danger-border);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+}

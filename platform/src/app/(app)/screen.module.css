@@ -1,0 +1,261 @@
+/* Chrome shared by the ported VidRush screens: the sticky page header, the
+   tab strip, cards, label/row primitives and the toggle rows. Screen-specific
+   layout stays in each screen's own module. */
+
+.screen { height: 100%; overflow: auto; background: var(--surface-app); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px var(--gutter) 64px; }
+
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface-app);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.head {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px var(--gutter) 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.headMain { flex: 1; min-width: 0; }
+.h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 660px;
+}
+.subLine {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 640px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.headActions { display: flex; align-items: center; gap: 10px; }
+
+.back {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  margin-top: 3px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary-btn);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.back:hover { background: var(--gray-600); }
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.backLink:hover { color: var(--text-secondary); }
+
+.tabs {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px var(--gutter) 0;
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 11px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.tab:hover { color: var(--text-secondary); }
+.tab.active { border-bottom-color: var(--accent-primary); color: var(--text-primary); }
+.tabNum {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--surface-secondary-btn);
+  color: var(--text-muted);
+}
+.tab.active .tabNum { background: var(--accent-primary); color: #fff; }
+
+.card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+.cardTight { padding: 22px; }
+.h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+.cardSub { margin: 0 0 18px; font-size: 13px; color: var(--text-muted); }
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.stackTight { display: flex; flex-direction: column; gap: 10px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.split { display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; align-items: start; }
+.splitEven { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.section { border-top: 1px solid var(--border-subtle); padding-top: 16px; }
+
+/* Label / value rows */
+.kv { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.kv > span:first-child { color: var(--text-muted); }
+.mono { font-family: var(--font-mono); }
+
+.tile {
+  background: var(--surface-field);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 11px 13px;
+}
+.tileLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+}
+.tileValue { font-size: 13px; color: var(--text-primary); overflow-wrap: anywhere; }
+.tileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+/* A row with a description on the left and a switch on the right. */
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.toggleRow:first-child { border-top: none; }
+.toggleMain { flex: 1; min-width: 0; }
+.toggleName { font-size: 13.5px; }
+.toggleDesc { font-size: 12px; color: var(--text-muted); margin-top: 3px; line-height: 1.5; }
+.dimmed { opacity: 0.4; }
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-label);
+  margin-bottom: 7px;
+}
+.input {
+  width: 100%;
+  background: var(--surface-field);
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+/* Segmented pill row (effort, layer choices…) */
+.segments { display: flex; gap: 6px; }
+.segment {
+  flex: 1;
+  text-align: center;
+  padding: 9px 6px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  border: 1px solid var(--border-field);
+  background: var(--surface-field);
+  color: var(--text-secondary);
+}
+.segment.on {
+  border-color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--blue-400);
+}
+
+/* Tag chips */
+.tagBox {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  background: var(--surface-field);
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
+  padding: 9px 10px;
+  min-height: 44px;
+  align-items: center;
+}
+.tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--status-info-bg);
+  color: var(--status-info-fg);
+  font-size: 12px;
+}
+.tagX { cursor: pointer; opacity: 0.7; background: none; border: none; padding: 0; color: inherit; font-size: 13px; }
+.tagInput {
+  flex: 1;
+  min-width: 90px;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 12.5px;
+}
+.tagInput:focus { border: none; box-shadow: none; }
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-radius: var(--radius-md);
+  padding: 13px 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.noticeWarn { background: var(--status-warning-bg); color: var(--status-warning-fg); }
+.noticeInfo { background: var(--status-info-bg); color: var(--status-info-fg); }
+.noticeDanger { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+
+.emptyState {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.loading { padding: 40px var(--gutter); color: var(--text-muted); font-size: 13px; }

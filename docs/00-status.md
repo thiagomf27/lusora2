@@ -19,6 +19,65 @@ providers. Sample runs that exist in `data/videos/`:
 All open questions are DECIDED except OQ-21 (VPS sizing — a measurement,
 not a decision). See D21–D40 in [the Decision Log](04-decisions/decided.md).
 
+## Platform UI — the VidRush skin (2026-08-16)
+
+The web UI was re-skinned from the Claude Design project *Video Generation App
+Template* (`VidRush.dc.html`). Eight screens, ported against real endpoints —
+cells the design draws but nothing backs are dropped, not faked.
+
+| Design screen  | Route                  | Notes |
+|----------------|------------------------|-------|
+| Home           | `/`                    | Composer; creates nothing, carries channel/pipeline/title to the quote |
+| Quote          | `/quote`               | 4 tabs over a working copy of the channel config; approving POSTs the draft + enqueues, and reports pre-flight problems inline |
+| Channels       | `/channels`            | Name, language, video type, style pack, content rules, voice |
+| Brands         | `/brands`              | **A brand profile is the channel's config document** — there is no brands table. Profile / Visual / Sourcing |
+| Videos         | `/videos`              | Card grid, real frame thumbnails |
+| Video detail   | `/videos/[id]`         | Player, production config, real event log, asset provenance, file exports, status transitions, notes |
+| Beat review    | `/videos/[id]/review`  | Real stages from `video_events`; progress counts beats with a resolved asset (a beat sheet has no approval field); per-beat re-roll and edit |
+| Settings       | `/settings`            | Account, Defaults, Members, Costs, Monitor |
+
+Design tokens live in `platform/src/app/globals.css`: the design-system names
+(`--surface-*`, `--text-*`, `--accent-*`…) are the source of truth, and the older
+short names (`--bg`, `--panel`, `--accent`…) are aliases onto them so the screens
+that predate the skin inherit it untouched. Shared primitives are in
+`platform/src/components/ds/`.
+
+### `look` — the subtractive half of the look
+
+The Look tab (quote statement) and the Visual tab (brand profile) share one
+editor, over a new `look` block on the channel config:
+
+- `look.background.image` — the plate drawn behind an overlay that does not
+  fill the frame, the D55 fallback card above all. Images live in a per-channel
+  library on disk (`data/brand-backgrounds/<channel_id>/`, `BRAND_ASSETS_ROOT`),
+  and the chosen one is **copied into the video folder at enqueue**, so the
+  render resolves it like any other asset and re-uploading never alters a video
+  that already shipped. `to_title_card` in the worker emits an `image` item
+  pointing at it instead of a `color` fill; both renderers then need no change.
+- `look.exclude.{components,transitions,sfx_cues,moods}` — the theme and style
+  pack say what is AVAILABLE; this says what a brand (or one video) leaves out.
+  Applied to the embedded `style_pack_doc` / `theme_doc` in `lib/look.ts` at
+  enqueue, so the planner, compiler, validator and both renderers all read an
+  already-narrowed pack and none of them knows the block exists.
+
+Emptying a list the pipeline needs — every transition, every component, or the
+style pack's own default transition — is refused at enqueue with an actionable
+message rather than silently repaired. `GET /api/channels/[id]/look-options`
+resolves what the current pack and theme offer, so the screen never shows a
+hardcoded menu.
+
+API additions this needed: `PATCH /api/videos/[id]` (rename),
+`GET|POST|DELETE /api/channels/[id]/backgrounds` (+ `/[name]` to serve one),
+`GET /api/channels/[id]/look-options`, and `pipelines` + `soundPacks` in
+`GET /api/config-options`. `ChannelConfig` and `StylePack` in
+`contracts/src/types.ts` also picked up the D54/D55/D59 fields the schemas
+already had (`min_score_floor`, `short_clip_fallback`, `dedup`, `fallback`,
+`overlays.emphasis`, the hold ratios).
+
+The authoring/ops screens the design does not draw (queue, pipeline, themes,
+style packs, prompts, overlays, sounds, library, panel, monitoring, admin,
+editor) are unchanged and reachable from the sidebar's collapsible STUDIO group.
+
 ## How to run (this machine's dev setup)
 
 No docker, no sudo used. Everything runs as the user:

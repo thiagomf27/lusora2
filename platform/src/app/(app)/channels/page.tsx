@@ -1,8 +1,19 @@
 "use client";
-import { useEffect, useState } from "react";
+/**
+ * Channels — ported from VidRush.dc.html (isChannels).
+ *
+ * A channel carries the defaults every video starts from. The mockup's
+ * "default brand" dropdown is not drawn: in this codebase a channel's brand
+ * profile IS its config document, edited on Brands, so the card links there
+ * instead of pretending brands are a separate row.
+ */
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChannelConfig } from "@lusora/contracts";
-import ChannelConfigForm, { defaultChannelConfig } from "@/components/ChannelConfigForm";
+import { Button, Dropdown, TextInput, Toggle } from "@/components/ds";
+import { defaultChannelConfig } from "@/components/ChannelConfigForm";
+import scr from "../screen.module.css";
 import s from "./channels.module.css";
 
 interface ChannelRow {
@@ -15,207 +26,238 @@ interface ChannelRow {
   active: boolean;
 }
 
-interface VideoRow {
-  id: string;
-  status: string;
-  price_usd: number | null;
-  error_reason: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Rollup {
-  loaded: boolean;
-  videoCount: number;
-  last5: string[]; // statuses, newest first
-  queued: number;
-  costMonth: number;
-  failure: string | null;
-}
-
-/** Region subtag of a BCP-47 tag ("en-US" → "US") → flag emoji, else a globe. */
-function flagFor(language: string): string {
-  const region = language.split("-")[1];
-  if (!region || region.length !== 2) return "🌐";
-  const base = 0x1f1e6;
-  return String.fromCodePoint(
-    ...region.toUpperCase().split("").map((c) => base + c.charCodeAt(0) - 65)
-  );
-}
-
-function dotClass(status: string): string {
-  if (status === "posted" || status === "approved") return s.dotOk;
-  if (status === "error" || status === "sent_back") return s.dotBad;
-  if (status === "rendered" || status === "in_review") return s.dotWarn;
-  return s.dotMuted; // draft, queued, producing
-}
+const VIDEO_TYPES = ["doc", "explainer", "breakdown", "listicle"];
 
 export default function ChannelsPage() {
   const router = useRouter();
   const [channels, setChannels] = useState<ChannelRow[]>([]);
-  const [rollups, setRollups] = useState<Record<string, Rollup>>({});
-  const [showCreate, setShowCreate] = useState(false);
-  const [config, setConfig] = useState<ChannelConfig>(defaultChannelConfig);
-  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string>("");
+  const [cfg, setCfg] = useState<ChannelConfig | null>(null);
+  const [options, setOptions] = useState<{ themes: string[]; stylePacks: { name: string }[] }>({
+    themes: [],
+    stylePacks: [],
+  });
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null);
+  const [role, setRole] = useState("");
 
-  async function load() {
+  const canEdit = role === "admin" || role === "manager";
+
+  const loadChannels = useCallback(async () => {
     const res = await fetch("/api/channels");
     if (!res.ok) return;
     const rows: ChannelRow[] = await res.json();
     setChannels(rows);
-    // Roll up per-channel health/cost. Small channel counts — a per-row
-    // fan-out is fine; each resolves independently so rows fill in as ready.
-    for (const c of rows) {
-      void loadRollup(c.id);
+    setSelected((prev) => prev || rows[0]?.id || "");
+  }, []);
+
+  useEffect(() => {
+    loadChannels();
+    fetch("/api/auth/me").then(async (r) => r.ok && setRole((await r.json()).role ?? ""));
+    fetch("/api/config-options")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((o) => o && setOptions({ themes: o.themes ?? [], stylePacks: o.stylePacks ?? [] }))
+      .catch(() => undefined);
+  }, [loadChannels]);
+
+  useEffect(() => {
+    if (!selected) return setCfg(null);
+    setNote(null);
+    fetch(`/api/channels/${selected}/config`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setCfg)
+      .catch(() => setCfg(null));
+  }, [selected]);
+
+  function patch(fn: (d: ChannelConfig) => void) {
+    setCfg((prev) => {
+      if (!prev) return prev;
+      const next = structuredClone(prev);
+      fn(next);
+      return next;
+    });
+  }
+
+  async function save() {
+    if (!cfg) return;
+    setSaving(true);
+    setNote(null);
+    try {
+      const res = await fetch(`/api/channels/${selected}/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cfg),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setNote({ text: body.error ?? `save failed (${res.status})`, bad: true });
+        return;
+      }
+      setNote({ text: "Saved." });
+      loadChannels();
+    } finally {
+      setSaving(false);
     }
   }
 
-  async function loadRollup(id: string) {
-    const [vRes, cRes] = await Promise.all([
-      fetch(`/api/videos?channel=${encodeURIComponent(id)}`),
-      fetch(`/api/channels/${encodeURIComponent(id)}/costs`),
-    ]);
-    const videos: VideoRow[] = vRes.ok ? await vRes.json() : [];
-    const costs = cRes.ok ? await cRes.json() : { byMonth: [] };
-    const now = new Date();
-    const monthRow = (costs.byMonth ?? []).find((m: { month: string; usd: number }) => {
-      const d = new Date(m.month);
-      return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth();
-    });
-    const failed = videos.find((v) => v.status === "error");
-    setRollups((prev) => ({
-      ...prev,
-      [id]: {
-        loaded: true,
-        videoCount: videos.length,
-        last5: videos.slice(0, 5).map((v) => v.status),
-        queued: videos.filter((v) => v.status === "queued").length,
-        costMonth: Number(monthRow?.usd ?? 0),
-        failure: failed ? failed.error_reason ?? "render failed" : null,
-      },
-    }));
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  function openCreate() {
-    setConfig(defaultChannelConfig());
-    setError(null);
-    setShowCreate(true);
-  }
-
-  async function create() {
-    setError(null);
+  async function createChannel() {
+    const id = window.prompt("Channel id (used in URLs and folder names):", "");
+    if (!id?.trim()) return;
+    const name = window.prompt("Channel name:", id.trim());
+    if (!name?.trim()) return;
+    const config = { ...defaultChannelConfig(), channel_id: id.trim(), name: name.trim() };
     const res = await fetch("/api/channels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config),
     });
-    if (res.ok) {
-      setShowCreate(false);
-      load();
-    } else setError((await res.json()).error ?? "failed");
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setNote({ text: body.error ?? `could not create the channel (${res.status})`, bad: true });
+      return;
+    }
+    await loadChannels();
+    setSelected(body.id);
   }
 
-  const languages = new Set(channels.map((c) => c.language));
-
   return (
-    <div className="page">
-      <div className="pageHead">
-        <div>
-          <h1 className="pageTitle">Channels</h1>
-          <div className="pageSub">
-            {channels.length} channel{channels.length === 1 ? "" : "s"} · {languages.size} language
-            {languages.size === 1 ? "" : "s"} · health of the last 5 videos
+    <div className={scr.screen}>
+      <div className={scr.wrap}>
+        <div className={scr.head} style={{ padding: 0, marginBottom: 24 }}>
+          <div className={scr.headMain}>
+            <h1 className={scr.h1}>Channels</h1>
+            <p className={scr.sub}>
+              A channel carries the defaults every video starts from: language, video type, theme, style pack
+              and the voice its narration is synthesised with.
+            </p>
           </div>
-        </div>
-        <button className="primary" onClick={openCreate}>
-          New channel
-        </button>
-      </div>
-
-      <div className={s.filters}>
-        <span className={s.count}>
-          {channels.length} of {channels.length} channels
-        </span>
-      </div>
-
-      <div className={s.table}>
-        <div className={s.thead}>
-          <div>CHANNEL</div>
-          <div>LANGUAGE · TYPE</div>
-          <div>LAST 5</div>
-          <div>QUEUE</div>
-          <div>COST · MONTH</div>
-          <div>LAST FAILURE</div>
+          {canEdit && (
+            <button type="button" className={s.newBtn} onClick={createChannel}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <line x1="8" y1="3" x2="8" y2="13" />
+                <line x1="3" y1="8" x2="13" y2="8" />
+              </svg>
+              New channel
+            </button>
+          )}
         </div>
 
-        {channels.map((c) => {
-          const r = rollups[c.id];
-          return (
-            <div key={c.id} className={s.rowWrap}>
-              <div className={s.trow} onClick={() => router.push(`/channels/${c.id}`)}>
-                <div className={s.channel}>
-                  <div className={s.flag}>{flagFor(c.language)}</div>
-                  <div className={s.channelMeta}>
-                    <div className={s.channelName}>{c.name}</div>
-                    <div className={s.channelSub}>
-                      {r ? `${r.videoCount} video${r.videoCount === 1 ? "" : "s"}` : "…"}
-                      {!c.active && " · inactive"}
+        <div className={s.layout}>
+          <div className={s.list}>
+            {channels.map((c) => (
+              <button key={c.id} type="button"
+                      className={`${s.item}${c.id === selected ? " " + s.on : ""}`}
+                      onClick={() => setSelected(c.id)}>
+                <span className={`${s.dot}${c.active ? "" : " " + s.off}`} />
+                <span className={s.itemMain}>
+                  <span className={s.itemName}>{c.name}</span>
+                  <span className={s.itemMeta}>{c.video_type} · {c.language} · {c.theme}</span>
+                </span>
+              </button>
+            ))}
+            {channels.length === 0 && <div className={scr.toggleDesc}>No channels yet.</div>}
+          </div>
+
+          <div className={s.detail}>
+            {!cfg && <div className={scr.card}><div className={scr.toggleDesc}>Select a channel.</div></div>}
+
+            {cfg && (
+              <>
+                <div className={scr.card}>
+                  <p className={scr.cardSub}>
+                    These are the values a new video inherits. Anything here can be overridden for a single
+                    video on its quote statement.
+                  </p>
+                  <div className={scr.grid2}>
+                    <TextInput label="Channel name" value={cfg.name} disabled={!canEdit}
+                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.name = v; }); }} />
+                    <TextInput label="Language" value={cfg.language} disabled={!canEdit}
+                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.language = v; }); }} />
+                    <Dropdown label="Video type" options={VIDEO_TYPES} value={cfg.video_type} disabled={!canEdit}
+                              onChange={(v) => patch((d) => { d.video_type = v as ChannelConfig["video_type"]; })} />
+                    <Dropdown label="Style pack" options={options.stylePacks.map((p) => p.name)} value={cfg.style_pack} disabled={!canEdit}
+                              onChange={(v) => patch((d) => { d.style_pack = v; })} />
+                  </div>
+                  <div className={scr.section} style={{ marginTop: 16 }}>
+                    <div className={scr.fieldLabel}>Content rules</div>
+                    <textarea
+                      className={s.rules}
+                      value={cfg.content_rules ?? ""}
+                      disabled={!canEdit}
+                      placeholder="Editorial constraints handed to the script agent."
+                      onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.content_rules = v; }); }}
+                    />
+                  </div>
+                </div>
+
+                <div className={scr.card}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 18 }}>
+                    <div style={{ flex: 1 }}>
+                      <h2 className={scr.h2}>Voiceover identity</h2>
+                      <p className={scr.cardSub} style={{ marginBottom: 0 }}>
+                        Pinned to the channel so every video sounds the same. The provider is what the narrate
+                        stage calls; the voice id is passed straight through to it.
+                      </p>
+                    </div>
+                  </div>
+                  <div className={scr.grid2}>
+                    <TextInput label="Provider" value={cfg.voice?.provider ?? ""} disabled={!canEdit}
+                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.voice = { ...d.voice, provider: v }; }); }} />
+                    <TextInput label="Voice id" value={cfg.voice?.voice_id ?? ""} disabled={!canEdit}
+                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.voice = { ...d.voice, voice_id: v || undefined }; }); }} />
+                  </div>
+                  <div className={scr.section} style={{ marginTop: 16 }}>
+                    <div className={scr.toggleRow} style={{ borderTop: "none", paddingTop: 0 }}>
+                      <div className={scr.toggleMain}>
+                        <div className={scr.toggleName}>Burn captions by default</div>
+                        <div className={scr.toggleDesc}>The preset comes from the theme; a video can override this.</div>
+                      </div>
+                      <Toggle checked={cfg.captions?.enabled !== false} disabled={!canEdit}
+                              onChange={(on) => patch((d) => { d.captions = { ...d.captions, enabled: on }; })} />
                     </div>
                   </div>
                 </div>
 
-                <div className={s.langMode}>
-                  <span className={s.lang}>{c.language}</span>
-                  <span className={s.modeBadge}>{c.video_type}</span>
+                <div className={scr.card}>
+                  <h2 className={scr.h2}>Brand profile</h2>
+                  <p className={scr.cardSub}>
+                    Theme, sound and the source policy this channel&apos;s videos inherit live on its brand profile.
+                  </p>
+                  <div className={scr.tileGrid} style={{ marginBottom: 16 }}>
+                    <div className={scr.tile}>
+                      <div className={scr.tileLabel}>Theme</div>
+                      <div className={scr.tileValue}>{cfg.theme}</div>
+                    </div>
+                    <div className={scr.tile}>
+                      <div className={scr.tileLabel}>Sources</div>
+                      <div className={scr.tileValue}>{cfg.source_policy?.visual?.chain?.length ?? 0} in the chain</div>
+                    </div>
+                    <div className={scr.tile}>
+                      <div className={scr.tileLabel}>Budget</div>
+                      <div className={scr.tileValue}>${(cfg.budget?.max_usd_per_video ?? 0).toFixed(2)} per video</div>
+                    </div>
+                  </div>
+                  <div className={s.saveRow}>
+                    <Link href={`/brands?channel=${selected}`}>
+                      <Button variant="secondary" size="sm">Open brand profile</Button>
+                    </Link>
+                    <Button variant="ghost" size="sm" onClick={() => router.push(`/channels/${selected}`)}>
+                      Full config form
+                    </Button>
+                  </div>
                 </div>
 
-                <div className={s.dots}>
-                  {r
-                    ? (r.last5.length
-                        ? r.last5.map((st, i) => <span key={i} className={`${s.dot} ${dotClass(st)}`} />)
-                        : <span className={s.numDim}>—</span>)
-                    : <span className={s.numDim}>…</span>}
-                </div>
-
-                <div className={`${s.num} ${r?.queued ? "" : s.numDim}`}>{r ? (r.queued || "—") : "…"}</div>
-
-                <div className={`${s.cost} ${r?.costMonth ? "" : s.numDim}`}>
-                  {r ? `$${r.costMonth.toFixed(2)}` : "…"}
-                </div>
-
-                <div className={`${s.failure} ${r?.failure ? s.failureBad : ""}`}>
-                  {r ? (r.failure ?? "no recent failures") : "…"}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        {channels.length === 0 && <div className={s.empty}>No channels yet.</div>}
-      </div>
-
-      {showCreate && (
-        <div className={s.overlay} onClick={() => setShowCreate(false)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={s.modalHead}>
-              <div className={s.modalTitle}>New channel</div>
-              <button onClick={() => setShowCreate(false)}>Close</button>
-            </div>
-            <ChannelConfigForm value={config} onChange={setConfig} mode="create" />
-            {error && <div style={{ color: "var(--danger)", fontSize: 13 }}>{error}</div>}
-            <div className={s.modalActions}>
-              <button onClick={() => setShowCreate(false)}>Cancel</button>
-              <button className="primary" onClick={create}>
-                Create channel
-              </button>
-            </div>
+                {canEdit && (
+                  <div className={s.saveRow}>
+                    <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save channel"}</Button>
+                    {note && <span className={`${s.saveNote}${note.bad ? " " + s.bad : ""}`}>{note.text}</span>}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
