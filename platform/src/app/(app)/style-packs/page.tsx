@@ -16,6 +16,10 @@ import {
 } from "@/components/StylePackPreview";
 import s from "./style-packs.module.css";
 
+/** Same list as `pipeline_manifest`-adjacent `channel_config.video_type`; the
+ *  defaults document carries one entry per member. */
+const VIDEO_TYPES = ["doc", "explainer", "breakdown", "listicle"];
+
 interface PackRow {
   name: string;
   doc: StylePack | null;
@@ -33,6 +37,11 @@ export default function StylePacksPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  // D-video-type defaults: which pack each type starts from
+  // (contracts/video-type-defaults.json). Lives here rather than on the packs
+  // because several packs can declare the same type — see lib/videoType.ts.
+  const [defaults, setDefaults] = useState<Record<string, string>>({});
+  const [defaultsNote, setDefaultsNote] = useState<{ text: string; bad?: boolean } | null>(null);
 
   async function load(select?: string) {
     const res = await fetch("/api/style-packs");
@@ -44,6 +53,10 @@ export default function StylePacksPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/style-packs/defaults")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setDefaults(d.defaults ?? {}))
+      .catch(() => undefined);
     // the allowance picker offers whatever the merged catalog holds
     fetch("/api/catalog")
       .then((r) => (r.ok ? r.json() : null))
@@ -160,6 +173,30 @@ export default function StylePacksPage() {
 
   const inUse = rows.filter((r) => r.channels.length > 0).length;
 
+  async function saveDefault(type: string, packName: string) {
+    const next = { ...defaults };
+    if (packName) next[type] = packName;
+    else delete next[type];
+    setDefaults(next);
+    setDefaultsNote(null);
+    const res = await fetch("/api/style-packs/defaults", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ defaults: next }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setDefaultsNote({ text: body.error ?? `could not save (${res.status})`, bad: true });
+      // the server refused, so put the screen back on what is actually on disk
+      fetch("/api/style-packs/defaults")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && setDefaults(d.defaults ?? {}))
+        .catch(() => undefined);
+      return;
+    }
+    setDefaultsNote({ text: `${type} now starts from ${packName || "the first pack that implements it"}.` });
+  }
+
   return (
     <div className="page">
       <div className="pageHead">
@@ -182,6 +219,44 @@ export default function StylePacksPage() {
           >
             New style pack
           </button>
+        </div>
+      </div>
+
+      <div className={s.defaults}>
+        <div className={s.defaultsHead}>
+          <div>
+            <div className={s.defaultsTitle}>Default pack per video type</div>
+            <div className={s.defaultsSub}>
+              What a channel&apos;s style pack becomes when its video type changes, on the Channel
+              screen and on a video&apos;s quote statement. A pack&apos;s own <code>video_type</code> is
+              advisory and several packs may declare the same one, so the answer lives here —
+              <code>contracts/video-type-defaults.json</code> — where a type cannot have two.
+            </div>
+          </div>
+          {defaultsNote && (
+            <div className={defaultsNote.bad ? s.defaultsBad : s.defaultsOk}>{defaultsNote.text}</div>
+          )}
+        </div>
+        <div className={s.defaultsGrid}>
+          {VIDEO_TYPES.map((type) => {
+            const fit = rows.filter((r) => r.doc?.video_type === type);
+            return (
+              <label key={type} className={s.defaultsField}>
+                <span className={s.defaultsLabel}>{type}</span>
+                <select value={defaults[type] ?? ""} onChange={(e) => saveDefault(type, e.target.value)}>
+                  <option value="">first pack that implements it</option>
+                  {fit.map((r) => (
+                    <option key={r.name} value={r.name}>{r.name}</option>
+                  ))}
+                </select>
+                <span className={s.defaultsHint}>
+                  {fit.length === 0
+                    ? `no pack declares ${type}`
+                    : `${fit.length} pack${fit.length === 1 ? "" : "s"} to choose from`}
+                </span>
+              </label>
+            );
+          })}
         </div>
       </div>
 
@@ -309,7 +384,7 @@ export default function StylePacksPage() {
                     <RhythmStrip pack={preview} />
                   </div>
 
-                  <StylePackStats pack={preview} catalogTotal={catalog.length} />
+                  <StylePackStats pack={preview} />
 
                   <div className={s.section}>
                     <div className={s.sectionLabel}>
@@ -406,7 +481,7 @@ export default function StylePacksPage() {
                   <div className={s.sectionLabel}>ONE MINUTE OF VIDEO</div>
                   <RhythmStrip pack={createDraft} />
                 </div>
-                <StylePackStats pack={createDraft} catalogTotal={catalog.length} />
+                <StylePackStats pack={createDraft} />
                 <div className={s.section}>
                   <div className={s.sectionLabel}>TRANSITIONS</div>
                   <TransitionChips pack={createDraft} />

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { query, one } from "@/db/pool";
 import { handler, requireUser, requireRole, ApiError } from "@/lib/auth";
-import { componentMenu } from "@/lib/catalog";
+import { componentMenu, componentsInPacks } from "@/lib/catalog";
 import { repoRoot } from "@/lib/env";
 import {
   PROMPT_ROLES,
@@ -72,7 +72,7 @@ async function variablesFor(role: PromptRole, videoId?: string): Promise<Record<
     script_persona?: string;
     visual_language?: string;
     pacing?: { avg_hold_seconds?: number; min_hold?: number; max_hold?: number; arc?: string };
-    overlays?: { density?: unknown; allowed_components?: string[] };
+    overlays?: { density?: unknown; allowed_packs?: string[] };
     script?: { target_seconds?: number };
   };
   const seconds =
@@ -109,7 +109,7 @@ async function variablesFor(role: PromptRole, videoId?: string): Promise<Record<
       arc: pack.pacing?.arc ?? "",
       density: typeof density === "string" ? density : JSON.stringify(density),
       visual_language: pack.visual_language ?? "",
-      component_menu: componentMenu(pack.overlays?.allowed_components ?? null),
+      component_menu: componentMenu(componentsInPacks(pack.overlays?.allowed_packs)),
       video_id: videoId ?? "sample",
     };
   }

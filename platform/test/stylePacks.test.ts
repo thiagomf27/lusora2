@@ -4,13 +4,13 @@ import {
   STYLE_PACK_NAME_RE,
   insert,
   serializeStylePack,
-  spliceAllowedComponents,
+  spliceAllowedPacks,
   stylePackPath,
 } from "../src/lib/stylePacks.ts";
 import { beatRange, densityPerMinute, overlayBudget } from "../src/lib/pacing.ts";
 
 /**
- * Style packs may still be hand-edited contract files. Toggling one component's
+ * Style packs may still be hand-edited contract files. Toggling one pack's
  * allowance must not touch anything else in the document — re-serializing the
  * parsed JSON turns `4.0` into `4` and collapses deliberate one-liners. (The
  * Style Packs screen saves the whole document and does normalize it; that is
@@ -24,9 +24,9 @@ const MULTILINE = `{
   },
   "overlays": {
     "density": "normal",
-    "allowed_components": [
-      "FactCard",
-      "QuoteBlock"
+    "allowed_packs": [
+      "archive",
+      "core"
     ]
   },
   "script_persona": "Grave."
@@ -34,39 +34,35 @@ const MULTILINE = `{
 `;
 
 const ONE_LINE = `{
-  "overlays": { "density": "high", "allowed_components": ["FactCard", "QuoteBlock"] }
+  "overlays": { "density": "high", "allowed_packs": ["archive", "core"] }
 }
 `;
 
 test("splicing preserves the rest of the document verbatim", () => {
-  const out = spliceAllowedComponents(MULTILINE, ["FactCard", "NamePlate", "QuoteBlock"])!;
+  const out = spliceAllowedPacks(MULTILINE, ["archive", "core", "doc-minimal"])!;
   assert.ok(out.includes(`"avg_hold_seconds": 4.0`), "float formatting survived");
   assert.ok(out.includes(`"max_hold": 8.0`));
   assert.ok(out.includes(`"script_persona": "Grave."`));
-  assert.deepEqual(JSON.parse(out).overlays.allowed_components, [
-    "FactCard",
-    "NamePlate",
-    "QuoteBlock",
-  ]);
+  assert.deepEqual(JSON.parse(out).overlays.allowed_packs, ["archive", "core", "doc-minimal"]);
   // everything outside the array is byte-identical
-  const [before] = MULTILINE.split(`    "allowed_components"`);
+  const [before] = MULTILINE.split(`    "allowed_packs"`);
   assert.ok(out.startsWith(before));
   assert.ok(out.endsWith(`  },\n  "script_persona": "Grave."\n}\n`));
 });
 
 test("splicing keeps a one-line array on one line", () => {
-  const out = spliceAllowedComponents(ONE_LINE, ["FactCard"])!;
-  assert.ok(out.includes(`"allowed_components": ["FactCard"]`), out);
+  const out = spliceAllowedPacks(ONE_LINE, ["core"])!;
+  assert.ok(out.includes(`"allowed_packs": ["core"]`), out);
   assert.equal(JSON.parse(out).overlays.density, "high");
 });
 
 test("removal down to an empty list stays valid JSON", () => {
-  const out = spliceAllowedComponents(MULTILINE, [])!;
-  assert.deepEqual(JSON.parse(out).overlays.allowed_components, []);
+  const out = spliceAllowedPacks(MULTILINE, [])!;
+  assert.deepEqual(JSON.parse(out).overlays.allowed_packs, []);
 });
 
 test("a document without the key is reported, not guessed at", () => {
-  assert.equal(spliceAllowedComponents(`{ "overlays": { "density": "low" } }`, ["X"]), null);
+  assert.equal(spliceAllowedPacks(`{ "overlays": { "density": "low" } }`, ["X"]), null);
 });
 
 test("adding a component respects the existing order", () => {
@@ -90,8 +86,8 @@ test("adding a component respects the existing order", () => {
 test("splicing still works on a document the screen has normalized", () => {
   // a whole-document save reserializes; the allowance toggle must survive it
   const normalized = serializeStylePack(JSON.parse(MULTILINE));
-  const out = spliceAllowedComponents(normalized, ["FactCard"])!;
-  assert.deepEqual(JSON.parse(out).overlays.allowed_components, ["FactCard"]);
+  const out = spliceAllowedPacks(normalized, ["FactCard"])!;
+  assert.deepEqual(JSON.parse(out).overlays.allowed_packs, ["FactCard"]);
   assert.equal(JSON.parse(out).pacing.avg_hold_seconds, 4);
 });
 

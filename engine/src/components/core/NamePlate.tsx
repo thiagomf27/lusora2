@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  borderSides,
   PANEL_ENTRANCES,
   easingCurve,
   captionStyle,
@@ -103,8 +104,13 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
       <div
         style={{
           background: props.variant === "boxed" ? `${theme.colors.bg}e6` : `${theme.colors.bg}bf`,
-          border: props.variant === "boxed" ? `1px solid ${accent}66` : "none",
-          borderBottom: props.variant === "underline" ? `${Math.max(3, height * 0.006)}px solid ${accent}` : undefined,
+          ...borderSides(
+            props.variant === "boxed"
+              ? { width: 1, color: `${accent}66` }
+              : props.variant === "underline"
+                ? { side: "bottom", ruleWidth: Math.max(3, height * 0.006), ruleColor: accent }
+                : {}
+          ),
           padding: `${height * 0.018}px ${width * 0.022}px`,
           borderRadius:
             props.variant === "bar"

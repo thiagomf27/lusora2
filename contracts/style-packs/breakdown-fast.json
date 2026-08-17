@@ -11,20 +11,8 @@
   },
   "overlays": {
     "density": "high",
-    "allowed_components": [
-      "KineticTitle",
-      "HammerStatement",
-      "CalloutArrow",
-      "AnimatedCounter",
-      "StatTag",
-      "BarChart",
-      "ComparisonSplit",
-      "StepFlow",
-      "FactSheet",
-      "FactCard",
-      "HighlightedPassage",
-      "NamePlate",
-      "DefinitionCard"
+    "allowed_packs": [
+      "core"
     ]
   },
   "transitions": {

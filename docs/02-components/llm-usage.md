@@ -64,7 +64,7 @@ these breaks a downstream stage.
   `source_words` appears verbatim in that beat's span; a `comparison`
   value is a list of `{label, value:number}`, never bare numbers.
 - `overlay.component` exists in the catalog **and** in the style pack's
-  `allowed_components`; `anchor_ref` indexes that beat's anchors and the
+  the resolved `allowed_components`; `anchor_ref` indexes that beat's anchors and the
   anchor type is in the component's `anchor_types`; `props_hint` carries
   **concrete values only**, never prop schemas.
 - Beat count inside the pacing range; overlay count inside the density
@@ -101,7 +101,7 @@ Improving prompts means editing these too:
 | Surface | Where | Effect |
 |---|---|---|
 | `when_to_use` / `when_not_to_use` | `contracts/catalog.json` (generated from `engine/src/catalog/registry.ts`) + `contracts/component-packs/*.json` — both **required** fields | Injected for every component into the planner prompt. **The highest-leverage prompt text in the repo**: it is what actually decides overlay selection |
-| `script_persona`, `visual_language`, `pacing.*`, `overlays.density`, `allowed_components` | `contracts/style-packs/*.json` | Persona → script system prompt; visual language → planner; pacing → target beat count; density + allowed list → menu filter and validator |
+| `script_persona`, `visual_language`, `pacing.*`, `overlays.density`, `allowed_packs` | `contracts/style-packs/*.json` | Persona → script system prompt; visual language → planner; pacing → target beat count; density + allowed packs (resolved to components at enqueue) → menu filter and validator |
 | `content_rules`, `overrides.instructions` | channel config / per-video overrides | Appended to both creative prompts |
 | Violation strings | `worker/lusora_worker/validators.py` | Fed back verbatim as the repair prompt. A vague violation is an unrepairable one — audit them as prompts |
 

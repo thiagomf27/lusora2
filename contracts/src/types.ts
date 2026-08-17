@@ -296,7 +296,9 @@ export interface StylePack {
   };
   overlays: {
     density: OverlayDensity;
-    allowed_components?: string[];
+    /** Component packs the planner may draw from. Omitted means every pack.
+     *  Per-component trimming is the channel's, via `look.exclude.components`. */
+    allowed_packs?: string[];
     /** D59: a second overlay class, counted under its own budget. */
     emphasis?: { enabled?: boolean; per_minute?: number };
   };

@@ -67,8 +67,9 @@ work:
 > template actually reads, narrowed with `required` / `maxWords` /
 > `from_anchor` where it helps the planner. Write the entry into
 > `contracts/component-packs/<pack>.json` (create the file if new, keeping
-> `pack` equal to the filename), then add the name to
-> `overlays.allowed_components` in these style packs: `[names, or "none yet"]`.
+> `pack` equal to the filename). If the pack is NEW, add it to
+> `overlays.allowed_packs` in these style packs: `[names, or "none yet"]` — a
+> component joining a pack a style already allows needs no style-pack edit.
 > Then validate and render me a preview.
 
 **Verify:** `pnpm run validate:schemas` and
@@ -119,9 +120,9 @@ the overlay renders as nothing (the Overlays screen marks it *no renderer*).
 >    (props mirroring the Zod schema, in catalog vocabulary — `maxWords`
 >    counts words where Zod caps characters) and run
 >    `pnpm --filter @lusora/engine run catalog`;
-> 4. add sample props to `engine/src/catalog/sample-props.json`, and add the
->    name to `overlays.allowed_components` in these style packs:
->    `[names, or "none yet"]`.
+> 4. add sample props to `engine/src/catalog/sample-props.json`. A core
+>    component needs no style-pack edit: every style that allows `core`
+>    already offers it.
 >
 > Declare which entrances it can honor and let anything else degrade to fade.
 > Then run `pnpm run ci` and render me a preview.
@@ -190,8 +191,8 @@ that cannot honor it (typewriter on a chart) silently degrades to fade.
 - `contracts/style-packs/doc-slow.json` — a complete pack, the model (also
   `listicle-fast.json` if you want the fast end of the range)
 - `docs/03-contracts/theme-and-style.md` — the style pack section
-- `contracts/catalog.json` — so Claude picks real component names for
-  `allowed_components` (or say "use only the names in this file")
+- `contracts/component-packs/` — so Claude picks real pack names for
+  `allowed_packs` (`core` is always one of them)
 
 **Prompt:**
 
@@ -218,9 +219,9 @@ that cannot honor it (typewriter on a chart) silently degrades to fade.
 > - Prompt pack for this voice: `[name, or omit to use the default]`
 >
 > Write `contracts/style-packs/<name>.json` validating against the schema.
-> Check every name in `allowed_components` exists in `contracts/catalog.json`,
-> and that the pacing numbers are coherent (min < avg < max) and consistent
-> with the density I asked for.
+> Check every name in `allowed_packs` is a real component pack (`core`, or a
+> file in `contracts/component-packs/`), and that the pacing numbers are
+> coherent (min < avg < max) and consistent with the density I asked for.
 
 **Verify:** `pnpm run validate:schemas`. The Style Packs screen edits the
 same files. A pack is only real once a channel points at it — the pacing
@@ -331,10 +332,12 @@ in-flight video, and a re-run reproduces the old words.
 - Themes, style packs, sound-pack manifests and resolved prompt text are all
   snapshotted into `cfg.json` at enqueue, so an in-flight video keeps the
   versions it started with; edit freely.
-- New component names must be added to a style pack's `allowed_components`
-  or the validator will reject any plan that uses them — that is the step
-  most often forgotten. The sound equivalent: a cue or bed nobody names in a
-  theme's `sound` block is never played.
+- A new component PACK must be added to a style pack's `allowed_packs`, and a
+  channel must install it as its `component_pack`, or the validator will reject
+  any plan that uses its components. A component added to a pack a style already
+  allows needs neither step — that is the whole point of pack granularity. The
+  sound equivalent: a cue or bed nobody names in a theme's `sound` block is
+  never played.
 - Deletes are guarded where a dangling reference would fail a later video: a
   style pack a channel uses, a sound a theme names, a prompt someone
   references. If a delete 409s, the message names what still points at it.

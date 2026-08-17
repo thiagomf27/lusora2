@@ -10,7 +10,7 @@ import {
   validatePackEntries,
   writePack,
 } from "@/lib/catalog";
-import { setComponentAllowance } from "@/lib/stylePacks";
+import { removePackEverywhere } from "@/lib/stylePacks";
 
 type Ctx = { params: Promise<{ pack: string }> };
 
@@ -45,10 +45,10 @@ export const PUT = handler(async (req: Request, ctx: Ctx) => {
 
   writePack({ pack, components: [...components].sort((a, b) => a.name.localeCompare(b.name)) });
 
-  // entries that disappeared should not linger in style-pack allowances
+  // Allowance is by pack, so entries coming and going inside a pack change no
+  // style pack's mind; only deleting the pack itself does.
   const kept = new Set(components.map((c) => c.name));
   const dropped = current.components.map((c) => c.name).filter((n) => !kept.has(n));
-  for (const name of dropped) setComponentAllowance(name, []);
 
   const implemented = new Set(implementedComponents());
   return NextResponse.json({
@@ -66,9 +66,13 @@ export const DELETE = handler(async (_req: Request, ctx: Ctx) => {
   const current = existingPack(pack);
 
   writePack({ pack, components: [] }); // an empty pack removes the file
-  const cleared: string[] = [];
-  for (const entry of current.components) {
-    if (setComponentAllowance(entry.name, []).length) cleared.push(entry.name);
-  }
-  return NextResponse.json({ pack, removed: current.components.length, cleared_allowances: cleared });
+  const { changed, conflicts } = removePackEverywhere(pack);
+  return NextResponse.json({
+    pack,
+    removed: current.components.length,
+    cleared_allowances: changed,
+    // style packs that allowed ONLY this pack: emptying them would silence
+    // them entirely, so they keep the stale name and are reported instead
+    orphaned_style_packs: conflicts,
+  });
 });

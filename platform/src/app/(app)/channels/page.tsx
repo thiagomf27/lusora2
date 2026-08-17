@@ -1,18 +1,35 @@
 "use client";
 /**
- * Channels — ported from VidRush.dc.html (isChannels).
+ * Channels — the one screen a channel is configured on.
  *
- * A channel carries the defaults every video starts from. The mockup's
- * "default brand" dropdown is not drawn: in this codebase a channel's brand
- * profile IS its config document, edited on Brands, so the card links there
- * instead of pretending brands are a separate row.
+ * This absorbed the Brands screen. "Brand" came from the mockup this UI was
+ * ported from (VidRush), where a brand is a row of its own that several
+ * channels point at. In this codebase there is no brands table: a brand
+ * profile IS the channel's config document, so a second screen over the same
+ * row was a second place to edit the same fields. The tabs it drew — Profile,
+ * Visual, Sourcing — are kept; the separate route is gone.
+ *
+ * What is NOT here is deliberate. This screen carries the decisions a human
+ * makes about a channel; everything else — style pack, packs, gains, budgets,
+ * prompts, retention, QA — stays on the full config form at
+ * /channels/[id], which is unchanged. The rule for what belongs where: if
+ * picking it wrong changes what the videos LOOK or SOUND like, it is here; if
+ * it is a number you tune once, it is on the advanced form.
  */
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ChannelConfig } from "@lusora/contracts";
-import { Button, Dropdown, TextInput, Toggle } from "@/components/ds";
+import { Button, Dropdown, StatusBadge, TextInput } from "@/components/ds";
 import { defaultChannelConfig } from "@/components/ChannelConfigForm";
+import LookEditor from "@/components/LookEditor";
+import SourcePolicyEditor, { mediaMode } from "@/components/SourcePolicyEditor";
+import {
+  alternativesFor,
+  stylePackForVideoType,
+  type StylePackChoice,
+  type VideoTypeDefaults,
+} from "@/lib/videoType";
 // type-only: erased at compile time, so the client bundle never pulls the loader in
 import type { PipelineSummary } from "@/lib/pipelines";
 import scr from "../screen.module.css";
@@ -28,7 +45,17 @@ interface ChannelRow {
   active: boolean;
 }
 
+const TABS = ["Profile", "Visual", "Sourcing"];
 const VIDEO_TYPES = ["doc", "explainer", "breakdown", "listicle"];
+
+/** Mirrored from worker/.../providers/tts.py, like the advanced form's copy.
+ *  Three of them, so this is a segmented control and not a switch. */
+const VOICE_PROVIDERS = [
+  { value: "local", label: "Local (flite)" },
+  { value: "ai33", label: "ai33" },
+  { value: "mock", label: "Mock (silent)" },
+];
+const LOCAL_VOICES = ["kal", "kal16", "awb", "rms", "slt"];
 
 /**
  * D61 — HOW a channel's videos are made, as opposed to WHAT they are
@@ -46,16 +73,19 @@ const PRODUCTION_STYLES = [
   { value: "custom", label: "Custom (pin a pipeline)" },
 ];
 
-export default function ChannelsPage() {
+function ChannelsScreen() {
   const router = useRouter();
+  const params = useSearchParams();
   const [channels, setChannels] = useState<ChannelRow[]>([]);
-  const [selected, setSelected] = useState<string>("");
+  const [selected, setSelected] = useState<string>(params.get("channel") ?? "");
   const [cfg, setCfg] = useState<ChannelConfig | null>(null);
+  const [tab, setTab] = useState(0);
   const [options, setOptions] = useState<{
     themes: string[];
-    stylePacks: { name: string }[];
+    stylePacks: StylePackChoice[];
     pipelines: PipelineSummary[];
-  }>({ themes: [], stylePacks: [], pipelines: [] });
+    videoTypeDefaults: VideoTypeDefaults;
+  }>({ themes: [], stylePacks: [], pipelines: [], videoTypeDefaults: {} });
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null);
   const [role, setRole] = useState("");
@@ -67,7 +97,6 @@ export default function ChannelsPage() {
     if (!res.ok) return;
     const rows: ChannelRow[] = await res.json();
     setChannels(rows);
-    setSelected((prev) => prev || rows[0]?.id || "");
   }, []);
 
   useEffect(() => {
@@ -79,6 +108,7 @@ export default function ChannelsPage() {
         themes: o.themes ?? [],
         stylePacks: o.stylePacks ?? [],
         pipelines: o.pipelines ?? [],
+        videoTypeDefaults: o.videoTypeDefaults ?? {},
       }))
       .catch(() => undefined);
   }, [loadChannels]);
@@ -161,6 +191,30 @@ export default function ChannelsPage() {
           ? `Nothing in contracts/pipelines carries category: ${style} yet, so enqueue would be refused.`
           : `${family.length} pipelines carry this category; pin one on the video to be explicit.`;
 
+  // The style pack follows the video type here; the advanced form is where a
+  // channel is pointed at a specific one. `stylePackForVideoType` keeps a pack
+  // that already implements the type, so choosing the type a channel is
+  // already set to never discards that choice.
+  const packAlternatives = useMemo(
+    () => (cfg ? alternativesFor(cfg.video_type, options.stylePacks) : []),
+    [cfg, options.stylePacks]
+  );
+  const packMismatch =
+    !!cfg &&
+    options.stylePacks.some((p) => p.name === cfg.style_pack) &&
+    packAlternatives.length > 0 &&
+    !packAlternatives.includes(cfg.style_pack);
+
+  function chooseVideoType(next: string) {
+    patch((d) => {
+      d.video_type = next as ChannelConfig["video_type"];
+      d.style_pack = stylePackForVideoType(next, d.style_pack, options.stylePacks, options.videoTypeDefaults);
+    });
+  }
+
+  const chain = cfg?.source_policy?.visual?.chain ?? [];
+  const provider = cfg?.voice?.provider ?? "";
+
   return (
     <div className={scr.screen}>
       <div className={scr.wrap}>
@@ -168,8 +222,8 @@ export default function ChannelsPage() {
           <div className={scr.headMain}>
             <h1 className={scr.h1}>Channels</h1>
             <p className={scr.sub}>
-              A channel carries the defaults every video starts from: language, video type, production style,
-              theme, style pack and the voice its narration is synthesised with.
+              A channel carries everything its videos start from: who it sounds like, what it looks like, and
+              where its footage comes from. A video can override any of it on its quote statement.
             </p>
           </div>
           {canEdit && (
@@ -183,128 +237,218 @@ export default function ChannelsPage() {
           )}
         </div>
 
-        <div className={s.layout}>
-          <div className={s.list}>
-            {channels.map((c) => (
-              <button key={c.id} type="button"
-                      className={`${s.item}${c.id === selected ? " " + s.on : ""}`}
-                      onClick={() => setSelected(c.id)}>
-                <span className={`${s.dot}${c.active ? "" : " " + s.off}`} />
-                <span className={s.itemMain}>
-                  <span className={s.itemName}>{c.name}</span>
-                  <span className={s.itemMeta}>{c.video_type} · {c.language} · {c.theme}</span>
-                </span>
-              </button>
-            ))}
-            {channels.length === 0 && <div className={scr.toggleDesc}>No channels yet.</div>}
+        {!selected && (
+          <div className={scr.card} style={{ padding: 0, overflow: "hidden" }}>
+            <table className={s.table}>
+              <thead>
+                <tr>
+                  <th>Channel</th>
+                  <th>Type</th>
+                  <th>Language</th>
+                  <th>Theme</th>
+                  <th>Style pack</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {channels.map((c) => (
+                  <tr key={c.id} tabIndex={0} className={s.row}
+                      onClick={() => setSelected(c.id)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(c.id); } }}>
+                    <td>
+                      <span className={s.rowName}>
+                        <span className={`${s.dot}${c.active ? "" : " " + s.off}`} />
+                        {c.name}
+                      </span>
+                    </td>
+                    <td>{c.video_type}</td>
+                    <td>{c.language}</td>
+                    <td>{c.theme}</td>
+                    <td>{c.style_pack}</td>
+                    <td className={s.rowGo}>Configure →</td>
+                  </tr>
+                ))}
+                {channels.length === 0 && (
+                  <tr><td colSpan={6} className={scr.toggleDesc} style={{ padding: 18 }}>No channels yet.</td></tr>
+                )}
+              </tbody>
+            </table>
           </div>
+        )}
 
+        {selected && (
           <div className={s.detail}>
-            {!cfg && <div className={scr.card}><div className={scr.toggleDesc}>Select a channel.</div></div>}
+            {!cfg && <div className={scr.card}><div className={scr.toggleDesc}>Loading the channel&apos;s configuration…</div></div>}
 
             {cfg && (
               <>
-                <div className={scr.card}>
-                  <p className={scr.cardSub}>
-                    These are the values a new video inherits. Anything here can be overridden for a single
-                    video on its quote statement.
-                  </p>
-                  <div className={scr.grid2}>
-                    <TextInput label="Channel name" value={cfg.name} disabled={!canEdit}
-                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.name = v; }); }} />
-                    <TextInput label="Language" value={cfg.language} disabled={!canEdit}
-                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.language = v; }); }} />
-                    <Dropdown label="Video type" options={VIDEO_TYPES} value={cfg.video_type} disabled={!canEdit}
-                              onChange={(v) => patch((d) => { d.video_type = v as ChannelConfig["video_type"]; })} />
-                    <Dropdown label="Style pack" options={options.stylePacks.map((p) => p.name)} value={cfg.style_pack} disabled={!canEdit}
-                              onChange={(v) => patch((d) => { d.style_pack = v; })} />
-                    <Dropdown label="Production style" options={PRODUCTION_STYLES} value={style} disabled={!canEdit}
-                              onChange={(v) => patch((d) => { d.production_style = v as ChannelConfig["production_style"]; })} />
+                <button type="button" className={s.backBtn}
+                        onClick={() => { setSelected(""); setCfg(null); setTab(0); setNote(null); }}>
+                  ← All channels
+                </button>
+                <div className={s.tabRow}>
+                  <div className={scr.tabs} style={{ padding: 0, border: "none" }}>
+                    {TABS.map((name, i) => (
+                      <button key={name} type="button"
+                              className={`${scr.tab}${tab === i ? " " + scr.active : ""}`}
+                              onClick={() => setTab(i)}>
+                        {name}
+                      </button>
+                    ))}
                   </div>
-                  <p className={scr.toggleDesc} style={{ marginTop: 10 }}>
-                    <strong>Video type</strong> is what the video is and picks the style pack;{" "}
-                    <strong>production style</strong> is how it gets made and picks the pipeline. {styleNote}
-                  </p>
-                  <div className={scr.section} style={{ marginTop: 16 }}>
-                    <div className={scr.fieldLabel}>Content rules</div>
-                    <textarea
-                      className={s.rules}
-                      value={cfg.content_rules ?? ""}
-                      disabled={!canEdit}
-                      placeholder="Editorial constraints handed to the script agent."
-                      onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.content_rules = v; }); }}
-                    />
-                  </div>
+                  <Button variant="ghost" size="sm"
+                          onClick={() => router.push(`/channels/${selected}?tab=settings`)}>
+                    Advanced config
+                  </Button>
                 </div>
 
-                <div className={scr.card}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 18 }}>
-                    <div style={{ flex: 1 }}>
-                      <h2 className={scr.h2}>Voiceover identity</h2>
-                      <p className={scr.cardSub} style={{ marginBottom: 0 }}>
-                        Pinned to the channel so every video sounds the same. The provider is what the narrate
-                        stage calls; the voice id is passed straight through to it.
+                {tab === 0 && (
+                  <div className={scr.stack}>
+                    <div className={scr.card}>
+                      <h2 className={scr.h2}>Profile</h2>
+                      <p className={scr.cardSub}>
+                        What this channel is and what it sounds like. Everything here is a default a single
+                        video can override on its quote statement.
                       </p>
-                    </div>
-                  </div>
-                  <div className={scr.grid2}>
-                    <TextInput label="Provider" value={cfg.voice?.provider ?? ""} disabled={!canEdit}
-                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.voice = { ...d.voice, provider: v }; }); }} />
-                    <TextInput label="Voice id" value={cfg.voice?.voice_id ?? ""} disabled={!canEdit}
-                               onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.voice = { ...d.voice, voice_id: v || undefined }; }); }} />
-                  </div>
-                  <div className={scr.section} style={{ marginTop: 16 }}>
-                    <div className={scr.toggleRow} style={{ borderTop: "none", paddingTop: 0 }}>
-                      <div className={scr.toggleMain}>
-                        <div className={scr.toggleName}>Burn captions by default</div>
-                        <div className={scr.toggleDesc}>The preset comes from the theme; a video can override this.</div>
-                      </div>
-                      <Toggle checked={cfg.captions?.enabled !== false} disabled={!canEdit}
-                              onChange={(on) => patch((d) => { d.captions = { ...d.captions, enabled: on }; })} />
-                    </div>
-                  </div>
-                </div>
+                      <div className={scr.stack}>
+                        <div className={scr.grid2}>
+                          <TextInput label="Brand name" value={cfg.name} disabled={!canEdit}
+                                     onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.name = v; }); }} />
+                          <TextInput label="Language" value={cfg.language} disabled={!canEdit}
+                                     onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.language = v; }); }} />
+                        </div>
 
-                <div className={scr.card}>
-                  <h2 className={scr.h2}>Brand profile</h2>
-                  <p className={scr.cardSub}>
-                    Theme, sound and the source policy this channel&apos;s videos inherit live on its brand profile.
-                  </p>
-                  <div className={scr.tileGrid} style={{ marginBottom: 16 }}>
-                    <div className={scr.tile}>
-                      <div className={scr.tileLabel}>Theme</div>
-                      <div className={scr.tileValue}>{cfg.theme}</div>
+                        <div className={scr.grid2}>
+                          <div>
+                            <div className={scr.fieldLabel}>Voiceover provider</div>
+                            <div className={scr.segments}>
+                              {VOICE_PROVIDERS.map((p) => (
+                                <button key={p.value} type="button" disabled={!canEdit}
+                                        className={`${scr.segment}${provider === p.value ? " " + scr.on : ""}`}
+                                        onClick={() => patch((d) => { d.voice = { ...d.voice, provider: p.value }; })}>
+                                  {p.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          {provider === "local" ? (
+                            <Dropdown label="Voice id" options={LOCAL_VOICES} disabled={!canEdit}
+                                      value={cfg.voice?.voice_id ?? ""}
+                                      onChange={(v) => patch((d) => { d.voice = { ...d.voice, voice_id: v }; })} />
+                          ) : (
+                            <TextInput label="Voice id"
+                                       placeholder={provider === "ai33" ? "e.g. edge_en-US-GuyNeural" : "voice id"}
+                                       value={cfg.voice?.voice_id ?? ""} disabled={!canEdit}
+                                       onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.voice = { ...d.voice, voice_id: v || undefined }; }); }} />
+                          )}
+                        </div>
+
+                        <div className={scr.grid2}>
+                          <Dropdown label="Production style" options={PRODUCTION_STYLES} value={style} disabled={!canEdit}
+                                    onChange={(v) => patch((d) => { d.production_style = v as ChannelConfig["production_style"]; })} />
+                          <Dropdown label="Video type" options={VIDEO_TYPES} value={cfg.video_type} disabled={!canEdit}
+                                    onChange={chooseVideoType} />
+                        </div>
+                        <p className={scr.toggleDesc}>
+                          <strong>Video type</strong> is what the video is and picks the style pack;{" "}
+                          <strong>production style</strong> is how it gets made and picks the pipeline. {styleNote}
+                        </p>
+
+                        <div className={scr.section}>
+                          <div className={scr.fieldLabel}>Style pack</div>
+                          <div className={s.packRow}>
+                            <span className={s.packName}>{cfg.style_pack}</span>
+                            {packMismatch && <StatusBadge label="type mismatch" tone="warning" />}
+                            <Link href={`/channels/${selected}?tab=settings`} className={scr.backLink}>Change</Link>
+                          </div>
+                          <div className={scr.toggleDesc}>
+                            {packMismatch
+                              ? `Set from the video type, but this pack does not implement ${cfg.video_type}. ${packAlternatives.join(", ")} do.`
+                              : `Follows the video type — ${cfg.video_type} defaults to ${options.videoTypeDefaults[cfg.video_type] ?? "the first pack that implements it"}. `}
+                            {!packMismatch && (
+                              <>
+                                Change the default on <Link href="/style-packs">Style packs</Link>, or point this
+                                one channel at another pack on the advanced form.
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div className={scr.tile}>
-                      <div className={scr.tileLabel}>Sources</div>
-                      <div className={scr.tileValue}>{cfg.source_policy?.visual?.chain?.length ?? 0} in the chain</div>
-                    </div>
-                    <div className={scr.tile}>
-                      <div className={scr.tileLabel}>Budget</div>
-                      <div className={scr.tileValue}>${(cfg.budget?.max_usd_per_video ?? 0).toFixed(2)} per video</div>
+
+                    <div className={scr.card}>
+                      <div className={scr.eyebrow}>At a glance</div>
+                      <div className={scr.tileGrid}>
+                        <div className={scr.tile}>
+                          <div className={scr.tileLabel}>Theme</div>
+                          <div className={scr.tileValue}>{cfg.theme}</div>
+                        </div>
+                        <div className={scr.tile}>
+                          <div className={scr.tileLabel}>Sources</div>
+                          <div className={scr.tileValue}>{chain.length} in the chain</div>
+                        </div>
+                        <div className={scr.tile}>
+                          <div className={scr.tileLabel}>Budget</div>
+                          <div className={scr.tileValue}>${(cfg.budget?.max_usd_per_video ?? 0).toFixed(2)} per video</div>
+                        </div>
+                        <div className={scr.tile}>
+                          <div className={scr.tileLabel}>Component pack</div>
+                          <div className={scr.tileValue}>{cfg.component_pack ?? "core only"}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className={s.saveRow}>
-                    <Link href={`/brands?channel=${selected}`}>
-                      <Button variant="secondary" size="sm">Open brand profile</Button>
-                    </Link>
-                    <Button variant="ghost" size="sm" onClick={() => router.push(`/channels/${selected}`)}>
-                      Full config form
-                    </Button>
+                )}
+
+                {tab === 1 && (
+                  <LookEditor
+                    channelId={selected}
+                    cfg={cfg}
+                    themes={options.themes}
+                    disabled={!canEdit}
+                    onChange={setCfg}
+                  />
+                )}
+
+                {tab === 2 && cfg.source_policy?.visual && (
+                  <SourcePolicyEditor
+                    visual={cfg.source_policy.visual}
+                    disabled={!canEdit}
+                    onChange={(next) => patch((d) => { d.source_policy.visual = next; })}
+                  />
+                )}
+                {tab === 2 && !cfg.source_policy?.visual && (
+                  <div className={scr.card}>
+                    <div className={scr.toggleDesc}>
+                      This channel has no visual source policy — set one on the advanced form.
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {canEdit && (
                   <div className={s.saveRow}>
                     <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save channel"}</Button>
+                    {tab === 2 && chain.length > 0 && (
+                      <span className={scr.toggleDesc}>
+                        {chain.map((e) => `${e.source} · ${mediaMode(e)}`).join("  ·  ")}
+                      </span>
+                    )}
                     {note && <span className={`${s.saveNote}${note.bad ? " " + s.bad : ""}`}>{note.text}</span>}
                   </div>
                 )}
               </>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
+  );
+}
+
+export default function ChannelsPage() {
+  return (
+    <Suspense fallback={<div className={scr.loading}>Loading…</div>}>
+      <ChannelsScreen />
+    </Suspense>
   );
 }

@@ -58,28 +58,63 @@
 .saveNote { font-size: 12.5px; color: var(--text-faint); }
 .saveNote.bad { color: var(--status-danger-fg); }
 
-.rules {
-  width: 100%;
-  min-height: 92px;
-  background: var(--surface-field);
-  border: 1px solid var(--border-field);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  color: var(--text-primary);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
-  resize: vertical;
-}
-
-.voiceRow {
+/* Tabs over the selected channel, with the escape hatch to the full form. */
+.tabRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: var(--surface-field);
-  border: 1px solid var(--border-field);
-  border-radius: var(--radius-md);
-  padding: 9px 10px;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border-subtle);
 }
-.voiceDot { width: 16px; height: 16px; border-radius: 50%; background: var(--accent-decorative); flex: none; }
-.voiceName { flex: 1; font-size: 13px; }
+
+/* The style pack is set from the video type here, so it reads as a value with
+   a way out rather than as a control. */
+.packRow { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.packName { font-size: 13.5px; font-weight: 600; }
+
+/* Channels as a table — the landing view. A row is the whole affordance, so
+   the hover and the "Configure" cell both belong to it, not to a button. */
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.table th {
+  text-align: left;
+  padding: 11px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--surface-table-head);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.row { cursor: pointer; }
+.row:hover td, .row:focus-visible td { background: var(--surface-field); }
+.row:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+.rowName { display: inline-flex; align-items: center; gap: 9px; color: var(--text-primary); font-weight: 600; }
+.rowGo { text-align: right; color: var(--text-faint); white-space: nowrap; }
+.row:hover .rowGo { color: var(--accent-link); }
+
+/* Back to the table. A bare <button>, so the global button chrome has to be
+   undone or it reads as a full-width bar rather than a link. */
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 14px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.backBtn:hover { color: var(--text-secondary); }
+

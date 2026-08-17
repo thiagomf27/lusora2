@@ -31,7 +31,7 @@ Rules the loaders enforce:
 The pack name itself is organisational: nothing in the pipeline filters by it
 today (`channel_config.component_pack` is stored but unread). What actually
 decides whether the planner may pick a component is the style pack's
-`overlays.allowed_components` — `archive-doc` is the one that offers the
+`overlays.allowed_packs` — `archive-doc` is the one that allows the
 `archive` pack.
 
 A pack may also be built for a particular theme. The `archive` overlays paint

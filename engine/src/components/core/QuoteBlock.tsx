@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  borderSides,
   TEXT_ENTRANCES,
   easingCurve,
   emphasisColor,
@@ -73,9 +74,14 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
           position: "relative",
           maxWidth: width * 0.74,
           background: props.variant === "boxed" ? surface.background : "transparent",
-          border: props.variant === "boxed" ? `1px solid ${accent}55` : "none",
           borderRadius: props.variant === "boxed" ? surface.borderRadius : 0,
-          borderLeft: props.variant === "rule" ? `${Math.max(4, width * 0.004)}px solid ${accent}` : undefined,
+          ...borderSides(
+            props.variant === "boxed"
+              ? { width: 1, color: `${accent}55` }
+              : props.variant === "rule"
+                ? { side: "left", ruleWidth: Math.max(4, width * 0.004), ruleColor: accent }
+                : {}
+          ),
           padding:
             props.variant === "boxed"
               ? `${height * 0.04}px ${width * 0.03}px`

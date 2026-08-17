@@ -24,6 +24,74 @@ function catalogComponentNames(): string[] {
   return loadMergedCatalog().items.map((i) => i.entry.name);
 }
 
+/**
+ * Resolve the overlay menu: the style pack's ALLOWED PACKS crossed with the one
+ * component pack this channel installed, written into the embedded doc as the
+ * concrete `allowed_components` list every downstream stage already reads.
+ *
+ * Two granularities, on purpose:
+ *
+ *  - a style pack allows PACKS (`overlays.allowed_packs`). "This style suits
+ *    the archive pack" is a statement about a body of work, and it does not go
+ *    stale when a component is added to that pack.
+ *  - a channel installs ONE pack (`component_pack`), and trims per component
+ *    with `look.exclude.components`.
+ *
+ * Resolving here, once, is the same move the look block makes: the planner,
+ * compiler, validator and both renderers keep reading `allowed_components` and
+ * none of them learns that packs exist. It is also what keeps Principle 7 —
+ * a video enqueued before this change carries a snapshot with an authored
+ * `allowed_components` and no `allowed_packs`, and the branch below replays it
+ * exactly as it was.
+ */
+export function applyComponentPack(snapshot: Record<string, unknown>): string[] {
+  const pack = (snapshot.component_pack as string | null | undefined) || "core";
+  const style = snapshot.style_pack_doc as Record<string, any> | undefined;
+  if (!style) return [];
+
+  const overlays = (style.overlays ??= {});
+  const allowedPacks: string[] | undefined = overlays.allowed_packs;
+  const authored: string[] | undefined = overlays.allowed_components;
+
+  // An old snapshot, or a pack file not yet converted: the authored element
+  // list is the menu, narrowed to what this channel installed.
+  if (!allowedPacks) {
+    const inPack = loadMergedCatalog()
+      .items.filter((i) => i.entry.pack === pack)
+      .map((i) => i.entry.name);
+    const base = authored ?? catalogComponentNames();
+    const next = base.filter((c) => inPack.includes(c));
+    if (next.length === 0) {
+      return [
+        `component_pack '${pack}' offers none of the components style pack ` +
+          `'${snapshot.style_pack}' allows — pick another component pack, or widen the style ` +
+          `pack's allowed components`,
+      ];
+    }
+    overlays.allowed_components = next;
+    return [];
+  }
+
+  // An empty list is "no pack at all" and is a mistake worth naming; the way to
+  // say "any pack" is to leave the field out.
+  if (allowedPacks.length > 0 && !allowedPacks.includes(pack)) {
+    return [
+      `style pack '${snapshot.style_pack}' allows ${allowedPacks.join(", ")}, but this channel's ` +
+        `component_pack is '${pack}' — install one of the packs the style allows, or add '${pack}' ` +
+        `to the style pack's allowed packs`,
+    ];
+  }
+
+  const next = loadMergedCatalog()
+    .items.filter((i) => i.entry.pack === pack)
+    .map((i) => i.entry.name);
+  if (next.length === 0) {
+    return [`component_pack '${pack}' has no components in the catalog`];
+  }
+  overlays.allowed_components = next;
+  return [];
+}
+
 export function applyLook(snapshot: Record<string, unknown>): string[] {
   const look = snapshot.look as ChannelConfig["look"] | undefined;
   const exclude = look?.exclude;
@@ -53,10 +121,12 @@ export function applyLook(snapshot: Record<string, unknown>): string[] {
     if (allowed.length === 0) {
       problems.push("look.exclude.transitions leaves no transition allowed — keep at least one");
     } else if (!allowed.includes(style.transitions.default)) {
-      problems.push(
-        `look.exclude.transitions removes '${style.transitions.default}', which is the style pack's ` +
-          "default transition — exclude a different one, or change the pack's default"
-      );
+      // Excluding the pack's default is a legitimate thing to want: "this
+      // channel never hard-cuts" is a look, not a mistake. The default moves to
+      // a survivor rather than the enqueue being refused — the compiler reads
+      // `default` for every unspecified transition, so leaving it pointing at an
+      // excluded kind would put back exactly what was excluded.
+      style.transitions.default = allowed[0];
     }
     style.transitions.allowed = allowed;
   }

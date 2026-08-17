@@ -248,8 +248,8 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <StatusBadge label={c.active ? "Active" : "Paused"} tone={c.active ? "success" : "neutral"} />
-                    <Link href={`/brands?channel=${c.id}`}>
-                      <Button size="sm" variant="ghost">Brand profile</Button>
+                    <Link href={`/channels?channel=${c.id}`}>
+                      <Button size="sm" variant="ghost">Configure</Button>
                     </Link>
                   </div>
                 ))}

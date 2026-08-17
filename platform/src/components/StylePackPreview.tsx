@@ -34,11 +34,11 @@ export function RhythmStrip({ pack, small = false }: { pack: StylePack; small?: 
   );
 }
 
-export function StylePackStats({ pack, catalogTotal }: { pack: StylePack; catalogTotal?: number }) {
+export function StylePackStats({ pack }: { pack: StylePack }) {
   const avg = pack.pacing.avg_hold_seconds;
   const perMinute = densityPerMinute(pack.overlays.density);
   const [lo, hi] = beatRange(avg, REFERENCE_S);
-  const allowed = pack.overlays.allowed_components;
+  const allowedPacks = pack.overlays.allowed_packs;
 
   return (
     <div className={s.stats}>
@@ -66,12 +66,12 @@ export function StylePackStats({ pack, catalogTotal }: { pack: StylePack; catalo
       <div className={s.stat}>
         <div className={s.statLabel}>MENU</div>
         <div className={s.statValue}>
-          {allowed ? allowed.length : (catalogTotal ?? "all")}
+          {allowedPacks ? allowedPacks.join(", ") : "all packs"}
         </div>
         <div className={s.statNote}>
-          {allowed
-            ? `of ${catalogTotal ?? "?"} catalog components allowed`
-            : "no restriction — every catalog component"}
+          {allowedPacks
+            ? "component packs a channel may install to use this style"
+            : "no restriction — any component pack"}
         </div>
       </div>
     </div>

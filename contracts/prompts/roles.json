@@ -125,7 +125,7 @@
         },
         "component_menu": {
           "required": true,
-          "source": "catalog, filtered by allowed_components"
+          "source": "catalog, filtered by the style pack's allowed_packs"
         },
         "video_id": {
           "required": true,

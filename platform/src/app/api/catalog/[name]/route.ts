@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { CatalogEntry } from "@lusora/contracts";
 import { handler, requireUser, requireRole, ApiError } from "@/lib/auth";
 import { findItem, readPack, templateProblems, writePack } from "@/lib/catalog";
-import { setComponentAllowance } from "@/lib/stylePacks";
 import { validateAgainst } from "@/lib/validate";
 
 type Ctx = { params: Promise<{ name: string }> };
@@ -60,7 +59,7 @@ export const DELETE = handler(async (_req: Request, ctx: Ctx) => {
 
   const file = readPack(item.entry.pack);
   writePack({ pack: item.entry.pack, components: file.components.filter((c) => c.name !== name) });
-  // a dangling allowance is harmless but confusing — drop it everywhere
-  const cleared = setComponentAllowance(name, []);
-  return NextResponse.json({ name, removed_from_style_packs: cleared });
+  // Nothing to clean up in the style packs: allowance is by PACK, and the pack
+  // this component belonged to still exists.
+  return NextResponse.json({ name });
 });

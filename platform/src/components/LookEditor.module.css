@@ -89,7 +89,19 @@
 .selectedFoot { margin-top: 14px; display: flex; align-items: center; gap: 10px; justify-content: space-between; }
 .fitRow { display: flex; gap: 6px; }
 
-/* Theme picker */
+/* Theme picker — a fixed-height scroller beside a live frame, so the list
+   cannot push the preview off screen however many themes are on disk. */
+.themeLayout { display: grid; grid-template-columns: minmax(240px, 1fr) 1.35fr; gap: 20px; align-items: start; }
+@media (max-width: 1000px) { .themeLayout { grid-template-columns: 1fr; } }
+
+.themeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 340px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
 .themeOption {
   display: flex;
   gap: 14px;
@@ -101,38 +113,103 @@
   border: 1px solid var(--border-subtle);
   background: var(--surface-field);
   font-weight: 400;
+  flex: none;
 }
 .themeOption.on { border-color: var(--accent-primary); background: rgba(59, 130, 246, 0.08); }
-.themePlate { width: 82px; height: 50px; flex: none; border-radius: 6px; }
+.themePlate {
+  width: 82px;
+  height: 50px;
+  flex: none;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 8px;
+  overflow: hidden;
+}
+.plateBar { display: block; height: 4px; border-radius: 2px; }
+.plateBar:first-of-type { width: 60%; }
+.plateBar:last-of-type { width: 85%; }
 .themeName { display: block; font-size: 13.5px; font-weight: 600; }
 .themeDesc { font-size: 12px; line-height: 1.5; color: var(--text-muted); margin-top: 3px; }
 
-/* Exclusions */
-.exHead { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
-.exTabs {
+/* A block, not a centring flexbox: ThemeFrame sizes itself from `aspect-ratio`
+   with no width of its own, so as a flex item it collapses to nothing. */
+.themePreview {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: var(--surface-field);
+}
+.themePreview > * { width: 100%; }
+
+/* A master switch the pack or theme has already answered. */
+.lockedRow { opacity: 0.6; }
+.lockTag {
+  margin-left: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--status-warning-bg);
+  color: var(--status-warning-fg);
+}
+
+/* The group menu: overlays / transitions / sfx / music, one at a time. */
+.groupTabs {
   display: flex;
   gap: 4px;
   background: var(--surface-table-head);
-  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: 3px;
+  margin: 22px 0 0;
+  overflow-x: auto;
 }
-.exTab {
+.groupTab {
   border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 12.5px;
+  border-radius: calc(var(--radius-md) - 3px);
+  padding: 8px 14px;
+  font-size: 13px;
   font-weight: 500;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   white-space: nowrap;
 }
-.exTab.on { background: var(--surface-secondary-btn); color: var(--text-primary); }
-.exTab .count { color: var(--status-danger-fg); margin-left: 5px; }
+.groupTab.on { background: var(--surface-secondary-btn); color: var(--text-primary); }
+.excount {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--status-danger-bg);
+  color: var(--status-danger-fg);
+}
 
-.exLayout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; align-items: start; }
-@media (max-width: 1000px) { .exLayout { grid-template-columns: 1fr; } }
+.groupHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+/* The component pack this channel has installed — a config field, not a view
+   filter, so it is a labelled control with its consequence spelled out. */
+.packPick {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+@media (max-width: 760px) { .packPick { grid-template-columns: 1fr; } }
 
 .search {
   display: flex;
@@ -156,13 +233,21 @@
 }
 .searchInput:focus { border: none; box-shadow: none; }
 
-.items { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
-.item {
-  display: flex;
-  align-items: center;
+/* The overlay grid: a real rendered frame per card, in a fixed-height
+   scroller so a 26-component pack does not run the page off the screen. */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 10px;
-  padding: 10px 12px;
-  width: 100%;
+  max-height: 460px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.overlayCard {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
   text-align: left;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
@@ -170,54 +255,98 @@
   font-weight: 400;
   cursor: pointer;
 }
-.item:hover { border-color: var(--border-default); }
-.item.off { border-color: var(--red-500); }
-.itemMain { flex: 1; min-width: 0; }
-.itemName {
+.overlayCard:hover { border-color: var(--border-default); }
+.overlayCard.off { border-color: var(--red-500); }
+.overlayCard.off .thumb { opacity: 0.35; filter: grayscale(1); }
+.overlayCard.blocked {
+  cursor: not-allowed;
+  border-style: dashed;
+  border-color: var(--border-subtle);
+  background: var(--surface-table-head);
+}
+.overlayCard.blocked .thumb { opacity: 0.28; filter: grayscale(1); }
+
+.thumb {
   display: block;
-  font-size: 13px;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: #000;
+  overflow: hidden;
+}
+.thumbEmpty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+.overlayFoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 9px 11px;
+}
+.overlayName {
+  font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.itemNote { display: block; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
 .state {
   flex: none;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: var(--status-neutral-bg);
-  color: var(--text-muted);
 }
-.item.off .state { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+.stateOn { background: var(--status-neutral-bg); color: var(--text-muted); }
+.stateOff { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+.stateBlocked { background: var(--status-warning-bg); color: var(--status-warning-fg); }
+.blockNote {
+  display: block;
+  padding: 0 11px 9px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-faint);
+}
 
-.excluded {
-  background: var(--surface-field);
-  border: 1px solid var(--border-field);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  min-height: 160px;
+/* Transitions / SFX cues / moods — each with its example above the name. */
+.exampleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
 }
-.excludedHead {
+.exampleCard {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-field);
+  overflow: hidden;
 }
-.excludedTitle { font-size: 13px; font-weight: 600; }
-.excludedCount { font-size: 11.5px; color: var(--text-faint); }
-.chips { display: flex; flex-wrap: wrap; gap: 7px; }
-.chip {
-  display: inline-flex;
+.exampleCard.off { border-color: var(--red-500); }
+.exampleCard.blocked { border-style: dashed; background: var(--surface-table-head); }
+.exampleCard.blocked .exampleTop { opacity: 0.4; }
+.exampleTop { padding: 10px 10px 0; }
+.exampleFoot {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 9px;
-  border-radius: var(--radius-pill);
-  background: var(--status-danger-bg);
-  color: var(--status-danger-fg);
-  font-size: 12px;
+  gap: 8px;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 11px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
 }
-.chipX { background: none; border: none; padding: 0; color: inherit; cursor: pointer; opacity: 0.75; font-size: 13px; }
+.exampleFoot:disabled { cursor: not-allowed; color: var(--text-faint); }
+.exampleName { display: inline-flex; align-items: baseline; gap: 7px; min-width: 0; }
+.exampleCard.off .exampleName { text-decoration: line-through; }
+.pillNote { font-size: 10.5px; color: var(--text-faint); }
+
 .emptyNote { font-size: 12.5px; color: var(--text-faint); }
-.warn { margin-top: 14px; }

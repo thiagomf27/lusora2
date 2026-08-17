@@ -25,6 +25,19 @@ const FILLER = [
   "Kalach",
 ];
 
+/**
+ * How deep a prop spec may nest before synthesis gives up.
+ *
+ * The deepest shape the catalog declares is array -> object -> array -> object
+ * (`LineChart.series` and `ArchiveLineChart.series`: a series holds points, a
+ * point holds x and y), which bottoms out at depth 4. The guard used to stop at
+ * 2, so every point came back `{}` and the chart scaled itself off `undefined`
+ * — React then warned about NaN on y/y1/y2/cy and the preview drew a flat line.
+ * LineChart hid it behind a hand-written sample; ArchiveLineChart, added as a
+ * data pack, had nothing to hide behind.
+ */
+const MAX_SPEC_DEPTH = 4;
+
 function synthesize(key: string, spec: CatalogPropSpec, depth = 0): unknown {
   if (spec.default !== undefined) return spec.default;
   if (spec.enum?.length) return spec.enum[0];
@@ -49,7 +62,7 @@ function synthesize(key: string, spec: CatalogPropSpec, depth = 0): unknown {
     case "object": {
       const out: Record<string, unknown> = {};
       for (const [k, s] of Object.entries(spec.properties ?? {})) {
-        if (depth > 2) break;
+        if (depth > MAX_SPEC_DEPTH) break;
         out[k] = synthesize(k, s, depth + 1);
       }
       return out;
@@ -80,4 +93,29 @@ export function sampleProps(entry: CatalogEntry): Record<string, unknown> {
     if (spec.required || spec.default !== undefined) out[key] = synthesize(key, spec);
   }
   return out;
+}
+
+/**
+ * Props to draw a catalog ITEM with, template-backed entries included.
+ *
+ * A template-backed entry has no hand-written sample — it is data, not code —
+ * so the template's own sample shows it at its best, narrowed to the props the
+ * entry actually declares. Shared by the Overlays screen and the channel's
+ * overlay grid so a component cannot look like two different things depending
+ * on which screen you opened.
+ */
+export function previewPropsFor(
+  item: { entry: CatalogEntry; renderedBy?: "component" | "template" | null },
+  templates: { kind: string; sample: Record<string, unknown> }[] = []
+): Record<string, unknown> {
+  if (item.renderedBy === "template") {
+    const def = templates.find((x) => x.kind === item.entry.template);
+    if (def) {
+      const declared = Object.keys(item.entry.props ?? {});
+      return Object.fromEntries(
+        Object.entries(def.sample).filter(([k]) => declared.length === 0 || declared.includes(k))
+      );
+    }
+  }
+  return sampleProps(item.entry);
 }

@@ -11,22 +11,8 @@
   },
   "overlays": {
     "density": "normal",
-    "allowed_components": [
-      "AnimatedCounter",
-      "BarChart",
-      "BulletList",
-      "CalloutArrow",
-      "ChapterCard",
-      "ComparisonSplit",
-      "DefinitionCard",
-      "FactCard",
-      "FactSheet",
-      "KineticTitle",
-      "LineChart",
-      "NamePlate",
-      "StatTag",
-      "StepFlow",
-      "Timeline"
+    "allowed_packs": [
+      "core"
     ]
   },
   "transitions": {

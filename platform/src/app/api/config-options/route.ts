@@ -9,6 +9,7 @@ import { PROMPT_ROLES, listPrompts } from "@/lib/prompts";
 import { listPipelineSummaries } from "@/lib/pipelines";
 import { listSoundPacks } from "@/lib/soundPacks";
 import { stylePacksDir } from "@/lib/stylePacks";
+import { loadVideoTypeDefaults } from "@/lib/videoTypeDefaults";
 
 /** Enumerable channel-config options sourced from the contracts data files:
  *  themes and style packs are one .json per name; component packs come from
@@ -72,6 +73,9 @@ export const GET = handler(async () => {
     pipelines: listPipelineSummaries(),
     soundPacks: listSoundPacks(),
     stylePacks: stylePackOptions(),
+    // Which pack each video type starts from — the simplified Channel screen
+    // and the quote statement both re-point the pack when the type changes.
+    videoTypeDefaults: loadVideoTypeDefaults(),
     componentPacks,
     prompts,
   });

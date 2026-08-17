@@ -126,6 +126,32 @@ if (existsSync(soundPacksRoot)) {
   }
 }
 
+// 3quater. the video-type -> style pack defaults name packs that EXIST, and
+//          packs that actually implement the type they are the default for. A
+//          default pointing at a deleted pack would otherwise surface as a
+//          channel silently keeping its old pack when someone changes the type.
+const vtDefaultsPath = join(root, "contracts/video-type-defaults.json");
+if (existsSync(vtDefaultsPath)) {
+  const doc = JSON.parse(readFileSync(vtDefaultsPath, "utf8"));
+  if (!validators.video_type_defaults(doc)) {
+    fail(`video-type-defaults.json: ${ajv.errorsText(validators.video_type_defaults.errors)}`);
+  } else {
+    for (const [type, packName] of Object.entries(doc.defaults ?? {})) {
+      const packPath = join(root, "contracts/style-packs", `${packName}.json`);
+      if (!existsSync(packPath)) {
+        fail(`video-type-defaults.json: ${type} points at missing style-packs/${packName}.json`);
+        continue;
+      }
+      const pack = JSON.parse(readFileSync(packPath, "utf8"));
+      if (pack.video_type && pack.video_type !== type) {
+        fail(`video-type-defaults.json: ${type} points at ${packName}, which declares video_type ${pack.video_type}`);
+      } else {
+        console.log(`✓ default for ${type} is ${packName}`);
+      }
+    }
+  }
+}
+
 // 3ter. themes and style packs are schema-valid, and every cue or bed a theme
 //       NAMES exists in the pack it points at. Without this a typo surfaces as
 //       a compile-stage failure on a real video; here it is a red CI line.

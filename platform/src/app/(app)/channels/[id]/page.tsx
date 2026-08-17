@@ -1,6 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { ChannelConfig } from "@lusora/contracts";
 import ChannelConfigForm from "@/components/ChannelConfigForm";
@@ -76,9 +76,16 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function ChannelDetailPage() {
+const TABS: Tab[] = ["videos", "settings", "team"];
+
+function ChannelDetailScreen() {
   const { id } = useParams<{ id: string }>();
-  const [tab, setTab] = useState<Tab>("videos");
+  // `?tab=` so the Channel screen's "Advanced config" can land on the config
+  // form. Without it the button opened this page on the video list, which is
+  // empty for most channels and reads as a broken button.
+  const search = useSearchParams();
+  const requested = search.get("tab") as Tab | null;
+  const [tab, setTab] = useState<Tab>(requested && TABS.includes(requested) ? requested : "videos");
   const [channel, setChannel] = useState<Channel | null>(null);
   const [videos, setVideos] = useState<VideoRow[]>([]);
   const [costMonth, setCostMonth] = useState(0);
@@ -333,5 +340,14 @@ export default function ChannelDetailPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/** useSearchParams needs a boundary or Next refuses to prerender the route. */
+export default function ChannelDetailPage() {
+  return (
+    <Suspense fallback={<div className="page">Loading…</div>}>
+      <ChannelDetailScreen />
+    </Suspense>
   );
 }

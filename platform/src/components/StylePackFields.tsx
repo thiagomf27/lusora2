@@ -92,8 +92,8 @@ export default function StylePackFields({
 }) {
   const density: OverlayDensity = value.overlays.density;
   const custom = typeof density === "object";
-  const allowed = value.overlays.allowed_components;
-  const restricted = allowed !== undefined;
+  const allowedPacks = value.overlays.allowed_packs;
+  const restricted = allowedPacks !== undefined;
 
   const setPacing = (key: keyof StylePack["pacing"], raw: string) =>
     onChange({ ...value, pacing: { ...value.pacing, [key]: numOr(raw, 0) } });
@@ -137,23 +137,26 @@ export default function StylePackFields({
 
   function setRestricted(on: boolean) {
     const overlays = { ...value.overlays };
-    if (on) overlays.allowed_components = catalog.map((c) => c.name).sort();
-    else delete overlays.allowed_components;
+    if (on) overlays.allowed_packs = packs.slice();
+    else delete overlays.allowed_packs;
     onChange({ ...value, overlays });
   }
 
-  function toggleComponent(name: string) {
-    if (!allowed) return;
-    const next = allowed.includes(name)
-      ? allowed.filter((c) => c !== name)
-      : [...allowed, name].sort();
-    onChange({ ...value, overlays: { ...value.overlays, allowed_components: next } });
+  function togglePack(name: string) {
+    if (!allowedPacks) return;
+    const next = allowedPacks.includes(name)
+      ? allowedPacks.filter((c) => c !== name)
+      : [...allowedPacks, name].sort();
+    // An empty list would allow nothing at all; "allow every pack" is the
+    // absent key, which is what the checkbox above sets.
+    if (next.length === 0) return;
+    onChange({ ...value, overlays: { ...value.overlays, allowed_packs: next } });
   }
 
   const packs = [...new Set(catalog.map((c) => c.pack))].sort((a, b) =>
     a === "core" ? -1 : b === "core" ? 1 : a.localeCompare(b)
   );
-  const stale = (allowed ?? []).filter((c) => !catalog.some((x) => x.name === c));
+  const stale = (allowedPacks ?? []).filter((p) => !packs.includes(p));
 
   return (
     <div className={s.form}>
@@ -266,43 +269,42 @@ export default function StylePackFields({
       <div className={s.hint}>The per-video more/fewer animations dial; validate caps the plan at it.</div>
 
       <div className={s.field}>
-        <span className={s.fieldLabel}>allowed_components</span>
+        <span className={s.fieldLabel}>allowed_packs</span>
+        <div className={s.hint}>
+          Which component packs this style draws from. A channel installs exactly one pack, so this
+          is what decides whether a style and a channel can work together at all. Per-component
+          trimming belongs to the channel, on its Visual tab.
+        </div>
         <div className={s.checks}>
           <label className={`${s.check}${!restricted ? " " + s.checkOn : ""}`}>
             <input type="checkbox" checked={!restricted} onChange={(e) => setRestricted(!e.target.checked)} />
-            allow every catalog component
+            allow every component pack
           </label>
         </div>
         {restricted && (
           <>
-            {packs.map((pack) => (
-              <div key={pack} className={s.field}>
-                <span className={s.hint}>{pack}</span>
-                <div className={s.checks}>
-                  {catalog
-                    .filter((c) => c.pack === pack)
-                    .map((c) => {
-                      const on = allowed!.includes(c.name);
-                      return (
-                        <label key={c.name} className={`${s.check}${on ? " " + s.checkOn : ""}`}>
-                          <input type="checkbox" checked={on} onChange={() => toggleComponent(c.name)} />
-                          {c.name}
-                        </label>
-                      );
-                    })}
-                </div>
-              </div>
-            ))}
+            <div className={s.checks}>
+              {packs.map((pack) => {
+                const on = allowedPacks!.includes(pack);
+                const count = catalog.filter((c) => c.pack === pack).length;
+                return (
+                  <label key={pack} className={`${s.check}${on ? " " + s.checkOn : ""}`}>
+                    <input type="checkbox" checked={on} onChange={() => togglePack(pack)} />
+                    {pack} ({count})
+                  </label>
+                );
+              })}
+            </div>
             {stale.length > 0 && (
               <>
                 <div className={s.error}>
-                  not in the catalog any more — the planner can never pick these
+                  no component pack on disk any more — a channel can never install these
                 </div>
                 <div className={s.checks}>
-                  {stale.map((c) => (
-                    <label key={c} className={s.check}>
-                      <input type="checkbox" checked onChange={() => toggleComponent(c)} />
-                      {c}
+                  {stale.map((p) => (
+                    <label key={p} className={s.check}>
+                      <input type="checkbox" checked onChange={() => togglePack(p)} />
+                      {p}
                     </label>
                   ))}
                 </div>

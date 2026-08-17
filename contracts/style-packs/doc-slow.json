@@ -11,18 +11,9 @@
   },
   "overlays": {
     "density": "normal",
-    "allowed_components": [
-      "AnimatedCounter",
-      "ArchivalFrame",
-      "ChapterCard",
-      "ComparisonSplit",
-      "DateStamp",
-      "DocumentCard",
-      "FactCard",
-      "FramedExhibit",
-      "NamePlate",
-      "QuoteBlock",
-      "Timeline"
+    "allowed_packs": [
+      "archive",
+      "core"
     ]
   },
   "transitions": {

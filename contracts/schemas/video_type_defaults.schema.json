@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/video_type_defaults.schema.json",
+  "title": "VideoTypeDefaults",
+  "description": "Which style pack each video type starts from. A pack's own `video_type` is advisory and several packs may declare the same one, so the answer to 'what does doc mean' cannot live on the packs — it is a MAPPING, and a mapping belongs in one document where a type cannot have two answers. Read by the simplified Channel screen and the quote statement when the video type changes; the advanced channel form still points a channel at any pack it likes.",
+  "type": "object",
+  "required": ["defaults"],
+  "additionalProperties": false,
+  "properties": {
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "video type -> style pack name. A type with no entry falls back to the first pack declaring that type, in name order.",
+      "properties": {
+        "doc": { "type": "string", "minLength": 1 },
+        "explainer": { "type": "string", "minLength": 1 },
+        "breakdown": { "type": "string", "minLength": 1 },
+        "listicle": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

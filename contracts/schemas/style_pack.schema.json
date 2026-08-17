@@ -4,28 +4,61 @@
   "title": "StylePack",
   "description": "Behavior document, consumed by the PLANNER and the COMPILER. Pacing numbers are constraints, not advice.",
   "type": "object",
-  "required": ["name", "pacing", "overlays", "transitions"],
+  "required": [
+    "name",
+    "pacing",
+    "overlays",
+    "transitions"
+  ],
   "additionalProperties": false,
   "properties": {
-    "name": { "type": "string", "minLength": 1 },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
     "video_type": {
-      "enum": ["doc", "explainer", "breakdown", "listicle"],
+      "enum": [
+        "doc",
+        "explainer",
+        "breakdown",
+        "listicle"
+      ],
       "description": "the video-type preset this pack implements; a channel's video_type picks among packs. Same enum as channel_config.video_type"
     },
     "pacing": {
       "type": "object",
-      "required": ["avg_hold_seconds", "min_hold", "max_hold"],
+      "required": [
+        "avg_hold_seconds",
+        "min_hold",
+        "max_hold"
+      ],
       "additionalProperties": false,
       "properties": {
-        "avg_hold_seconds": { "type": "number", "exclusiveMinimum": 0 },
-        "min_hold": { "type": "number", "exclusiveMinimum": 0 },
-        "max_hold": { "type": "number", "exclusiveMinimum": 0 },
-        "arc": { "enum": ["three_act", "linear", "listicle"], "default": "linear" },
+        "avg_hold_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "min_hold": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_hold": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "arc": {
+          "enum": [
+            "three_act",
+            "linear",
+            "listicle"
+          ],
+          "default": "linear"
+        },
         "hold_floor_ratio": {
           "type": "number",
           "minimum": 0,
           "default": 0,
-          "description": "post-alignment per-beat FLOOR, as a multiple of min_hold. Narration beat durations are emergent from SRT alignment and never checked, so a beat can land at 0.8s and flash by; the compiler merges any visual slot below min_hold * this into its neighbour. 0 disables the pass — the schema default, so a video enqueued before this field existed re-runs byte-identically (Principle 7). The shipped packs set 1.0."
+          "description": "post-alignment per-beat FLOOR, as a multiple of min_hold. Narration beat durations are emergent from SRT alignment and never checked, so a beat can land at 0.8s and flash by; the compiler merges any visual slot below min_hold * this into its neighbour. 0 disables the pass \u2014 the schema default, so a video enqueued before this field existed re-runs byte-identically (Principle 7). The shipped packs set 1.0."
         },
         "hold_ceiling_ratio": {
           "type": "number",
@@ -37,31 +70,51 @@
     },
     "overlays": {
       "type": "object",
-      "required": ["density"],
+      "required": [
+        "density"
+      ],
       "additionalProperties": false,
       "properties": {
         "density": {
           "oneOf": [
-            { "enum": ["low", "normal", "high"] },
+            {
+              "enum": [
+                "low",
+                "normal",
+                "high"
+              ]
+            },
             {
               "type": "object",
-              "required": ["per_minute"],
+              "required": [
+                "per_minute"
+              ],
               "additionalProperties": false,
-              "properties": { "per_minute": { "type": "number", "minimum": 0 } }
+              "properties": {
+                "per_minute": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
             }
           ]
         },
-        "allowed_components": {
+        "allowed_packs": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "planner menu filter AND validate rule (belt and suspenders)"
+          "items": {
+            "type": "string"
+          },
+          "description": "component packs the planner may draw from \u2014 the menu filter AND the validate rule (belt and suspenders). Pack granularity, not per component: a channel installs exactly one component pack, so this says which packs a style suits. Omitted means every pack. Per-component trimming is the channel's job, via look.exclude.components."
         },
         "emphasis": {
           "type": "object",
           "additionalProperties": false,
-          "description": "D59 — a SECOND overlay class, keyed on where attention needs a lift rather than on a fact in the script. Off by default: `density` above is anchor-gated, so it tracks factual density, which is right for a documentary and limiting for a faster channel. The two classes are counted under separate budgets, so turning this on cannot dilute the first.",
+          "description": "D59 \u2014 a SECOND overlay class, keyed on where attention needs a lift rather than on a fact in the script. Off by default: `density` above is anchor-gated, so it tracks factual density, which is right for a documentary and limiting for a faster channel. The two classes are counted under separate budgets, so turning this on cannot dilute the first.",
           "properties": {
-            "enabled": { "type": "boolean", "default": false },
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
             "per_minute": {
               "type": "number",
               "minimum": 0,
@@ -74,19 +127,42 @@
     },
     "transitions": {
       "type": "object",
-      "required": ["allowed", "default"],
+      "required": [
+        "allowed",
+        "default"
+      ],
       "additionalProperties": false,
       "properties": {
         "allowed": {
           "type": "array",
           "minItems": 1,
-          "items": { "enum": ["cut", "crossfade", "fade", "fade_to_black"] }
+          "items": {
+            "enum": [
+              "cut",
+              "crossfade",
+              "fade",
+              "fade_to_black"
+            ]
+          }
         },
-        "default": { "enum": ["cut", "crossfade", "fade", "fade_to_black"] }
+        "default": {
+          "enum": [
+            "cut",
+            "crossfade",
+            "fade",
+            "fade_to_black"
+          ]
+        }
       }
     },
-    "script_persona": { "type": "string", "description": "persona/style text for the script agent" },
-    "visual_language": { "type": "string", "description": "visual guidance text for the beat planner" },
+    "script_persona": {
+      "type": "string",
+      "description": "persona/style text for the script agent"
+    },
+    "visual_language": {
+      "type": "string",
+      "description": "visual guidance text for the beat planner"
+    },
     "script": {
       "type": "object",
       "additionalProperties": false,
@@ -107,14 +183,14 @@
         "prompt": {
           "type": "string",
           "pattern": "^[a-z0-9][a-z0-9-]*$",
-          "description": "prompt pack name carrying this pack's voice — layer 3 of the D44 resolution order"
+          "description": "prompt pack name carrying this pack's voice \u2014 layer 3 of the D44 resolution order"
         }
       }
     },
     "fallback": {
       "type": "object",
       "additionalProperties": false,
-      "description": "D55 — what to put on screen when the sources have nothing good enough (source_policy.visual.min_score_floor). A card that names the subject is honest; a clip that is nearly unrelated is a lie the viewer notices and cannot name. Absent = keep the weak asset, since a beat with nothing on it is worse than a beat with the wrong thing on it.",
+      "description": "D55 \u2014 what to put on screen when the sources have nothing good enough (source_policy.visual.min_score_floor). A card that names the subject is honest; a clip that is nearly unrelated is a lie the viewer notices and cannot name. Absent = keep the weak asset, since a beat with nothing on it is worse than a beat with the wrong thing on it.",
       "properties": {
         "component": {
           "type": "string",
@@ -130,13 +206,23 @@
     "sfx": {
       "type": "object",
       "additionalProperties": false,
-      "description": "D48 — how OFTEN sound effects fire. Numbers, enforced by the compiler and re-checked by the validator, exactly like overlays.density (D9). The theme picks which sound; this picks how many.",
+      "description": "D48 \u2014 how OFTEN sound effects fire. Numbers, enforced by the compiler and re-checked by the validator, exactly like overlays.density (D9). The theme picks which sound; this picks how many.",
       "properties": {
-        "enabled": { "type": "boolean", "default": true },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
         "cues": {
           "type": "array",
-          "items": { "enum": ["entrance", "transition"] },
-          "default": ["entrance"],
+          "items": {
+            "enum": [
+              "entrance",
+              "transition"
+            ]
+          },
+          "default": [
+            "entrance"
+          ],
           "description": "which events may fire a cue at all. Transitions are opt-in on purpose."
         },
         "max_per_minute": {
@@ -156,9 +242,12 @@
     "music": {
       "type": "object",
       "additionalProperties": false,
-      "description": "D48 — how background music is SHAPED across the video. Which bed comes from the theme's mood_beds; the mood itself comes from the beat sheet.",
+      "description": "D48 \u2014 how background music is SHAPED across the video. Which bed comes from the theme's mood_beds; the mood itself comes from the beat sheet.",
       "properties": {
-        "enabled": { "type": "boolean", "default": true },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
         "min_span_s": {
           "type": "number",
           "exclusiveMinimum": 0,

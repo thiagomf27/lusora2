@@ -86,7 +86,7 @@ quietly rather than loudly:
    renders **nothing** (Composition.tsx returns null).
 3. `CORE_COMPONENTS` in `engine/src/catalog/registry.ts`, then
    `pnpm --filter @lusora/engine run catalog`.
-4. `allowed_components` in the style packs that should offer it — the
+4. `allowed_packs` in the style packs that should offer its PACK — the
    validator rejects a component the pack does not list.
 
 `region` (D56) is how an entry says which vertical band it draws in, as
@@ -161,7 +161,7 @@ own geometry or data drawing (maps, charts, mark-ups) still wants steps 1–2.
 ## Guarantees
 
 Validator checks every plan overlay against the catalog (existence +
-props schema + density + style pack's allowed_components). Props the
+props schema + density + the style pack's resolved component menu). Props the
 catalog does not declare are rejected as unknown. A hallucinated
 effect cannot reach a renderer — worst case it costs one repair-loop
 attempt.

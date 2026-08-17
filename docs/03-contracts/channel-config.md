@@ -26,7 +26,7 @@ look:                              # the SUBTRACTIVE half of the look
     image: parchment.png           # plate behind anything not filling the frame
     fit: cover
   exclude:                         # names removed from what the pack/theme offer
-    components: [Timeline]         # <- style_pack.overlays.allowed_components
+    components: [Timeline]         # <- subtracted from the resolved menu
     transitions: [fade_to_black]   # <- style_pack.transitions.allowed
     sfx_cues: [transition]         # <- style_pack.sfx.cues
     moods: [playful]               # <- theme.sound.mood_beds

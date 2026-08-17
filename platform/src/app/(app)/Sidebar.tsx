@@ -4,7 +4,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import s from "./shell.module.css";
 
-/** The five destinations the design draws, with its icons. */
+/** The destinations the design draws, with its icons. Brands is not among
+ *  them any more: a brand profile is the channel's config document, so it is a
+ *  tab on Channels rather than a route of its own. */
 const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   {
     href: "/",
@@ -23,15 +25,6 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="4.5" width="12" height="8.5" rx="2" />
         <path d="M5.5 4.5L8 1.8l2.5 2.7" />
-      </svg>
-    ),
-  },
-  {
-    href: "/brands",
-    label: "Brands",
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 2l5 2.5v4c0 3-2.2 4.7-5 5.5-2.8-.8-5-2.5-5-5.5v-4z" />
       </svg>
     ),
   },

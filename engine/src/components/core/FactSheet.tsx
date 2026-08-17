@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  borderSides,
   PANEL_ENTRANCES,
   easingCurve,
   emphasisColor,
@@ -68,9 +69,13 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
         style={{
           width: width * 0.42,
           background: surface.background,
-          border: `1px solid ${theme.colors.neutral}44`,
-          borderTop: surface.accentRule === "top" ? `${rule}px solid ${accent}` : undefined,
-          borderLeft: surface.accentRule === "left" ? `${rule}px solid ${accent}` : undefined,
+          ...borderSides({
+            width: 1,
+            color: `${theme.colors.neutral}44`,
+            side: surface.accentRule,
+            ruleWidth: rule,
+            ruleColor: accent,
+          }),
           borderRadius: surface.borderRadius,
           padding: `${height * 0.032}px ${width * 0.026}px`,
           // This panel's own wipe opens DOWNWARD (the hook's is horizontal) —

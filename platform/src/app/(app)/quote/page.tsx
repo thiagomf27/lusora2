@@ -20,6 +20,12 @@ import type { PipelineSummary } from "@/lib/pipelines";
 import { Dropdown, TextInput, Toggle } from "@/components/ds";
 import SourcePolicyEditor from "@/components/SourcePolicyEditor";
 import LookEditor from "@/components/LookEditor";
+import {
+  alternativesFor,
+  stylePackForVideoType,
+  type StylePackChoice,
+  type VideoTypeDefaults,
+} from "@/lib/videoType";
 import scr from "../screen.module.css";
 import s from "./quote.module.css";
 
@@ -67,11 +73,12 @@ function QuoteScreen() {
   const [draft, setDraft] = useState<ChannelConfig | null>(null);
   const [options, setOptions] = useState<{
     themes: string[];
-    stylePacks: { name: string }[];
+    stylePacks: StylePackChoice[];
     componentPacks: string[];
     soundPacks: string[];
     pipelines: PipelineSummary[];
-  }>({ themes: [], stylePacks: [], componentPacks: [], soundPacks: [], pipelines: [] });
+    videoTypeDefaults: VideoTypeDefaults;
+  }>({ themes: [], stylePacks: [], componentPacks: [], soundPacks: [], pipelines: [], videoTypeDefaults: {} });
   const [spend, setSpend] = useState<{ month: string; usd: number; events: number }[]>([]);
   const [files, setFiles] = useState<Record<string, File>>({});
   const [busy, setBusy] = useState(false);
@@ -103,6 +110,7 @@ function QuoteScreen() {
         componentPacks: o.componentPacks ?? [],
         soundPacks: o.soundPacks ?? [],
         pipelines: o.pipelines ?? [],
+        videoTypeDefaults: o.videoTypeDefaults ?? {},
       }))
       .catch(() => undefined);
   }, []);
@@ -133,6 +141,14 @@ function QuoteScreen() {
     );
     return family.length === 1 ? family[0].gates : [];
   }, [draft, options.pipelines]);
+
+  // Which packs implement the chosen video type. The type re-points the pack
+  // (same rule as the Channel screen); unlike a channel, a video has no
+  // advanced form, so the picker stays and simply says what it follows.
+  const packAlternatives = useMemo(
+    () => (draft ? alternativesFor(draft.video_type, options.stylePacks) : []),
+    [draft, options.stylePacks]
+  );
 
   const overrides = useMemo(
     () => (base && draft ? (diff(base, draft) as Record<string, unknown> | undefined) : undefined),
@@ -248,11 +264,19 @@ function QuoteScreen() {
                   <TextInput label="Language" value={draft.language}
                              onChange={(e) => { const v = e.currentTarget.value; patch((d) => { d.language = v; }); }} />
                   <Dropdown label="Video type" options={VIDEO_TYPES} value={draft.video_type}
-                            onChange={(v) => patch((d) => { d.video_type = v as ChannelConfig["video_type"]; })} />
+                            onChange={(v) => patch((d) => {
+                              d.video_type = v as ChannelConfig["video_type"];
+                              d.style_pack = stylePackForVideoType(v, d.style_pack, options.stylePacks, options.videoTypeDefaults);
+                            })} />
                 </div>
 
                 <div className={scr.grid2}>
-                  <Dropdown label="Style pack" options={options.stylePacks.map((p) => p.name)} value={draft.style_pack}
+                  <Dropdown label={`Style pack${packAlternatives.length > 1 ? ` — ${packAlternatives.length} fit ${draft.video_type}` : ""}`}
+                            options={options.stylePacks.map((p) => ({
+                              value: p.name,
+                              label: p.video_type && p.video_type !== draft.video_type ? `${p.name} · ${p.video_type}` : p.name,
+                            }))}
+                            value={draft.style_pack}
                             onChange={(v) => patch((d) => { d.style_pack = v; })} />
                   <Dropdown label="Pipeline"
                             options={[
@@ -439,6 +463,7 @@ function QuoteScreen() {
               cfg={draft}
               themes={options.themes}
               onChange={setDraft}
+              scope="video"
             />
 
             <div className={scr.card}>

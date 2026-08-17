@@ -29,8 +29,7 @@ cells the design draws but nothing backs are dropped, not faked.
 |----------------|------------------------|-------|
 | Home           | `/`                    | Composer; creates nothing, carries channel/pipeline/title to the quote |
 | Quote          | `/quote`               | 4 tabs over a working copy of the channel config; approving POSTs the draft + enqueues, and reports pre-flight problems inline |
-| Channels       | `/channels`            | Name, language, video type, style pack, content rules, voice |
-| Brands         | `/brands`              | **A brand profile is the channel's config document** — there is no brands table. Profile / Visual / Sourcing |
+| Channels       | `/channels`            | Profile / Visual / Sourcing over one channel. **Absorbed the Brands screen** — a brand profile is the channel's config document, there is no brands table, so `/brands` is now a redirect here |
 | Videos         | `/videos`              | Card grid, real frame thumbnails |
 | Video detail   | `/videos/[id]`         | Player, production config, real event log, asset provenance, file exports, status transitions, notes |
 | Beat review    | `/videos/[id]/review`  | Real stages from `video_events`; progress counts beats with a resolved asset (a beat sheet has no approval field); per-beat re-roll and edit |
@@ -44,8 +43,10 @@ that predate the skin inherit it untouched. Shared primitives are in
 
 ### `look` — the subtractive half of the look
 
-The Look tab (quote statement) and the Visual tab (brand profile) share one
-editor, over a new `look` block on the channel config:
+The Look tab (quote statement) and the Visual tab (Channels) share one editor —
+`components/LookEditor.tsx`, whose `sections` prop is what lets one component
+serve both without the cards being written twice — over a `look` block on the
+channel config:
 
 - `look.background.image` — the plate drawn behind an overlay that does not
   fill the frame, the D55 fallback card above all. Images live in a per-channel
@@ -55,10 +56,120 @@ editor, over a new `look` block on the channel config:
   that already shipped. `to_title_card` in the worker emits an `image` item
   pointing at it instead of a `color` fill; both renderers then need no change.
 - `look.exclude.{components,transitions,sfx_cues,moods}` — the theme and style
-  pack say what is AVAILABLE; this says what a brand (or one video) leaves out.
+  pack say what is AVAILABLE; this says what a channel (or one video) leaves out.
   Applied to the embedded `style_pack_doc` / `theme_doc` in `lib/look.ts` at
   enqueue, so the planner, compiler, validator and both renderers all read an
   already-narrowed pack and none of them knows the block exists.
+
+The editor draws THREE states, not two, because "not on the list" has two very
+different causes. *In use* and *excluded* are this channel's own call and are a
+click; *blocked* is the style pack's or the theme's, is read-only here, and
+names the document responsible. `look-options` therefore returns the whole
+universe with a `blockedBy` per entry — the universes themselves read out of
+`channel_config.schema.json`, so a new transition kind or mood cannot land in
+the contract and stay invisible on the screen. The sound master switches lock
+the same way: `sound_enabled` in the compiler ANDs the channel's switch with the
+pack's, so a pack that ships silent (doc-slow) makes the channel's SFX toggle
+inert, and the screen now says so instead of showing it live.
+
+The four groups — overlays, transitions, SFX cues, music beds — are one menu
+showing one group at a time. Stacked, the three short lists sat below a
+scrolling grid of forty-three stills and were never on screen with the thing
+they belong to. Each carries its own example: a transition animates the join it
+draws (mirroring `renderers/remotion/transitions.tsx`, which is also where you
+can read that `crossfade` and `fade` are the SAME dissolve today), and an SFX
+cue or music bed plays the actual file from the channel's resolved sound pack.
+
+**Overlay allowance is by PACK.** A style pack declares
+`overlays.allowed_packs` (`["archive", "core"]`) instead of enumerating
+component names. "This style suits the archive pack" is a statement about a body
+of work that does not go stale when a component is added to that pack — the
+enumerated list did, silently, every time. The six shipped packs were converted
+to the packs their components already came from.
+
+The concrete menu is RESOLVED at enqueue: `applyComponentPack` crosses
+`allowed_packs` with the channel's one `component_pack` and writes the resulting
+`allowed_components` array into the embedded `style_pack_doc`. So the planner,
+compiler, validator and both renderers are UNCHANGED — they go on reading the
+same field they always read, and a video snapshotted before this carries an
+authored `allowed_components` with no `allowed_packs`, which the resolver
+replays verbatim (Principle 7). Per-component taste did not disappear; it moved
+to `look.exclude.components`, where the channel or a single video expresses it.
+
+The Overlays screen's "offered in style packs" toggles now move a component's
+whole pack, and say so. `setComponentAllowance` became `setPackAllowance`, and
+deleting a component no longer touches any style pack — only deleting the pack
+does, via `removePackEverywhere`, which refuses to empty a style pack's list
+(that would silence it entirely) and reports the orphans instead.
+
+**`component_pack` now does something.** It has been in the channel config and
+typed in `contracts/src/types.ts` since the beginning with no consumer at all:
+the merged catalog handed every pack to every channel, so a channel set to
+"core only" could still be planned an `Archive*` overlay. `applyComponentPack`
+in `lib/look.ts` resolves the menu at enqueue — the same mechanism
+and the same moment as `look.exclude`, so no agent, compiler or renderer learns
+a new field. A channel draws from **exactly one** pack, `core`
+included: choosing `archive` means archive components and nothing else, and an
+unset field resolves to `core`, which is what every channel had before this was
+wired. It is a dropdown on the Overlays group, and the grid lists ONLY that
+pack's components — the other packs' are not this channel's to consider, and
+drawn blocked they were thirty-two cards of noise around the eleven that
+mattered. A card still blocked in that grid is one the style pack declines,
+which is worth seeing; the API keeps reporting both reasons, and the
+component-pack one comes first because a style pack declining a component is an
+editorial choice while the component not being installed is a fact.
+
+One pack rather than core-plus-one has a sharp edge worth knowing: a component
+pack sharing no component with the style pack's allow-list leaves nothing to
+draw. `doc-slow` allows only core components, so pointing a `doc-slow` channel
+at `archive` is exactly that case. It is refused at enqueue with the reason, and
+the Visual tab shows the same warning while you are editing, so it should never
+reach the queue.
+
+**Excluding the style pack's default transition is allowed.** It used to be
+refused at enqueue; "this channel never hard-cuts" is a look, not a mistake. The
+default moves to a surviving allowed kind instead, because the compiler reads
+`transitions.default` for everything the planner leaves unspecified and leaving
+it pointing at an excluded kind would put back exactly what was excluded.
+
+Overlays are drawn as cards carrying a real rendered still — `@remotion/player`'s
+`Thumbnail` over the same `OverlaySolo` composition the Overlays screen
+animates, themed by the channel's own theme. A still rather than a `<Player>`
+per card: forty-three players on one screen is forty-three rAF loops.
+
+### What the Channel screen leaves to the advanced form
+
+`/channels` lands on a TABLE of channels; a row opens that channel's Profile /
+Visual / Sourcing tabs, and "← All channels" goes back. `?channel=<id>` opens
+straight into one, which is what the links from Home and Settings use.
+
+It carries the decisions a human makes about a channel — name, language, voice,
+production style, video type, and the whole Visual and Sourcing tabs.
+`/channels/[id]` keeps everything else: packs, gains, budgets, prompts,
+retention, QA, content rules. That page now reads `?tab=`, because "Advanced
+config" used to land on its Videos tab — empty for most channels, which read as
+a dead button — and now lands on `?tab=settings`.
+
+The style pack is the one field that moved rather than split. It FOLLOWS the
+video type on the simplified screen, and which pack a type means is a real
+decision the contract now records: **`contracts/video-type-defaults.json`**, one
+entry per type, edited on the Style packs screen (`PUT /api/style-packs/defaults`).
+
+It could not live on the packs. A pack's `video_type` is advisory and several
+packs may declare the same one — two `doc` packs and two `breakdown` packs ship
+today — so "which doc pack" is a question about the SET, not about any member;
+a flag on the packs lets two of them claim it, an entry here cannot. Writes are
+checked the way CI checks the file: the pack must exist and must implement the
+type it is being made the default for, because a default pointing at a
+`listicle` pack is not a preference, it is a channel that changes shape the next
+time someone touches its video type.
+
+`lib/videoType.ts` holds the resolution order for both the Channel screen and
+the quote statement: the configured default, else a pack that already implements
+the type (never move a channel off a deliberate choice), else the first match in
+name order, else leave it alone. The screen names the pack it landed on and
+links to both places it can be changed.
+
 
 Emptying a list the pipeline needs — every transition, every component, or the
 style pack's own default transition — is refused at enqueue with an actionable
@@ -223,7 +334,7 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   DELETE refuses while a channel references the pack. A whole-document
   PUT reserializes the file, so a pack saved from the screen is
   normalized once (`4.0` → `4`) — the Overlays screen's allowance toggle
-  still splices only `allowed_components`, so it never carries that
+  still splices only `allowed_packs`, so it never carries that
   diff noise.
 - **Theme `surface` + `motion` tokens (D46, M11).** `theme.schema.json`
   gained six optional enums: `surface.{radius,fill,accent_rule}` and
@@ -279,7 +390,7 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   writes the pack files: `GET|POST /api/catalog`,
   `GET|PUT|DELETE /api/catalog/{name}` (data packs only — core is
   generated), `PUT /api/catalog/{name}/style-packs` for
-  `overlays.allowed_components`, and `GET|POST /api/catalog/packs` +
+  `overlays.allowed_packs`, and `GET|POST /api/catalog/packs` +
   `GET|PUT|DELETE /api/catalog/packs/{pack}` for whole-pack
   import/export/replace/delete (import is all-or-nothing). Style-pack
   writes splice only that array so hand-formatted contract files are not
@@ -289,7 +400,7 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   is a `run_forever` poller, so the old `lru_cache` meant a component added
   in the UI stayed invisible until the process restarted.
 - `channel_config.component_pack` is still stored-but-unread: the planner
-  menu and the validator gate on the style pack's `allowed_components`
+  menu and the validator gate on the style pack's resolved component menu
   only, so a pack name is organisational today.
 - `engine/src/catalog/sample-props.json` holds the representative props per
   component, shared by `engine/preview-all.mjs` and the Overlays screen's

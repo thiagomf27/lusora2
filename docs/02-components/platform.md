@@ -42,7 +42,7 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
 - **Style Packs** — the style pack documents in `contracts/style-packs/`
   (the behavior half of personalization, snapshotted at enqueue): list,
   create, edit in place, delete while unreferenced. Fields are pacing
-  (min/avg/max hold, arc), overlay density, `allowed_components`,
+  (min/avg/max hold, arc), overlay density, `allowed_packs`,
   transitions, `script_persona` and `visual_language`, plus the
   `video_type` the pack implements. The preview is not a render — a pack
   is behavior — but the numbers made concrete: a one-minute rhythm strip,
@@ -74,7 +74,7 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
   settled frame, with an editable props JSON and a theme picker). Entries in
   data packs (`contracts/component-packs/`) can be created, edited and
   deleted here; `core` is read-only because it is generated from the engine
-  registry. Style-pack allowances (`overlays.allowed_components`) are
+  registry. Style-pack allowances (`overlays.allowed_packs`) are
   toggled from the same page. An entry can be pointed at an engine
   **template** (card / lower third / big number / bullet list / statement),
   which fills its props block and makes it renderable with no code —

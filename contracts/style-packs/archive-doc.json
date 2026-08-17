@@ -11,16 +11,9 @@
   },
   "overlays": {
     "density": "low",
-    "allowed_components": [
-      "ArchiveBarGraph",
-      "ArchiveCaption",
-      "ArchiveChapterTitle",
-      "ArchiveCounter",
-      "ArchiveLineChart",
-      "ArchiveLowerThird",
-      "ArchiveQuoteCard",
-      "ArchivalFrame",
-      "Timeline"
+    "allowed_packs": [
+      "archive",
+      "core"
     ]
   },
   "transitions": {

@@ -7,6 +7,7 @@
 export type { Entrance, Theme } from "@lusora/contracts";
 export {
   DEFAULT_THEME,
+  borderSides,
   captionStyle,
   contrastInk,
   easingCurve,

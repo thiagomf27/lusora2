@@ -188,6 +188,49 @@ export function surfaceStyle(theme: Theme, opts: SurfaceOptions = {}): SurfaceSt
   };
 }
 
+/**
+ * A panel border expressed as per-side longhands.
+ *
+ * React refuses to mix the `border` shorthand with a `borderLeft`-style
+ * longhand in one inline style, and it is right to: when a theme change flips
+ * `accent_rule`, the longhand goes `undefined` while the shorthand is rewritten,
+ * and the browser keeps the stale side. Every component that draws an accent
+ * rule on ONE side of an otherwise uniform border hit this — invisible until a
+ * screen rendered several components and let you switch themes under them.
+ *
+ * Only longhands are returned, so nothing collides. `borderStyle` is a
+ * shorthand but its own longhands are never set alongside it.
+ */
+export function borderSides(opts: {
+  /** the uniform border; 0 for "no box, just the rule" */
+  width?: number;
+  color?: string;
+  /** the side carrying the accent rule, if any */
+  side?: "top" | "left" | "bottom" | "right" | "none" | null;
+  ruleWidth?: number;
+  ruleColor?: string;
+}): {
+  borderStyle: "solid";
+  borderTopWidth: number; borderTopColor: string;
+  borderRightWidth: number; borderRightColor: string;
+  borderBottomWidth: number; borderBottomColor: string;
+  borderLeftWidth: number; borderLeftColor: string;
+} {
+  const { width = 0, color = "transparent", side, ruleWidth = width, ruleColor = color } = opts;
+  const on = (which: string) =>
+    side && side !== "none" && side === which
+      ? { w: ruleWidth, c: ruleColor }
+      : { w: width, c: color };
+  const t = on("top"), r = on("right"), b = on("bottom"), l = on("left");
+  return {
+    borderStyle: "solid",
+    borderTopWidth: t.w, borderTopColor: t.c,
+    borderRightWidth: r.w, borderRightColor: r.c,
+    borderBottomWidth: b.w, borderBottomColor: b.c,
+    borderLeftWidth: l.w, borderLeftColor: l.c,
+  };
+}
+
 /** easing token -> cubic-bezier control points. `smooth` is the pre-D46 curve. */
 const EASING_CURVE: Record<
   NonNullable<NonNullable<Theme["motion"]>["easing"]>,

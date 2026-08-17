@@ -11,18 +11,8 @@
   },
   "overlays": {
     "density": "high",
-    "allowed_components": [
-      "AnimatedCounter",
-      "BarChart",
-      "BulletList",
-      "CalloutArrow",
-      "ComparisonSplit",
-      "FactCard",
-      "HammerStatement",
-      "KineticTitle",
-      "NamePlate",
-      "RankLabel",
-      "StatTag"
+    "allowed_packs": [
+      "core"
     ]
   },
   "transitions": {

@@ -13,23 +13,8 @@
     "density": {
       "per_minute": 9
     },
-    "allowed_components": [
-      "KineticTitle",
-      "ChapterCard",
-      "HammerStatement",
-      "CalloutArrow",
-      "AnimatedCounter",
-      "StatTag",
-      "BarChart",
-      "ComparisonSplit",
-      "RankLabel",
-      "BulletList",
-      "DefinitionCard",
-      "FactCard",
-      "NamePlate",
-      "DateStamp",
-      "QuoteBlock",
-      "HighlightedPassage"
+    "allowed_packs": [
+      "core"
     ]
   },
   "transitions": {

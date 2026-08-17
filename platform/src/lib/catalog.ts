@@ -236,6 +236,14 @@ export function findItem(name: string): CatalogItem | null {
  * catalog — and `when_not_to_use` is exactly the field that disambiguates
  * sibling components.
  */
+/** Component names in the given packs; undefined/empty packs = every pack. */
+export function componentsInPacks(packs?: string[] | null): string[] | null {
+  if (!packs || packs.length === 0) return null;
+  return loadMergedCatalog()
+    .items.filter(({ entry }) => packs.includes(entry.pack))
+    .map(({ entry }) => entry.name);
+}
+
 export function componentMenu(allowed?: string[] | null): string {
   return loadMergedCatalog()
     .items.filter(({ entry }) => !allowed || allowed.includes(entry.name))

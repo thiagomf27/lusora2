@@ -25,7 +25,8 @@ interface CatalogItem {
 
 interface StylePackRow {
   name: string;
-  allowed?: string[];
+  /** undefined = this style allows every component pack. */
+  allowedPacks?: string[];
 }
 
 interface CatalogResponse {
@@ -190,10 +191,14 @@ export default function OverlaysPage() {
 
   const unimplemented = (data?.items ?? []).filter((i) => !i.implemented).length;
 
-  // Which style packs currently offer the selected component
+  // Which style packs currently offer the selected component. Allowance is by
+  // PACK, so this is really "which styles allow the pack this component is in" —
+  // toggling one moves every sibling in that pack with it, which the hint says.
   const allowingPacks = useMemo(() => {
     if (!current || !data) return [];
-    return data.stylePacks.filter((p) => p.allowed?.includes(current.entry.name)).map((p) => p.name);
+    return data.stylePacks
+      .filter((p) => p.allowedPacks?.includes(current.entry.pack))
+      .map((p) => p.name);
   }, [current, data]);
   const allowanceDraft = allowance ?? allowingPacks;
   const allowanceDirty =
@@ -640,7 +645,7 @@ export default function OverlaysPage() {
 
               <div className={s.section}>
                 <div className={s.sectionLabel}>
-                  OFFERED IN STYLE PACKS
+                  STYLE PACKS ALLOWING THIS COMPONENT&apos;S PACK
                   {allowanceDirty && (
                     <button className={s.saveAllow} onClick={saveAllowance} disabled={busy}>
                       {busy ? "Saving…" : "Save allowances"}
@@ -649,10 +654,10 @@ export default function OverlaysPage() {
                 </div>
                 <div className={s.chips}>
                   {(data?.stylePacks ?? []).map((p) => {
-                    if (p.allowed === undefined) {
+                    if (p.allowedPacks === undefined) {
                       return (
                         <span key={p.name} className={s.chipMuted}>
-                          {p.name} · allows everything
+                          {p.name} · allows every pack
                         </span>
                       );
                     }
@@ -676,9 +681,11 @@ export default function OverlaysPage() {
                   })}
                 </div>
                 <div className={s.sideHint}>
-                  A pack that does not list a component will not be offered it, and the validator
-                  rejects it in a plan — this is step 4 of adding an overlay. Edit a pack&apos;s
-                  pacing and density on <a href="/style-packs">Style Packs</a>.
+                  Allowance is by <strong>component pack</strong>, so these toggle whether each style
+                  allows <strong>{current.entry.pack}</strong> — every component in that pack moves
+                  together. A style that does not allow the pack is never offered its components, and
+                  the validator rejects them in a plan. Edit a style&apos;s pacing and density on{" "}
+                  <a href="/style-packs">Style Packs</a>.
                 </div>
               </div>
 

@@ -190,9 +190,7 @@ pacing:
   hold_ceiling_ratio: 1.5       # x max_hold: a longer slot is divided into equal slots
 overlays:
   density: normal               # low|normal|high or {per_minute: N}
-  allowed_components: [ChapterCard, NamePlate, DateStamp, SatelliteLocate, QuoteBlock,
-                       DocumentCard, FramedExhibit, ArchivalFrame, AnimatedCounter,
-                       FactCard, Timeline]
+  allowed_packs: [core, archive]  # component PACKS this style draws from
 transitions:
   allowed: [cut, crossfade, fade_to_black]
   default: cut
@@ -241,8 +239,20 @@ music:                            # D48 — how music is SHAPED
 - `overlays.density` is the per-video "more/fewer animations" dial —
   override at enqueue like any config field; the validator checks the
   produced count against the range.
-- `allowed_components` is both a planner menu filter and a validate rule
-  (belt and suspenders).
+- `allowed_packs` is both a planner menu filter and a validate rule (belt and
+  suspenders), at PACK granularity. "This style suits the archive pack" is a
+  statement about a body of work, and it does not go stale when a component is
+  added to that pack — which an enumerated list of component names did, every
+  time, silently. A channel installs exactly one component pack, so this is also
+  what decides whether a style and a channel can work together at all.
+- The menu is RESOLVED at enqueue: `applyComponentPack` in the platform crosses
+  `allowed_packs` with the channel's `component_pack` and writes the concrete
+  `allowed_components` list into the embedded document. The planner, compiler,
+  validator and both renderers go on reading that list and none of them learns
+  that packs exist — the same move `look.exclude` makes, and what lets a video
+  snapshotted before this change replay byte-identically (Principle 7).
+- Per-COMPONENT trimming did not disappear, it moved to where the taste is:
+  `look.exclude.components` on a channel or a single video.
 - `overlays.emphasis` (D59) opens a second overlay class, keyed on where
   attention needs a lift instead of on a fact in the script, with its own
   `per_minute` ceiling. Off by default: `density` above is anchor-gated, so it

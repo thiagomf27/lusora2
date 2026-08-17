@@ -1,0 +1,90 @@
+/* Transition examples — two shots and the join, looping every 3s. */
+.tBox {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+}
+.tA, .tB {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.tA { background: linear-gradient(140deg, #2f3f56, #16202e); color: #93a7c4; }
+.tB { background: linear-gradient(140deg, #5a4326, #2a1d0f); color: #d8b483; }
+.tVeil { position: absolute; inset: 0; background: #000; opacity: 0; }
+
+/* cut: B replaces A on one frame */
+.cut .tB { animation: swapHard 3s steps(1, end) infinite; }
+/* crossfade / fade: the stock A/B dissolve both kinds map to */
+.dissolve .tB { animation: swapSoft 3s ease-in-out infinite; }
+/* fade_to_black: the swap happens under a veil that peaks at the midpoint */
+.dip .tB { animation: swapHard 3s steps(1, end) infinite; }
+.dip .tVeil { animation: veil 3s ease-in-out infinite; }
+
+@keyframes swapHard {
+  0%, 49.9% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+@keyframes swapSoft {
+  0%, 30% { opacity: 0; }
+  70%, 100% { opacity: 1; }
+}
+@keyframes veil {
+  0%, 15% { opacity: 0; }
+  50% { opacity: 1; }
+  85%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cut .tB, .dissolve .tB, .dip .tB, .dip .tVeil { animation: none; }
+  .tB { opacity: 0.5; }
+}
+
+/* Sound examples — a play control that doubles as the name. */
+.sBox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-field);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  text-align: left;
+}
+.sBox:hover:not(:disabled) { border-color: var(--border-default); color: var(--text-primary); }
+.sBox:disabled { cursor: not-allowed; opacity: 0.6; }
+.sBox.on { border-color: var(--accent-primary); color: var(--text-primary); }
+.sEmpty { cursor: default; justify-content: center; }
+.sIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--surface-secondary-btn);
+  color: var(--accent-link);
+}
+.sName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.sNote { font-size: 11px; color: var(--text-faint); flex: none; }

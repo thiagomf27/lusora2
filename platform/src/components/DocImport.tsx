@@ -56,7 +56,7 @@ const SPEC: Record<Kind, { label: string; dir: string; schema: string; endpoint:
   "name": "explainer-punchy",
   "video_type": "explainer",
   "pacing": { "avg_hold_seconds": 3.2, "min_hold": 2.0, "max_hold": 6.0, "arc": "three_act" },
-  "overlays": { "density": "high", "allowed_components": ["KineticTitle", "FactCard", "AnimatedCounter"] },
+  "overlays": { "density": "high", "allowed_packs": ["core"] },
   "transitions": { "allowed": ["cut", "crossfade"], "default": "cut" },
   "script_persona": "Brisk, plain-spoken explainer. Short sentences.",
   "visual_language": "Bright, modern, high-contrast footage."

@@ -199,8 +199,8 @@ export default function HomePage() {
               <div className={s.menuRow}><span>Voice</span><span>{cfg?.voice?.provider ?? "—"}</span></div>
               <div className={s.menuRow}><span>Budget</span><span>${(cfg?.budget?.max_usd_per_video ?? 0).toFixed(2)}</span></div>
               <div className={s.menuFoot}>
-                Models come from the channel&apos;s brand profile. Change them in{" "}
-                <Link href={`/brands?channel=${channelId}`}>Brands</Link>, or override this one video on the next screen.
+                Models come from the channel&apos;s config. Change them in{" "}
+                <Link href={`/channels?channel=${channelId}`}>Channels</Link>, or override this one video on the next screen.
               </div>
             </div>
           )}

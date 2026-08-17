@@ -18,7 +18,7 @@ import {
   selectPipeline,
 } from "./pipelines.ts";
 import { backgroundPath } from "./backgrounds.ts";
-import { applyLook } from "./look.ts";
+import { applyComponentPack, applyLook } from "./look.ts";
 
 export function videosRoot(): string {
   loadEnv();
@@ -290,7 +290,9 @@ export async function enqueueVideo(
   // Narrow the embedded docs by `look` (subtractive), and copy the chosen
   // background into the video folder so the render resolves it like any other
   // asset — a later change to the library never alters a finished video.
-  const lookProblems = applyLook(snapshot);
+  // The component pack narrows first: `look.exclude` then subtracts from what
+  // this channel actually has installed, not from the whole catalog.
+  const lookProblems = [...applyComponentPack(snapshot), ...applyLook(snapshot)];
   const background = (snapshot.look as ChannelConfig["look"])?.background?.image;
   if (background) {
     try {
