@@ -64,6 +64,11 @@ docker-compose.
   what a video costs: token budgets, the price table, the budget gate,
   model selection ★ read before changing a `max_tokens` or a price
 
+### 09 — Reference teardown
+- [Video Teardown](09-video-teardown.md) — the prompt that turns a reference
+  YouTube video into a style pack, a theme and a script prompt pack, and
+  names what the pipeline cannot imitate ★ use when copying a channel's style
+
 ## Conventions
 
 - **Decided** — settled in the Decision Log; changing it requires a new entry.

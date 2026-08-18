@@ -18,6 +18,11 @@ better from the real schema than from a description of it.
 | a sound that does not exist yet | a **sound pack** | `contracts/sound-packs/<name>/` |
 | how an agent writes — voice, craft guidance | a **prompt pack** | `contracts/prompts/<role>/<name>.json` |
 
+Starting from a video that already exists rather than from a description?
+That is a different job — see [Video Teardown](09-video-teardown.md), which
+returns a style pack, a theme and a script prompt pack measured off a
+reference, plus what the pipeline cannot imitate.
+
 Rule of thumb: never copy a component to change how it looks or sounds —
 that is a theme. Never copy a component to change how often it appears —
 that is a style pack. See [theme-and-style.md](03-contracts/theme-and-style.md) for the
