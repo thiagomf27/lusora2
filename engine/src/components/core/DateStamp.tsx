@@ -11,10 +11,17 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -32,6 +39,8 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 6, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -64,14 +73,17 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
         scale: `${entrance.scale}`,
         clipPath: entrance.clipPath,
         rotate: stamped ? "-2.5deg" : "0deg",
+        ...(ground
+          ? { ...ground, padding: `${height * 0.022 * density}px ${width * 0.026 * density}px` }
+          : {}),
       }}
     >
       {/* Accent hairline wipes out from the corner first. */}
       <div
         style={{
-          height: Math.max(2, height * 0.005),
+          height: ruleWidth(theme, Math.max(2, height * 0.005)),
           background: accent,
-          marginBottom: height * 0.018,
+          marginBottom: height * 0.018 * density,
           width: interpolate(frame, [0, ruleDur], [0, width * 0.12], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -82,11 +94,11 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
       <div
         style={{
           fontFamily: fontStack(theme.typography.display),
-          fontSize: height * 0.052,
-          fontWeight: 700,
+          fontSize: height * 0.052 * typeScale(theme, "number"),
+          fontWeight: typeWeight(theme, 700),
           color: theme.colors.text,
-          letterSpacing: stamped ? "0.16em" : "0.02em",
-          textTransform: stamped ? "uppercase" : "none",
+          letterSpacing: typeTracking(theme, stamped ? 0.16 : 0.02),
+          textTransform: typeCase(theme, stamped ? "uppercase" : "none"),
           whiteSpace: "nowrap",
           // "typed" reveals left-to-right; "stamped" just rises into place.
           clipPath: stamped
@@ -108,12 +120,12 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
       {props.place ? (
         <div
           style={{
-            marginTop: height * 0.008,
+            marginTop: height * 0.008 * density,
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.026,
+            fontSize: height * 0.026 * typeScale(theme, "kicker"),
             color: theme.colors.neutral,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
+            letterSpacing: typeTracking(theme, 0.2),
+            textTransform: typeCase(theme, "uppercase"),
             whiteSpace: "nowrap",
             opacity: interpolate(frame, [ruleDur, ruleDur + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
@@ -127,3 +139,6 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+DateStamp.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

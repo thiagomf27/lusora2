@@ -14,10 +14,18 @@ import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideo
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  paperStock,
+  ruleWidth,
+  surfaceColor,
+  typeCase,
+  typeScale,
+  typeTracking,
   useEntrance,
 } from "../theme.ts";
 
@@ -27,6 +35,9 @@ export const FramedExhibitProps = z.object({
   caption: z.string().max(120),
   credit: z.string().max(48).optional(),
   frame_style: z.enum(["museum", "polaroid", "hairline"]).default("museum"),
+  /** Was ArchiveFramedExhibit's. The plate's aspect is a fact about the picture,
+   *  not a look — a portrait photograph in a landscape mount is cropped. */
+  orientation: z.enum(["landscape", "portrait", "square"]).default("landscape"),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type FramedExhibitProps = z.infer<typeof FramedExhibitProps>;
@@ -35,6 +46,8 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const captionGround = groundStyle(theme, { radius: 6, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -50,8 +63,12 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
   const polaroid = props.frame_style === "polaroid";
   const matPad = museum ? height * 0.028 : polaroid ? height * 0.022 : 0;
 
-  const picW = width * 0.52;
-  const picH = picW * 0.66;
+  // ArchiveFramedExhibit's `orientation`: the mount follows the picture, and
+  // the plate keeps roughly the same AREA so a portrait does not tower over a
+  // landscape in the same edit.
+  const aspect = props.orientation === "portrait" ? 1.4 : props.orientation === "square" ? 1 : 0.66;
+  const picW = width * 0.52 * Math.min(1, Math.sqrt(0.66 / aspect));
+  const picH = picW * aspect;
   const captionStart = Math.round(fps * 0.6 * durationMul);
   const perimeter = 2 * (picW + matPad * 2 + picH + matPad * 2);
 
@@ -79,7 +96,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
           position: "relative",
           padding: matPad,
           paddingBottom: polaroid ? matPad * 3 : matPad,
-          background: museum ? `${theme.colors.bg}f2` : polaroid ? `${theme.colors.text}f2` : "transparent",
+          background: museum ? `${surfaceColor(theme)}f2` : polaroid ? `${paperStock(theme).stock}f2` : "transparent",
           border: museum ? `1px solid ${theme.colors.neutral}66` : "none",
           boxShadow: props.frame_style === "hairline" ? "none" : "0 20px 60px rgba(0,0,0,0.55)",
           scale: `${interpolate(frame, [0, inDur], [1.04, 1], {
@@ -135,7 +152,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
             height={picH + matPad * 2 - 2}
             fill="none"
             stroke={accent}
-            strokeWidth={Math.max(2, height * 0.003)}
+            strokeWidth={ruleWidth(theme, Math.max(2, height * 0.003))}
             strokeDasharray={perimeter}
             strokeDashoffset={interpolate(frame, [inDur * 0.4, inDur * 0.4 + fps * 0.8 * durationMul], [perimeter, 0], {
               extrapolateLeft: "clamp",
@@ -148,9 +165,15 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
 
       <div
         style={{
-          marginTop: height * 0.03,
+          marginTop: height * 0.03 * density,
           maxWidth: width * 0.6,
           textAlign: "center",
+          // The caption hangs BELOW the mount, on the footage rather than on the
+          // mat, so it needs its own ground: a paper theme's ink is dark and a
+          // night shot underneath it is not a background, it is a blindfold.
+          ...(captionGround
+            ? { ...captionGround, padding: `${height * 0.016 * density}px ${width * 0.024 * density}px` }
+            : {}),
           opacity: interpolate(frame, [captionStart, captionStart + fps * 0.5], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -165,7 +188,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
         <div
           style={{
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.028,
+            fontSize: height * 0.028 * typeScale(theme, "body"),
             lineHeight: 1.35,
             color: theme.colors.text,
             display: "-webkit-box",
@@ -179,11 +202,11 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
         {props.credit ? (
           <div
             style={{
-              marginTop: height * 0.01,
+              marginTop: height * 0.01 * density,
               fontFamily: fontStack(theme.typography.body),
-              fontSize: height * 0.02,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
+              fontSize: height * 0.02 * typeScale(theme, "caption"),
+              letterSpacing: typeTracking(theme, 0.12),
+              textTransform: typeCase(theme, "uppercase"),
               color: theme.colors.neutral,
             }}
           >
@@ -220,3 +243,6 @@ function ProceduralPlate({ theme, width, height }: { theme: Theme; width: number
     </svg>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+FramedExhibit.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

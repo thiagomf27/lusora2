@@ -276,15 +276,20 @@ export default function LookEditor({
   }, [componentCards]);
 
   /**
-   * The grid shows the CHOSEN pack's components and nothing else. The other
-   * packs' components are not this channel's to consider — drawn blocked they
-   * were thirty-two cards of noise around the eleven that matter. A component
-   * still blocked here is one the style pack declines, which is worth seeing.
+   * The grid shows `core` plus the CHOSEN pack, and nothing else. Another
+   * pack's components are not this channel's to consider — drawn blocked they
+   * were cards of noise around the ones that matter. A component still blocked
+   * here is one the style pack declines, which is worth seeing.
    */
-  const packCards = useMemo(
-    () => componentCards.filter(({ offer }) => offer.pack === (cfg.component_pack || "core")),
-    [componentCards, cfg.component_pack]
-  );
+  const packCards = useMemo(() => {
+    // core PLUS the installed pack: packs are additive (D66), so a channel on
+    // A pack draws its own entries AND all of core. Filtering to the
+    // installed pack alone showed two cards for a menu of twenty-eight.
+    const installed = cfg.component_pack && cfg.component_pack !== "core"
+      ? ["core", cfg.component_pack]
+      : ["core"];
+    return componentCards.filter(({ offer }) => installed.includes(offer.pack ?? "core"));
+  }, [componentCards, cfg.component_pack]);
 
   const visibleCards = useMemo(() => {
     const q = search.trim().toLowerCase();

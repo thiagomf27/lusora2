@@ -21,7 +21,7 @@ const AT = 0.7; // fraction of the overlay span to sample
 // Representative props per component, shared with the platform Overlays screen.
 const PROPS = JSON.parse(readFileSync(join(ENGINE, "src/catalog/sample-props.json"), "utf8")).props;
 
-const theme = JSON.parse(readFileSync("/home/thiago/lusora/contracts/themes/history-dark.json", "utf8"));
+const theme = JSON.parse(readFileSync("/home/thiago/lusora/contracts/themes/standard.json", "utf8"));
 const catalog = JSON.parse(readFileSync("/home/thiago/lusora/contracts/catalog.json", "utf8")).components.map((c) => c.name);
 
 const work = mkdtempSync(join(tmpdir(), "preview-all-"));

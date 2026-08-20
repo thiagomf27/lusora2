@@ -85,25 +85,30 @@ export const GET = handler(async (req: Request, ctx: Ctx) => {
   const allowedPacks = pack?.overlays?.allowed_packs;
   // Allowance is by pack: within the chosen pack either everything is on the
   // menu or nothing is, so this is a single yes/no rather than a name filter.
-  const styleAllowsPack = (p: string) => !allowedPacks || allowedPacks.length === 0 || allowedPacks.includes(p);
+  // `core` is never something a style pack opts into: packs are additive over
+  // it, so `allowed_packs` names the EXTRA packs a style suits (see look.ts).
+  const styleAllowsPack = (p: string) =>
+    p === "core" || !allowedPacks || allowedPacks.length === 0 || allowedPacks.includes(p);
   const catalog = loadMergedCatalog().items.map((i) => i.entry);
 
-  // Exactly one component pack, `core` included — a channel draws from one pack
-  // and nothing else. Reported BEFORE the style pack because it is the harder
-  // constraint: the style pack declining a component is an editorial choice,
-  // the component not being installed is a fact.
+  // `core` PLUS at most one installed pack — packs are additive (D66), and this
+  // has to mirror `applyComponentPack` exactly or the screen reports a menu the
+  // enqueue will not produce. Reported BEFORE the style pack because it is the
+  // harder constraint: the style pack declining a component is an editorial
+  // choice, the component not being installed is a fact.
   //
   // A present-but-empty param means the unset field, which resolves to `core`;
   // only an absent param falls back to what the channel has saved.
   const packParam = url.searchParams.get("component_pack");
   const componentPack = (packParam !== null ? packParam : row.config.component_pack) || "core";
+  const installedPacks = componentPack === "core" ? ["core"] : ["core", componentPack];
   const byComponentPack = `component pack ${componentPack}`;
 
   const components: LookOffer[] = catalog
     .map((entry) => ({
       name: entry.name,
       pack: entry.pack,
-      blockedBy: entry.pack !== componentPack
+      blockedBy: !installedPacks.includes(entry.pack)
         ? byComponentPack
         : styleAllowsPack(entry.pack)
           ? null

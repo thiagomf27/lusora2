@@ -108,44 +108,71 @@ function installed(pack: string | null) {
   return s;
 }
 
-test("an unset component_pack resolves to core", () => {
+/** The menu a channel with no pack installed resolves to. */
+function coreMenu(): string[] {
+  const s = installed(null);
+  applyComponentPack(s);
+  return style(s).overlays.allowed_components as string[];
+}
+
+test("no component_pack resolves to core only", () => {
   const s = installed(null);
   assert.deepEqual(applyComponentPack(s), []);
   const allowed: string[] = style(s).overlays.allowed_components;
   assert.ok(allowed.length > 0, "core must offer something");
-  assert.ok(!allowed.some((c) => c.startsWith("Archive")), "no other pack's component survives");
+  assert.ok(!allowed.includes("SocialPost"), "no other pack's component survives");
 });
 
-test("naming a pack REPLACES core rather than adding to it", () => {
-  const core: string[] = (() => {
-    const s = installed(null);
-    applyComponentPack(s);
-    return style(s).overlays.allowed_components;
-  })();
-  const s = installed("archive");
-  assert.deepEqual(applyComponentPack(s), []);
-  const only: string[] = style(s).overlays.allowed_components;
-  assert.ok(only.length > 0, "the archive pack must offer something");
-  assert.ok(only.every((c) => !core.includes(c)), "no core component may survive choosing archive");
-});
-
-test("allowed_packs: the channel's pack decides the whole menu", () => {
-  const s = installed("archive");
-  (s.style_pack_doc as Record<string, any>).overlays.allowed_packs = ["archive", "core"];
+test("a component_pack resolves to core PLUS the pack, with no duplicate names", () => {
+  // Packs are additive over core (D66): a pack is a menu EXTENSION, so a
+  // channel that installs one is asking for core AND those entries. Resolving
+  // to the pack alone is what left a channel on a three-entry pack with no
+  // counter, chart, title or lower third at all.
+  const core = coreMenu();
+  const s = installed("social");
   assert.deepEqual(applyComponentPack(s), []);
   const allowed: string[] = style(s).overlays.allowed_components;
-  assert.ok(allowed.length > 0);
-  assert.ok(allowed.every((c) => c.startsWith("Archive")), "only the installed pack's components");
+
+  for (const c of core) assert.ok(allowed.includes(c), `core's ${c} must survive installing a pack`);
+  assert.ok(allowed.length > core.length, "the pack must add something core did not have");
+  assert.ok(
+    allowed.some((c) => !core.includes(c)),
+    "at least one entry must come from the installed pack"
+  );
+  assert.equal(new Set(allowed).size, allowed.length, "no name may appear twice");
+});
+
+test("allowed_packs: the menu is core plus the installed pack", () => {
+  const core = coreMenu();
+  const s = installed("social");
+  (s.style_pack_doc as Record<string, any>).overlays.allowed_packs = ["core", "social"];
+  assert.deepEqual(applyComponentPack(s), []);
+  const allowed: string[] = style(s).overlays.allowed_components;
+  assert.ok(allowed.length > core.length);
+  for (const c of core) assert.ok(allowed.includes(c));
+  assert.equal(new Set(allowed).size, allowed.length);
+});
+
+test("core survives a style pack whose allowed_packs omits it", () => {
+  // `allowed_packs` says which EXTRA packs a style suits. It is not an opt-in
+  // to the base menu, and it cannot take the base menu away — the tool for
+  // "not this core component" is look.exclude.components, which runs next.
+  const core = coreMenu();
+  const s = installed("social");
+  (s.style_pack_doc as Record<string, any>).overlays.allowed_packs = ["social"];
+  assert.deepEqual(applyComponentPack(s), []);
+  const allowed: string[] = style(s).overlays.allowed_components;
+  for (const c of core) assert.ok(allowed.includes(c), `core's ${c} must survive`);
 });
 
 test("allowed_packs: a channel on a pack the style does not allow is refused", () => {
-  const s = installed("archive");
+  const s = installed("social");
   (s.style_pack_doc as Record<string, any>).overlays.allowed_packs = ["core"];
-  assert.match(applyComponentPack(s)[0], /allows core, but this channel's component_pack is 'archive'/);
+  assert.match(applyComponentPack(s)[0], /allows core, but this channel's component_pack is 'social'/);
 });
 
 test("allowed_packs omitted means any pack", () => {
-  const s = installed("archive");
+  const s = installed("social");
   delete (s.style_pack_doc as Record<string, any>).overlays.allowed_packs;
   assert.deepEqual(applyComponentPack(s), []);
   assert.ok(style(s).overlays.allowed_components.length > 0);
@@ -161,10 +188,11 @@ test("an old snapshot with only allowed_components still replays (Principle 7)",
 });
 
 test("a component pack sharing nothing with the style pack is refused", () => {
-  // The sharp edge of one-pack-only, and the reason the Visual tab warns about
-  // it at edit time: core + a style pack that only allows archive components
-  // leaves nothing to draw.
+  // Still reachable even with packs additive: a channel on core alone, and a
+  // style pack whose authored allow-list names only a component from some
+  // other pack, leaves nothing to draw. This is what the Visual tab warns
+  // about at edit time.
   const s = installed(null);
-  (s.style_pack_doc as Record<string, any>).overlays.allowed_components = ["ArchiveQuoteCard"];
+  (s.style_pack_doc as Record<string, any>).overlays.allowed_components = ["ArchiveCaption"];
   assert.match(applyComponentPack(s)[0], /offers none of the components/);
 });

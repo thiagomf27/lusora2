@@ -7,7 +7,7 @@ UI; both snapshotted into `cfg.json` at enqueue.
 ## Theme (appearance — consumed by the ENGINE, invisible to AI)
 
 ```yaml
-# themes/history-dark.yaml
+# themes/<name>.yaml — every token, not one real theme
 colors:
   bg: "#0e0d0b"
   text: "#e8e2d4"
@@ -17,12 +17,26 @@ typography:
   display: "Playfair Display"     # packaged fonts only, by name
   body: "Inter"
   caption_preset: "serif-lower-third"   # from the engine's caption presets
+  scale: generous                 # D66 compact | normal | generous
+  weight: light                   # D66 light | regular | bold
+  case: as_written                # D66 as_written | upper
+  tracking: wide                  # D66 tight | normal | wide
 motion_feel: slow_heavy           # global duration/easing scale
 grain: archival                   # optional post-look (Remotion path)
 surface:                          # D46 — the SHAPE of an overlay
   radius: square                  # square | soft | rounded
   fill: translucent               # solid | translucent | none
   accent_rule: top                # top | left | none
+  density: airy                   # D66 tight | normal | airy
+  rule: hairline                  # D66 hairline | normal | heavy
+  texture: paper                  # D66 none | paper | grain | scanline
+chart:                            # D66 — how a PLOTTED overlay reads
+  grid: horizontal                # none | horizontal | full
+  legend: inline                  # inline | bottom
+  markers: dot                    # none | dot
+  area: tint                      # D69 none | tint — does a line enclose the space under it
+  stroke: hairline                # hairline | normal | heavy
+  number_format: plain            # plain | compact  (50,000 vs 50.0K)
 motion:                           # D46 — HOW an overlay arrives
   entrance: slide                 # fade | rise | slide | pop | wipe | typewriter
   easing: smooth                  # smooth | snap | spring | linear
@@ -47,8 +61,14 @@ sound:                            # D48 — how the theme SOUNDS
 
 Rules: components take semantic props only (`emphasis: accent|neutral`);
 the theme runtime resolves them. The AI never sees this file — brand
-consistency is enforced by construction. Token list: D46 (supersedes
-D30, which closed OQ-10 at the original eight).
+consistency is enforced by construction. Token list: D69 (adds `chart.area`)
+over D66 (supersedes D46, which superseded D30, which closed OQ-10 at the
+original eight).
+
+**Four themes ship** (D69): `standard` — the house look, light plate, one
+strong accent, tight bold sans, direct labels — plus `paper-print`,
+`field-manual` and `bold-editorial`. Six near-duplicates were deleted: a theme
+nobody picks goes stale and still costs a row in every picker.
 
 ### Why presentation lives HERE and not in a component pack
 
@@ -63,7 +83,7 @@ The three layers, stated as a rule:
 
 | What changes | What you create |
 | --- | --- |
-| colors, fonts, corners, entrance, easing, grain, which cue plays | a **theme** |
+| colors, fonts, corners, type scale/weight/case/tracking, spacing, rule weight, texture, gridlines, where a series is labelled, number format, entrance, easing, grain, which cue plays | a **theme** |
 | hold lengths, density, allowed components, script length, persona, how often cues fire | a **style pack** |
 | a component that does not exist yet | a **component pack** |
 | a sound that does not exist yet | a **sound pack** |
@@ -76,6 +96,12 @@ are the planner's menu, so the copies would land in the prompt as
 siblings with identical `when_to_use` — the exact ambiguity
 `when_not_to_use` exists to remove — and would render as nothing unless
 each one also mapped to a template.
+
+That is not hypothetical. The `archive` pack did it at a smaller scale —
+seven entries, not 26 — and D66 undid it: the twins were unioned back into
+their core counterparts, the look became the tokens above, and 15 entries of
+prompt weight came out of every plan call. The tell was that no `when_to_use`
+could separate the pairs, because the only difference was a look.
 
 ### `surface` and `motion` semantics
 
@@ -105,6 +131,59 @@ each one also mapped to a template.
   all already forces the Remotion route (`router.ts`), so D31's
   "each addition is filter-graph work" does not apply.
 
+### `typography` and `chart` semantics (D66)
+
+The bullet above — *"every token is OPTIONAL with a default equal to today's
+hardcoded value"* — turns out to be two different promises, and D66 is where
+they separate. Which kind a token is decides whether it can carry a default
+at all.
+
+- **SCALE tokens** — `typography.scale|weight|case|tracking`,
+  `surface.density|rule`, `chart.stroke` — have an identity element. The
+  resolver takes the component's OWN value and returns it unchanged at the
+  default, exactly the way `surfaceStyle` scales a radius rather than
+  replacing it. `typeWeight(theme, 700)` is 700 under an untouched theme and
+  `typeWeight(theme, 400)` is 400, so a title and a label keep their
+  relationship at every setting instead of collapsing onto one weight.
+- **CHOICE tokens** — `chart.grid|legend|markers|area` — have no identity element.
+  There is no neutral answer to "where does the legend go". They therefore
+  carry **no schema default** and fall back to the component's own, which is
+  the `surface.accent_rule` precedent. Writing `legend: inline` as a default
+  would have silently restyled every chart that labelled its series
+  underneath.
+- Because of that fallback, the RESOLVED types are wider than the token
+  enums: `chart.grid` resolves to `axes | baseline | none | horizontal |
+  full`, where `axes` (LineChart's y-and-x lines) and `baseline` (BarChart's
+  single rule) are values a component can hold but no theme can name.
+- `typography.tracking` is an em OFFSET, not a multiplier. A title at `0em`
+  has to be reachable by `wide`, and zero times anything is zero. It returns
+  nothing at all when the result is 0, so the component omits the property
+  and CSS keeps `normal` — byte-identity rather than an approximation of it.
+- `typography.scale` moves display type further than caption type. A type
+  scale is not a zoom: scale everything by the same factor and the page loses
+  its hierarchy at `compact` and its captions become unreadable at
+  `generous`.
+- `surface.texture` is the overlay's own plate. Distinct from top-level
+  `grain`, which is a post-look over the whole FRAME. Both are deterministic
+  — a fixed-seed `feTurbulence` and CSS, never `Math.random`.
+- `chart.number_format` governs axis and label figures. An authored
+  `decimals` prop still wins: a figure the script asked for to two places is
+  a fact about the claim, not a look.
+
+### The one place a theme is overruled
+
+`surface.fill: "none"` is a request a component cannot always honour. Over
+unknown footage light ink survives losing its panel and dark ink does not, so
+a paper theme with no plate is a black caption on a night shot.
+
+A component whose ground CARRIES TYPE therefore resolves it through
+`groundStyle(theme, { legible: true })`, and a theme whose page is lighter
+than its ink gets a plate back whether it asked for one or not. On a dark
+theme the fallback never fires and the result is still nothing, so this costs
+existing themes exactly zero. It is the same argument `surfaceColor` already
+makes: "none" there is not a lighter look, it is unreadable type over moving
+footage.
+
 ### Colours the theme does not name
 
 Four tokens (`bg`, `text`, `accent`, `neutral`) do not cover every colour an
@@ -121,10 +200,34 @@ four, so no theme has to be re-authored when a component pack arrives:
   purpose: a ramp has to hold contrast against the plate AND against itself
   under colour-blindness, which is a property of the three colours together,
   not a preference. Two variants, picked by the plate's luminance.
+  **The accent LEADS the ramp when it clears 3:1 against the plate** (D69) —
+  a viewer expects a channel's first series to be the channel's colour, and for
+  most themes it can be. The gate is what keeps a GROUND colour out of the
+  data: the old `archive` tan sat at 1.9:1 on cream, which is a line nobody can
+  follow, and that case is why the ramp exists at all. Series 2 and 3 always
+  come from the ramp.
 - `contrastInk(theme, ground)` — type set on a coloured ground picks `text` or
   `bg`, whichever reads. A pack built for a theme whose `accent` is a ground
   (the `archive` pack's tan) would otherwise land at 1.9:1 on a theme whose
   accent is a bright mark.
+- `paperStock(theme)` (D66) — stock and ink for a component that DEPICTS
+  printed matter: a directive, a telegram, a page torn out of something. The
+  lighter of the theme's page and its ink is the stock, the darker is the
+  type. Not the same as `surfaceColor`: a panel takes the channel's ground
+  whatever its luminance, but a document is dark type on light stock in every
+  channel, because that is what a document IS. `DocumentCard` hardcoded
+  `colors.text` as the stock, which is right on a dark theme and inverts into
+  a black directive on a paper one.
+- `groundStyle(theme, opts)` (D66) — the ground an overlay sets type on:
+  `surface.fill` and `surface.texture` resolved into one style object, `null`
+  when the theme asks for neither. Pass the component's own pre-conversion
+  alpha (`"00"` if it never had a panel) and `legible: true` if it carries
+  type; see *The one place a theme is overruled* above.
+
+D66 added two resolvers and no colours. That is the rule working: **wanting a
+fifth colour token is the signal that you wanted a resolver.** A token would
+leave every theme authored before the component without a value for it; a
+resolver derives one from the four that were always there.
 
 ### Motion roles — the deferred shape (D47)
 
@@ -243,8 +346,11 @@ music:                            # D48 — how music is SHAPED
   suspenders), at PACK granularity. "This style suits the archive pack" is a
   statement about a body of work, and it does not go stale when a component is
   added to that pack — which an enumerated list of component names did, every
-  time, silently. A channel installs exactly one component pack, so this is also
-  what decides whether a style and a channel can work together at all.
+  time, silently. A channel resolves to `core` PLUS at most one installed pack
+  (packs are ADDITIVE — D66), so this is also what decides whether a style and a
+  channel can work together at all. `core` is not something a style opts into:
+  listing it is harmless, omitting it does not take the base menu away, and the
+  tool for "not this core component" is `look.exclude.components`.
 - The menu is RESOLVED at enqueue: `applyComponentPack` in the platform crosses
   `allowed_packs` with the channel's `component_pack` and writes the concrete
   `allowed_components` list into the embedded document. The planner, compiler,

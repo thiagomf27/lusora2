@@ -6,19 +6,26 @@
  * Implementations live in ./core for the generated `core` pack, and in
  * ./<pack> for a component pack whose entries are data
  * (contracts/component-packs/<pack>.json) but whose drawing is code —
- * ./archive is the first. ./example_lib keeps the original six as reference
- * copies and is deliberately NOT registered.
+ * ./social and ./finance are those. The `archive` pack is GONE: D66 merged
+ * seven of its nine components into their core twins, and D69 retired the last
+ * two — `ArchiveFrames` became core/PortraitPlates (a name that describes what
+ * it draws rather than a look) and `ArchiveCaption` was deleted. What was left
+ * was a look, and a look is a theme.
+ *
+ * ./example_lib keeps the original six as reference copies and is deliberately
+ * NOT registered.
  */
 import type { ComponentType } from "react";
 import type { Theme } from "@lusora/contracts";
 
-import { ArchiveBarGraph } from "./archive/ArchiveBarGraph.tsx";
-import { ArchiveCaption } from "./archive/ArchiveCaption.tsx";
-import { ArchiveChapterTitle } from "./archive/ArchiveChapterTitle.tsx";
-import { ArchiveCounter } from "./archive/ArchiveCounter.tsx";
-import { ArchiveLineChart } from "./archive/ArchiveLineChart.tsx";
-import { ArchiveLowerThird } from "./archive/ArchiveLowerThird.tsx";
-import { ArchiveQuoteCard } from "./archive/ArchiveQuoteCard.tsx";
+
+import { Candlestick } from "./finance/Candlestick.tsx";
+import { MetricGrid } from "./finance/MetricGrid.tsx";
+import { WaterfallChart } from "./finance/WaterfallChart.tsx";
+
+import { HeadlineStack } from "./social/HeadlineStack.tsx";
+import { SocialPost } from "./social/SocialPost.tsx";
+import { WebPageFrame } from "./social/WebPageFrame.tsx";
 
 import { AnimatedCounter } from "./core/AnimatedCounter.tsx";
 import { ArchivalFrame } from "./core/ArchivalFrame.tsx";
@@ -28,6 +35,7 @@ import { CalloutArrow } from "./core/CalloutArrow.tsx";
 import { ChapterCard } from "./core/ChapterCard.tsx";
 import { ComparisonSplit } from "./core/ComparisonSplit.tsx";
 import { DateStamp } from "./core/DateStamp.tsx";
+import { DataTable } from "./core/DataTable.tsx";
 import { DefinitionCard } from "./core/DefinitionCard.tsx";
 import { DocumentCard } from "./core/DocumentCard.tsx";
 import { FactCard } from "./core/FactCard.tsx";
@@ -38,6 +46,8 @@ import { HighlightedPassage } from "./core/HighlightedPassage.tsx";
 import { KineticTitle } from "./core/KineticTitle.tsx";
 import { LineChart } from "./core/LineChart.tsx";
 import { NamePlate } from "./core/NamePlate.tsx";
+import { PortraitPlates } from "./core/PortraitPlates.tsx";
+import { PieChart } from "./core/PieChart.tsx";
 import { QuoteBlock } from "./core/QuoteBlock.tsx";
 import { RankLabel } from "./core/RankLabel.tsx";
 import { RegionHighlight } from "./core/RegionHighlight.tsx";
@@ -56,18 +66,13 @@ export interface OverlayComponentProps {
 export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = {
   AnimatedCounter,
   ArchivalFrame,
-  ArchiveBarGraph,
-  ArchiveCaption,
-  ArchiveChapterTitle,
-  ArchiveCounter,
-  ArchiveLineChart,
-  ArchiveLowerThird,
-  ArchiveQuoteCard,
   BarChart,
   BulletList,
   CalloutArrow,
+  Candlestick,
   ChapterCard,
   ComparisonSplit,
+  DataTable,
   DateStamp,
   DefinitionCard,
   DocumentCard,
@@ -75,35 +80,37 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
   FactSheet,
   FramedExhibit,
   HammerStatement,
+  HeadlineStack,
   HighlightedPassage,
   KineticTitle,
   LineChart,
+  MetricGrid,
   NamePlate,
+  PieChart,
+  PortraitPlates,
   QuoteBlock,
   RankLabel,
   RegionHighlight,
   RouteMap,
   SatelliteLocate,
+  SocialPost,
   StatTag,
   StepFlow,
   Timeline,
+  WaterfallChart,
+  WebPageFrame,
 };
 
 export {
   AnimatedCounter,
   ArchivalFrame,
-  ArchiveBarGraph,
-  ArchiveCaption,
-  ArchiveChapterTitle,
-  ArchiveCounter,
-  ArchiveLineChart,
-  ArchiveLowerThird,
-  ArchiveQuoteCard,
   BarChart,
   BulletList,
   CalloutArrow,
+  Candlestick,
   ChapterCard,
   ComparisonSplit,
+  DataTable,
   DateStamp,
   DefinitionCard,
   DocumentCard,
@@ -111,16 +118,23 @@ export {
   FactSheet,
   FramedExhibit,
   HammerStatement,
+  HeadlineStack,
   HighlightedPassage,
   KineticTitle,
   LineChart,
+  MetricGrid,
   NamePlate,
+  PieChart,
+  PortraitPlates,
   QuoteBlock,
   RankLabel,
   RegionHighlight,
   RouteMap,
   SatelliteLocate,
+  SocialPost,
   StatTag,
   StepFlow,
   Timeline,
+  WaterfallChart,
+  WebPageFrame,
 };

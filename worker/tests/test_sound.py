@@ -81,7 +81,7 @@ def test_entrance_for_mirrors_the_engine():
     # a component the override does not name still gets the theme default
     assert sound.entrance_for(theme, "ChapterCard", sound.PANEL_ENTRANCES) == "pop"
     # ...and an entrance the component cannot draw degrades to fade, exactly as
-    # entranceFor does. contracts/themes/clean-punchy.json asks ChapterCard for
+    # entranceFor does. a theme asking ChapterCard for
     # typewriter and hits this path in production: ChapterCard is a PANEL
     # component, so it fades, and therefore it must SOUND like a fade too.
     punchy = {"motion": {"entrance": "pop", "per_component": {"ChapterCard": "typewriter"}}}

@@ -11,7 +11,7 @@
  *
  * `overlays.allowed_packs` is both the planner's menu filter and a validate
  * rule, so a component in a pack no style pack allows can never appear in a
- * video. Allowance is by PACK, not by component: "this style suits the archive
+ * video. Allowance is by PACK, not by component: "this style suits the finance
  * pack" is a statement about a body of work that does not go stale when a
  * component is added to that pack. The Overlays screen therefore edits the
  * allowance of a component's PACK, which is step 4 of "adding a component"

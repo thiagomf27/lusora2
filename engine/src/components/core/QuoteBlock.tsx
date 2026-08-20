@@ -10,13 +10,19 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  borderSides,
   TEXT_ENTRANCES,
+  borderSides,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
   surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
   useEntrance,
 } from "../theme.ts";
 
@@ -25,6 +31,9 @@ export const QuoteBlockProps = z.object({
   attribution: z.string().max(40).optional(),
   context: z.string().max(48).optional(),
   variant: z.enum(["mark", "rule", "boxed"]).default("mark"),
+  /** Was ArchiveQuoteCard's. How much of the frame the quote is allowed to take —
+   *  a decision about the LINE, not about the channel, so it stays a prop. */
+  size: z.enum(["standard", "large"]).default("standard"),
   align: z.enum(["left", "center"]).default("left"),
   emphasis: z.enum(["accent", "neutral"]).default("accent"),
 });
@@ -34,6 +43,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -45,12 +55,28 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
   });
   const { opacity, inDur } = entrance;
   const surface = surfaceStyle(theme, { radius: 10, alpha: "d9" });
+  // `variant` decides the CHROME — a quote mark, a rule, a box. Legibility is
+  // not one of the three: a `mark` quote on a paper theme still needs stock
+  // under it, so the ground is resolved with this variant's own alpha and
+  // `legible`, and a variant that never had a panel passes "00".
+  const ground = groundStyle(theme, {
+    radius: 10,
+    alpha: props.variant === "boxed" ? "d9" : "00",
+    legible: true,
+  });
 
   const centered = props.align === "center";
-  const size = Math.max(
-    height * 0.04,
-    Math.min(height * 0.075, (width * 1.55) / Math.max(1, props.quote.length * 0.52)),
-  );
+  // `size` was ArchiveQuoteCard's: how much of the frame this quote is allowed
+  // to claim. It scales the whole fit, and the type scale multiplies on top —
+  // a `large` quote on a `compact` theme is still the bigger of the two quotes.
+  const sizeMul = props.size === "large" ? 1.32 : 1;
+  const size =
+    Math.max(
+      height * 0.04,
+      Math.min(height * 0.075, (width * 1.55) / Math.max(1, props.quote.length * 0.52)),
+    ) *
+    sizeMul *
+    typeScale(theme, "title");
   const attrStart = Math.round(fps * 0.9 * durationMul);
 
   return (
@@ -62,7 +88,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
         flexDirection: "column",
         justifyContent: "center",
         alignItems: centered ? "center" : "flex-start",
-        padding: `0 ${width * 0.11}px`,
+        padding: `0 ${width * 0.11 * density}px`,
         opacity,
         translate: entrance.translate,
         scale: `${entrance.scale}`,
@@ -73,13 +99,12 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
         style={{
           position: "relative",
           maxWidth: width * 0.74,
-          background: props.variant === "boxed" ? surface.background : "transparent",
-          borderRadius: props.variant === "boxed" ? surface.borderRadius : 0,
+          ...(ground ?? {}),
           ...borderSides(
             props.variant === "boxed"
               ? { width: 1, color: `${accent}55` }
               : props.variant === "rule"
-                ? { side: "left", ruleWidth: Math.max(4, width * 0.004), ruleColor: accent }
+                ? { side: "left", ruleWidth: ruleWidth(theme, Math.max(4, width * 0.004)), ruleColor: accent }
                 : {}
           ),
           padding:
@@ -98,7 +123,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
               left: -width * 0.045,
               top: -height * 0.075,
               fontFamily: fontStack(theme.typography.display),
-              fontSize: height * 0.28,
+              fontSize: height * 0.28 * typeScale(theme, "number"),
               lineHeight: 1,
               color: accent,
               opacity: 0.16,
@@ -138,12 +163,12 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
       {props.attribution ? (
         <div
           style={{
-            marginTop: height * 0.03,
+            marginTop: height * 0.03 * density,
             marginLeft: centered ? 0 : width * 0.026,
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.028,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
+            fontSize: height * 0.028 * typeScale(theme, "body"),
+            letterSpacing: typeTracking(theme, 0.12),
+            textTransform: typeCase(theme, "uppercase"),
             color: accent,
             opacity: interpolate(frame, [attrStart, attrStart + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
@@ -163,10 +188,10 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
       {props.context ? (
         <div
           style={{
-            marginTop: height * 0.01,
+            marginTop: height * 0.01 * density,
             marginLeft: centered ? 0 : width * 0.026,
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.024,
+            fontSize: height * 0.024 * typeScale(theme, "caption"),
             fontStyle: "italic",
             color: theme.colors.neutral,
             opacity: interpolate(frame, [attrStart + 8, attrStart + 8 + fps * 0.4], [0, 1], {
@@ -181,3 +206,6 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+QuoteBlock.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

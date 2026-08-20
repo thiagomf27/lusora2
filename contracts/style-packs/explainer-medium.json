@@ -12,7 +12,9 @@
   "overlays": {
     "density": "normal",
     "allowed_packs": [
-      "core"
+      "core",
+      "finance",
+      "social"
     ]
   },
   "transitions": {

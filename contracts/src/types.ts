@@ -237,7 +237,19 @@ export type Entrance = "fade" | "rise" | "slide" | "pop" | "wipe" | "typewriter"
 export interface Theme {
   name: string;
   colors: { bg: string; text: string; accent: string; neutral: string };
-  typography: { display: string; body: string; caption_preset: string };
+  typography: {
+    display: string;
+    body: string;
+    caption_preset: string;
+    /** D66 — multiplier over every fontSize ratio, per type role. */
+    scale?: "compact" | "normal" | "generous";
+    /** D66 — offset on the component's own fontWeight. */
+    weight?: "light" | "regular" | "bold";
+    /** D66 — `as_written` keeps whatever the component set. */
+    case?: "as_written" | "upper";
+    /** D66 — em offset on the component's own letterSpacing. */
+    tracking?: "tight" | "normal" | "wide";
+  };
   motion_feel?: "slow_heavy" | "neutral" | "fast_light";
   grain?: "none" | "archival" | "film";
   /** D46 — the shape of an overlay. Omitted tokens keep the pre-D46 look. */
@@ -246,6 +258,25 @@ export interface Theme {
     fill?: "solid" | "translucent" | "none";
     /** Omitted keeps each component's own placement. */
     accent_rule?: "top" | "left" | "none";
+    /** D66 — multiplier on padding, gaps, margins and panel insets. */
+    density?: "tight" | "normal" | "airy";
+    /** D66 — multiplier on the width of every rule the component draws. */
+    rule?: "hairline" | "normal" | "heavy";
+    /** D66 — treatment on the ground an overlay sets type on. Distinct from
+     *  top-level `grain`, which is a post-look over the whole frame. */
+    texture?: "none" | "paper" | "grain" | "scanline";
+  };
+  /** D66 — how a plotted component reads. `grid`, `legend` and `markers` carry
+   *  no default: there is no identity element for a choice, so omitted keeps
+   *  each component's own (the `accent_rule` precedent). */
+  chart?: {
+    grid?: "none" | "horizontal" | "full";
+    legend?: "inline" | "bottom";
+    /** D69 — whether a line encloses the space under it. */
+    area?: "none" | "tint";
+    markers?: "none" | "dot";
+    stroke?: "hairline" | "normal" | "heavy";
+    number_format?: "plain" | "compact";
   };
   /** D46 — how an overlay arrives. Duration scaling stays in motion_feel. */
   motion?: {
@@ -411,7 +442,7 @@ export interface ChannelConfig {
   style_pack: string;
   component_pack?: string | null;
   /**
-   * D61: HOW this channel's videos are produced — the channel-side counterpart
+   * D66: HOW this channel's videos are produced — the channel-side counterpart
    * of a manifest's `category`. The resolver at enqueue turns it into a
    * pipeline name. Orthogonal to `video_type`, which is WHAT the video is.
    */

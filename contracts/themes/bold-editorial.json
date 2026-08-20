@@ -1,0 +1,39 @@
+{
+  "name": "bold-editorial",
+  "colors": {
+    "bg": "#0b0b0c",
+    "text": "#fafafa",
+    "accent": "#f5c518",
+    "neutral": "#6e6e73"
+  },
+  "typography": {
+    "display": "Inter",
+    "body": "Inter",
+    "caption_preset": "boxed",
+    "scale": "compact",
+    "weight": "bold",
+    "case": "as_written",
+    "tracking": "tight"
+  },
+  "motion_feel": "fast_light",
+  "grain": "none",
+  "surface": {
+    "radius": "soft",
+    "fill": "solid",
+    "accent_rule": "top",
+    "density": "tight",
+    "rule": "heavy",
+    "texture": "none"
+  },
+  "motion": {
+    "entrance": "pop",
+    "easing": "snap"
+  },
+  "chart": {
+    "grid": "none",
+    "legend": "inline",
+    "markers": "none",
+    "stroke": "heavy",
+    "number_format": "compact"
+  }
+}

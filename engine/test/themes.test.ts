@@ -12,9 +12,17 @@ import assert from "node:assert/strict";
 import type { Theme } from "@lusora/contracts";
 import {
   DEFAULT_THEME,
+  chartStyle,
+  densityScale,
   easingCurve,
   entranceFor,
+  ruleWidth,
   surfaceStyle,
+  textureLayer,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
 } from "../src/themes/runtime.ts";
 import { PANEL_ENTRANCES, TEXT_ENTRANCES } from "../src/themes/entrance.ts";
 
@@ -47,6 +55,118 @@ test("no motion tokens means the pre-D46 curve", () => {
 test("no motion tokens means the component's own entrance", () => {
   assert.equal(entranceFor(DEFAULT_THEME, "FactCard", PANEL_ENTRANCES, "slide"), "slide");
   assert.equal(entranceFor(DEFAULT_THEME, "NamePlate", PANEL_ENTRANCES, "rise"), "rise");
+});
+
+// ---------------- D66: the defaults are the identity ----------------
+//
+// The load-bearing group for the token set added with the LineChart merge. A
+// theme carrying no D66 token has to resolve to exactly what the component
+// already hardcoded, or the remaining 25 conversions become a flag day.
+
+test("no typography tokens returns the component's own ratio, weight, case and tracking", () => {
+  for (const role of ["title", "number", "kicker", "body", "caption"] as const) {
+    assert.equal(typeScale(DEFAULT_THEME, role), 1);
+  }
+  assert.equal(typeWeight(DEFAULT_THEME, 700), 700); // LineChart's title
+  assert.equal(typeWeight(DEFAULT_THEME, 400), 400); // its tick labels
+  assert.equal(typeCase(DEFAULT_THEME), "none");
+  assert.equal(typeCase(DEFAULT_THEME, "uppercase"), "uppercase"); // an already-upper kicker
+  assert.equal(typeTracking(DEFAULT_THEME), undefined); // omitted, so CSS keeps `normal`
+  assert.equal(typeTracking(DEFAULT_THEME, 0.08), "0.08em");
+});
+
+test("no surface tokens means no spacing change, no rule change and no texture", () => {
+  assert.equal(densityScale(DEFAULT_THEME), 1);
+  assert.equal(ruleWidth(DEFAULT_THEME, 2), 2);
+  assert.equal(ruleWidth(DEFAULT_THEME, 1.584), 1.584); // fractional, and NOT rounded
+  assert.equal(textureLayer(DEFAULT_THEME), null);
+});
+
+test("no chart tokens keeps the component's own grid, legend, markers and stroke", () => {
+  const c = chartStyle(DEFAULT_THEME, { grid: "axes", legend: "bottom", markers: "ends", stroke: 3.6 });
+  assert.equal(c.grid, "axes");
+  assert.equal(c.legend, "bottom");
+  assert.equal(c.markers, "ends");
+  assert.equal(c.strokeWidth, 3.6);
+  assert.equal(c.formatNumber(40300), "40,300");
+});
+
+test("every shipped theme authored before D66 is unchanged by it", () => {
+  // The themes that predate D66 carry no typography.scale, no
+  // surface.density and no chart block. Their surface/motion blocks must not
+  // accidentally switch a D66 resolver off its identity.
+  const preD66: Theme = themed({
+    surface: { radius: "square", fill: "solid", accent_rule: "none" },
+    motion: { easing: "smooth" },
+  });
+  assert.equal(typeScale(preD66, "title"), 1);
+  assert.equal(typeWeight(preD66, 700), 700);
+  assert.equal(densityScale(preD66), 1);
+  assert.equal(ruleWidth(preD66, 2), 2);
+  assert.equal(textureLayer(preD66), null);
+  assert.equal(chartStyle(preD66, { grid: "axes", stroke: 3.6 }).strokeWidth, 3.6);
+});
+
+// ---------------- D66: the tokens actually move ----------------
+
+test("scale moves display type further than caption type", () => {
+  const generous = themed({ typography: { ...DEFAULT_THEME.typography, scale: "generous" } });
+  assert.ok(typeScale(generous, "title") > typeScale(generous, "caption"));
+  const compact = themed({ typography: { ...DEFAULT_THEME.typography, scale: "compact" } });
+  assert.ok(typeScale(compact, "title") < typeScale(compact, "caption"));
+});
+
+test("weight shifts rather than replaces, so a title and a label stay apart", () => {
+  const bold = themed({ typography: { ...DEFAULT_THEME.typography, weight: "bold" } });
+  const light = themed({ typography: { ...DEFAULT_THEME.typography, weight: "light" } });
+  assert.ok(typeWeight(bold, 700) > typeWeight(bold, 400));
+  assert.ok(typeWeight(light, 700) >= typeWeight(light, 400));
+  assert.equal(typeWeight(light, 400), 300); // clamped, never invisible
+  assert.equal(typeWeight(bold, 900), 900); // clamped at the top
+});
+
+test("tracking is additive, so a title at 0em is still reachable by `wide`", () => {
+  const wide = themed({ typography: { ...DEFAULT_THEME.typography, tracking: "wide" } });
+  assert.equal(typeTracking(wide), "0.07em");
+  assert.equal(typeTracking(wide, 0.2), "0.27em");
+  const tight = themed({ typography: { ...DEFAULT_THEME.typography, tracking: "tight" } });
+  assert.equal(typeTracking(tight), "-0.03em");
+  assert.equal(typeTracking(tight, -0.04), "-0.05em"); // floored
+});
+
+test("rule and stroke scale the component's own width", () => {
+  const heavy = themed({ surface: { rule: "heavy" } });
+  const hair = themed({ surface: { rule: "hairline" } });
+  assert.equal(ruleWidth(heavy, 2), 5);
+  assert.equal(ruleWidth(hair, 2), 1);
+  assert.equal(ruleWidth(hair, 1), 1); // never disappears
+  assert.ok(chartStyle(themed({ chart: { stroke: "heavy" } }), { stroke: 4 }).strokeWidth > 4);
+  assert.ok(chartStyle(themed({ chart: { stroke: "hairline" } }), { stroke: 4 }).strokeWidth < 4);
+});
+
+test("a theme names a chart choice and the component's own is overridden", () => {
+  const c = chartStyle(themed({ chart: { grid: "full", legend: "inline", markers: "dot" } }), {
+    grid: "axes",
+    legend: "bottom",
+    markers: "ends",
+  });
+  assert.equal(c.grid, "full");
+  assert.equal(c.legend, "inline");
+  assert.equal(c.markers, "dot");
+});
+
+test("compact numbers are compact, and plain ones are not", () => {
+  const compact = chartStyle(themed({ chart: { number_format: "compact" } })).formatNumber;
+  assert.equal(compact(50000), "50.0K");
+  assert.equal(compact(1_240_000), "1.2M");
+  assert.equal(compact(940), "940");
+  assert.equal(chartStyle(DEFAULT_THEME).formatNumber(50000), "50,000");
+});
+
+test("texture is a deterministic style object, not a random one", () => {
+  const paper = themed({ surface: { texture: "paper" } });
+  assert.deepEqual(textureLayer(paper), textureLayer(paper));
+  assert.notDeepEqual(textureLayer(paper), textureLayer(themed({ surface: { texture: "grain" } })));
 });
 
 // ---------------- surface ----------------

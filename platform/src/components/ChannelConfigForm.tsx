@@ -65,7 +65,7 @@ export function defaultChannelConfig(): ChannelConfig {
     language: "en-US",
     video_type: "doc",
     production_style: "faceless",
-    theme: "history-dark",
+    theme: "standard",
     style_pack: "doc-slow",
     component_pack: null,
     voice: { provider: "mock", voice_id: "default" },

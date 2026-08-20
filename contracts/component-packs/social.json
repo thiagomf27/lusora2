@@ -1,0 +1,93 @@
+{
+  "pack": "social",
+  "components": [
+    {
+      "name": "SocialPost",
+      "pack": "social",
+      "when_to_use": "the video quotes something somebody posted online and the SOURCE is part of the claim — a YouTube comment, a tweet, a Reddit card. `platform` picks the chrome",
+      "when_not_to_use": "a quotation from a book, a speech or an interview, where the words matter and the medium does not (QuoteBlock); a page rather than a post (WebPageFrame); a press headline (HeadlineStack); naming the person without showing what they wrote (NamePlate)",
+      "anchor_types": ["quote"],
+      "props": {
+        "platform": {
+          "enum": ["youtube", "twitter", "reddit"],
+          "default": "twitter",
+          "description": "which chrome to draw; the shape is the same for all three"
+        },
+        "author": { "type": "string", "maxWords": 5, "required": true },
+        "handle": { "type": "string", "maxWords": 2, "description": "without the @ or u/ prefix; the component adds the right one" },
+        "body": { "type": "string", "maxWords": 45, "required": true, "from_anchor": "value" },
+        "timestamp": { "type": "string", "maxWords": 4, "description": "as the platform would show it: '3 years ago', 'Mar 14'" },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "likes": { "type": "number", "min": 0 },
+            "replies": { "type": "number", "min": 0 }
+          }
+        },
+        "avatar": { "type": "string", "description": "path to a still under the video dir; omitted draws a monogram disc" }
+      },
+      "region": { "y_min": 0.18, "y_max": 0.82 },
+      "duration_hint_s": { "min": 3.5, "default": 5.5 },
+      "entrance_seconds": 0.4,
+      "entrance_support": "panel",
+      "renderer": "remotion"
+    },
+    {
+      "name": "WebPageFrame",
+      "pack": "social",
+      "when_to_use": "a web page is the evidence — a filing, an article, a product listing — and the shot has to show both that it is a real page and which part of it matters. `highlight_region` pushes in on that part",
+      "when_not_to_use": "a post rather than a page, where who said it is the point (SocialPost); a photograph or a document image with no browser around it (FramedExhibit, DocumentCard); a press headline (HeadlineStack)",
+      "anchor_types": [],
+      "props": {
+        "image": { "type": "string", "description": "path to a screenshot under the video dir; omitted draws a wireframe placeholder" },
+        "url": { "type": "string", "maxWords": 6, "description": "shown in the address bar" },
+        "highlight_region": {
+          "type": "object",
+          "description": "the part worth reading, as fractions of the image; the shot ends here",
+          "properties": {
+            "x": { "type": "number", "min": 0, "max": 1 },
+            "y": { "type": "number", "min": 0, "max": 1 },
+            "w": { "type": "number", "min": 0.05, "max": 1 },
+            "h": { "type": "number", "min": 0.05, "max": 1 }
+          }
+        },
+        "caption": { "type": "string", "maxWords": 14 }
+      },
+      "region": { "y_min": 0.1, "y_max": 0.92 },
+      "duration_hint_s": { "min": 4, "default": 6 },
+      "entrance_seconds": 0.45,
+      "entrance_support": "panel",
+      "renderer": "remotion"
+    },
+    {
+      "name": "HeadlineStack",
+      "pack": "social",
+      "when_to_use": "two to five press headlines land in sequence to show that everyone reported it at once — the montage IS the argument",
+      "when_not_to_use": "the video's own claims in its own voice (BulletList); one headline worth reading in full (FactCard, or DocumentCard for the page itself); something an individual posted (SocialPost); dated events on a rail (Timeline)",
+      "anchor_types": [],
+      "props": {
+        "items": {
+          "type": "array",
+          "required": true,
+          "min": 2,
+          "max": 5,
+          "description": "in the order they should land",
+          "items": {
+            "type": "object",
+            "properties": {
+              "headline": { "type": "string", "maxWords": 14 },
+              "outlet": { "type": "string", "maxWords": 3 },
+              "date": { "type": "string", "maxWords": 3 }
+            }
+          }
+        },
+        "kicker": { "type": "string", "maxWords": 6 }
+      },
+      "region": { "y_min": 0.08, "y_max": 0.92 },
+      "duration_hint_s": { "min": 4, "default": 6.5 },
+      "entrance_seconds": 0.4,
+      "entrance_support": "panel",
+      "renderer": "remotion"
+    }
+  ]
+}

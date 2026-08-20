@@ -31,7 +31,7 @@ const flag = (name, def) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 ? args[i + 1] : def;
 };
-const theme = flag("theme", "history-dark");
+const theme = flag("theme", "standard");
 const dur = Number(flag("dur", "5"));
 const at = Number(flag("at", "0.66"));
 // A template-backed catalog entry has no React component; the plan carries the
@@ -57,7 +57,7 @@ const ff = (a, ctx) => {
 const work = mkdtempSync(join(tmpdir(), "overlay-preview-"));
 mkdirSync(join(work, "clips"));
 try {
-  ff(["-f", "lavfi", "-i", "gradients=size=1280x720:x0=0:y0=0:x1=1280:y1=720:c0=0x0d1220:c1=0x243350", "-frames:v", "1", join(work, "clips/bg.png")], "bg");
+  ff(["-f", "lavfi", "-i", "gradients=size=1280x720:x0=0:y0=0:x1=1280:y1=720:c0=0x0d1220:c1=0x243350:seed=7", "-frames:v", "1", join(work, "clips/bg.png")], "bg");
   ff(["-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", String(dur), "-c:a", "libmp3lame", "-q:a", "9", join(work, "audio.mp3")], "audio");
 
   const plan = {

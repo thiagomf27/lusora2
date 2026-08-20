@@ -11,7 +11,20 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { fitText } from "@remotion/layout-utils";
 import type { Entrance, Theme } from "../theme.ts";
-import { easingCurve, emphasisColor, fontStack, motionScale, useEntrance } from "../theme.ts";
+import {
+  densityScale,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  groundStyle,
+  motionScale,
+  ruleWidth,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
+  useEntrance,
+} from "../theme.ts";
 
 export const HammerStatementProps = z.object({
   text: z.string().max(90),
@@ -28,6 +41,8 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
   const curve = Easing.bezier(...easingCurve(theme));
 
@@ -48,10 +63,12 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
     text: props.text,
     withinWidth: boxWidth * 1.9, // allow ~2 lines' worth of glyphs
     fontFamily: fontStack(theme.typography.display),
-    fontWeight: 700,
+    fontWeight: typeWeight(theme, 700),
     validateFontIsLoaded: true,
   });
-  const size = Math.max(height * 0.06, Math.min(fontSize, height * 0.16));
+  // The fitted size is a ratio of the frame, so the scale token multiplies
+  // the whole fit rather than only its floor.
+  const size = Math.max(height * 0.06, Math.min(fontSize, height * 0.16)) * typeScale(theme, "title");
 
   const kickerIn = Math.round(fps * 0.15 * durationMul);
   const wordsStart = props.kicker ? Math.round(fps * 0.45 * durationMul) : kickerIn;
@@ -71,7 +88,7 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
         flexDirection: "column",
         justifyContent: "center",
         alignItems: centered ? "center" : "flex-start",
-        padding: `0 ${width * 0.1}px`,
+        padding: `0 ${width * 0.1 * density}px`,
         opacity,
         translate: `0 ${interpolate(frame, [durationInFrames - fps * 0.6, durationInFrames], [0, height * 0.01], {
           extrapolateLeft: "clamp",
@@ -80,15 +97,23 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
         })}px`,
       }}
     >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: centered ? "center" : "flex-start",
+          ...(ground ? { ...ground, padding: `${height * 0.045 * density}px ${width * 0.04 * density}px` } : {}),
+        }}
+      >
       {props.kicker ? (
         <div
           style={{
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.026,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
+            fontSize: height * 0.026 * typeScale(theme, "kicker"),
+            letterSpacing: typeTracking(theme, 0.22),
+            textTransform: typeCase(theme, "uppercase"),
             color: accent,
-            marginBottom: height * 0.028,
+            marginBottom: height * 0.028 * density,
             opacity: interpolate(frame, [kickerIn, kickerIn + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -130,7 +155,7 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
                 style={{
                   display: "block",
                   fontFamily: fontStack(theme.typography.display),
-                  fontWeight: 700,
+                  fontWeight: typeWeight(theme, 700),
                   fontSize: size,
                   lineHeight: 1.05,
                   color: theme.colors.text,
@@ -154,9 +179,9 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
 
       <div
         style={{
-          marginTop: height * 0.035,
+          marginTop: height * 0.035 * density,
           width: boxWidth,
-          height: Math.max(3, height * 0.008),
+          height: ruleWidth(theme, Math.max(3, height * 0.008)),
           background: accent,
           scale: `${interpolate(frame, [ruleStart, ruleStart + Math.round(fps * 0.3 * durationMul)], [0, 1], {
             extrapolateLeft: "clamp",
@@ -166,6 +191,10 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
           transformOrigin: centered ? "center" : "left center",
         }}
       />
+      </div>
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+HammerStatement.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

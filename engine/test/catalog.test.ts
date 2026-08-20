@@ -25,18 +25,26 @@ const packsDir = join(here, "../../contracts/component-packs");
  * either by a template or — like the `archive` pack — by a React component in
  * components/<pack>, so the same parity rules apply to it.
  */
-function dataPackEntries(): CatalogEntry[] {
+function dataPackNames(): string[] {
   if (!existsSync(packsDir)) return [];
   return readdirSync(packsDir)
     .filter((f) => f.endsWith(".json"))
     .sort()
-    .flatMap((f) => {
-      const pack = JSON.parse(readFileSync(join(packsDir, f), "utf8")) as {
-        pack: string;
-        components?: CatalogEntry[];
-      };
-      return pack.components ?? [];
-    });
+    .map((f) => f.slice(0, -5));
+}
+
+function packEntries(pack: string): CatalogEntry[] {
+  const file = join(packsDir, `${pack}.json`);
+  if (!existsSync(file)) return [];
+  const doc = JSON.parse(readFileSync(file, "utf8")) as {
+    pack: string;
+    components?: CatalogEntry[];
+  };
+  return doc.components ?? [];
+}
+
+function dataPackEntries(): CatalogEntry[] {
+  return dataPackNames().flatMap(packEntries);
 }
 
 const ALL_ENTRIES = [...CORE_COMPONENTS, ...dataPackEntries()];
@@ -169,4 +177,72 @@ test("every catalog component has sample props", () => {
       .map(([k]) => k);
     assert.deepEqual(missing, [], `${name}: sample props miss required props`);
   }
+});
+
+/**
+ * Collision lint: within one RESOLVED MENU, no two entries may be
+ * indistinguishable to the planner.
+ *
+ * A resolved menu is what `applyComponentPack` hands downstream — `core` plus
+ * the one pack a channel installed (D66) — so that is the unit checked here,
+ * once per pack, rather than the catalog as a whole. Two entries in the same
+ * menu that share all three of
+ *
+ *   - what DRAWS them (`template` kind, or the component name),
+ *   - their prop signature,
+ *   - their `anchor_types`,
+ *
+ * give the planner nothing to choose on. The whole catalog sits in the prompt
+ * of every plan call, so a pair like that is not merely redundant: it is a coin
+ * flip dressed as a decision, and it costs prompt weight in every video ever
+ * rendered. `when_not_to_use` exists to remove exactly this ambiguity, and it
+ * cannot when there is no difference to name.
+ *
+ * The lint's REACH is worth stating, because it is easy to mistake for a
+ * completeness guarantee. It catches clones drawn by the same template — the
+ * `doc-minimal` pack had one. It does NOT catch a restyled twin that ships its
+ * own component, because two different component names are two different
+ * drawing identities, and it does not catch a twin whose props were renamed
+ * (`bars` for `series`) or extended by one. Those need the human test in
+ * component-catalog.md — "if the props are identical, it is a theme", where a
+ * renamed prop counts as the same prop — which is what retired the `archive`
+ * twins in D66.
+ */
+function collisionKey(entry: CatalogEntry): string {
+  const draws = entry.template ?? entry.name;
+  const props = Object.keys(entry.props ?? {}).sort().join(",");
+  const anchors = [...(entry.anchor_types ?? [])].sort().join(",");
+  return `${draws} | props(${props}) | anchors(${anchors})`;
+}
+
+test("no two entries in one resolved menu are indistinguishable", () => {
+  // core alone is a menu in its own right: a channel with no pack installed.
+  const menus: Array<{ name: string; entries: CatalogEntry[] }> = [
+    { name: "core", entries: CORE_COMPONENTS },
+    ...dataPackNames().map((pack) => ({
+      name: `core+${pack}`,
+      entries: [...CORE_COMPONENTS, ...packEntries(pack)],
+    })),
+  ];
+
+  const collisions: string[] = [];
+  for (const menu of menus) {
+    const byKey = new Map<string, string[]>();
+    for (const entry of menu.entries) {
+      const key = collisionKey(entry);
+      byKey.set(key, [...(byKey.get(key) ?? []), entry.name]);
+    }
+    for (const [key, names] of byKey) {
+      if (names.length > 1) {
+        collisions.push(`${menu.name}: ${names.join(" / ")} all resolve to ${key}`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    collisions,
+    [],
+    "entries the planner is choosing between at random — give one a different " +
+      "shape, or delete it and reuse its sibling"
+  );
 });

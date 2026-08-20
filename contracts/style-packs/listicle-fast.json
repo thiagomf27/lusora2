@@ -12,7 +12,8 @@
   "overlays": {
     "density": "high",
     "allowed_packs": [
-      "core"
+      "core",
+      "social"
     ]
   },
   "transitions": {

@@ -258,7 +258,7 @@ export default function ThemeFields({
           <input
             name="theme-name"
             value={value.name}
-            placeholder="history-dark"
+            placeholder="paper-print"
             spellCheck={false}
             onChange={(e) => onChange({ ...value, name: e.target.value.trim() })}
           />

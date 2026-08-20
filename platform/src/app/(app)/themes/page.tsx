@@ -103,7 +103,7 @@ export default function ThemesPage() {
     if (!createDraft) return;
     setError(null);
     if (!THEME_NAME_RE.test(createDraft.name)) {
-      setError("name must be lowercase letters, digits and dashes (e.g. history-dark)");
+      setError("name must be lowercase letters, digits and dashes (e.g. paper-print)");
       return;
     }
     const bad = colorProblems(createDraft);

@@ -1,0 +1,63 @@
+{
+  "name": "standard",
+  "colors": {
+    "bg": "#eef1f6",
+    "text": "#0f1115",
+    "accent": "#2f5cf5",
+    "neutral": "#8b93a3"
+  },
+  "typography": {
+    "display": "Inter",
+    "body": "Inter",
+    "caption_preset": "boxed",
+    "scale": "normal",
+    "weight": "bold",
+    "case": "as_written",
+    "tracking": "tight"
+  },
+  "motion_feel": "fast_light",
+  "grain": "none",
+  "surface": {
+    "radius": "soft",
+    "fill": "solid",
+    "accent_rule": "none",
+    "density": "tight",
+    "rule": "normal",
+    "texture": "none"
+  },
+  "chart": {
+    "grid": "horizontal",
+    "legend": "inline",
+    "markers": "dot",
+    "stroke": "heavy",
+    "number_format": "compact",
+    "area": "tint"
+  },
+  "motion": {
+    "entrance": "rise",
+    "easing": "snap"
+  },
+  "sound": {
+    "pack": "punchy",
+    "entrance": "swoosh-bright",
+    "per_entrance": {
+      "pop": "pop-tight",
+      "rise": "swoosh-bright"
+    },
+    "mood_beds": {
+      "neutral": "neutral-01",
+      "tense": "tense-01",
+      "somber": "somber-01",
+      "hopeful": "hopeful-01",
+      "urgent": "urgent-01",
+      "triumphant": "triumphant-01",
+      "reflective": "reflective-01",
+      "playful": "playful-01"
+    },
+    "gain": {
+      "sfx": 0.32,
+      "music_duck": 0.16,
+      "music_lift": 0.5
+    }
+  }
+}

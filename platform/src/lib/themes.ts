@@ -10,7 +10,7 @@ import { repoRoot } from "./env.ts";
 export const THEME_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 export const THEME_NAME_HINT =
-  "name must be lowercase letters, digits and dashes (e.g. history-dark)";
+  "name must be lowercase letters, digits and dashes (e.g. paper-print)";
 
 export function themesDir(): string {
   return join(repoRoot(), "contracts", "themes");

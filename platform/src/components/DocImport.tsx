@@ -25,7 +25,7 @@ const SPEC: Record<Kind, { label: string; dir: string; schema: string; endpoint:
     schema: "theme.schema.json",
     endpoint: "/api/themes",
     template: `{
-  "name": "clean-punchy",
+  "name": "my-theme",
   "colors": {
     "bg": "#0b1220",
     "text": "#f2f5fa",

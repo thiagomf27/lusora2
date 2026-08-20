@@ -9,11 +9,16 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
   surfaceStyle,
+  typeScale,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -30,6 +35,7 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -41,6 +47,13 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
   });
   const { opacity, inDur } = entrance;
   const surface = surfaceStyle(theme, { radius: 8, alpha: "e6" });
+  // Each step box carries type, so it resolves through groundStyle rather
+  // than surfaceStyle: `fill: none` on a paper theme would leave dark step
+  // labels on the footage with nothing under them.
+  const ground = groundStyle(theme, { radius: 8, alpha: "e6", legible: true });
+  // The title sits OUTSIDE the boxes, so the lockup needs its own ground —
+  // otherwise a paper theme reads three plated steps under an invisible head.
+  const titleGround = groundStyle(theme, { radius: 8, legible: true });
 
   const stagger = Math.min(
     Math.round(fps * 0.4 * durationMul),
@@ -67,7 +80,7 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: `0 ${width * 0.05}px`,
+        padding: `0 ${width * 0.05 * density}px`,
         opacity,
         translate: entrance.translate,
         scale: `${entrance.scale}`,
@@ -77,10 +90,13 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
       {props.title ? (
         <div
           style={{
-            marginBottom: height * 0.05,
+            marginBottom: height * 0.05 * density,
+            ...(titleGround
+              ? { ...titleGround, padding: `${height * 0.018 * density}px ${width * 0.028 * density}px` }
+              : {}),
             fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.05,
-            fontWeight: 700,
+            fontSize: height * 0.05 * typeScale(theme, "title"),
+            fontWeight: typeWeight(theme, 700),
             color: theme.colors.text,
             maxWidth: width * 0.8,
             textAlign: "center",
@@ -135,8 +151,8 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
                 <div
                   style={{
                     position: "relative",
-                    width: horizontal ? connector : Math.max(2, width * 0.002),
-                    height: horizontal ? Math.max(2, height * 0.004) : connector,
+                    width: horizontal ? connector : ruleWidth(theme, Math.max(2, width * 0.002)),
+                    height: horizontal ? ruleWidth(theme, Math.max(2, height * 0.004)) : connector,
                     flexShrink: 0,
                   }}
                 >
@@ -156,7 +172,7 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
                       x2={horizontal ? connector : height * 0.01}
                       y2={horizontal ? height * 0.01 : connector}
                       stroke={accent}
-                      strokeWidth={Math.max(2, height * 0.004)}
+                      strokeWidth={ruleWidth(theme, Math.max(2, height * 0.004))}
                       strokeDasharray={arrowLen}
                       strokeDashoffset={arrowLen * (1 - draw)}
                     />
@@ -183,13 +199,12 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
               <div
                 style={{
                   width: boxW,
-                  background: surface.background,
-                  border: `1px solid ${theme.colors.neutral}66`,
-                  borderRadius: surface.borderRadius,
-                  padding: `${height * 0.022}px ${width * 0.014}px`,
+                  ...(ground ?? {}),
+                  border: `${ruleWidth(theme, 1)}px solid ${theme.colors.neutral}66`,
+                  padding: `${height * 0.022 * density}px ${width * 0.014 * density}px`,
                   display: "flex",
                   flexDirection: "column",
-                  gap: height * 0.008,
+                  gap: height * 0.008 * density,
                   opacity: enter,
                   scale: `${interpolate(enter, [0, 1], [0.94, 1])}`,
                 }}
@@ -206,8 +221,8 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
                       alignItems: "center",
                       justifyContent: "center",
                       fontFamily: fontStack(theme.typography.body),
-                      fontSize: height * 0.024,
-                      fontWeight: 700,
+                      fontSize: height * 0.024 * typeScale(theme, "caption"),
+                      fontWeight: typeWeight(theme, 700),
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
@@ -217,8 +232,8 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
                 <div
                   style={{
                     fontFamily: fontStack(theme.typography.display),
-                    fontSize: height * 0.032,
-                    fontWeight: 600,
+                    fontSize: height * 0.032 * typeScale(theme, "body"),
+                    fontWeight: typeWeight(theme, 600),
                     lineHeight: 1.2,
                     color: theme.colors.text,
                     overflowWrap: "anywhere",
@@ -234,7 +249,7 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
                   <div
                     style={{
                       fontFamily: fontStack(theme.typography.body),
-                      fontSize: height * 0.022,
+                      fontSize: height * 0.022 * typeScale(theme, "kicker"),
                       lineHeight: 1.3,
                       color: theme.colors.neutral,
                       display: "-webkit-box",
@@ -254,3 +269,6 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+StepFlow.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

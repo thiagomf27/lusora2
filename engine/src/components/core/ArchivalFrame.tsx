@@ -21,10 +21,17 @@ import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideo
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
   useEntrance,
 } from "../theme.ts";
 
@@ -45,6 +52,7 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -166,7 +174,7 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
                 left: side === 0 ? 0 : undefined,
                 right: side === 1 ? 0 : undefined,
                 width: width * 0.035,
-                background: `${theme.colors.bg}e6`,
+                ...(groundStyle(theme, { radius: 0, alpha: "e6", legible: true }) ?? {}),
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "space-around",
@@ -180,7 +188,7 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
                   style={{
                     width: width * 0.016,
                     height: height * 0.035,
-                    borderRadius: 3,
+                    borderRadius: surfaceStyle(theme, { radius: 3 }).borderRadius,
                     background: theme.colors.text,
                     opacity: 0.75,
                   }}
@@ -195,13 +203,13 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
         <div
           style={{
             position: "absolute",
-            left: width * 0.06,
-            right: width * 0.06,
-            bottom: height * 0.08,
+            left: width * 0.06 * density,
+            right: width * 0.06 * density,
+            bottom: height * 0.08 * density,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-end",
-            gap: width * 0.03,
+            gap: width * 0.03 * density,
             opacity: interpolate(frame, [inDur, inDur + fps * 0.5], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -212,12 +220,12 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
             <div
               style={{
                 fontFamily: fontStack(theme.typography.body),
-                fontSize: height * 0.028,
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
+                fontSize: height * 0.028 * typeScale(theme, "body"),
+                letterSpacing: typeTracking(theme, 0.16),
+                textTransform: typeCase(theme, "uppercase"),
                 color: theme.colors.text,
-                borderLeft: `${Math.max(2, height * 0.005)}px solid ${accent}`,
-                paddingLeft: width * 0.014,
+                borderLeft: `${ruleWidth(theme, Math.max(2, height * 0.005))}px solid ${accent}`,
+                paddingLeft: width * 0.014 * density,
               }}
             >
               {props.slate}
@@ -229,10 +237,10 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
             <div
               style={{
                 fontFamily: fontStack(theme.typography.body),
-                fontSize: height * 0.024,
+                fontSize: height * 0.024 * typeScale(theme, "caption"),
                 fontVariantNumeric: "tabular-nums",
                 color: theme.colors.neutral,
-                letterSpacing: "0.1em",
+                letterSpacing: typeTracking(theme, 0.1),
                 whiteSpace: "nowrap",
               }}
             >
@@ -282,9 +290,12 @@ function ProceduralPlate({ theme, width, height }: { theme: Theme; width: number
           fill="none"
           stroke={theme.colors.neutral}
           strokeOpacity={0.3}
-          strokeWidth={Math.max(1, height * 0.002)}
+          strokeWidth={ruleWidth(theme, Math.max(1, height * 0.002))}
         />
       ))}
     </svg>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+ArchivalFrame.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

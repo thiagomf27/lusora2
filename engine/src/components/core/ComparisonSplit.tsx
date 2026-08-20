@@ -11,10 +11,18 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  chartStyle,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -37,6 +45,9 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const chart = chartStyle(theme);
+  const ground = groundStyle(theme, { radius: 14, accentRule: "none" });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -98,8 +109,8 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: height * 0.012,
-                padding: `0 ${width * 0.05}px`,
+                gap: height * 0.012 * density,
+                padding: `0 ${width * 0.05 * density}px`,
                 // Each half wipes in from its own outer edge.
                 clipPath: isLeft ? `inset(0 0 0 ${wipe}%)` : `inset(0 ${wipe}% 0 0)`,
               }}
@@ -107,9 +118,9 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
               <div
                 style={{
                   fontFamily: fontStack(theme.typography.body),
-                  fontSize: height * 0.03,
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
+                  fontSize: height * 0.03 * typeScale(theme, "title"),
+                  letterSpacing: typeTracking(theme, 0.18),
+                  textTransform: typeCase(theme, "uppercase"),
                   color: theme.colors.text,
                   whiteSpace: "nowrap",
                 }}
@@ -119,22 +130,22 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
               <div
                 style={{
                   fontFamily: numeric,
-                  fontSize: height * 0.115,
-                  fontWeight: 700,
+                  fontSize: height * 0.115 * typeScale(theme, "number"),
+                  fontWeight: typeWeight(theme, 700),
                   fontVariantNumeric: "tabular-nums",
                   lineHeight: 1.05,
                   color,
                   whiteSpace: "nowrap",
                 }}
               >
-                {shown.toLocaleString("en-US")}
-                {props.unit ? <span style={{ fontSize: height * 0.032, marginLeft: width * 0.006 }}>{props.unit}</span> : null}
+                {chart.formatNumber(shown)}
+                {props.unit ? <span style={{ fontSize: height * 0.032 * typeScale(theme, "body"), marginLeft: width * 0.006 * density }}>{props.unit}</span> : null}
               </div>
               {data.note ? (
                 <div
                   style={{
                     fontFamily: fontStack(theme.typography.body),
-                    fontSize: height * 0.026,
+                    fontSize: height * 0.026 * typeScale(theme, "kicker"),
                     color: theme.colors.neutral,
                     whiteSpace: "nowrap",
                   }}
@@ -147,13 +158,27 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
         })}
       </div>
 
+      {ground ? (
+        <div
+          style={{
+            position: "absolute",
+            left: width * 0.05 * density,
+            top: height * 0.12 * density,
+            width: width - width * 0.1 * density,
+            height: height - height * 0.24 * density,
+            ...ground,
+            zIndex: -1,
+          }}
+        />
+      ) : null}
+
       {/* Divider draws top to bottom before either half arrives. */}
       <div
         style={{
           position: "absolute",
           left: width / 2 - 1,
-          top: height * 0.22,
-          width: Math.max(2, width * 0.0016),
+          top: height * 0.22 * density,
+          width: ruleWidth(theme, Math.max(2, width * 0.0016)),
           height: height * 0.56,
           background: `${theme.colors.neutral}99`,
           scale: `1 ${dividerScale}`,
@@ -167,12 +192,12 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
             position: "absolute",
             left: 0,
             right: 0,
-            bottom: height * 0.1,
+            bottom: height * 0.1 * density,
             textAlign: "center",
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.024,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
+            fontSize: height * 0.024 * typeScale(theme, "caption"),
+            letterSpacing: typeTracking(theme, 0.1),
+            textTransform: typeCase(theme, "uppercase"),
             color: theme.colors.neutral,
             opacity: interpolate(frame, [countDur * 0.6, countDur * 0.6 + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
@@ -186,3 +211,6 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+ComparisonSplit.honors = ["typography", "surface.density", "surface.rule", "motion.entrance", "motion.easing"];

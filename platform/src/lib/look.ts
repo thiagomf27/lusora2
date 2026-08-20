@@ -25,17 +25,53 @@ function catalogComponentNames(): string[] {
 }
 
 /**
- * Resolve the overlay menu: the style pack's ALLOWED PACKS crossed with the one
- * component pack this channel installed, written into the embedded doc as the
- * concrete `allowed_components` list every downstream stage already reads.
+ * The packs a channel actually draws from: **`core` plus whatever it installed.**
+ *
+ * Packs are ADDITIVE over core, and that is the whole rule (D66). A pack is a
+ * menu EXTENSION — three to six entries of geometry core cannot carry — so a
+ * channel that installs one is asking for core *and* those, never those
+ * instead of core. Resolving to the installed pack alone is what left
+ * `AtlasDaGuerra` with the three entries in `social` or `finance`
+ * and no counter, chart, title or lower third at all.
+ *
+ * `core` is unconditional, including when a style pack's `allowed_packs` omits
+ * it: that field says which EXTRA packs a style suits, and the tool for "not
+ * this core component" is `look.exclude.components`, which runs next. A style
+ * pack cannot take the base menu away, because a pack was never meant to
+ * replace it.
+ */
+function resolvedPacks(componentPack: string | null | undefined): string[] {
+  return componentPack && componentPack !== "core" ? ["core", componentPack] : ["core"];
+}
+
+/** Catalog names in any of `packs`, deduplicated, in catalog order. */
+function namesInPacks(packs: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const i of loadMergedCatalog().items) {
+    if (!packs.includes(i.entry.pack ?? "core")) continue;
+    // A pack that re-declares a core name would otherwise appear twice; the
+    // catalog loader already refuses duplicate names, so this is belt and
+    // braces rather than a merge rule.
+    if (seen.has(i.entry.name)) continue;
+    seen.add(i.entry.name);
+    out.push(i.entry.name);
+  }
+  return out;
+}
+
+/**
+ * Resolve the overlay menu: `core` plus the component pack this channel
+ * installed, written into the embedded doc as the concrete
+ * `allowed_components` list every downstream stage already reads.
  *
  * Two granularities, on purpose:
  *
  *  - a style pack allows PACKS (`overlays.allowed_packs`). "This style suits
- *    the archive pack" is a statement about a body of work, and it does not go
+ *    the finance pack" is a statement about a body of work, and it does not go
  *    stale when a component is added to that pack.
- *  - a channel installs ONE pack (`component_pack`), and trims per component
- *    with `look.exclude.components`.
+ *  - a channel installs ONE extra pack (`component_pack`), and trims per
+ *    component with `look.exclude.components`.
  *
  * Resolving here, once, is the same move the look block makes: the planner,
  * compiler, validator and both renderers keep reading `allowed_components` and
@@ -52,15 +88,14 @@ export function applyComponentPack(snapshot: Record<string, unknown>): string[] 
   const overlays = (style.overlays ??= {});
   const allowedPacks: string[] | undefined = overlays.allowed_packs;
   const authored: string[] | undefined = overlays.allowed_components;
+  const packs = resolvedPacks(pack);
 
   // An old snapshot, or a pack file not yet converted: the authored element
-  // list is the menu, narrowed to what this channel installed.
+  // list is the menu, narrowed to what this channel can draw from.
   if (!allowedPacks) {
-    const inPack = loadMergedCatalog()
-      .items.filter((i) => i.entry.pack === pack)
-      .map((i) => i.entry.name);
+    const available = namesInPacks(packs);
     const base = authored ?? catalogComponentNames();
-    const next = base.filter((c) => inPack.includes(c));
+    const next = base.filter((c) => available.includes(c));
     if (next.length === 0) {
       return [
         `component_pack '${pack}' offers none of the components style pack ` +
@@ -73,8 +108,9 @@ export function applyComponentPack(snapshot: Record<string, unknown>): string[] 
   }
 
   // An empty list is "no pack at all" and is a mistake worth naming; the way to
-  // say "any pack" is to leave the field out.
-  if (allowedPacks.length > 0 && !allowedPacks.includes(pack)) {
+  // say "any pack" is to leave the field out. Only the INSTALLED pack is
+  // checked: core is not something a style pack opts into.
+  if (allowedPacks.length > 0 && pack !== "core" && !allowedPacks.includes(pack)) {
     return [
       `style pack '${snapshot.style_pack}' allows ${allowedPacks.join(", ")}, but this channel's ` +
         `component_pack is '${pack}' — install one of the packs the style allows, or add '${pack}' ` +
@@ -82,9 +118,7 @@ export function applyComponentPack(snapshot: Record<string, unknown>): string[] 
     ];
   }
 
-  const next = loadMergedCatalog()
-    .items.filter((i) => i.entry.pack === pack)
-    .map((i) => i.entry.name);
+  const next = namesInPacks(packs);
   if (next.length === 0) {
     return [`component_pack '${pack}' has no components in the catalog`];
   }

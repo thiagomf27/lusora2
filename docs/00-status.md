@@ -88,7 +88,7 @@ enumerated list did, silently, every time. The six shipped packs were converted
 to the packs their components already came from.
 
 The concrete menu is RESOLVED at enqueue: `applyComponentPack` crosses
-`allowed_packs` with the channel's one `component_pack` and writes the resulting
+`allowed_packs` with `core` plus the channel's `component_pack` and writes the resulting
 `allowed_components` array into the embedded `style_pack_doc`. So the planner,
 compiler, validator and both renderers are UNCHANGED — they go on reading the
 same field they always read, and a video snapshotted before this carries an
@@ -108,23 +108,25 @@ the merged catalog handed every pack to every channel, so a channel set to
 "core only" could still be planned an `Archive*` overlay. `applyComponentPack`
 in `lib/look.ts` resolves the menu at enqueue — the same mechanism
 and the same moment as `look.exclude`, so no agent, compiler or renderer learns
-a new field. A channel draws from **exactly one** pack, `core`
-included: choosing `archive` means archive components and nothing else, and an
-unset field resolves to `core`, which is what every channel had before this was
-wired. It is a dropdown on the Overlays group, and the grid lists ONLY that
-pack's components — the other packs' are not this channel's to consider, and
-drawn blocked they were thirty-two cards of noise around the eleven that
-mattered. A card still blocked in that grid is one the style pack declines,
-which is worth seeing; the API keeps reporting both reasons, and the
-component-pack one comes first because a style pack declining a component is an
-editorial choice while the component not being installed is a fact.
+a new field. It is a dropdown on the Overlays group. A card blocked in that grid
+is one the style pack declines, which is worth seeing; the API keeps reporting
+both reasons, and the component-pack one comes first because a style pack
+declining a component is an editorial choice while the component not being
+installed is a fact.
 
-One pack rather than core-plus-one has a sharp edge worth knowing: a component
-pack sharing no component with the style pack's allow-list leaves nothing to
-draw. `doc-slow` allows only core components, so pointing a `doc-slow` channel
-at `archive` is exactly that case. It is refused at enqueue with the reason, and
-the Visual tab shows the same warning while you are editing, so it should never
-reach the queue.
+**Packs resolve ADDITIVELY over core.** A channel draws from `core` **plus** at
+most one installed pack: `["core", ...(component_pack ? [component_pack] : [])]`,
+deduplicated. This replaced a one-pack-only resolution that filtered
+`entry.pack === pack` and so dropped core entirely the moment a channel
+installed anything — a pack is a menu EXTENSION of three to six entries, so
+choosing one was never meant to mean choosing it *instead of* the base menu.
+The old behaviour was survivable while `archive` had nine entries and merely
+bad; after the D66 merge left it with two, `AtlasDaGuerra` resolved to a menu
+of `ArchiveCaption` and `ArchiveFrames` and no counter, chart, title or lower
+third at all. `core` is unconditional and is not something a style pack opts
+into: `allowed_packs` names the EXTRA packs a style suits, listing `core` is
+redundant, and omitting it does not take the base menu away. The tool for "not
+this core component" is `look.exclude.components`, which runs next.
 
 **Excluding the style pack's default transition is allowed.** It used to be
 refused at enqueue; "this channel never hard-cuts" is a look, not a mistake. The
@@ -358,12 +360,55 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
     vocabulary (mask→wipe, scale→pop); the theme wins where set. The prop
     is a deprecation candidate (appearance is not the planner's job) but
     removing it changes the catalog entry the planner reads.
-  - Only 8 components take `surface` — the rest draw no panel. Bar
-    rounding and dot geometry are deliberately NOT surface tokens.
   - Zero ffmpeg cost: any overlay already forces the Remotion route.
   - `contracts/themes/clean-punchy.json` is the seed second look.
   - `QuoteCard.tsx` is unconverted and is NOT in the `COMPONENTS` map —
     dead code, renders nothing; delete or register it.
+- **Theme `typography` + `chart` tokens, and the archive merge (D66).**
+  `theme.schema.json` gained eleven more optional enums:
+  `typography.{scale,weight,case,tracking}`, `surface.{density,rule,texture}`
+  and a new `chart` block (`{grid,legend,markers,stroke,number_format}`).
+  Resolved by `typeScale`/`typeWeight`/`typeCase`/`typeTracking`,
+  `densityScale`, `ruleWidth`, `textureLayer`, `chartStyle` and
+  `groundStyle` in `engine/src/themes/runtime.ts`. **All 26 core components
+  now read every visual decision from a resolver** — D46's "only 8 take
+  `surface`" no longer holds, because `groundStyle` gave the other 18 a
+  ground to take.
+  - The tokens split two ways, and that split is what made the migration
+    safe. SCALE tokens (`scale, weight, case, tracking, density, rule,
+    chart.stroke`) have an identity element, so the resolver returns the
+    component's OWN value at the default — `typeWeight(theme, 700)` is 700
+    under an untouched theme, the way `surfaceStyle` scales a radius rather
+    than replacing it. CHOICE tokens (`chart.grid|legend|markers`) have no
+    identity element, so they carry NO schema default and fall back to the
+    component's own, the `accent_rule` precedent.
+  - Because of that, the resolved chart types are WIDER than the token
+    enums: `grid: "axes"` (LineChart's own) and `markers: "ends"` are values
+    a component can hold that no theme can name.
+  - Verified, not argued: a `git worktree` at the prior commit rendered all
+    26 under `history-dark` and 25 came out pixel-identical. Only
+    `LineChart` moved, deliberately, off `[accent, text, neutral]` onto the
+    engine-owned `seriesColors` ramp.
+  - `groundStyle(theme, { legible: true })` is the one place a theme is
+    overruled. `fill: "none"` over unknown footage is survivable for light
+    ink and unreadable for dark, so a ground that carries type gets a plate
+    back whether the theme asked or not. It fires only on a light-page
+    theme; on a dark one it returns null and nothing changes.
+  - Colours stayed at four. Everything the conversion needed came out as a
+    resolver — `paperStock`, `groundStyle` — never a fifth token.
+  - Three themes ship as the proof: `paper-print`, `field-manual`,
+    `bold-editorial` (`contracts/themes/`). `ledger` and `clean-explainer`
+    from the INVENTORY are not written yet.
+  - `engine/scripts/preview-batch.mjs --theme <t> --all` renders every
+    catalog overlay in ONE Remotion bundle and cuts a still per component;
+    `preview-overlay.mjs` re-bundles per component, which is most of its
+    wall-clock. Both now seed the synthetic background gradient — ffmpeg's
+    `gradients` filter randomises per run, so without a seed two renders of
+    identical code differ in 93% of pixels and no before/after means
+    anything.
+  - `engine/src/components/core/_LineChartPreMerge.tsx` is the pre-D66 core
+    LineChart, kept on disk and unregistered so the merge can be diffed.
+    Delete it once the merge has settled.
 - Themes and style packs can be IMPORTED as whole documents:
   `platform/src/components/DocImport.tsx` (one component, both kinds)
   posts to the existing `POST /api/themes` / `POST /api/style-packs`,
@@ -407,25 +452,32 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   live preview (`engine/src/renderers/remotion/OverlaySolo.tsx`).
   Only `core` entries live there; a pack entry's preview props are
   synthesized from its prop spec (`platform/src/lib/overlaySamples.ts`).
-- **The `archive` pack (data entries + code).** `contracts/component-packs/
-  archive.json` declares seven overlays drawn by React components in
-  `engine/src/components/archive/`: ArchiveLowerThird, ArchiveCaption,
-  ArchiveChapterTitle, ArchiveQuoteCard, ArchiveCounter, ArchiveBarGraph,
-  ArchiveLineChart. One visual idea throughout — a hard-edged paper plate
-  with a tan strip welded to it, both sized by their own text and opened by
-  a wipe under the type rather than through it. Ships with the theme it is
-  drawn for (`contracts/themes/archive.json`, a paper theme: cream `bg`,
-  ink `text`, tan `accent`, typewriter `body`) and the style pack that
-  offers it (`contracts/style-packs/archive-doc.json`). Three theme
-  resolvers were added for it in `engine/src/themes/runtime.ts`:
-  `surfaceColor` (the opaque plate colour — `surfaceStyle().background`
-  honours `fill: none`, which a plate cannot), `seriesColors` (the ochre /
-  slate / oxblood data ramp, one variant per plate luminance, contrast- and
-  colour-blindness-checked) and `contrastInk` (type ON the accent picks
-  `text` or `bg` by contrast, so the pack degrades instead of breaking on a
-  dark theme). `fontStack` also grew a mono branch — a typewriter face that
-  fell through to the sans fallback would set the counter in a proportional
-  face and its digits would shuffle sideways every frame.
+- **The `social` and `finance` packs (D68).** `social` is `SocialPost`
+  (`platform: youtube | twitter | reddit` — one component, not three),
+  `WebPageFrame` and `HeadlineStack`; `finance` is `Candlestick`, `MetricGrid`
+  and `WaterfallChart`. Three entries each, which is the shape a derived pack
+  has. **`social` is DEPICTIVE and theme-exempt**: those three carry their own
+  platform chrome and declare `honors: ["motion.entrance", "surface.density"]`
+  and nothing else, because a YouTube comment set in the channel's serif on the
+  channel's cream plate is not on-brand, it is wrong. Do not "fix" that later.
+  Offered by the explainer/breakdown/listicle style packs, not the documentary
+  ones — a YouTube comment in a grave archival doc is a tonal error, and
+  `allowed_packs` is where that gets said.
+- **The `archive` pack is GONE (D69).** D66 merged seven of its nine
+  components into their core twins; D69 retired the last two. `ArchiveFrames`
+  became `core/PortraitPlates` (renamed because `Archive` describes a look) and
+  `ArchiveCaption` was deleted. The archival look did not go anywhere — it is a
+  theme plus the D66 tokens, which was the whole argument.
+  Five theme resolvers came out of that pack rather than out of a token:
+  `surfaceColor`, `seriesColors`, `contrastInk`, and — from the D66 conversion —
+  `paperStock` and `groundStyle`. `fontStack` grew a mono branch and a condensed
+  branch.
+- **Four themes, and `standard` is the house look (D69).** `standard`,
+  `paper-print`, `field-manual`, `bold-editorial`. Six near-duplicates were
+  deleted (`archive`, `atlas-da-guerra`, `clean-plain`, `clean-punchy`,
+  `doc-minimal`, `history-dark`) — a theme nobody picks is a file that goes
+  stale and a row in every picker. `standard` is the default for a new channel,
+  for both preview scripts and for the fixture channel config.
 - **Overlay templates** (`engine/src/components/templates/`): an entry may set
   `template: card|lower_third|big_number|bullet_list|statement` instead of
   shipping a React component, and `TemplateOverlay` draws it from the theme

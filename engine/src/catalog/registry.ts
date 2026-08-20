@@ -33,6 +33,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       suffix: { type: "string", maxWords: 3, description: "e.g. '%', 'tons'" },
       decimals: { type: "number", min: 0, max: 2, default: 0 },
       approximate: { type: "boolean", default: false, description: "prefixes the settled value with '~'" },
+      caption: { type: "string", maxWords: 12, description: "a qualifying second line under the label ('at the 13 September count')" },
       position: { enum: ["center", "left", "right"], default: "center" },
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
@@ -94,6 +95,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       unit: { type: "string", maxWords: 3 },
       orientation: { enum: ["vertical", "horizontal"], default: "vertical" },
       highlight_index: { type: "number", min: 0, max: 6, description: "index of the one bar that takes the accent" },
+      source: { type: "string", maxWords: 8, description: "credit line along the bottom" },
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     region: { y_min: 0.1, y_max: 0.86 },
@@ -175,6 +177,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       title: { type: "string", maxWords: 10, required: true },
       subtitle: { type: "string", maxWords: 7 },
       rule: { enum: ["over", "under", "both", "none"], default: "both" },
+      align: { enum: ["center", "left"], default: "center" },
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     region: { y_min: 0.1, y_max: 0.86 },
@@ -218,6 +221,47 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     region: { y_min: 0.1, y_max: 0.86 },
     duration_hint_s: { min: 3, default: 5 },
     entrance_seconds: 0.4,
+    renderer: "remotion",
+  },
+  {
+    name: "DataTable",
+    pack: "core",
+    when_to_use:
+      "several subjects compared across several attributes — three tanks by weight, gun and crew; four countries by year. Two to four columns, two to six rows, with a header",
+    when_not_to_use:
+      "label/value rows about ONE subject, or a ranking of one kind of thing (FactSheet, with `numbered` for the ranking); values whose SIZES are the comparison rather than their exact figures (BarChart); two subjects on one attribute (ComparisonSplit); dated events (Timeline)",
+    anchor_types: [],
+    props: {
+      title: { type: "string", maxWords: 8 },
+      columns: {
+        type: "array",
+        required: true,
+        min: 2,
+        max: 4,
+        description: "header cells; the first column is the row's SUBJECT",
+        items: { type: "string", maxWords: 3 },
+      },
+      rows: {
+        type: "array",
+        required: true,
+        min: 2,
+        max: 6,
+        description: "one array of cells per row, in the same order as `columns`",
+        items: { type: "array", min: 2, max: 4, items: { type: "string", maxWords: 4 } },
+      },
+      highlight_row: {
+        type: "number",
+        min: 0,
+        max: 5,
+        description: "index of the one row the narration is about; the rest go quiet around it",
+      },
+      source: { type: "string", maxWords: 8, description: "credit line under the table" },
+      emphasis: { enum: ["accent", "neutral"], default: "accent" },
+    },
+    region: { y_min: 0.12, y_max: 0.88 },
+    duration_hint_s: { min: 4, default: 6 },
+    entrance_seconds: 0.45,
+    entrance_support: "panel",
     renderer: "remotion",
   },
   {
@@ -316,9 +360,9 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     name: "FactSheet",
     pack: "core",
     when_to_use:
-      "a dossier on one subject — two to six label/value rows about the same ship, aircraft, person or place",
+      "two to six label/value rows in one panel: a dossier on one subject (ship, aircraft, person, place), or with `numbered` a RANKING of the same kind of thing (the five deadliest, the ten biggest)",
     when_not_to_use:
-      "values compared across subjects (BarChart or ComparisonSplit); prose claims (BulletList); dated events (Timeline)",
+      "values compared across subjects, where the SIZES are the point (BarChart, or ComparisonSplit for two); one position in a ranking rather than the list of them (RankLabel); prose claims with no values (BulletList); dated events (Timeline)",
     anchor_types: [],
     props: {
       title: { type: "string", maxWords: 8, required: true },
@@ -334,6 +378,17 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
             value: { type: "string", maxWords: 6 },
           },
         },
+      },
+      numbered: {
+        type: "boolean",
+        default: false,
+        description: "number the rows 1..n — the same panel as a RANKING (the ten biggest, the five deadliest)",
+      },
+      highlight_index: {
+        type: "number",
+        min: 0,
+        max: 5,
+        description: "index of the one row the narration is about; the rest go quiet around it",
       },
       footnote: { type: "string", maxWords: 13 },
       position: { enum: ["left", "right"], default: "left" },
@@ -361,6 +416,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       caption: { type: "string", maxWords: 20, required: true },
       credit: { type: "string", maxWords: 8 },
       frame_style: { enum: ["museum", "polaroid", "hairline"], default: "museum" },
+      orientation: { enum: ["landscape", "portrait", "square"], default: "landscape" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     region: { y_min: 0.0, y_max: 0.94 },
@@ -478,11 +534,52 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       },
       y_label: { type: "string", maxWords: 3 },
       x_label: { type: "string", maxWords: 3 },
+      source: { type: "string", maxWords: 8, description: "credit line along the bottom" },
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
     region: { y_min: 0.1, y_max: 0.86 },
     duration_hint_s: { min: 4, default: 6.5 },
     entrance_seconds: 0.4,
+    renderer: "remotion",
+  },
+  {
+    name: "PieChart",
+    pack: "core",
+    when_to_use:
+      "the narration splits ONE total into its parts — 'a third of the budget went to the navy', 'two in five never returned'. Values are absolute; the component takes the share",
+    when_not_to_use:
+      "quantities that are not parts of the same whole, where the sizes are what is compared (BarChart); two values set against each other (ComparisonSplit); one share on its own, with no remainder worth drawing (AnimatedCounter with a '%' suffix, or StatTag); a share changing over time (LineChart)",
+    anchor_types: ["percentage", "comparison"],
+    props: {
+      title: { type: "string", maxWords: 8 },
+      slices: {
+        type: "array",
+        required: true,
+        from_anchor: "value",
+        min: 2,
+        max: 6,
+        description: "the parts, in the order the narration says them — never re-sorted",
+        items: {
+          type: "object",
+          properties: {
+            label: { type: "string", maxWords: 3 },
+            value: { type: "number", min: 0, description: "absolute, not a percentage" },
+          },
+        },
+      },
+      highlight_index: {
+        type: "number",
+        min: 0,
+        max: 5,
+        description: "index of the one slice the narration is about; it pulls out of the ring and its share fills the hole",
+      },
+      source: { type: "string", maxWords: 8, description: "credit line along the bottom" },
+      emphasis: { enum: ["accent", "neutral"], default: "accent" },
+    },
+    region: { y_min: 0.08, y_max: 0.9 },
+    duration_hint_s: { min: 3, default: 5 },
+    entrance_seconds: 0.4,
+    entrance_support: "panel",
     renderer: "remotion",
   },
   {
@@ -507,6 +604,43 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     renderer: "remotion",
   },
   {
+    name: "PortraitPlates",
+    pack: "core",
+    when_to_use:
+      "presenting one or two people or places as framed pictures — a portrait on a mat with the name set beside it, or a pair of plates side by side under one kicker",
+    when_not_to_use:
+      "one photograph the words are ABOUT, with a sentence of caption under it (FramedExhibit); naming somebody while their footage keeps running, with no picture of your own (NamePlate); treating the running shot itself as archival (ArchivalFrame)",
+    anchor_types: ["name"],
+    props: {
+      frames: {
+        type: "array",
+        required: true,
+        from_anchor: "value",
+        min: 1,
+        max: 2,
+        description: "one plate, or two side by side — the count is the length of this list, not a variant",
+        items: {
+          type: "object",
+          properties: {
+            image: { type: "string", description: "path to a still under the video dir; a procedural plate stands in when absent" },
+            label: { type: "string", maxWords: 5, description: "the subject's name" },
+            sublabel: { type: "string", maxWords: 8, description: "role, rank, date or place" },
+            orientation: { enum: ["portrait", "landscape", "square"], default: "portrait" },
+          },
+        },
+      },
+      kicker: { type: "string", maxWords: 6 },
+      label_position: { enum: ["beside", "below"], default: "beside" },
+      label_style: { enum: ["plate", "bare"], default: "plate" },
+      emphasis: { enum: ["accent", "neutral"], default: "accent" },
+    },
+    region: { y_min: 0.06, y_max: 0.94 },
+    duration_hint_s: { min: 3, default: 5 },
+    entrance_seconds: 0.45,
+    entrance_support: "panel",
+    renderer: "remotion",
+  },
+  {
     name: "QuoteBlock",
     pack: "core",
     when_to_use:
@@ -519,6 +653,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       attribution: { type: "string", maxWords: 6 },
       context: { type: "string", maxWords: 8, description: "where or when it was said" },
       variant: { enum: ["mark", "rule", "boxed"], default: "mark" },
+      size: { enum: ["standard", "large"], default: "standard" },
       align: { enum: ["left", "center"], default: "left" },
       emphasis: { enum: ["accent", "neutral"], default: "accent" },
     },
@@ -560,15 +695,39 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       region_name: { type: "string", maxWords: 6, required: true },
       polygon: {
         type: "array",
-        required: true,
         min: 3,
         max: 64,
-        description: "border vertices; must be supplied — there is no gazetteer of polygons",
+        description: "border vertices for ONE region; must be supplied — there is no gazetteer of polygons. Use `regions` for more than one",
         items: {
           type: "object",
           properties: {
             lat: { type: "number", min: -90, max: 90 },
             lng: { type: "number", min: -180, max: 180 },
+          },
+        },
+      },
+      regions: {
+        type: "array",
+        min: 1,
+        max: 6,
+        description: "several outlines in one shot (the Axis powers, the states that seceded); each may name itself. Use INSTEAD of `polygon`, not alongside it",
+        items: {
+          type: "object",
+          properties: {
+            region_name: { type: "string", maxWords: 6 },
+            polygon: {
+              type: "array",
+              min: 3,
+              max: 64,
+              items: {
+                type: "object",
+                properties: {
+                  lat: { type: "number", min: -90, max: 90 },
+                  lng: { type: "number", min: -180, max: 180 },
+                },
+              },
+            },
+            label: { type: "string", maxWords: 6 },
           },
         },
       },
@@ -652,7 +811,11 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       lng: { type: "number", min: -180, max: 180, computed: "geocode" },
       label: { type: "string", maxWords: 6 },
       country: { type: "string", maxWords: 4 },
-      zoom: { enum: ["city", "region", "country", "continent"], default: "region" },
+      zoom: {
+        enum: ["neighbourhood", "city", "region", "country", "continent", "world"],
+        default: "region",
+        description: "altitude: a few blocks, a city, a region, a country, a continent, the globe",
+      },
       framing: { enum: ["full", "panel"], default: "full" },
       plate: {
         type: "object",

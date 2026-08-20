@@ -100,6 +100,19 @@ something not on a list, that goes in Part H, never in the JSON)
 - surface.radius: square | soft | rounded
 - surface.fill: solid | translucent | none
 - surface.accent_rule: top | left | none
+- surface.density: tight | normal | airy
+- surface.rule: hairline | normal | heavy
+- surface.texture: none | paper | grain | scanline
+- typography.scale: compact | normal | generous
+- typography.weight: light | regular | bold
+- typography.case: as_written | upper
+- typography.tracking: tight | normal | wide
+- chart.grid: none | horizontal | full
+- chart.legend: inline | bottom       (inline = each series named at its own end)
+- chart.markers: none | dot
+- chart.area: none | tint      (does a line enclose the space under it)
+- chart.stroke: hairline | normal | heavy
+- chart.number_format: plain | compact    (50,000 vs 50.0K)
 - motion.entrance: fade | rise | slide | pop | wipe | typewriter
 - motion.easing: smooth | snap | spring | linear
 - production_style: faceless | talking_head | animation | shorts | ultra_longform | custom
@@ -110,27 +123,31 @@ something not on a list, that goes in Part H, never in the JSON)
   Roman / Merriweather / Lora -> serif; everything else -> sans (Inter is the
   house default). Do not name a font outside those groups.
 
-THE COMPONENT MENU (a channel installs ONE pack)
+THE COMPONENT MENU (a channel gets `core` PLUS at most one pack)
 
-core (26) — anchor gate in brackets, [] means pure text:
+core (29) — anchor gate in brackets, [] means pure text:
   Titles & statements: KineticTitle[], ChapterCard[], HammerStatement[]
   Cards & lists: FactCard[], FactSheet[], DefinitionCard[], BulletList[],
-    StepFlow[], CalloutArrow[]
+    StepFlow[], DataTable[], CalloutArrow[]
   Quantities: AnimatedCounter[number,percentage], StatTag[number,percentage],
-    BarChart[comparison], LineChart[], ComparisonSplit[comparison],
-    RankLabel[number]
+    BarChart[comparison], LineChart[], PieChart[percentage,comparison],
+    ComparisonSplit[comparison], RankLabel[number]
   Sources & exhibits: QuoteBlock[quote], HighlightedPassage[quote],
-    DocumentCard[], FramedExhibit[], ArchivalFrame[]
+    DocumentCard[], FramedExhibit[], ArchivalFrame[], PortraitPlates[name]
   Time & place: DateStamp[date], Timeline[], NamePlate[name],
-    SatelliteLocate[place], RouteMap[place], RegionHighlight[] (editor-only,
-    the planner never picks it)
-archive (7) — hard-edged paper plate + tan strip, for archival documentary:
-  ArchiveLowerThird, ArchiveCaption, ArchiveChapterTitle, ArchiveQuoteCard,
-  ArchiveCounter, ArchiveBarGraph, ArchiveLineChart
-doc-minimal (8) — stripped-back versions: MinimalArchivalFrame,
-  MinimalChapterCard, MinimalAnimatedCounter, MinimalDateStamp,
-  MinimalDocumentCard, MinimalFramedExhibit, MinimalNamePlate,
-  MinimalDefinitionCard
+    SatelliteLocate[place] (zoom: neighbourhood..world), RouteMap[place],
+    RegionHighlight[] (one region or several; editor-only, the planner never
+    picks it — nothing derives a border polygon)
+social (3) — DEPICTIVE, theme-exempt: they draw the artifact's own chrome, not
+  the channel's. SocialPost (platform: youtube | twitter | reddit — one
+  component, not three), WebPageFrame, HeadlineStack. Propose these when the
+  SOURCE is part of the claim.
+finance (3) — Candlestick (OHLC), MetricGrid (KPI tiles with change),
+  WaterfallChart (how one total was built up or eroded).
+(doc-minimal was retired: all eight entries were core components restyled
+  and renamed `Minimal<X>`, which is a theme, not a menu. The look is
+  contracts/themes/doc-minimal.json. Do not propose a pack of restyled core
+  components — propose a theme.)
 
 New overlays are cheap ONLY if they fit one of five template shapes — card,
 lower_third, big_number, bullet_list, statement — which are data-only, no code.
@@ -220,11 +237,17 @@ C. STYLE PACK. Complete JSON for contracts/style-packs/<slug>.json. Keys are
    - allowed_packs names PACKS, never components. `fallback.component` must be
      in one of them.
 D. THEME. Complete JSON for contracts/themes/<slug>.json: name, colors
-   {bg, text, accent, neutral}, typography {display, body, caption_preset},
-   motion_feel, grain, surface {...}, motion {entrance, easing, per_component},
-   sound {pack, entrance, per_entrance, transition, mood_beds, gain
-   {sfx, music_duck, music_lift}}. Keep motion.per_component sparse — three
-   entries at most, exceptions only.
+   {bg, text, accent, neutral}, typography {display, body, caption_preset,
+   scale, weight, case, tracking}, motion_feel, grain, surface {radius, fill,
+   accent_rule, density, rule, texture}, chart {grid, legend, markers, stroke,
+   number_format, area}, motion {entrance, easing, per_component}, sound {pack,
+   entrance, per_entrance, transition, mood_beds, gain {sfx, music_duck,
+   music_lift}}. Keep motion.per_component sparse — three entries at most,
+   exceptions only. `colors` is EXACTLY four keys; every other colour the
+   engine needs is derived from them by a resolver, so do not invent a fifth.
+   Reach for the typography and chart tokens before concluding a look needs a
+   new component: gridlines, where a series is labelled, type weight and
+   whether there is a plate are all theme decisions (D66).
 E. CHANNEL CONFIG FRAGMENT. YAML, only the fields that differ from defaults:
    video_type, production_style, theme, style_pack, component_pack, language,
    captions, output, content_rules, and source_policy.visual.chain in

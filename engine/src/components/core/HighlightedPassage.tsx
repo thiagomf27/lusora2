@@ -17,10 +17,14 @@ import { Box, Bracket, Circle, Highlight, StrikeThrough, Underline } from "@remo
 import type { Theme } from "../theme.ts";
 import {
   TEXT_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  typeScale,
   useEntrance,
 } from "../theme.ts";
 
@@ -43,6 +47,8 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -82,11 +88,12 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
   const marksStart = Math.round(fps * 0.7 * durationMul);
   const markStagger = Math.round(fps * 0.5 * durationMul);
   const markDur = Math.round(fps * 0.5 * durationMul);
-  const size = Math.max(
-    height * 0.038,
-    Math.min(height * 0.07, (width * 1.5) / Math.max(1, props.text.length * 0.5)),
-  );
-  const strokeWidth = Math.max(2, height * 0.004);
+  const size =
+    Math.max(
+      height * 0.038,
+      Math.min(height * 0.07, (width * 1.5) / Math.max(1, props.text.length * 0.5)),
+    ) * typeScale(theme, "title");
+  const strokeWidth = ruleWidth(theme, Math.max(2, height * 0.004));
 
   const progressFor = (order: number) =>
     interpolate(frame, [marksStart + order * markStagger, marksStart + order * markStagger + markDur], [0, 1], {
@@ -103,12 +110,13 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: `0 ${width * 0.11}px`,
+        padding: `0 ${width * 0.11 * density}px`,
         opacity,
       }}
     >
       <div
         style={{
+          ...(ground ? { ...ground, padding: `${height * 0.04 * density}px ${width * 0.04 * density}px` } : {}),
           fontFamily: fontStack(theme.typography.display),
           fontSize: size,
           lineHeight: 1.55,
@@ -174,3 +182,6 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+HighlightedPassage.honors = ["typography", "surface", "motion.entrance"];

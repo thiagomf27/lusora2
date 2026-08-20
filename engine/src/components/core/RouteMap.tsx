@@ -23,6 +23,12 @@ import {
   emphasisColor,
   fontStack,
   motionScale,
+  surfaceColor,
+  surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -156,7 +162,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
 
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
-      <div style={{ position: "relative", width: plateW, height: plateH, overflow: "hidden", background: theme.colors.bg }}>
+      <div style={{ position: "relative", width: plateW, height: plateH, overflow: "hidden", background: surfaceColor(theme) }}>
         {props.plate ? (
           <Img src={staticFile(props.plate.src)} style={{ width: "100%", height: "100%", objectFit: "fill" }} />
         ) : (
@@ -238,8 +244,8 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
               <div
                 style={{
                   fontFamily: fontStack(theme.typography.display),
-                  fontSize: plateH * 0.038,
-                  fontWeight: 700,
+                  fontSize: plateH * 0.038 * typeScale(theme, "body"),
+                  fontWeight: typeWeight(theme, 700),
                   color: theme.colors.text,
                 }}
               >
@@ -249,9 +255,9 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
                 <div
                   style={{
                     fontFamily: fontStack(theme.typography.body),
-                    fontSize: plateH * 0.026,
+                    fontSize: plateH * 0.026 * typeScale(theme, "caption"),
                     fontVariantNumeric: "tabular-nums",
-                    letterSpacing: "0.08em",
+                    letterSpacing: typeTracking(theme, 0.08),
                     color: theme.colors.neutral,
                   }}
                 >
@@ -269,8 +275,8 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
               left: plateW * 0.04,
               top: plateH * 0.06,
               fontFamily: fontStack(theme.typography.display),
-              fontSize: plateH * 0.06,
-              fontWeight: 700,
+              fontSize: plateH * 0.06 * typeScale(theme, "title"),
+              fontWeight: typeWeight(theme, 700),
               color: theme.colors.text,
               opacity: interpolate(frame, [0, inDur], [0, 1], {
                 extrapolateLeft: "clamp",
@@ -289,9 +295,9 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
               right: plateW * 0.02,
               bottom: plateH * 0.02,
               fontFamily: fontStack(theme.typography.body),
-              fontSize: plateH * 0.026,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
+              fontSize: plateH * 0.026 * typeScale(theme, "caption"),
+              letterSpacing: typeTracking(theme, 0.14),
+              textTransform: typeCase(theme, "uppercase"),
               color: theme.colors.neutral,
               opacity: 0.35,
             }}
@@ -333,3 +339,6 @@ function ProceduralPlate({ theme, width, height }: { theme: Theme; width: number
     </svg>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+RouteMap.honors = ["typography", "surface.density", "surface.rule", "motion.entrance"];

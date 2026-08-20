@@ -7,11 +7,18 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
   surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -28,6 +35,7 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const center = props.position === "center";
@@ -36,6 +44,9 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
   const outStart = durationInFrames - Math.round(fps * 0.5 * durationMul);
 
   const surface = surfaceStyle(theme, { radius: 12, alpha: "e6", accentRule: "top" });
+  // The panel CARRIES TYPE, so it resolves through groundStyle: `fill: none`
+  // on a paper theme would otherwise leave dark body copy on the footage.
+  const ground = groundStyle(theme, { radius: 12, alpha: "e6", accentRule: "top", legible: true });
   const entrance = useEntrance(theme, {
     component: "FactCard",
     supported: PANEL_ENTRANCES,
@@ -52,20 +63,19 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
         display: "flex",
         alignItems: "center",
         justifyContent: center ? "center" : fromLeft ? "flex-start" : "flex-end",
-        padding: `0 ${width * 0.06}px`,
+        padding: `0 ${width * 0.06 * density}px`,
         opacity,
       }}
     >
       <div
         style={{
-          width: center ? width * 0.62 : width * 0.38,
-          background: surface.background,
-          borderRadius: surface.borderRadius,
+          width: (center ? width * 0.62 : width * 0.38) * (1 + (density - 1) * 0.5),
+          ...(ground ?? {}),
           borderLeft:
             surface.accentRule === "left"
-              ? `${Math.max(3, height * 0.006)}px solid ${accent}`
+              ? `${ruleWidth(theme, Math.max(3, height * 0.006))}px solid ${accent}`
               : undefined,
-          padding: `${height * 0.04}px ${width * 0.028}px`,
+          padding: `${height * 0.04 * density}px ${width * 0.028 * density}px`,
           scale: `${entrance.scale}`,
           clipPath: entrance.clipPath,
           // The entrance transform, plus the exit drop this card has always had.
@@ -83,10 +93,10 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
         {surface.accentRule === "top" ? (
           <div
             style={{
-              height: Math.max(3, height * 0.006),
+              height: ruleWidth(theme, Math.max(3, height * 0.006)),
               background: accent,
-              borderRadius: 2,
-              marginBottom: height * 0.028,
+              borderRadius: surfaceStyle(theme, { radius: 2 }).borderRadius,
+              marginBottom: height * 0.028 * density,
               scale: `${interpolate(frame, [inDur * 0.4, inDur * 0.4 + fps * 0.5 * durationMul], [0, 1], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
@@ -99,8 +109,8 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
         <div
           style={{
             fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.055,
-            fontWeight: 700,
+            fontSize: height * 0.055 * typeScale(theme, "title"),
+            fontWeight: typeWeight(theme, 700),
             lineHeight: 1.15,
             color: theme.colors.text,
             overflowWrap: "anywhere",
@@ -110,9 +120,9 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
         </div>
         <div
           style={{
-            marginTop: height * 0.024,
+            marginTop: height * 0.024 * density,
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.032,
+            fontSize: height * 0.032 * typeScale(theme, "body"),
             lineHeight: 1.4,
             color: theme.colors.text,
             overflowWrap: "anywhere",
@@ -131,11 +141,11 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
         {props.source ? (
           <div
             style={{
-              marginTop: height * 0.026,
+              marginTop: height * 0.026 * density,
               fontFamily: fontStack(theme.typography.body),
-              fontSize: height * 0.022,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
+              fontSize: height * 0.022 * typeScale(theme, "caption"),
+              letterSpacing: typeTracking(theme, 0.1),
+              textTransform: typeCase(theme, "uppercase"),
               color: theme.colors.neutral,
               opacity: interpolate(frame, [inDur + 14, inDur + 14 + fps * 0.4], [0, 1], {
                 extrapolateLeft: "clamp",
@@ -150,3 +160,6 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+FactCard.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

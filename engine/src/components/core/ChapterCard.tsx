@@ -2,13 +2,30 @@
  * ChapterCard — a full-screen section break: a ghosted chapter numeral behind,
  * hairlines opening outward from centre, and the title masking up between them.
  *
+ * The MERGE of `ChapterCard` and `ArchiveChapterTitle` (D66). The archive one
+ * called `chapter_label` a `kicker`, set the whole thing on a plate and could
+ * left-align — that is one renamed prop, `surface.fill`, and `align`.
+ *
  * Distinct from the existing ChapterTitle (a simple fade at centre or lower
  * third) — this one is the "act break" shot with numeral, rules and subtitle.
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Entrance, Theme } from "../theme.ts";
-import { easingCurve, emphasisColor, fontStack, motionScale, useEntrance } from "../theme.ts";
+import {
+  densityScale,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  groundStyle,
+  motionScale,
+  ruleWidth,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
+  useEntrance,
+} from "../theme.ts";
 
 export const ChapterCardProps = z.object({
   chapter_label: z.string().max(24).optional(),
@@ -16,6 +33,8 @@ export const ChapterCardProps = z.object({
   title: z.string().max(60),
   subtitle: z.string().max(40).optional(),
   rule: z.enum(["over", "under", "both", "none"]).default("both"),
+  /** Was ArchiveChapterTitle's. A left-set act break is a different shot, not a look. */
+  align: z.enum(["center", "left"]).default("center"),
   emphasis: z.enum(["accent", "neutral"]).default("accent"),
 });
 export type ChapterCardProps = z.infer<typeof ChapterCardProps>;
@@ -27,6 +46,7 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
   const curve = Easing.bezier(...easingCurve(theme));
 
@@ -41,7 +61,7 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
   const ruleDur = Math.round(fps * 0.5 * durationMul);
   const outStart = durationInFrames - Math.round(fps * 0.5 * durationMul);
   // Rules expand from centre, hold, then retract.
-  const ruleWidth = Math.min(
+  const ruleSpan = Math.min(
     interpolate(frame, [0, ruleDur], [0, width * 0.6], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
@@ -55,10 +75,15 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
   );
 
   const titleStart = Math.round(fps * 0.3 * durationMul);
-  const size = Math.max(
-    height * 0.055,
-    Math.min(height * 0.1, (width * 0.72) / Math.max(1, props.title.length * 0.52)),
-  );
+  // The fitted title size is still a RATIO of the frame, so the scale token
+  // multiplies the whole fit rather than only its floor — otherwise `generous`
+  // would raise the minimum past the ceiling and every title would clip.
+  const size =
+    Math.max(
+      height * 0.055,
+      Math.min(height * 0.1, (width * 0.72) / Math.max(1, props.title.length * 0.52)),
+    ) * typeScale(theme, "title");
+  const left = props.align === "left";
   const showOver = props.rule === "over" || props.rule === "both";
   const showUnder = props.rule === "under" || props.rule === "both";
 
@@ -79,8 +104,12 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
         )
       : props.title;
 
+  const ground = groundStyle(theme, { radius: 0, accentRule: "none" });
+
   return (
     <div style={{ position: "absolute", inset: 0, opacity }}>
+      {ground ? <div style={{ position: "absolute", inset: 0, ...ground }} /> : null}
+
       {/* Ghost numeral drifting behind everything for the whole shot. */}
       {props.chapter_number !== undefined ? (
         <div
@@ -91,8 +120,8 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
             alignItems: "center",
             justifyContent: "center",
             fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.5,
-            fontWeight: 700,
+            fontSize: height * 0.5 * typeScale(theme, "number"),
+            fontWeight: typeWeight(theme, 700),
             lineHeight: 1,
             color: theme.colors.text,
             opacity: 0.12,
@@ -113,19 +142,19 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          alignItems: left ? "flex-start" : "center",
           justifyContent: "center",
-          gap: height * 0.03,
-          padding: `0 ${width * 0.1}px`,
+          gap: height * 0.03 * density,
+          padding: `0 ${width * 0.1 * density}px`,
         }}
       >
         {props.chapter_label ? (
           <div
             style={{
               fontFamily: fontStack(theme.typography.body),
-              fontSize: height * 0.026,
-              letterSpacing: "0.28em",
-              textTransform: "uppercase",
+              fontSize: height * 0.026 * typeScale(theme, "kicker"),
+              letterSpacing: typeTracking(theme, 0.28),
+              textTransform: typeCase(theme, "uppercase"),
               color: accent,
               opacity: interpolate(frame, [0, inDur], [0, 1], {
                 extrapolateLeft: "clamp",
@@ -137,16 +166,16 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
           </div>
         ) : null}
 
-        {showOver ? <div style={{ width: ruleWidth, height: Math.max(1, height * 0.002), background: `${theme.colors.text}66` }} /> : null}
+        {showOver ? <div style={{ width: ruleSpan, height: ruleWidth(theme, Math.max(1, height * 0.002)), background: `${theme.colors.text}66` }} /> : null}
 
         <div style={{ overflow: kind === "wipe" ? "hidden" : undefined, paddingBottom: size * 0.08 }}>
           <div
             style={{
               fontFamily: fontStack(theme.typography.display),
               fontSize: size,
-              fontWeight: 700,
+              fontWeight: typeWeight(theme, 700),
               lineHeight: 1.12,
-              textAlign: "center",
+              textAlign: left ? "left" : "center",
               overflowWrap: "anywhere",
               maxWidth: width * 0.8,
               color: theme.colors.text,
@@ -178,15 +207,15 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
           </div>
         </div>
 
-        {showUnder ? <div style={{ width: ruleWidth, height: Math.max(1, height * 0.002), background: `${theme.colors.text}66` }} /> : null}
+        {showUnder ? <div style={{ width: ruleSpan, height: ruleWidth(theme, Math.max(1, height * 0.002)), background: `${theme.colors.text}66` }} /> : null}
 
         {props.subtitle ? (
           <div
             style={{
               fontFamily: fontStack(theme.typography.body),
-              fontSize: height * 0.03,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
+              fontSize: height * 0.03 * typeScale(theme, "body"),
+              letterSpacing: typeTracking(theme, 0.16),
+              textTransform: typeCase(theme, "uppercase"),
               color: theme.colors.neutral,
               opacity: interpolate(frame, [titleStart + fps * 0.4, titleStart + fps * 0.9], [0, 1], {
                 extrapolateLeft: "clamp",
@@ -201,3 +230,6 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+ChapterCard.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

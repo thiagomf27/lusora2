@@ -34,14 +34,27 @@ manual split, not planner output).
 mid-tier. Needs a small eval once M4 runs: 10 scripts → beat sheets →
 count repair loops per model.
 
-**OQ-10 — Theme token final list.** ✅ DECIDED twice. First at the draft
-list (D30, 2026-07-18: colors(4), typography(2+caption preset),
+**OQ-10 — Theme token final list.** ✅ DECIDED three times. First at the
+draft list (D30, 2026-07-18: colors(4), typography(2+caption preset),
 motion_feel, grain — "nothing yet earned an addition"). **Reopened and
 re-closed 2026-07-27 (D46)**: presentation style earned it. The theme
-gains `surface` (radius, fill, accent_rule) and `motion` (entrance,
+gained `surface` (radius, fill, accent_rule) and `motion` (entrance,
 easing, per_component) — six optional enums, defaults equal to today's
-hardcoded values. Still open in spirit and still answered "no": gradient
-/ secondary accent, logo/watermark slot. See
+hardcoded values. **Reopened and re-closed again (D66)**: three channels
+wanting three genuinely different looks needed eleven more —
+`typography.{scale,weight,case,tracking}`, `surface.{density,rule,texture}`
+and a `chart` block `{grid,legend,markers,stroke,number_format}` — and the
+`archive` pack was the evidence, since seven of its nine entries existed
+only because those knobs did not.
+
+**`colors` stays at four, and that is the part that is actually closed.**
+Every colour the D66 conversion needed came out as a RESOLVER
+(`paperStock`, `groundStyle`, alongside `surfaceColor`/`seriesColors`/
+`contrastInk`), never a token: a fifth colour would leave every theme
+authored before a component without a value for it, while a resolver
+derives one from the four that were always there. Wanting a fifth colour
+token is the signal that you wanted a resolver. Still open in spirit and
+still answered "no": gradient / secondary accent, logo/watermark slot. See
 [Theme & Style Packs](../03-contracts/theme-and-style.md).
 
 **OQ-11 — Exact ffmpeg capability boundary.** Draft: cuts, crossfade,

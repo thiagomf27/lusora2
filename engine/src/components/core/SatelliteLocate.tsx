@@ -38,8 +38,15 @@ import {
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  surfaceColor,
   surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -58,15 +65,32 @@ export const SatelliteLocateProps = z.object({
   lng: z.number().min(-180).max(180),
   label: z.string().max(40).optional(),
   country: z.string().max(32).optional(),
-  zoom: z.enum(["city", "region", "country", "continent"]).default("region"),
+  /** Altitude. `neighbourhood` and `world` were added for the war/explainer
+   *  channels; the four in the middle are the pre-existing values and keep
+   *  their spans exactly, so a plan snapshotted before this replays unchanged. */
+  zoom: z
+    .enum(["neighbourhood", "city", "region", "country", "continent", "world"])
+    .default("region"),
   framing: z.enum(["full", "panel"]).default("full"),
   plate: plateSchema.optional(),
   emphasis: z.enum(["accent", "neutral"]).default("accent"),
 });
 export type SatelliteLocateProps = z.infer<typeof SatelliteLocateProps>;
 
-/** Latitude span in degrees per zoom step. Same table as the older AnimatedMap. */
-const ZOOM_SPAN: Record<string, number> = { city: 4, region: 12, country: 30, continent: 70 };
+/**
+ * Latitude span in degrees per zoom step. The middle four are the same table as
+ * the older AnimatedMap and are unchanged; `neighbourhood` is a few blocks and
+ * `world` is the whole globe, which is the widest a plate can be projected
+ * before the equirectangular distortion stops reading as a map.
+ */
+const ZOOM_SPAN: Record<string, number> = {
+  neighbourhood: 0.6,
+  city: 4,
+  region: 12,
+  country: 30,
+  continent: 70,
+  world: 150,
+};
 
 export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps; theme: Theme }) {
   const frame = useCurrentFrame();
@@ -83,6 +107,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
   });
   const { opacity, inDur } = entrance;
   const surface = surfaceStyle(theme, { radius: 10 });
+  const ground = groundStyle(theme, { radius: 10, alpha: "e6", legible: true });
 
   const panel = props.framing === "panel";
   const boxW = panel ? width * 0.42 : width;
@@ -140,8 +165,10 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
           height: plateH,
           overflow: "hidden",
           borderRadius: panel ? surface.borderRadius : 0,
-          border: panel ? `1px solid ${theme.colors.neutral}55` : "none",
-          background: theme.colors.bg,
+          border: panel ? `${ruleWidth(theme, 1)}px solid ${theme.colors.neutral}55` : "none",
+          // A map plate is opaque by construction — it is the substrate the
+          // terrain is drawn ON — so it takes surfaceColor, not the panel fill.
+          background: surfaceColor(theme),
         }}
       >
         {/* Slow push in on the target for the whole shot. */}
@@ -238,7 +265,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
             style={{
               fontFamily: fontStack(theme.typography.display),
               fontSize: plateH * 0.055,
-              fontWeight: 700,
+              fontWeight: typeWeight(theme, 700),
               color: theme.colors.text,
               whiteSpace: "nowrap",
             }}
@@ -251,7 +278,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
               fontFamily: fontStack(theme.typography.body),
               fontSize: plateH * 0.028,
               fontVariantNumeric: "tabular-nums",
-              letterSpacing: "0.08em",
+              letterSpacing: typeTracking(theme, 0.08),
               color: theme.colors.neutral,
               whiteSpace: "nowrap",
             }}
@@ -270,8 +297,8 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
               bottom: plateH * 0.02,
               fontFamily: fontStack(theme.typography.body),
               fontSize: plateH * 0.026,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
+              letterSpacing: typeTracking(theme, 0.14),
+              textTransform: typeCase(theme, "uppercase"),
               color: theme.colors.neutral,
               opacity: 0.35,
             }}
@@ -339,7 +366,7 @@ function ProceduralPlate({
           fill="none"
           stroke={theme.colors.neutral}
           strokeOpacity={0.35}
-          strokeWidth={Math.max(1, height * 0.002)}
+          strokeWidth={ruleWidth(theme, Math.max(1, height * 0.002))}
         />
       ))}
       {new Array(lines + 1).fill(0).map((_, i) => {
@@ -357,7 +384,7 @@ function ProceduralPlate({
               fill={theme.colors.neutral}
               fillOpacity={0.5}
               stroke="none"
-              fontSize={height * 0.022}
+              fontSize={height * 0.022 * typeScale(theme, "caption")}
               fontFamily={fontStack(theme.typography.body)}
             >
               {lngAt.toFixed(1)}°
@@ -368,7 +395,7 @@ function ProceduralPlate({
               fill={theme.colors.neutral}
               fillOpacity={0.5}
               stroke="none"
-              fontSize={height * 0.022}
+              fontSize={height * 0.022 * typeScale(theme, "caption")}
               fontFamily={fontStack(theme.typography.body)}
             >
               {latAt.toFixed(1)}°
@@ -379,3 +406,6 @@ function ProceduralPlate({
     </svg>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+SatelliteLocate.honors = ["typography", "surface", "motion.entrance"];

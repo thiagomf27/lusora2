@@ -39,11 +39,11 @@ const ONE_LINE = `{
 `;
 
 test("splicing preserves the rest of the document verbatim", () => {
-  const out = spliceAllowedPacks(MULTILINE, ["archive", "core", "doc-minimal"])!;
+  const out = spliceAllowedPacks(MULTILINE, ["core", "finance", "social"])!;
   assert.ok(out.includes(`"avg_hold_seconds": 4.0`), "float formatting survived");
   assert.ok(out.includes(`"max_hold": 8.0`));
   assert.ok(out.includes(`"script_persona": "Grave."`));
-  assert.deepEqual(JSON.parse(out).overlays.allowed_packs, ["archive", "core", "doc-minimal"]);
+  assert.deepEqual(JSON.parse(out).overlays.allowed_packs, ["core", "finance", "social"]);
   // everything outside the array is byte-identical
   const [before] = MULTILINE.split(`    "allowed_packs"`);
   assert.ok(out.startsWith(before));

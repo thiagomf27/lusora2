@@ -29,11 +29,11 @@ orchestration:
 
 compatible_themes:
   recommended:
-    - doc-minimal
-    - clean-punchy
+    - standard
+    - paper-print
   also_works:
-    - archive
-    - history-dark
+    - field-manual
+    - bold-editorial
   custom_allowed: true
 
 # NOTE: bootstrap (claim + materialize cfg.json) runs before this list and is

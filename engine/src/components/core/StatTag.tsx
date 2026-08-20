@@ -11,11 +11,18 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
   surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -32,6 +39,7 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -43,7 +51,8 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
   });
   const { opacity, inDur } = entrance;
   const surface = surfaceStyle(theme, { radius: 10, alpha: "d9", accentRule: "top" });
-  const rule = Math.max(3, height * 0.006);
+  const ground = groundStyle(theme, { radius: 10, alpha: "d9", accentRule: "top", legible: true });
+  const rule = ruleWidth(theme, Math.max(3, height * 0.006));
 
   const countDur = Math.round(fps * 1.0 * durationMul);
   const shown = Math.round(
@@ -68,11 +77,10 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
         display: "flex",
         flexDirection: "column",
         alignItems: left ? "flex-start" : "flex-end",
-        background: surface.background,
-        borderRadius: surface.borderRadius,
+        ...(ground ?? {}),
         borderTop: surface.accentRule === "top" ? `${rule}px solid ${accent}` : undefined,
         borderLeft: surface.accentRule === "left" ? `${rule}px solid ${accent}` : undefined,
-        padding: `${height * 0.022}px ${width * 0.024}px`,
+        padding: `${height * 0.022 * density}px ${width * 0.024 * density}px`,
         opacity,
         // A pop keeps its own overshoot curve — that overshoot IS the pop.
         scale:
@@ -88,12 +96,12 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
         transformOrigin: `${left ? "left" : "right"} ${top ? "top" : "bottom"}`,
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", gap: width * 0.008 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: width * 0.008 * density }}>
         <span
           style={{
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.085,
-            fontWeight: 700,
+            fontSize: height * 0.085 * typeScale(theme, "number"),
+            fontWeight: typeWeight(theme, 700),
             fontVariantNumeric: "tabular-nums",
             lineHeight: 1,
             color: accent,
@@ -105,9 +113,9 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
           <span
             style={{
               fontFamily: fontStack(theme.typography.body),
-              fontSize: height * 0.03,
+              fontSize: height * 0.03 * typeScale(theme, "body"),
               color: theme.colors.text,
-              letterSpacing: "0.06em",
+              letterSpacing: typeTracking(theme, 0.06),
             }}
           >
             {props.unit}
@@ -116,12 +124,12 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
       </div>
       <div
         style={{
-          marginTop: height * 0.008,
+          marginTop: height * 0.008 * density,
           fontFamily: fontStack(theme.typography.body),
-          fontSize: height * 0.026,
+          fontSize: height * 0.026 * typeScale(theme, "caption"),
           color: theme.colors.neutral,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
+          letterSpacing: typeTracking(theme, 0.08),
+          textTransform: typeCase(theme, "uppercase"),
           maxWidth: width * 0.3,
           textAlign: left ? "left" : "right",
           opacity: interpolate(frame, [inDur + 6, inDur + 6 + fps * 0.4], [0, 1], {
@@ -135,3 +143,6 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+StatTag.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

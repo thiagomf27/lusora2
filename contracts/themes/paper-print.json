@@ -1,0 +1,39 @@
+{
+  "name": "paper-print",
+  "colors": {
+    "bg": "#f4f1e8",
+    "text": "#1b1815",
+    "accent": "#8a5a2b",
+    "neutral": "#7d776c"
+  },
+  "typography": {
+    "display": "Playfair Display",
+    "body": "Inter",
+    "caption_preset": "serif-lower-third",
+    "scale": "generous",
+    "weight": "light",
+    "case": "as_written",
+    "tracking": "wide"
+  },
+  "motion_feel": "neutral",
+  "grain": "none",
+  "surface": {
+    "radius": "square",
+    "fill": "none",
+    "accent_rule": "none",
+    "density": "airy",
+    "rule": "hairline",
+    "texture": "paper"
+  },
+  "motion": {
+    "entrance": "rise",
+    "easing": "smooth"
+  },
+  "chart": {
+    "grid": "horizontal",
+    "legend": "inline",
+    "markers": "dot",
+    "stroke": "hairline",
+    "number_format": "plain"
+  }
+}

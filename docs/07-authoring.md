@@ -46,7 +46,7 @@ work:
 **Attach:**
 
 - `contracts/component-packs/README.md` — the rules of the data-only path
-- `contracts/component-packs/testpack.json` — a working pack file, the model
+- `contracts/component-packs/archive.json` — a working pack file, the model
 - `contracts/schemas/catalog_entry.schema.json` — what validates
 - `engine/src/components/templates/registry.ts` — the five kinds and the exact
   prop vocabulary each one reads
@@ -118,8 +118,16 @@ the overlay renders as nothing (the Overlays screen marks it *no renderer*).
 > Follow "Adding a component" exactly — all four lists:
 > 1. `engine/src/components/core/<Name>.tsx`, taking `{ props, theme }`, all
 >    appearance from the theme runtime (`emphasisColor`, `fontStack`,
->    `surfaceStyle`, `easingCurve`, `motionScale`, `useEntrance`), every size
->    relative to `useVideoConfig()`, no hardcoded colors;
+>    `surfaceStyle`, `easingCurve`, `motionScale`, `useEntrance`, and the D66
+>    resolvers `typeScale` / `typeWeight` / `typeCase` / `typeTracking`,
+>    `densityScale`, `ruleWidth`, `chartStyle`, `groundStyle`), every size
+>    relative to `useVideoConfig()`, no hardcoded colors, no hardcoded
+>    fontWeight / letterSpacing / textTransform / padding / rule width. A
+>    literal is a bug unless it is this component's own PROPORTION, which a
+>    resolver then scales: `height * 0.05 * typeScale(theme, "title")`,
+>    `typeWeight(theme, 700)`, `ruleWidth(theme, 2)`. If it sets type on the
+>    frame, take its ground from `groundStyle(theme, { legible: true })`.
+>    Declare `<Name>.honors = [...]`;
 > 2. register it in `engine/src/components/index.ts`;
 > 3. add the entry to `CORE_COMPONENTS` in `engine/src/catalog/registry.ts`
 >    (props mirroring the Zod schema, in catalog vocabulary — `maxWords`
@@ -130,6 +138,13 @@ the overlay renders as nothing (the Overlays screen marks it *no renderer*).
 >    already offers it.
 >
 > Declare which entrances it can honor and let anything else degrade to fade.
+>
+> Then run the acceptance test, which is visual and takes one command per
+> theme: `node engine/scripts/preview-batch.mjs --theme paper-print <Name>`
+> and again with `--theme bold-editorial`. If a stranger could not tell the
+> two frames came from the same component, it is correctly open. If they look
+> nearly identical, appearance leaked into the file — find the literal and
+> move it to a token.
 > Then run `pnpm run ci` and render me a preview.
 
 **Verify:** `pnpm run ci` (catalog drift, registry parity, sample props,

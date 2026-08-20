@@ -1,0 +1,39 @@
+{
+  "name": "field-manual",
+  "colors": {
+    "bg": "#14120e",
+    "text": "#e6e0d2",
+    "accent": "#b08b3f",
+    "neutral": "#8b8478"
+  },
+  "typography": {
+    "display": "Oswald",
+    "body": "Inter",
+    "caption_preset": "boxed",
+    "scale": "normal",
+    "weight": "regular",
+    "case": "upper",
+    "tracking": "wide"
+  },
+  "motion_feel": "slow_heavy",
+  "grain": "archival",
+  "surface": {
+    "radius": "square",
+    "fill": "translucent",
+    "accent_rule": "left",
+    "density": "normal",
+    "rule": "normal",
+    "texture": "grain"
+  },
+  "motion": {
+    "entrance": "slide",
+    "easing": "smooth"
+  },
+  "chart": {
+    "grid": "horizontal",
+    "legend": "inline",
+    "markers": "dot",
+    "stroke": "normal",
+    "number_format": "plain"
+  }
+}

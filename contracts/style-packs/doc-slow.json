@@ -12,7 +12,6 @@
   "overlays": {
     "density": "normal",
     "allowed_packs": [
-      "archive",
       "core"
     ]
   },

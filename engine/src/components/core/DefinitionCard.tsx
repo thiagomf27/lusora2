@@ -6,10 +6,15 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   TEXT_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  typeScale,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -27,6 +32,8 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -51,16 +58,29 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "flex-start",
-        padding: `0 ${width * 0.12}px`,
+        padding: `0 ${width * 0.12 * density}px`,
         opacity,
       }}
     >
-      <div style={{ overflow: kind === "wipe" ? "hidden" : undefined, paddingBottom: height * 0.008 }}>
+      {ground ? (
+        <div
+          style={{
+            position: "absolute",
+            left: width * 0.06 * density,
+            top: height * 0.18 * density,
+            width: width - width * 0.12 * density,
+            height: height - height * 0.36 * density,
+            ...ground,
+          }}
+        />
+      ) : null}
+
+      <div style={{ position: "relative", overflow: kind === "wipe" ? "hidden" : undefined, paddingBottom: height * 0.008 * density }}>
         <div
           style={{
             fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.09,
-            fontWeight: 700,
+            fontSize: height * 0.09 * typeScale(theme, "number"),
+            fontWeight: typeWeight(theme, 700),
             lineHeight: 1.08,
             color: theme.colors.text,
             overflowWrap: "anywhere",
@@ -82,9 +102,9 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
       <div
         style={{
           width: width * 0.5,
-          height: Math.max(3, height * 0.006),
+          height: ruleWidth(theme, Math.max(3, height * 0.006)),
           background: accent,
-          marginTop: height * 0.014,
+          marginTop: height * 0.014 * density,
           scale: `${interpolate(frame, [ruleStart, ruleStart + fps * 0.4 * durationMul], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -97,12 +117,12 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
       {props.pronunciation || props.part_of_speech ? (
         <div
           style={{
-            marginTop: height * 0.02,
+            marginTop: height * 0.02 * density,
             display: "flex",
             alignItems: "baseline",
-            gap: width * 0.014,
+            gap: width * 0.014 * density,
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.028,
+            fontSize: height * 0.028 * typeScale(theme, "caption"),
             fontStyle: "italic",
             color: theme.colors.neutral,
             opacity: interpolate(frame, [metaStart, metaStart + fps * 0.4], [0, 1], {
@@ -118,10 +138,10 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
 
       <div
         style={{
-          marginTop: height * 0.026,
+          marginTop: height * 0.026 * density,
           maxWidth: width * 0.68,
           fontFamily: fontStack(theme.typography.body),
-          fontSize: height * 0.036,
+          fontSize: height * 0.036 * typeScale(theme, "body"),
           lineHeight: 1.42,
           color: theme.colors.text,
           overflowWrap: "anywhere",
@@ -146,10 +166,10 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
       {props.origin ? (
         <div
           style={{
-            marginTop: height * 0.024,
+            marginTop: height * 0.024 * density,
             maxWidth: width * 0.62,
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.024,
+            fontSize: height * 0.024 * typeScale(theme, "kicker"),
             fontStyle: "italic",
             color: theme.colors.neutral,
             opacity: interpolate(frame, [defStart + 10, defStart + 10 + fps * 0.4], [0, 1], {
@@ -164,3 +184,6 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+DefinitionCard.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

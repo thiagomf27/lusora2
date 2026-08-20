@@ -1,371 +1,446 @@
 {
-  "comment": "Representative props per catalog component: the batch still-preview script (preview-all.mjs) and the platform Overlays screen both render these, so a component that looks wrong here looks wrong in a video. Keep one entry per CORE_COMPONENTS name — engine/test/catalog.test.ts enforces it.",
-  "props": {
-    "KineticTitle": {
-      "text": "The Siege of Stalingrad",
-      "unit": "word",
-      "entrance": "mask",
-      "align": "center",
-      "emphasize_last": true,
-      "emphasis": "accent"
+ "comment": "Representative props per catalog component: the batch still-preview script (preview-all.mjs) and the platform Overlays screen both render these, so a component that looks wrong here looks wrong in a video. Keep one entry per CORE_COMPONENTS name \u2014 engine/test/catalog.test.ts enforces it.",
+ "props": {
+  "KineticTitle": {
+   "text": "The Siege of Stalingrad",
+   "unit": "word",
+   "entrance": "mask",
+   "align": "center",
+   "emphasize_last": true,
+   "emphasis": "accent"
+  },
+  "ChapterCard": {
+   "chapter_label": "Part",
+   "chapter_number": 2,
+   "title": "The Encirclement",
+   "subtitle": "November 1942",
+   "rule": "both",
+   "emphasis": "accent"
+  },
+  "HammerStatement": {
+   "text": "The Sixth Army was never relieved.",
+   "kicker": "The verdict",
+   "align": "left",
+   "emphasis": "accent"
+  },
+  "FactCard": {
+   "headline": "A city cut in two",
+   "body": "By September the front ran through the tractor factory itself, with floors changing hands nightly.",
+   "source": "Beevor, Stalingrad (1998)",
+   "position": "right",
+   "emphasis": "accent"
+  },
+  "FactSheet": {
+   "title": "62nd Army",
+   "rows": [
+    {
+     "label": "Commander",
+     "value": "V. Chuikov"
     },
-    "ChapterCard": {
-      "chapter_label": "Part",
-      "chapter_number": 2,
-      "title": "The Encirclement",
-      "subtitle": "November 1942",
-      "rule": "both",
-      "emphasis": "accent"
+    {
+     "label": "Formed",
+     "value": "July 1942"
     },
-    "HammerStatement": {
-      "text": "The Sixth Army was never relieved.",
-      "kicker": "The verdict",
-      "align": "left",
-      "emphasis": "accent"
+    {
+     "label": "Strength",
+     "value": "54,000"
     },
-    "FactCard": {
-      "headline": "A city cut in two",
-      "body": "By September the front ran through the tractor factory itself, with floors changing hands nightly.",
-      "source": "Beevor, Stalingrad (1998)",
-      "position": "right",
-      "emphasis": "accent"
-    },
-    "FactSheet": {
-      "title": "62nd Army",
-      "rows": [
-        {
-          "label": "Commander",
-          "value": "V. Chuikov"
-        },
-        {
-          "label": "Formed",
-          "value": "July 1942"
-        },
-        {
-          "label": "Strength",
-          "value": "54,000"
-        },
-        {
-          "label": "Sector",
-          "value": "City centre"
-        }
-      ],
-      "footnote": "Strength at 13 September 1942",
-      "position": "left",
-      "emphasis": "accent"
-    },
-    "DefinitionCard": {
-      "term": "Rattenkrieg",
-      "pronunciation": "ˈʁatn̩kʁiːk",
-      "part_of_speech": "noun",
-      "definition": "Rat war: close-quarters fighting through cellars, sewers and ruins, where artillery and armour lose their advantage.",
-      "origin": "German, coined by troops in 1942",
-      "emphasis": "accent"
-    },
-    "BulletList": {
-      "title": "Why the pocket held",
-      "items": [
-        "Airlift promises that could not be met",
-        "A refusal to authorise breakout",
-        "Winter closing the steppe corridors"
-      ],
-      "marker": "rule",
-      "align": "left",
-      "emphasis": "accent"
-    },
-    "StepFlow": {
-      "title": "Operation Uranus",
-      "steps": [
-        {
-          "label": "Probe",
-          "detail": "Romanian flanks tested"
-        },
-        {
-          "label": "Breach",
-          "detail": "19 November"
-        },
-        {
-          "label": "Encircle",
-          "detail": "Kalach link-up"
-        }
-      ],
-      "direction": "horizontal",
-      "numbered": true,
-      "emphasis": "accent"
-    },
-    "CalloutArrow": {
-      "text": "The tractor factory",
-      "target": "center_right",
-      "from": "left",
-      "style": "curved",
-      "emphasis": "accent"
-    },
-    "AnimatedCounter": {
-      "value": 91,
-      "label": "thousand taken prisoner",
-      "suffix": "k",
-      "decimals": 0,
-      "approximate": true,
-      "position": "center",
-      "emphasis": "accent"
-    },
-    "StatTag": {
-      "value": 40,
-      "unit": "days",
-      "label": "without relief",
-      "position": "top_right",
-      "emphasis": "accent"
-    },
-    "BarChart": {
-      "title": "Tanks produced, 1942",
-      "series": [
-        {
-          "label": "USSR",
-          "value": 24446
-        },
-        {
-          "label": "Germany",
-          "value": 9200
-        },
-        {
-          "label": "USA",
-          "value": 26000
-        }
-      ],
-      "unit": "units",
-      "orientation": "vertical",
-      "highlight_index": 0,
-      "emphasis": "accent"
-    },
-    "LineChart": {
-      "title": "Monthly casualties",
-      "series": [
-        {
-          "name": "Axis",
-          "points": [
-            {
-              "x": "Aug",
-              "y": 12
-            },
-            {
-              "x": "Sep",
-              "y": 26
-            },
-            {
-              "x": "Oct",
-              "y": 34
-            },
-            {
-              "x": "Nov",
-              "y": 41
-            },
-            {
-              "x": "Dec",
-              "y": 58
-            }
-          ]
-        },
-        {
-          "name": "Soviet",
-          "points": [
-            {
-              "x": "Aug",
-              "y": 18
-            },
-            {
-              "x": "Sep",
-              "y": 31
-            },
-            {
-              "x": "Oct",
-              "y": 29
-            },
-            {
-              "x": "Nov",
-              "y": 24
-            },
-            {
-              "x": "Dec",
-              "y": 21
-            }
-          ]
-        }
-      ],
-      "y_label": "thousands",
-      "x_label": "1942",
-      "emphasis": "accent"
-    },
-    "ComparisonSplit": {
-      "left": {
-        "label": "Germany",
-        "value": 9200,
-        "note": "1942 output"
-      },
-      "right": {
-        "label": "USSR",
-        "value": 24446,
-        "note": "1942 output"
-      },
-      "unit": "tanks",
-      "caption": "Annual tank production",
-      "emphasis": "accent"
-    },
-    "RankLabel": {
-      "rank": 3,
-      "title": "Operation Uranus",
-      "subtitle": "November 1942",
-      "total": 10,
-      "emphasis": "accent"
-    },
-    "QuoteBlock": {
-      "quote": "I have no intention of leaving the Volga.",
-      "attribution": "Vasily Chuikov",
-      "context": "September 1942",
-      "variant": "mark",
-      "align": "left",
-      "emphasis": "accent"
-    },
-    "HighlightedPassage": {
-      "text": "There will be no surrender. The Sixth Army will hold its positions to the last man and the last round.",
-      "marks": [
-        {
-          "phrase": "no surrender",
-          "style": "circle"
-        },
-        {
-          "phrase": "last man",
-          "style": "underline"
-        }
-      ],
-      "emphasis": "accent"
-    },
-    "DocumentCard": {
-      "title": "Führer Directive",
-      "lines": [
-        "The Sixth Army will hold its positions.",
-        "Supply will be delivered by air.",
-        "No breakout is authorised."
-      ],
-      "stamp": "SECRET",
-      "signature": "A. Hitler",
-      "variant": "typed",
-      "emphasis": "accent"
-    },
-    "FramedExhibit": {
-      "caption": "Soviet infantry advancing past a wrecked tram, October 1942",
-      "credit": "RIA Novosti archive",
-      "frame_style": "museum",
-      "emphasis": "neutral"
-    },
-    "ArchivalFrame": {
-      "slate": "Reel 4 — city centre",
-      "date": "Oct 1942",
-      "treatment": "archival",
-      "flicker": true,
-      "sprocket": true,
-      "emphasis": "neutral"
-    },
-    "DateStamp": {
-      "date": "31 January 1943",
-      "place": "Stalingrad",
-      "position": "top_left",
-      "variant": "stamped",
-      "emphasis": "accent"
-    },
-    "Timeline": {
-      "title": "The battle",
-      "events": [
-        {
-          "date": "23 Aug",
-          "label": "First air raids"
-        },
-        {
-          "date": "13 Sep",
-          "label": "Assault on the centre"
-        },
-        {
-          "date": "19 Nov",
-          "label": "Uranus begins"
-        },
-        {
-          "date": "2 Feb",
-          "label": "Surrender"
-        }
-      ],
-      "orientation": "horizontal",
-      "highlight_index": 2,
-      "emphasis": "accent"
-    },
-    "NamePlate": {
-      "name": "Vasily Chuikov",
-      "role": "Commander, 62nd Army",
-      "lifespan": "1900–1982",
-      "side": "left",
-      "variant": "bar",
-      "emphasis": "accent"
-    },
-    "SatelliteLocate": {
-      "place_name": "Stalingrad",
-      "lat": 48.708,
-      "lng": 44.514,
-      "label": "Stalingrad",
-      "country": "USSR",
-      "zoom": "region",
-      "framing": "full",
-      "emphasis": "accent"
-    },
-    "RouteMap": {
-      "title": "The advance to the Volga",
-      "stops": [
-        {
-          "name": "Kharkov",
-          "lat": 49.99,
-          "lng": 36.23,
-          "date": "May"
-        },
-        {
-          "name": "Kalach",
-          "lat": 48.69,
-          "lng": 43.53,
-          "date": "Aug"
-        },
-        {
-          "name": "Stalingrad",
-          "lat": 48.708,
-          "lng": 44.514,
-          "date": "Sep"
-        }
-      ],
-      "mode": "march",
-      "emphasis": "accent"
-    },
-    "RegionHighlight": {
-      "region_name": "The Kessel",
-      "polygon": [
-        {
-          "lat": 48.9,
-          "lng": 43.6
-        },
-        {
-          "lat": 49,
-          "lng": 44.4
-        },
-        {
-          "lat": 48.75,
-          "lng": 44.9
-        },
-        {
-          "lat": 48.5,
-          "lng": 44.5
-        },
-        {
-          "lat": 48.55,
-          "lng": 43.8
-        }
-      ],
-      "label": "The Kessel",
-      "annotation": "Pocket, 23 Nov 1942",
-      "emphasis": "accent"
+    {
+     "label": "Sector",
+     "value": "City centre"
     }
+   ],
+   "footnote": "Strength at 13 September 1942",
+   "position": "left",
+   "emphasis": "accent",
+   "numbered": false
+  },
+  "DefinitionCard": {
+   "term": "Rattenkrieg",
+   "pronunciation": "\u02c8\u0281atn\u0329k\u0281i\u02d0k",
+   "part_of_speech": "noun",
+   "definition": "Rat war: close-quarters fighting through cellars, sewers and ruins, where artillery and armour lose their advantage.",
+   "origin": "German, coined by troops in 1942",
+   "emphasis": "accent"
+  },
+  "BulletList": {
+   "title": "Why the pocket held",
+   "items": [
+    "Airlift promises that could not be met",
+    "A refusal to authorise breakout",
+    "Winter closing the steppe corridors"
+   ],
+   "marker": "rule",
+   "align": "left",
+   "emphasis": "accent"
+  },
+  "StepFlow": {
+   "title": "Operation Uranus",
+   "steps": [
+    {
+     "label": "Probe",
+     "detail": "Romanian flanks tested"
+    },
+    {
+     "label": "Breach",
+     "detail": "19 November"
+    },
+    {
+     "label": "Encircle",
+     "detail": "Kalach link-up"
+    }
+   ],
+   "direction": "horizontal",
+   "numbered": true,
+   "emphasis": "accent"
+  },
+  "CalloutArrow": {
+   "text": "The tractor factory",
+   "target": "center_right",
+   "from": "left",
+   "style": "curved",
+   "emphasis": "accent"
+  },
+  "AnimatedCounter": {
+   "value": 91,
+   "label": "thousand taken prisoner",
+   "suffix": "k",
+   "decimals": 0,
+   "approximate": true,
+   "position": "center",
+   "emphasis": "accent"
+  },
+  "StatTag": {
+   "value": 40,
+   "unit": "days",
+   "label": "without relief",
+   "position": "top_right",
+   "emphasis": "accent"
+  },
+  "BarChart": {
+   "title": "Tanks produced, 1942",
+   "series": [
+    {
+     "label": "USSR",
+     "value": 24446
+    },
+    {
+     "label": "Germany",
+     "value": 9200
+    },
+    {
+     "label": "USA",
+     "value": 26000
+    }
+   ],
+   "unit": "units",
+   "orientation": "vertical",
+   "highlight_index": 0,
+   "emphasis": "accent"
+  },
+  "LineChart": {
+   "title": "Monthly casualties",
+   "series": [
+    {
+     "name": "Axis",
+     "points": [
+      {
+       "x": "Aug",
+       "y": 12
+      },
+      {
+       "x": "Sep",
+       "y": 26
+      },
+      {
+       "x": "Oct",
+       "y": 34
+      },
+      {
+       "x": "Nov",
+       "y": 41
+      },
+      {
+       "x": "Dec",
+       "y": 58
+      }
+     ]
+    },
+    {
+     "name": "Soviet",
+     "points": [
+      {
+       "x": "Aug",
+       "y": 18
+      },
+      {
+       "x": "Sep",
+       "y": 31
+      },
+      {
+       "x": "Oct",
+       "y": 29
+      },
+      {
+       "x": "Nov",
+       "y": 24
+      },
+      {
+       "x": "Dec",
+       "y": 21
+      }
+     ]
+    }
+   ],
+   "y_label": "thousands",
+   "x_label": "1942",
+   "emphasis": "accent"
+  },
+  "ComparisonSplit": {
+   "left": {
+    "label": "Germany",
+    "value": 9200,
+    "note": "1942 output"
+   },
+   "right": {
+    "label": "USSR",
+    "value": 24446,
+    "note": "1942 output"
+   },
+   "unit": "tanks",
+   "caption": "Annual tank production",
+   "emphasis": "accent"
+  },
+  "RankLabel": {
+   "rank": 3,
+   "title": "Operation Uranus",
+   "subtitle": "November 1942",
+   "total": 10,
+   "emphasis": "accent"
+  },
+  "QuoteBlock": {
+   "quote": "I have no intention of leaving the Volga.",
+   "attribution": "Vasily Chuikov",
+   "context": "September 1942",
+   "variant": "mark",
+   "align": "left",
+   "emphasis": "accent"
+  },
+  "HighlightedPassage": {
+   "text": "There will be no surrender. The Sixth Army will hold its positions to the last man and the last round.",
+   "marks": [
+    {
+     "phrase": "no surrender",
+     "style": "circle"
+    },
+    {
+     "phrase": "last man",
+     "style": "underline"
+    }
+   ],
+   "emphasis": "accent"
+  },
+  "DocumentCard": {
+   "title": "F\u00fchrer Directive",
+   "lines": [
+    "The Sixth Army will hold its positions.",
+    "Supply will be delivered by air.",
+    "No breakout is authorised."
+   ],
+   "stamp": "SECRET",
+   "signature": "A. Hitler",
+   "variant": "typed",
+   "emphasis": "accent"
+  },
+  "FramedExhibit": {
+   "caption": "Soviet infantry advancing past a wrecked tram, October 1942",
+   "credit": "RIA Novosti archive",
+   "frame_style": "museum",
+   "emphasis": "neutral"
+  },
+  "ArchivalFrame": {
+   "slate": "Reel 4 \u2014 city centre",
+   "date": "Oct 1942",
+   "treatment": "archival",
+   "flicker": true,
+   "sprocket": true,
+   "emphasis": "neutral"
+  },
+  "DateStamp": {
+   "date": "31 January 1943",
+   "place": "Stalingrad",
+   "position": "top_left",
+   "variant": "stamped",
+   "emphasis": "accent"
+  },
+  "Timeline": {
+   "title": "The battle",
+   "events": [
+    {
+     "date": "23 Aug",
+     "label": "First air raids"
+    },
+    {
+     "date": "13 Sep",
+     "label": "Assault on the centre"
+    },
+    {
+     "date": "19 Nov",
+     "label": "Uranus begins"
+    },
+    {
+     "date": "2 Feb",
+     "label": "Surrender"
+    }
+   ],
+   "orientation": "horizontal",
+   "highlight_index": 2,
+   "emphasis": "accent"
+  },
+  "NamePlate": {
+   "name": "Vasily Chuikov",
+   "role": "Commander, 62nd Army",
+   "lifespan": "1900\u20131982",
+   "side": "left",
+   "variant": "bar",
+   "emphasis": "accent"
+  },
+  "SatelliteLocate": {
+   "place_name": "Stalingrad",
+   "lat": 48.708,
+   "lng": 44.514,
+   "label": "Stalingrad",
+   "country": "USSR",
+   "zoom": "city",
+   "framing": "full",
+   "emphasis": "accent"
+  },
+  "RouteMap": {
+   "title": "The advance to the Volga",
+   "stops": [
+    {
+     "name": "Kharkov",
+     "lat": 49.99,
+     "lng": 36.23,
+     "date": "May"
+    },
+    {
+     "name": "Kalach",
+     "lat": 48.69,
+     "lng": 43.53,
+     "date": "Aug"
+    },
+    {
+     "name": "Stalingrad",
+     "lat": 48.708,
+     "lng": 44.514,
+     "date": "Sep"
+    }
+   ],
+   "mode": "march",
+   "emphasis": "accent"
+  },
+  "RegionHighlight": {
+   "region_name": "The Kessel",
+   "polygon": [
+    {
+     "lat": 48.9,
+     "lng": 43.6
+    },
+    {
+     "lat": 49,
+     "lng": 44.4
+    },
+    {
+     "lat": 48.75,
+     "lng": 44.9
+    },
+    {
+     "lat": 48.5,
+     "lng": 44.5
+    },
+    {
+     "lat": 48.55,
+     "lng": 43.8
+    }
+   ],
+   "label": "The Kessel",
+   "annotation": "Pocket, 23 Nov 1942",
+   "emphasis": "accent"
+  },
+  "PieChart": {
+   "title": "Where the steel went",
+   "slices": [
+    {
+     "label": "Tanks",
+     "value": 41
+    },
+    {
+     "label": "Aircraft",
+     "value": 28
+    },
+    {
+     "label": "Ships",
+     "value": 19
+    },
+    {
+     "label": "Rail",
+     "value": 12
+    }
+   ],
+   "highlight_index": 0,
+   "source": "Harrison, The Economics of WWII",
+   "emphasis": "accent"
+  },
+  "DataTable": {
+   "title": "The armour that met at Kursk",
+   "columns": [
+    "Tank",
+    "Weight",
+    "Gun",
+    "Crew"
+   ],
+   "rows": [
+    [
+     "T-34/76",
+     "26.5 t",
+     "76 mm",
+     "4"
+    ],
+    [
+     "Panther",
+     "44.8 t",
+     "75 mm",
+     "5"
+    ],
+    [
+     "Tiger I",
+     "57.0 t",
+     "88 mm",
+     "5"
+    ]
+   ],
+   "highlight_row": 2,
+   "source": "Zaloga, Armoured Champion",
+   "emphasis": "accent"
+  },
+  "PortraitPlates": {
+   "frames": [
+    {
+     "label": "Vasily Chuikov",
+     "sublabel": "62nd Army",
+     "orientation": "portrait"
+    },
+    {
+     "label": "Friedrich Paulus",
+     "sublabel": "6th Army",
+     "orientation": "portrait"
+    }
+   ],
+   "kicker": "The two commanders",
+   "label_position": "below",
+   "label_style": "plate",
+   "emphasis": "accent"
   }
+ }
 }

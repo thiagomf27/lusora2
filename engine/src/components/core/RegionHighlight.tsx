@@ -18,10 +18,19 @@ import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideo
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  contrastInk,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   motionScale,
+  ruleWidth,
+  surfaceColor,
+  surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -33,12 +42,35 @@ const plateSchema = z.object({
   north: z.number().min(-90).max(90),
 });
 
+const ringSchema = z
+  .array(z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }))
+  .min(3)
+  .max(64);
+
 export const RegionHighlightProps = z.object({
   region_name: z.string().max(40),
-  polygon: z
-    .array(z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }))
-    .min(3)
-    .max(64),
+  polygon: ringSchema.optional(),
+  /**
+   * More than one outline in the same shot — the Axis powers, the states that
+   * seceded, the countries a treaty bound. A LIST rather than a second
+   * component: the bounds, the projection, the draw-on and the label placement
+   * are identical work whether there is one ring or five, and only the first
+   * one is named by `region_name`.
+   *
+   * `polygon` stays for the single-region case and for every plan snapshotted
+   * before this existed; exactly one of the two is required.
+   */
+  regions: z
+    .array(
+      z.object({
+        region_name: z.string().max(40).optional(),
+        polygon: ringSchema,
+        label: z.string().max(40).optional(),
+      }),
+    )
+    .min(1)
+    .max(6)
+    .optional(),
   label: z.string().max(40).optional(),
   annotation: z.string().max(40).optional(),
   plate: plateSchema.optional(),
@@ -50,6 +82,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -61,8 +94,20 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
   });
   const { opacity, inDur } = entrance;
 
-  const lats = props.polygon.map((p) => p.lat);
-  const lngs = props.polygon.map((p) => p.lng);
+  // One shape of work, whether the plan named one region or five. `polygon`
+  // is the single-region form every plan used before `regions` existed, so it
+  // folds into the list rather than branching the whole component.
+  const outlines =
+    props.regions?.length
+      ? props.regions.map((r) => ({
+          name: r.region_name ?? props.region_name,
+          points: r.polygon,
+          label: r.label,
+        }))
+      : [{ name: props.region_name, points: props.polygon ?? [], label: props.label }];
+  const allPoints = outlines.flatMap((o) => o.points);
+  const lats = allPoints.map((p) => p.lat);
+  const lngs = allPoints.map((p) => p.lng);
   const padLat = Math.max((Math.max(...lats) - Math.min(...lats)) * 0.25, 1);
   const padLng = Math.max((Math.max(...lngs) - Math.min(...lngs)) * 0.25, 1);
   let west = Math.min(...lngs) - padLng;
@@ -96,25 +141,43 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
     y: ((north - lat) / (north - south)) * plateH,
   });
 
-  const ring = props.polygon.map((p) => project(p.lat, p.lng));
-  const d = `${ring.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ")} Z`;
-  let perimeter = 0;
-  for (let i = 0; i < ring.length; i++) {
-    const a = ring[i];
-    const b = ring[(i + 1) % ring.length];
-    perimeter += Math.hypot(b.x - a.x, b.y - a.y);
-  }
-  const centroid = {
-    x: ring.reduce((sum, p) => sum + p.x, 0) / ring.length,
-    y: ring.reduce((sum, p) => sum + p.y, 0) / ring.length,
-  };
+  const rings = outlines.map((o) => {
+    const ring = o.points.map((p) => project(p.lat, p.lng));
+    const d = `${ring.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ")} Z`;
+    let perimeter = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i];
+      const b = ring[(i + 1) % ring.length];
+      perimeter += Math.hypot(b.x - a.x, b.y - a.y);
+    }
+    return {
+      ...o,
+      d,
+      perimeter,
+      centroid: {
+        x: ring.reduce((sum, p) => sum + p.x, 0) / Math.max(1, ring.length),
+        y: ring.reduce((sum, p) => sum + p.y, 0) / Math.max(1, ring.length),
+      },
+    };
+  });
+  // The FIRST outline is the one the leader line and the big plate belong to:
+  // `region_name` names it, and a shot with five rings and five leader lines is
+  // a diagram of leader lines.
+  const primary = rings[0];
+  const centroid = primary.centroid;
 
   const outlineDur = Math.round(fps * 1.0 * durationMul);
-  const outline = interpolate(frame, [inDur * 0.5, inDur * 0.5 + outlineDur], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.bezier(0.45, 0, 0.55, 1),
-  });
+  // Rings draw in sequence, tightening as the list grows so the last one still
+  // lands well inside the hold. One ring keeps exactly its old timing.
+  const ringStagger =
+    rings.length > 1 ? Math.round((fps * 0.35 * durationMul) / Math.sqrt(rings.length - 1)) : 0;
+  const outlineOf = (i: number) =>
+    interpolate(frame, [inDur * 0.5 + i * ringStagger, inDur * 0.5 + i * ringStagger + outlineDur], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: Easing.bezier(0.45, 0, 0.55, 1),
+    });
+  const outline = outlineOf(0);
   const fillStart = inDur * 0.5 + outlineDur * 0.7;
   const outStart = durationInFrames - Math.round(fps * 0.5 * durationMul);
   // Fill fades in behind the outline, and fades out before it on the way back.
@@ -138,7 +201,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
 
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
-      <div style={{ position: "relative", width: plateW, height: plateH, overflow: "hidden", background: theme.colors.bg }}>
+      <div style={{ position: "relative", width: plateW, height: plateH, overflow: "hidden", background: surfaceColor(theme) }}>
         {props.plate ? (
           <Img src={staticFile(props.plate.src)} style={{ width: "100%", height: "100%", objectFit: "fill" }} />
         ) : (
@@ -158,26 +221,55 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
         ) : null}
 
         <svg width={plateW} height={plateH} style={{ position: "absolute", inset: 0 }}>
-          <path d={d} fill={accent} fillOpacity={fill} stroke="none" />
-          <path
-            d={d}
-            fill="none"
-            stroke={accent}
-            strokeWidth={Math.max(3, plateH * 0.005)}
-            strokeLinejoin="round"
-            strokeDasharray={perimeter}
-            strokeDashoffset={perimeter * (1 - outline)}
-          />
-          {/* Second, drifting dashed stroke — reads as "contested / approximate". */}
-          <path
-            d={d}
-            fill="none"
-            stroke={theme.colors.text}
-            strokeOpacity={0.35 * outline}
-            strokeWidth={Math.max(1.5, plateH * 0.002)}
-            strokeDasharray={`${plateH * 0.02} ${plateH * 0.02}`}
-            strokeDashoffset={-(frame / fps) * plateH * 0.05}
-          />
+          {rings.map((r, i) => {
+            const drawn = outlineOf(i);
+            return (
+              <g key={i}>
+                <path d={r.d} fill={accent} fillOpacity={fill} stroke="none" />
+                <path
+                  d={r.d}
+                  fill="none"
+                  stroke={accent}
+                  strokeWidth={ruleWidth(theme, Math.max(3, plateH * 0.005))}
+                  strokeLinejoin="round"
+                  strokeDasharray={r.perimeter}
+                  strokeDashoffset={r.perimeter * (1 - drawn)}
+                />
+                {/* Second, drifting dashed stroke — reads as "contested / approximate". */}
+                <path
+                  d={r.d}
+                  fill="none"
+                  stroke={theme.colors.text}
+                  strokeOpacity={0.35 * drawn}
+                  strokeWidth={ruleWidth(theme, Math.max(1.5, plateH * 0.002))}
+                  strokeDasharray={`${plateH * 0.02} ${plateH * 0.02}`}
+                  strokeDashoffset={-(frame / fps) * plateH * 0.05}
+                />
+                {/* Secondary rings name themselves at their own centroid: a
+                    leader line each would be a diagram of leader lines. */}
+                {i > 0 && r.label ? (
+                  <text
+                    x={r.centroid.x}
+                    y={r.centroid.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill={contrastInk(theme, surfaceColor(theme))}
+                    fontFamily={fontStack(theme.typography.body)}
+                    fontSize={plateH * 0.028 * typeScale(theme, "caption")}
+                    fontWeight={typeWeight(theme, 600)}
+                    letterSpacing={typeTracking(theme, 0.08)}
+                    style={{ textTransform: typeCase(theme, "uppercase") }}
+                    opacity={interpolate(drawn, [0.85, 1], [0, 0.95], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    })}
+                  >
+                    {r.label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
           <line
             x1={centroid.x}
             y1={centroid.y}
@@ -214,8 +306,8 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
           <div
             style={{
               fontFamily: fontStack(theme.typography.display),
-              fontSize: plateH * 0.05,
-              fontWeight: 700,
+              fontSize: plateH * 0.05 * typeScale(theme, "title"),
+              fontWeight: typeWeight(theme, 700),
               color: theme.colors.text,
               whiteSpace: "nowrap",
             }}
@@ -227,9 +319,9 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
               style={{
                 marginTop: plateH * 0.008,
                 fontFamily: fontStack(theme.typography.body),
-                fontSize: plateH * 0.028,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
+                fontSize: plateH * 0.028 * typeScale(theme, "body"),
+                letterSpacing: typeTracking(theme, 0.1),
+                textTransform: typeCase(theme, "uppercase"),
                 color: theme.colors.neutral,
                 whiteSpace: "nowrap",
               }}
@@ -246,9 +338,9 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
               right: plateW * 0.02,
               bottom: plateH * 0.02,
               fontFamily: fontStack(theme.typography.body),
-              fontSize: plateH * 0.026,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
+              fontSize: plateH * 0.026 * typeScale(theme, "caption"),
+              letterSpacing: typeTracking(theme, 0.14),
+              textTransform: typeCase(theme, "uppercase"),
               color: theme.colors.neutral,
               opacity: 0.35,
             }}
@@ -290,3 +382,6 @@ function ProceduralPlate({ theme, width, height }: { theme: Theme; width: number
     </svg>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+RegionHighlight.honors = ["typography", "surface.density", "surface.rule", "motion.entrance"];

@@ -138,7 +138,7 @@ export function isAudioExtension(name: string): boolean {
  *
  * This is what makes deleting safe: a theme naming a cue that no longer exists
  * is a hard compile error on the next video, so the UI has to be able to say
- * "history-dark uses this" before anyone removes it.
+ * "standard uses this" before anyone removes it.
  */
 export function soundUsage(): Record<string, Record<string, string[]>> {
   const out: Record<string, Record<string, string[]>> = {};

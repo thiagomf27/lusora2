@@ -10,10 +10,16 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -30,6 +36,8 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -63,20 +71,37 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: `0 ${width * 0.08}px`,
+        padding: `0 ${width * 0.08 * density}px`,
         opacity,
         translate: entrance.translate,
         scale: `${entrance.scale}`,
         clipPath: entrance.clipPath,
       }}
     >
+      {/* The plate is laid out independently of the rail: a timeline's first and
+          last dates sit OUTSIDE their slots, so a wrapper that hugs the content
+          cuts them off exactly where they matter most. */}
+      {ground ? (
+        <div
+          style={{
+            position: "absolute",
+            left: width * 0.02 * density,
+            top: height * 0.12 * density,
+            width: width - width * 0.04 * density,
+            height: height - height * 0.24 * density,
+            ...ground,
+          }}
+        />
+      ) : null}
+
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
       {props.title ? (
         <div
           style={{
-            marginBottom: height * 0.05,
+            marginBottom: height * 0.05 * density,
             fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.05,
-            fontWeight: 700,
+            fontSize: height * 0.05 * typeScale(theme, "title"),
+            fontWeight: typeWeight(theme, 700),
             color: theme.colors.text,
             maxWidth: width * 0.8,
             textAlign: "center",
@@ -108,8 +133,8 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
             position: "absolute",
             left: horizontal ? 0 : width * 0.06,
             top: horizontal ? "50%" : 0,
-            width: horizontal ? "100%" : Math.max(2, width * 0.0022),
-            height: horizontal ? Math.max(2, height * 0.004) : "100%",
+            width: horizontal ? "100%" : ruleWidth(theme, Math.max(2, width * 0.0022)),
+            height: horizontal ? ruleWidth(theme, Math.max(2, height * 0.004)) : "100%",
             background: `${theme.colors.neutral}aa`,
             scale: horizontal ? `${spineProgress} 1` : `1 ${spineProgress}`,
             transformOrigin: horizontal ? "left center" : "top center",
@@ -172,7 +197,7 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
                       position: "absolute",
                       inset: 0,
                       borderRadius: "50%",
-                      border: `${Math.max(2, height * 0.003)}px solid ${accent}`,
+                      border: `${ruleWidth(theme, Math.max(2, height * 0.003))}px solid ${accent}`,
                       opacity: 0.55,
                       scale: `${pop}`,
                     }}
@@ -223,6 +248,7 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
           );
         })}
       </div>
+      </div>
     </div>
   );
 }
@@ -248,6 +274,9 @@ function EventText({
   align: "center" | "left";
   slot: number;
 }) {
+  // A sub-component takes the theme, so it resolves its own density rather than
+  // having a number threaded through the props — one seam, not two.
+  const density = densityScale(theme);
   const centered = align === "center";
   return (
     <div
@@ -264,10 +293,10 @@ function EventText({
       <div
         style={{
           fontFamily: fontStack(theme.typography.body),
-          fontSize: height * 0.028,
-          fontWeight: 700,
+          fontSize: height * 0.028 * typeScale(theme, "body"),
+          fontWeight: typeWeight(theme, 700),
           fontVariantNumeric: "tabular-nums",
-          letterSpacing: "0.06em",
+          letterSpacing: typeTracking(theme, 0.06),
           color,
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -278,9 +307,9 @@ function EventText({
       </div>
       <div
         style={{
-          marginTop: height * 0.006,
+          marginTop: height * 0.006 * density,
           fontFamily: fontStack(theme.typography.body),
-          fontSize: height * 0.024,
+          fontSize: height * 0.024 * typeScale(theme, "caption"),
           lineHeight: 1.3,
           color: theme.colors.text,
           overflowWrap: "anywhere",
@@ -295,3 +324,6 @@ function EventText({
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+Timeline.honors = ["typography", "surface", "chart", "motion.entrance", "motion.easing"];

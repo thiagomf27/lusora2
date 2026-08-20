@@ -23,10 +23,31 @@
       "type": "object",
       "required": ["display", "body", "caption_preset"],
       "additionalProperties": false,
+      "description": "D66 adds scale/weight/case/tracking. Each is a SCALE token: its default is the identity element, so a component reads it as a multiplier or an offset over the ratio it already had, and a theme setting none of them renders byte-identically (Principle 7).",
       "properties": {
         "display": { "type": "string", "description": "packaged fonts only, by name" },
         "body": { "type": "string" },
-        "caption_preset": { "type": "string", "description": "one of the engine's caption presets" }
+        "caption_preset": { "type": "string", "description": "one of the engine's caption presets" },
+        "scale": {
+          "enum": ["compact", "normal", "generous"],
+          "default": "normal",
+          "description": "multiplier over every fontSize ratio, per type role (title and number move most, caption least). normal = 1, i.e. the component's own ratio."
+        },
+        "weight": {
+          "enum": ["light", "regular", "bold"],
+          "default": "regular",
+          "description": "offset on the component's own fontWeight, clamped to 300..900. regular keeps it, so a 700 title and a 400 label keep their relationship."
+        },
+        "case": {
+          "enum": ["as_written", "upper"],
+          "default": "as_written",
+          "description": "as_written keeps whatever the component set (a kicker that was already uppercase stays uppercase); upper forces uppercase everywhere."
+        },
+        "tracking": {
+          "enum": ["tight", "normal", "wide"],
+          "default": "normal",
+          "description": "em offset on the component's own letterSpacing, floored at -0.05em. Additive, not multiplicative: a title at 0em has to be reachable by `wide`."
+        }
       }
     },
     "motion_feel": {
@@ -57,6 +78,21 @@
         "accent_rule": {
           "enum": ["top", "left", "none"],
           "description": "where the accent bar sits. No default on purpose: omitted keeps each component's own choice (FactCard draws it on top, the card template on the left)."
+        },
+        "density": {
+          "enum": ["tight", "normal", "airy"],
+          "default": "normal",
+          "description": "D66 — multiplier on padding, gaps, margins and panel insets. normal = 1, i.e. the component's own spacing."
+        },
+        "rule": {
+          "enum": ["hairline", "normal", "heavy"],
+          "default": "normal",
+          "description": "D66 — multiplier on the width of every rule a component draws: accent bars, borders, axes, baselines. normal = 1, i.e. the component's own width."
+        },
+        "texture": {
+          "enum": ["none", "paper", "grain", "scanline"],
+          "default": "none",
+          "description": "D66 — treatment on the ground an overlay sets type on. `none` is today's value everywhere, so this token is inert until a theme asks for it. Distinct from top-level `grain`, which is a post-look over the whole FRAME; this is the overlay's own plate."
         }
       }
     },
@@ -79,6 +115,39 @@
           "description": "per-catalog-name entrance override. Exceptions only — a map approaching one entry per component is the trigger for motion roles (D47).",
           "propertyNames": { "pattern": "^[A-Z][A-Za-z0-9]*$" },
           "additionalProperties": { "$ref": "#/$defs/entrance" }
+        }
+      }
+    },
+    "chart": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D66 — how a plotted component reads. Split out so a theme that draws no charts never has to carry these. `grid`, `legend` and `markers` have NO default on purpose (the accent_rule precedent): there is no identity element for a choice, so omitted keeps each component's own — LineChart's own legend is a bottom row, ArchiveLineChart's is names at the end of each line, and both must survive a theme that says nothing. `stroke` and `number_format` DO default, because `normal` and `plain` ARE today's value everywhere.",
+      "properties": {
+        "grid": {
+          "enum": ["none", "horizontal", "full"],
+          "description": "none = a baseline and nothing else; horizontal = ruled values across the plot; full = horizontal plus a vertical at every labelled tick. Omitted keeps the component's own axes."
+        },
+        "legend": {
+          "enum": ["inline", "bottom"],
+          "description": "inline = each series named at the end of its own line, no cross-referencing; bottom = a swatch row under the plot. Omitted keeps the component's own."
+        },
+        "area": {
+          "enum": ["none", "tint"],
+          "description": "D69 — whether a line encloses the space under it. `tint` fills to the baseline in the series colour at low alpha, which reads as VOLUME and is wrong for a series that can go negative or for two series that cross. No default (choice token): omitted keeps the component's own, which is `none`."
+        },
+        "markers": {
+          "enum": ["none", "dot"],
+          "description": "dot = a mark at every data point; none = no marks at all. Omitted keeps the component's own (LineChart marks only where a series ends)."
+        },
+        "stroke": {
+          "enum": ["hairline", "normal", "heavy"],
+          "default": "normal",
+          "description": "multiplier on the component's own series stroke width. Dash patterns scale with it, so a dashed series stays legible under `heavy`."
+        },
+        "number_format": {
+          "enum": ["plain", "compact"],
+          "default": "plain",
+          "description": "plain = 50,000; compact = 50.0K. Axis and label figures only — a counter's own `decimals` prop still wins."
         }
       }
     },

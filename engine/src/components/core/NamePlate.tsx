@@ -10,14 +10,23 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  borderSides,
   PANEL_ENTRANCES,
-  easingCurve,
+  borderSides,
   captionStyle,
+  contrastInk,
+  densityScale,
+  easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  surfaceColor,
   surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -36,6 +45,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -47,6 +57,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
   });
   const { opacity, inDur } = entrance;
   const surface = surfaceStyle(theme, { radius: 6 });
+  const ground = groundStyle(theme, { radius: 6, alpha: "e0", legible: true });
 
   const left = props.side === "left";
   const barDur = Math.round(fps * 0.3 * durationMul);
@@ -73,7 +84,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
     <div
       style={{
         position: "absolute",
-        bottom: height * 0.15,
+        bottom: height * 0.15 * density,
         left: left ? width * 0.06 : undefined,
         right: left ? undefined : width * 0.06,
         display: "flex",
@@ -88,9 +99,9 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
       {props.variant === "bar" ? (
         <div
           style={{
-            width: Math.max(5, width * 0.005),
+            width: ruleWidth(theme, Math.max(5, width * 0.005)),
             background: accent,
-            borderRadius: 2,
+            borderRadius: surfaceStyle(theme, { radius: 2 }).borderRadius,
             scale: `1 ${interpolate(frame, [0, barDur], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -103,15 +114,21 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
 
       <div
         style={{
-          background: props.variant === "boxed" ? `${theme.colors.bg}e6` : `${theme.colors.bg}bf`,
+          // A lower third is the one overlay that ALWAYS sits over footage, so
+          // its plate is the difference between a name and a smudge.
+          ...(groundStyle(theme, {
+            radius: 6,
+            alpha: props.variant === "boxed" ? "e6" : "bf",
+            legible: true,
+          }) ?? {}),
           ...borderSides(
             props.variant === "boxed"
-              ? { width: 1, color: `${accent}66` }
+              ? { width: ruleWidth(theme, 1), color: `${accent}66` }
               : props.variant === "underline"
-                ? { side: "bottom", ruleWidth: Math.max(3, height * 0.006), ruleColor: accent }
+                ? { side: "bottom", ruleWidth: ruleWidth(theme, Math.max(3, height * 0.006)), ruleColor: accent }
                 : {}
           ),
-          padding: `${height * 0.018}px ${width * 0.022}px`,
+          padding: `${height * 0.018 * density}px ${width * 0.022 * density}px`,
           borderRadius:
             props.variant === "bar"
               ? `0 ${surface.borderRadius}px ${surface.borderRadius}px 0`
@@ -125,7 +142,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
           style={{
             display: "flex",
             alignItems: "baseline",
-            gap: width * 0.012,
+            gap: width * 0.012 * density,
             opacity: interpolate(frame, [wipeStart, wipeStart + fps * 0.35], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -135,8 +152,8 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
           <div
             style={{
               fontFamily: fontStack(theme.typography.display),
-              fontSize: height * 0.05,
-              fontWeight: 700,
+              fontSize: height * 0.05 * typeScale(theme, "title"),
+              fontWeight: typeWeight(theme, 700),
               color: theme.colors.text,
               whiteSpace: "nowrap",
             }}
@@ -147,7 +164,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
             <div
               style={{
                 fontFamily: fontStack(theme.typography.body),
-                fontSize: height * 0.024,
+                fontSize: height * 0.024 * typeScale(theme, "caption"),
                 fontVariantNumeric: "tabular-nums",
                 color: theme.colors.neutral,
                 whiteSpace: "nowrap",
@@ -161,14 +178,18 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
         {props.role ? (
           <div
             style={{
-              marginTop: height * 0.006,
+              marginTop: height * 0.006 * density,
               // captionStyle() is 1080p-referenced — scale every px it returns.
               fontFamily: cs.fontFamily,
-              fontSize: cs.fontSize * scale,
-              color: cs.color,
+              fontSize: cs.fontSize * scale * typeScale(theme, "caption"),
+              // NOT cs.color. captionStyle() resolves type for a caption burned
+              // over footage WITH its own background — the `boxed` preset pairs
+              // `colors.bg` ink with a `colors.text` plate. Lift the ink out on
+              // its own and a dark theme sets near-black on a near-black plate.
+              color: contrastInk(theme, surfaceColor(theme)),
               fontStyle: cs.fontStyle,
-              letterSpacing: cs.letterSpacing,
-              textTransform: cs.textTransform,
+              letterSpacing: typeTracking(theme, cs.letterSpacing ? parseFloat(cs.letterSpacing) : 0),
+              textTransform: typeCase(theme, cs.textTransform === "uppercase" ? "uppercase" : "none"),
               opacity: interpolate(frame, [wipeStart + fps * 0.1, wipeStart + fps * 0.45], [0, 0.9], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
@@ -186,3 +207,6 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+NamePlate.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

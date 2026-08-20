@@ -1,28 +1,51 @@
 /**
  * LineChart — up to three series revealed left-to-right over a shared axis.
  *
- * Two deliberate design decisions:
+ * This is the MERGE of `LineChart` and `ArchiveLineChart` (D66). They drew the
+ * same shape in two looks: core put its legend in a row underneath, marked only
+ * where each series stopped and ruled nothing across the plot; the archive one
+ * named each series at the end of its own line, dotted every vertex and ruled
+ * three values across a card. Neither of those is a different chart — they are
+ * `chart.legend`, `chart.markers` and `chart.grid`. So there is one file, and
+ * the theme picks.
  *
- * 1. `x` is a STRING label plotted at equal index spacing ("1941", "Q3"),
- *    not a date. It's what a script actually supplies and it sidesteps date
- *    parsing entirely.
- * 2. Series are capped at 3 and encoded by colour AND dash pattern. A theme
- *    carries four colours; it cannot carry a fourth distinguishable series,
- *    and a palette prop would break the semantic-props rule and look wrong the
- *    moment the theme changes.
+ * Three decisions carried over from both, because they were right in both:
  *
- * The reveal uses an SVG <clipPath> rect, not strokeDashoffset: dashed series
- * already use strokeDasharray, and the two uses would fight.
+ * 1. `x` is a STRING label plotted at equal index spacing ("1941", "Q3"), not a
+ *    date. It's what a script actually supplies and it sidesteps date parsing.
+ * 2. Series are capped at 3 and encoded by colour AND dash pattern. The ramp is
+ *    `seriesColors(theme)` — engine-owned, contrast-checked against the plate
+ *    and against itself under colour-blindness. A palette prop would break the
+ *    semantic-props rule and look wrong the moment the theme changed.
+ * 3. The reveal uses an SVG <clipPath> rect, not strokeDashoffset: dashed series
+ *    already use strokeDasharray and the two uses would fight.
+ *
+ * Every visual decision here is either a resolver or a proportion of the frame.
+ * The literals that remain (0.05 for the title ratio, 14 for the radius, 6 for
+ * the x-tick target) are this component's own PROPORTIONS, which the resolvers
+ * scale rather than replace — that is what keeps a theme setting no D66 token
+ * rendering exactly as before.
  */
+import { useId } from "react";
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  chartStyle,
+  densityScale,
   easingCurve,
-  emphasisColor,
+  contrastInk,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  seriesColors,
+  surfaceStyle,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -37,19 +60,30 @@ export const LineChartProps = z.object({
     )
     .min(1)
     .max(3),
-  y_label: z.string().max(20).optional(),
+  y_label: z.string().max(24).optional(),
   x_label: z.string().max(20).optional(),
+  /** Credit line along the bottom. Was ArchiveLineChart's; every chart wants it. */
+  source: z.string().max(52).optional(),
   emphasis: z.enum(["accent", "neutral"]).default("accent"),
 });
 export type LineChartProps = z.infer<typeof LineChartProps>;
 
-const DASH = ["", "10 6", "2 6"];
+/** Dash pattern per series index, at stroke scale 1. Index 0 is solid. */
+const DASH_BASE: readonly (readonly [number, number] | null)[] = [null, [10, 6], [2, 6]];
+
+/** Round a maximum up to a readable gridline value (1, 1.5, 2, 2.5, 3, 4, 5, 7.5 × 10ⁿ). */
+function niceCeil(v: number): number {
+  if (v <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const f = v / mag;
+  const steps = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10];
+  return (steps.find((s) => f <= s + 1e-9) ?? 10) * mag;
+}
 
 export function LineChart({ props, theme }: { props: LineChartProps; theme: Theme }) {
   const frame = useCurrentFrame();
-  const { fps, width, height, durationInFrames } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
   const { durationMul } = motionScale(theme);
-  const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
   const entrance = useEntrance(theme, {
@@ -58,17 +92,64 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
     fallback: "fade",
     seconds: 0.4,
   });
-  const { opacity, inDur } = entrance;
+  const { opacity } = entrance;
 
-  const seriesColor = [accent, theme.colors.text, theme.colors.neutral];
-  const plotW = width * 0.72;
+  // ---- tokens -------------------------------------------------------------
+  const density = densityScale(theme);
+  const baseStroke = Math.max(3, height * 0.005);
+  const chart = chartStyle(theme, {
+    grid: "axes",       // this component's own: a y line and an x line, nothing ruled across
+    legend: "bottom",   // its own: a swatch row underneath
+    markers: "ends",    // its own: one dot where each series stops
+    stroke: baseStroke,
+  });
+  const ramp = seriesColors(theme);
+  const lineColor = (i: number) =>
+    props.emphasis === "neutral" ? theme.colors.neutral : ramp[i % ramp.length];
+  const dashFor = (i: number) => {
+    const d = DASH_BASE[i % DASH_BASE.length];
+    return d ? `${d[0] * chart.strokeScale} ${d[1] * chart.strokeScale}` : undefined;
+  };
+
+  const display = fontStack(theme.typography.display);
+  const body = fontStack(theme.typography.body);
+  const axisRule = ruleWidth(theme, 2);
+  const gridRule = ruleWidth(theme, Math.max(1, height * 0.0022));
+  const baseRule = ruleWidth(theme, Math.max(2, height * 0.0034));
+
+  // One clip id per instance: a constant would make the second chart on screen
+  // reuse the first one's reveal rect.
+  const clipId = `line-chart-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
+  // ---- plate --------------------------------------------------------------
+  // The component's own panel alpha is "00": LineChart never had one, so a theme
+  // that says nothing (fill defaults to `translucent` = keep your own alpha)
+  // still draws none. `solid` gives it a plate; `texture` gives it a ground.
+  const ground = groundStyle(theme, { radius: 14, accentRule: "none" });
+  // `fill: solid` is a theme that draws panels; an end-of-line badge is one.
+  const pillLabels = (theme.surface?.fill ?? "translucent") === "solid";
+  const plateInset = { x: width * 0.05 * density, y: height * 0.07 * density };
+
+  // ---- geometry -----------------------------------------------------------
+  const inlineGutter = chart.legend === "inline" ? width * 0.13 : 0;
+  // A denser theme fits a wider plot; an airy one gives the margins back.
+  const plotW = width * 0.72 * (1 + (1 - density) * 0.22) - inlineGutter;
   const plotH = height * (props.title ? 0.4 : 0.46);
-  const pad = { left: width * 0.06, bottom: height * 0.06 };
+  const pad = { left: width * 0.06 * density, bottom: height * 0.06 * density };
+  const svgW = plotW + pad.left * 2 + inlineGutter;
+  const kicker = chart.legend === "inline" ? [props.y_label, props.x_label].filter(Boolean).join(" · ") : "";
 
   const maxLen = Math.max(...props.series.map((s) => s.points.length));
   const allY = props.series.flatMap((s) => s.points.map((p) => p.y));
-  const yMax = Math.max(...allY, 1);
-  const yMin = Math.min(...allY, 0);
+  const ruled = chart.grid === "horizontal" || chart.grid === "full";
+  // Ruled values have to be readable, so the domain rounds out to nice numbers.
+  // Bare axes label the extremes instead, which is what the data actually says.
+  const yMin = ruled ? Math.min(0, ...allY) : Math.min(...allY, 0);
+  const yMax = ruled
+    ? yMin < 0
+      ? Math.max(...allY, 1)
+      : niceCeil(Math.max(...allY, 1))
+    : Math.max(...allY, 1);
   const ySpan = yMax - yMin || 1;
 
   const px = (i: number) => (maxLen <= 1 ? 0 : (i / (maxLen - 1)) * plotW);
@@ -78,195 +159,402 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
   const revealDur = Math.round(fps * 1.4 * durationMul);
   const seriesStagger = Math.round(fps * 0.25 * durationMul);
   const ticks = props.series[0].points;
-  const tickEvery = Math.max(1, Math.ceil(ticks.length / 6));
+  // Tighter type fits more x labels; airier type fits fewer. 6 is this
+  // component's own target, which `normal` returns untouched.
+  const tickTarget = Math.max(3, Math.round(6 / density));
+  const tickEvery = Math.max(1, Math.ceil(ticks.length / tickTarget));
   const axisIn = interpolate(frame, [0, axisDur], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: curve,
   });
+  const revealOf = (si: number) => {
+    const start = axisDur + si * seriesStagger;
+    return interpolate(frame, [start, start + revealDur], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: Easing.bezier(0.45, 0, 0.55, 1),
+    });
+  };
+
+  const gridValues = ruled ? [yMax, yMin + ySpan / 2, yMin] : [yMax, yMin];
+  const tickSize = height * 0.022 * typeScale(theme, "caption");
+
+  // ---- end-of-line labels (chart.legend: inline) --------------------------
+  // These ARE the legend, so two series finishing within a line of each other
+  // would stack their names. Push them apart from the top down, then lift the
+  // whole set if that pushed the last one under the baseline.
+  const nameSize = height * 0.022 * typeScale(theme, "caption");
+  const endLabels = props.series
+    .map((s, si) => ({
+      si,
+      name: s.name,
+      x: px(s.points.length - 1) + width * 0.012,
+      y: py(s.points[s.points.length - 1].y),
+    }))
+    .sort((a, b) => a.y - b.y);
+  for (let i = 1; i < endLabels.length; i++) {
+    endLabels[i].y = Math.max(endLabels[i].y, endLabels[i - 1].y + nameSize * 1.2);
+  }
+  const spill = endLabels.length > 0 ? endLabels[endLabels.length - 1].y - plotH : 0;
+  if (spill > 0) for (const label of endLabels) label.y -= spill;
 
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         opacity,
         translate: entrance.translate,
         scale: `${entrance.scale}`,
         clipPath: entrance.clipPath,
       }}
     >
-      {props.title ? (
+      {ground ? (
         <div
           style={{
-            marginBottom: height * 0.035,
-            fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.05,
-            fontWeight: 700,
-            color: theme.colors.text,
-            maxWidth: width * 0.8,
-            textAlign: "center",
-            overflowWrap: "anywhere",
-            display: "-webkit-box",
-            WebkitBoxOrient: "vertical",
-            WebkitLineClamp: 1,
-            overflow: "hidden",
+            position: "absolute",
+            left: plateInset.x,
+            top: plateInset.y,
+            width: width - plateInset.x * 2,
+            height: height - plateInset.y * 2,
+            ...ground,
             opacity: axisIn,
           }}
-        >
-          {props.title}
-        </div>
+        />
       ) : null}
 
-      <svg width={plotW + pad.left * 2} height={plotH + pad.bottom * 2}>
-        <defs>
-          {props.series.map((_, i) => {
-            const start = axisDur + i * seriesStagger;
-            const reveal = interpolate(frame, [start, start + revealDur], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: Easing.bezier(0.45, 0, 0.55, 1),
-            });
-            return (
-              <clipPath key={i} id={`line-chart-reveal-${i}`}>
-                <rect x={0} y={-plotH} width={Math.max(0.001, plotW * reveal)} height={plotH * 3} />
-              </clipPath>
-            );
-          })}
-        </defs>
-
-        <g transform={`translate(${pad.left} ${height * 0.02})`}>
-          {/* Axes draw before any series appears. */}
-          <line x1={0} y1={0} x2={0} y2={plotH} stroke={`${theme.colors.neutral}aa`} strokeWidth={2}
-            strokeDasharray={plotH} strokeDashoffset={plotH * (1 - axisIn)} />
-          <line x1={0} y1={plotH} x2={plotW} y2={plotH} stroke={`${theme.colors.neutral}aa`} strokeWidth={2}
-            strokeDasharray={plotW} strokeDashoffset={plotW * (1 - axisIn)} />
-
-          {/* y extremes */}
-          {[yMax, yMin].map((v, i) => (
-            <text
-              key={i}
-              x={-width * 0.008}
-              y={py(v)}
-              textAnchor="end"
-              dominantBaseline="central"
-              fill={theme.colors.neutral}
-              fontFamily={fontStack(theme.typography.body)}
-              fontSize={height * 0.022}
-              opacity={axisIn}
-            >
-              {Math.round(v).toLocaleString("en-US")}
-            </text>
-          ))}
-
-          {/* x ticks: first, last, and every nth */}
-          {ticks.map((p, i) =>
-            i % tickEvery === 0 || i === ticks.length - 1 ? (
-              <text
-                key={i}
-                x={px(i)}
-                y={plotH + height * 0.035}
-                textAnchor="middle"
-                fill={theme.colors.neutral}
-                fontFamily={fontStack(theme.typography.body)}
-                fontSize={height * 0.022}
-                opacity={axisIn}
-              >
-                {p.x}
-              </text>
-            ) : null,
-          )}
-
-          {props.series.map((s, si) => {
-            const start = axisDur + si * seriesStagger;
-            const reveal = interpolate(frame, [start, start + revealDur], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: Easing.bezier(0.45, 0, 0.55, 1),
-            });
-            const d = s.points
-              .map((p, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(2)} ${py(p.y).toFixed(2)}`)
-              .join(" ");
-            const last = s.points[s.points.length - 1];
-            return (
-              <g key={si} clipPath={`url(#line-chart-reveal-${si})`}>
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={seriesColor[si]}
-                  strokeWidth={Math.max(3, height * 0.005)}
-                  strokeDasharray={DASH[si] || undefined}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle
-                  cx={px(s.points.length - 1)}
-                  cy={py(last.y)}
-                  r={height * 0.009}
-                  fill={seriesColor[si]}
-                  opacity={interpolate(reveal, [0.92, 1], [0, 1], {
-                    extrapolateLeft: "clamp",
-                    extrapolateRight: "clamp",
-                  })}
-                />
-              </g>
-            );
-          })}
-        </g>
-      </svg>
-
-      {/* Legend + axis names */}
       <div
         style={{
-          marginTop: height * 0.01,
+          position: "absolute",
+          inset: 0,
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          gap: width * 0.03,
-          fontFamily: fontStack(theme.typography.body),
-          fontSize: height * 0.024,
+          justifyContent: "center",
         }}
       >
-        {props.series.map((s, si) => {
-          const start = axisDur + si * seriesStagger;
-          return (
-            <div
-              key={si}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: width * 0.008,
-                color: theme.colors.text,
-                opacity: interpolate(frame, [start + revealDur * 0.8, start + revealDur], [0, 1], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                }),
-              }}
-            >
-              <svg width={width * 0.028} height={height * 0.012}>
-                <line
-                  x1={0}
-                  y1={height * 0.006}
-                  x2={width * 0.028}
-                  y2={height * 0.006}
-                  stroke={seriesColor[si]}
-                  strokeWidth={Math.max(3, height * 0.005)}
-                  strokeDasharray={DASH[si] || undefined}
-                />
-              </svg>
-              <span>{s.name}</span>
-            </div>
-          );
-        })}
-        {props.y_label || props.x_label ? (
-          <span style={{ color: theme.colors.neutral, letterSpacing: "0.08em", textTransform: "uppercase", opacity: axisIn }}>
-            {[props.y_label, props.x_label].filter(Boolean).join(" · ")}
-          </span>
+        {/* With no legend row underneath, the axis names ride above the plot,
+            aligned to the y axis where a unit label belongs. Inside the column,
+            not floated over the plate: at `airy` an absolute one collides with
+            the title, and the collision is invisible at `normal`. */}
+        {kicker ? (
+          <div
+            style={{
+              width: svgW,
+              paddingLeft: pad.left,
+              marginBottom: height * 0.014 * density,
+              fontFamily: body,
+              fontSize: height * 0.02 * typeScale(theme, "kicker"),
+              fontWeight: typeWeight(theme, 500),
+              letterSpacing: typeTracking(theme, 0.2),
+              textTransform: typeCase(theme, "uppercase"),
+              color: theme.colors.neutral,
+              opacity: axisIn,
+            }}
+          >
+            {kicker}
+          </div>
+        ) : null}
+
+        {props.title ? (
+          <div
+            style={{
+              marginBottom: height * 0.035 * density,
+              fontFamily: display,
+              fontSize: height * 0.05 * typeScale(theme, "title"),
+              fontWeight: typeWeight(theme, 700),
+              letterSpacing: typeTracking(theme),
+              textTransform: typeCase(theme),
+              color: theme.colors.text,
+              maxWidth: width * 0.8,
+              textAlign: "center",
+              overflowWrap: "anywhere",
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical",
+              WebkitLineClamp: 1,
+              overflow: "hidden",
+              opacity: axisIn,
+            }}
+          >
+            {props.title}
+          </div>
+        ) : null}
+
+        <svg width={svgW} height={plotH + pad.bottom * 2}>
+          <defs>
+            {props.series.map((_, i) => (
+              <clipPath key={i} id={`${clipId}-${i}`}>
+                <rect x={0} y={-plotH} width={Math.max(0.001, plotW * revealOf(i))} height={plotH * 3} />
+              </clipPath>
+            ))}
+          </defs>
+
+          <g transform={`translate(${pad.left} ${height * 0.02})`}>
+            {/* Axes / rules. Everything here draws before any series appears. */}
+            {chart.grid === "axes" ? (
+              <line
+                x1={0} y1={0} x2={0} y2={plotH}
+                stroke={`${theme.colors.neutral}aa`} strokeWidth={axisRule}
+                strokeDasharray={plotH} strokeDashoffset={plotH * (1 - axisIn)}
+              />
+            ) : null}
+            {ruled
+              ? gridValues.slice(0, -1).map((v, i) => (
+                  <line
+                    key={`h${i}`}
+                    x1={0} y1={py(v)} x2={plotW} y2={py(v)}
+                    stroke={`${theme.colors.neutral}59`} strokeWidth={gridRule}
+                    strokeDasharray={plotW} strokeDashoffset={plotW * (1 - axisIn)}
+                  />
+                ))
+              : null}
+            {chart.grid === "full"
+              ? ticks.map((_, i) =>
+                  i % tickEvery === 0 || i === ticks.length - 1 ? (
+                    <line
+                      key={`v${i}`}
+                      x1={px(i)} y1={0} x2={px(i)} y2={plotH}
+                      stroke={`${theme.colors.neutral}40`} strokeWidth={gridRule}
+                      opacity={axisIn}
+                    />
+                  ) : null,
+                )
+              : null}
+            <line
+              x1={0} y1={plotH} x2={plotW} y2={plotH}
+              stroke={chart.grid === "axes" ? `${theme.colors.neutral}aa` : theme.colors.text}
+              strokeWidth={chart.grid === "axes" ? axisRule : baseRule}
+              strokeDasharray={plotW} strokeDashoffset={plotW * (1 - axisIn)}
+            />
+
+            {/* y values: the ruled ones, or the extremes */}
+            {gridValues.map((v, i) => (
+              <text
+                key={i}
+                x={-width * 0.008 * density}
+                y={py(v)}
+                textAnchor="end"
+                dominantBaseline="central"
+                fill={theme.colors.neutral}
+                fontFamily={body}
+                fontSize={tickSize}
+                fontWeight={typeWeight(theme, 400)}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+                opacity={axisIn}
+              >
+                {chart.formatNumber(v)}
+              </text>
+            ))}
+
+            {/* x ticks: first, last, and every nth */}
+            {ticks.map((p, i) =>
+              i % tickEvery === 0 || i === ticks.length - 1 ? (
+                <text
+                  key={i}
+                  x={px(i)}
+                  y={plotH + height * 0.035}
+                  textAnchor="middle"
+                  fill={theme.colors.neutral}
+                  fontFamily={body}
+                  fontSize={tickSize}
+                  fontWeight={typeWeight(theme, 400)}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                  opacity={axisIn}
+                >
+                  {p.x}
+                </text>
+              ) : null,
+            )}
+
+            {props.series.map((s, si) => {
+              const d = s.points
+                .map((p, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(2)} ${py(p.y).toFixed(2)}`)
+                .join(" ");
+              // Closed back along the baseline, so the fill is the area UNDER
+              // the line rather than the polygon the line happens to enclose.
+              const area = `${d} L${px(s.points.length - 1).toFixed(2)} ${py(yMin).toFixed(2)} L${px(0).toFixed(2)} ${py(yMin).toFixed(2)} Z`;
+              return (
+                <g key={si} clipPath={`url(#${clipId}-${si})`}>
+                  {chart.area === "tint" ? (
+                    <path d={area} fill={lineColor(si)} fillOpacity={0.16} stroke="none" />
+                  ) : null}
+                  <path
+                    d={d}
+                    fill="none"
+                    stroke={lineColor(si)}
+                    strokeWidth={chart.strokeWidth}
+                    strokeDasharray={dashFor(si)}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </g>
+              );
+            })}
+
+            {/* Marks sit OUTSIDE the clip so they land crisply at the wipe edge. */}
+            {chart.markers === "dot"
+              ? props.series.flatMap((s, si) =>
+                  s.points.map((p, i) => (
+                    <circle
+                      key={`${si}-${i}`}
+                      cx={px(i)}
+                      cy={py(p.y)}
+                      r={chart.strokeWidth * 1.25}
+                      fill={lineColor(si)}
+                      opacity={interpolate(
+                        plotW * revealOf(si),
+                        [px(i) - plotW * 0.015, px(i)],
+                        [0, 1],
+                        { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+                      )}
+                    />
+                  )),
+                )
+              : null}
+            {chart.markers === "ends"
+              ? props.series.map((s, si) => (
+                  <circle
+                    key={si}
+                    cx={px(s.points.length - 1)}
+                    cy={py(s.points[s.points.length - 1].y)}
+                    r={height * 0.009}
+                    fill={lineColor(si)}
+                    opacity={interpolate(revealOf(si), [0.92, 1], [0, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    })}
+                  />
+                ))
+              : null}
+
+            {/* A pill when the theme fills its panels, plain type when it does
+                not: a badge is a panel, and `surface.fill` is the token that
+                already decides whether this theme draws them. */}
+            {chart.legend === "inline" && pillLabels
+              ? endLabels.map((label) => (
+                  <rect
+                    key={`pill-${label.si}`}
+                    x={label.x - width * 0.006}
+                    y={label.y - nameSize * 0.86}
+                    width={label.name.length * nameSize * 0.62 + width * 0.012}
+                    height={nameSize * 1.72}
+                    rx={surfaceStyle(theme, { radius: 6 }).borderRadius}
+                    fill={lineColor(label.si)}
+                    opacity={interpolate(revealOf(label.si), [0.88, 1], [0, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    })}
+                  />
+                ))
+              : null}
+            {chart.legend === "inline"
+              ? endLabels.map((label) => (
+                  <text
+                    key={label.si}
+                    x={label.x}
+                    y={label.y}
+                    dominantBaseline="central"
+                    fill={pillLabels ? contrastInk(theme, lineColor(label.si)) : lineColor(label.si)}
+                    fontFamily={body}
+                    fontSize={nameSize}
+                    fontWeight={typeWeight(theme, 600)}
+                    letterSpacing={typeTracking(theme)}
+                    style={{ textTransform: typeCase(theme) }}
+                    opacity={interpolate(revealOf(label.si), [0.88, 1], [0, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    })}
+                  >
+                    {label.name}
+                  </text>
+                ))
+              : null}
+          </g>
+        </svg>
+
+        {chart.legend === "bottom" ? (
+          <div
+            style={{
+              marginTop: height * 0.01 * density,
+              display: "flex",
+              alignItems: "center",
+              gap: width * 0.03 * density,
+              fontFamily: body,
+              fontSize: height * 0.024 * typeScale(theme, "caption"),
+              fontWeight: typeWeight(theme, 400),
+              letterSpacing: typeTracking(theme),
+              textTransform: typeCase(theme),
+            }}
+          >
+            {props.series.map((s, si) => (
+              <div
+                key={si}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: width * 0.008 * density,
+                  color: theme.colors.text,
+                  opacity: interpolate(revealOf(si), [0.8, 1], [0, 1], {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                  }),
+                }}
+              >
+                <svg width={width * 0.028} height={height * 0.012}>
+                  <line
+                    x1={0}
+                    y1={height * 0.006}
+                    x2={width * 0.028}
+                    y2={height * 0.006}
+                    stroke={lineColor(si)}
+                    strokeWidth={chart.strokeWidth}
+                    strokeDasharray={dashFor(si)}
+                  />
+                </svg>
+                <span>{s.name}</span>
+              </div>
+            ))}
+            {props.y_label || props.x_label ? (
+              <span
+                style={{
+                  color: theme.colors.neutral,
+                  letterSpacing: typeTracking(theme, 0.08),
+                  textTransform: typeCase(theme, "uppercase"),
+                  opacity: axisIn,
+                }}
+              >
+                {[props.y_label, props.x_label].filter(Boolean).join(" · ")}
+              </span>
+            ) : null}
+          </div>
         ) : null}
       </div>
+
+      {props.source ? (
+        <div
+          style={{
+            position: "absolute",
+            left: plateInset.x + width * 0.035 * density,
+            bottom: plateInset.y + height * 0.03 * density,
+            fontFamily: body,
+            fontSize: height * 0.019 * typeScale(theme, "caption"),
+            fontWeight: typeWeight(theme, 400),
+            letterSpacing: typeTracking(theme, 0.1),
+            textTransform: typeCase(theme, "uppercase"),
+            color: theme.colors.neutral,
+            opacity: interpolate(revealOf(props.series.length - 1), [0.88, 1], [0, 0.9], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            }),
+          }}
+        >
+          {props.source}
+        </div>
+      ) : null}
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+LineChart.honors = ["typography", "surface", "chart", "motion.entrance", "motion.easing"];

@@ -11,10 +11,15 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  typeScale,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -31,6 +36,8 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -61,18 +68,26 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
         flexDirection: "column",
         justifyContent: "center",
         alignItems: centered ? "center" : "flex-start",
-        padding: `0 ${width * 0.1}px`,
+        padding: `0 ${width * 0.1 * density}px`,
         opacity,
       }}
     >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: centered ? "center" : "flex-start",
+          ...(ground ? { ...ground, padding: `${height * 0.05 * density}px ${width * 0.045 * density}px` } : {}),
+        }}
+      >
       {props.title ? (
         <div
           style={{
             fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.055,
-            fontWeight: 700,
+            fontSize: height * 0.055 * typeScale(theme, "title"),
+            fontWeight: typeWeight(theme, 700),
             color: theme.colors.text,
-            marginBottom: height * 0.045,
+            marginBottom: height * 0.045 * density,
             maxWidth: width * 0.8,
             textAlign: centered ? "center" : "left",
             // A single unbroken 48-char title is wider than the frame at this
@@ -99,7 +114,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: height * 0.028,
+          gap: height * 0.028 * density,
           maxWidth: width * 0.78,
         }}
       >
@@ -116,7 +131,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
               style={{
                 display: "flex",
                 alignItems: "baseline",
-                gap: width * 0.016,
+                gap: width * 0.016 * density,
                 justifyContent: centered ? "center" : "flex-start",
                 opacity: enter,
                 translate: `${interpolate(enter, [0, 1], [-width * 0.014, 0])}px 0`,
@@ -136,7 +151,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
                   {props.marker === "rule" ? (
                     <div
                       style={{
-                        height: Math.max(2, height * 0.004),
+                        height: ruleWidth(theme, Math.max(2, height * 0.004)),
                         width: "100%",
                         background: accent,
                         scale: `${interpolate(frame, [start, start + Math.round(fps * 0.3 * durationMul)], [0, 1], {
@@ -167,8 +182,8 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
                     <span
                       style={{
                         fontFamily: fontStack(theme.typography.body),
-                        fontSize: height * 0.028,
-                        fontWeight: 700,
+                        fontSize: height * 0.028 * typeScale(theme, "caption"),
+                        fontWeight: typeWeight(theme, 700),
                         color: accent,
                         fontVariantNumeric: "tabular-nums",
                       }}
@@ -183,7 +198,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
                   minWidth: 0,
                   overflowWrap: "anywhere",
                   fontFamily: fontStack(theme.typography.body),
-                  fontSize: height * 0.038,
+                  fontSize: height * 0.038 * typeScale(theme, "body"),
                   lineHeight: 1.35,
                   color: theme.colors.text,
                   display: "-webkit-box",
@@ -198,6 +213,10 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
           );
         })}
       </div>
+      </div>
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+BulletList.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

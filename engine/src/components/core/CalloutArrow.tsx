@@ -14,10 +14,13 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   motionScale,
+  ruleWidth,
+  typeScale,
   useEntrance,
 } from "../theme.ts";
 
@@ -49,6 +52,7 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -158,7 +162,7 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
           d={d}
           fill="none"
           stroke={accent}
-          strokeWidth={Math.max(2, height * 0.004)}
+          strokeWidth={ruleWidth(theme, Math.max(2, height * 0.004))}
           strokeLinecap="round"
           strokeDasharray={L}
           strokeDashoffset={L * (1 - drawn)}
@@ -186,7 +190,7 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
                   r={interpolate(p, [0, 1.4], [ringR * 0.4, ringR * 1.8])}
                   fill="none"
                   stroke={accent}
-                  strokeWidth={Math.max(1.5, height * 0.0025)}
+                  strokeWidth={ruleWidth(theme, Math.max(1.5, height * 0.0025))}
                   strokeOpacity={interpolate(p, [0, 1.4], [0.7, 0]) * drawn}
                 />
               );
@@ -203,11 +207,11 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
           translate: "-50% -50%",
           maxWidth: width * 0.28,
           background: `${theme.colors.bg}e6`,
-          borderLeft: `${Math.max(3, height * 0.005)}px solid ${accent}`,
+          borderLeft: `${ruleWidth(theme, Math.max(3, height * 0.005))}px solid ${accent}`,
           borderRadius: "0 6px 6px 0",
-          padding: `${height * 0.016}px ${width * 0.016}px`,
+          padding: `${height * 0.016 * density}px ${width * 0.016 * density}px`,
           fontFamily: fontStack(theme.typography.body),
-          fontSize: height * 0.03,
+          fontSize: height * 0.03 * typeScale(theme, "body"),
           lineHeight: 1.25,
           color: theme.colors.text,
           clipPath: `inset(0 ${clip}% 0 0)`,
@@ -218,3 +222,6 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+CalloutArrow.honors = ["typography", "surface.density", "surface.rule", "motion.entrance", "motion.easing"];

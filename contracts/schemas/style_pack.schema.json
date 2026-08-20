@@ -104,7 +104,7 @@
           "items": {
             "type": "string"
           },
-          "description": "component packs the planner may draw from \u2014 the menu filter AND the validate rule (belt and suspenders). Pack granularity, not per component: a channel installs exactly one component pack, so this says which packs a style suits. Omitted means every pack. Per-component trimming is the channel's job, via look.exclude.components."
+          "description": "component packs the planner may draw from \u2014 the menu filter AND the validate rule (belt and suspenders). Pack granularity, not per component: a channel resolves to `core` plus at most one installed pack (packs are additive), so this says which EXTRA packs a style suits. `core` is always in the menu and listing it here is redundant; omitting it does not remove it. Omitted means every pack. Per-component trimming is the channel's job, via look.exclude.components."
         },
         "emphasis": {
           "type": "object",

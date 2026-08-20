@@ -11,11 +11,19 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   motionScale,
+  paperStock,
+  ruleWidth,
   surfaceStyle,
+  textureLayer,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -33,6 +41,11 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const texture = textureLayer(theme);
+  // A directive is dark type on light stock in every channel; which of the
+  // theme's two neutrals plays which part is a derivation, not a token.
+  const { stock, ink } = paperStock(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -81,8 +94,12 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
           width: plateW,
           height: plateH,
           overflow: "hidden",
-          background: `${theme.colors.text}f2`,
+          background: `${stock}f2`,
           borderRadius: surface.borderRadius,
+          // The card is the theme's INK, not its page (a document is dark type
+          // on light stock whatever the channel's ground is), so the texture
+          // rides on top of it rather than replacing it.
+          ...(texture ? { backgroundImage: texture.backgroundImage, backgroundSize: texture.backgroundSize, backgroundBlendMode: texture.backgroundBlendMode } : {}),
           boxShadow: "0 18px 60px rgba(0,0,0,0.55)",
           rotate: "-1.2deg",
           scale: `${interpolate(frame, [0, inDur], [1.03, 1], {
@@ -96,7 +113,7 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
           style={{
             position: "absolute",
             inset: 0,
-            padding: `${height * 0.06}px ${width * 0.045}px`,
+            padding: `${height * 0.06 * density}px ${width * 0.045 * density}px`,
             display: "flex",
             flexDirection: "column",
           }}
@@ -105,14 +122,14 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
             <div
               style={{
                 fontFamily: fontStack(theme.typography.display),
-                fontSize: height * 0.042,
-                fontWeight: 700,
-                letterSpacing: telegram ? "0.2em" : "0.04em",
-                textTransform: telegram ? "uppercase" : "none",
-                color: theme.colors.bg,
-                borderBottom: `2px solid ${theme.colors.bg}55`,
-                paddingBottom: height * 0.016,
-                marginBottom: height * 0.028,
+                fontSize: height * 0.042 * typeScale(theme, "title"),
+                fontWeight: typeWeight(theme, 700),
+                letterSpacing: typeTracking(theme, telegram ? 0.2 : 0.04),
+                textTransform: typeCase(theme, telegram ? "uppercase" : "none"),
+                color: ink,
+                borderBottom: `${ruleWidth(theme, 2)}px solid ${ink}55`,
+                paddingBottom: height * 0.016 * density,
+                marginBottom: height * 0.028 * density,
                 opacity: interpolate(frame, [inDur * 0.5, inDur], [0, 1], {
                   extrapolateLeft: "clamp",
                   extrapolateRight: "clamp",
@@ -123,7 +140,7 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
             </div>
           ) : null}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: height * 0.024 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: height * 0.024 * density }}>
             {props.lines.map((line, i) => {
               const start = linesStart + i * stagger;
               return (
@@ -131,12 +148,12 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
                   key={i}
                   style={{
                     fontFamily: fontStack(theme.typography.body),
-                    fontSize: height * 0.032,
+                    fontSize: height * 0.032 * typeScale(theme, "body"),
                     lineHeight: 1.35,
-                    color: theme.colors.bg,
+                    color: ink,
                     fontStyle: handwritten ? "italic" : "normal",
-                    letterSpacing: telegram ? "0.14em" : "0.01em",
-                    textTransform: telegram ? "uppercase" : "none",
+                    letterSpacing: typeTracking(theme, telegram ? 0.14 : 0.01),
+                    textTransform: typeCase(theme, telegram ? "uppercase" : "none"),
                     display: "-webkit-box",
                     WebkitBoxOrient: "vertical",
                     WebkitLineClamp: 2,
@@ -162,11 +179,11 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
                 alignSelf: "flex-end",
                 textAlign: "right",
                 fontFamily: fontStack(theme.typography.display),
-                fontSize: height * 0.026,
+                fontSize: height * 0.026 * typeScale(theme, "caption"),
                 fontStyle: "italic",
-                color: `${theme.colors.bg}cc`,
-                borderTop: `1px solid ${theme.colors.bg}44`,
-                paddingTop: height * 0.012,
+                color: `${ink}cc`,
+                borderTop: `${ruleWidth(theme, 1)}px solid ${ink}44`,
+                paddingTop: height * 0.012 * density,
                 opacity: interpolate(
                   frame,
                   [linesStart + props.lines.length * stagger, linesStart + props.lines.length * stagger + fps * 0.5],
@@ -185,16 +202,16 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
           <div
             style={{
               position: "absolute",
-              right: width * 0.05,
-              top: height * 0.1,
-              padding: `${height * 0.012}px ${width * 0.018}px`,
-              border: `${Math.max(3, height * 0.006)}px solid ${accent}`,
-              borderRadius: 4,
+              right: width * 0.05 * density,
+              top: height * 0.1 * density,
+              padding: `${height * 0.012 * density}px ${width * 0.018 * density}px`,
+              border: `${ruleWidth(theme, Math.max(3, height * 0.006))}px solid ${accent}`,
+              borderRadius: surfaceStyle(theme, { radius: 4 }).borderRadius,
               fontFamily: fontStack(theme.typography.body),
-              fontSize: height * 0.04,
-              fontWeight: 700,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
+              fontSize: height * 0.04 * typeScale(theme, "kicker"),
+              fontWeight: typeWeight(theme, 700),
+              letterSpacing: typeTracking(theme, 0.16),
+              textTransform: typeCase(theme, "uppercase"),
               color: accent,
               opacity: interpolate(frame, [stampStart, stampStart + 4], [0, 0.75], {
                 extrapolateLeft: "clamp",
@@ -232,3 +249,6 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+DocumentCard.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

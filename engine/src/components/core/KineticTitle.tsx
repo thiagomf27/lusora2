@@ -9,7 +9,18 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Entrance, Theme } from "../theme.ts";
-import { easingCurve, emphasisColor, fontStack, motionScale, useEntrance } from "../theme.ts";
+import {
+  densityScale,
+  easingCurve,
+  emphasisColor,
+  fontStack,
+  groundStyle,
+  motionScale,
+  typeScale,
+  typeTracking,
+  typeWeight,
+  useEntrance,
+} from "../theme.ts";
 
 export const KineticTitleProps = z.object({
   text: z.string().max(70),
@@ -42,6 +53,8 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   // Only the frame-level opacity and the resolved kind come from the hook: the
@@ -66,10 +79,11 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
   );
   const tokenDur = Math.round(fps * 0.5 * durationMul);
   const centered = props.align === "center";
-  const size = Math.max(
-    height * 0.05,
-    Math.min(height * 0.13, (width * 0.84) / Math.max(1, props.text.length * 0.55)),
-  );
+  const size =
+    Math.max(
+      height * 0.05,
+      Math.min(height * 0.13, (width * 0.84) / Math.max(1, props.text.length * 0.55)),
+    ) * typeScale(theme, "title");
 
   return (
     <div
@@ -79,13 +93,14 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
         display: "flex",
         alignItems: "center",
         justifyContent: centered ? "center" : "flex-start",
-        padding: `0 ${width * 0.08}px`,
+        padding: `0 ${width * 0.08 * density}px`,
         opacity,
       }}
     >
       <div
         style={{
           display: "flex",
+          ...(ground ? { ...ground, padding: `${height * 0.03 * density}px ${width * 0.035 * density}px` } : {}),
           flexWrap: "wrap",
           justifyContent: centered ? "center" : "flex-start",
           alignItems: "baseline",
@@ -116,10 +131,10 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
               style={{
                 display: "block",
                 fontFamily: fontStack(theme.typography.display),
-                fontWeight: 700,
+                fontWeight: typeWeight(theme, 700),
                 fontSize: size,
                 lineHeight: 1.1,
-                letterSpacing: "0.01em",
+                letterSpacing: typeTracking(theme, 0.01),
                 color,
                 whiteSpace: "pre",
                 translate:
@@ -152,3 +167,6 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+KineticTitle.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

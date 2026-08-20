@@ -10,10 +10,17 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  groundStyle,
   motionScale,
+  ruleWidth,
+  typeCase,
+  typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -31,6 +38,8 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
+  const density = densityScale(theme);
+  const ground = groundStyle(theme, { radius: 10, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -56,7 +65,7 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
   );
 
   const R = height * 0.075;
-  const stroke = Math.max(3, height * 0.008);
+  const stroke = ruleWidth(theme, Math.max(3, height * 0.008));
   const C = 2 * Math.PI * R;
   const sweep = interpolate(frame, [0, settleDur], [0, 1], {
     extrapolateLeft: "clamp",
@@ -73,14 +82,24 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: width * 0.028,
-        padding: `0 ${width * 0.08}px`,
+        padding: `0 ${width * 0.08 * density}px`,
         opacity,
         translate: entrance.translate,
         scale: `${entrance.scale}`,
         clipPath: entrance.clipPath,
       }}
     >
+      {/* The ground HUGS the lockup rather than sitting behind a guessed box:
+          the badge and the title are one object, and a plate that misses either
+          of them is worse than no plate. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: width * 0.028 * density,
+          ...(ground ? { ...ground, padding: `${height * 0.03 * density}px ${width * 0.03 * density}px` } : {}),
+        }}
+      >
       <div style={{ position: "relative", flexShrink: 0, width: R * 2.5, height: R * 2.5 }}>
         <svg width={R * 2.5} height={R * 2.5}>
           <circle
@@ -114,7 +133,7 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
             justifyContent: "center",
             fontFamily: fontStack(theme.typography.body),
             fontSize: R * 0.85,
-            fontWeight: 700,
+            fontWeight: typeWeight(theme, 700),
             fontVariantNumeric: "tabular-nums",
             color: theme.colors.text,
           }}
@@ -136,8 +155,8 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
         <div
           style={{
             fontFamily: fontStack(theme.typography.display),
-            fontSize: height * 0.058,
-            fontWeight: 700,
+            fontSize: height * 0.058 * typeScale(theme, "number"),
+            fontWeight: typeWeight(theme, 700),
             color: theme.colors.text,
             whiteSpace: "nowrap",
             overflow: "hidden",
@@ -148,15 +167,15 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
         </div>
         <div
           style={{
-            marginTop: height * 0.008,
+            marginTop: height * 0.008 * density,
             display: "flex",
             alignItems: "baseline",
-            gap: width * 0.012,
+            gap: width * 0.012 * density,
             fontFamily: fontStack(theme.typography.body),
-            fontSize: height * 0.026,
+            fontSize: height * 0.026 * typeScale(theme, "kicker"),
             color: theme.colors.neutral,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
+            letterSpacing: typeTracking(theme, 0.1),
+            textTransform: typeCase(theme, "uppercase"),
             whiteSpace: "nowrap",
           }}
         >
@@ -164,6 +183,10 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
           {props.subtitle ? <span>{props.subtitle}</span> : null}
         </div>
       </div>
+      </div>
     </div>
   );
 }
+
+/** Which optional token blocks this component can actually obey (Part 3). */
+RankLabel.honors = ["typography", "surface", "motion.entrance", "motion.easing"];

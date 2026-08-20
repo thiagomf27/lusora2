@@ -53,9 +53,14 @@ colors or fonts.
 
 ## Themes
 
-A theme is a token object (colors, typography, caption preset, motion
-feel) defined per channel as data. The theme runtime maps tokens → styles
-inside every component. AI never sees or chooses tokens. See
+A theme is a token object — colors (exactly four), typography (face,
+caption preset, scale/weight/case/tracking), surface (radius, fill,
+accent_rule, density, rule, texture), chart (grid, legend, markers, stroke,
+number_format), motion, sound — defined per channel as data. The theme
+runtime (`engine/src/themes/runtime.ts`) maps tokens → styles inside every
+component, and since D66 that is the ONLY source of appearance: every
+visual decision in a component is either a resolver or a proportion of the
+frame. AI never sees or chooses tokens. See
 [Theme & Style Packs](../03-contracts/theme-and-style.md).
 
 ## Component packs
