@@ -5,14 +5,15 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  TEXT_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
   ruleWidth,
+  TEXT_ENTRANCES,
   typeScale,
   typeWeight,
   useEntrance,
@@ -124,7 +125,7 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.028 * typeScale(theme, "caption"),
             fontStyle: "italic",
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: interpolate(frame, [metaStart, metaStart + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -171,7 +172,7 @@ export function DefinitionCard({ props, theme }: { props: DefinitionCardProps; t
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.024 * typeScale(theme, "kicker"),
             fontStyle: "italic",
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: interpolate(frame, [defStart + 10, defStart + 10 + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",

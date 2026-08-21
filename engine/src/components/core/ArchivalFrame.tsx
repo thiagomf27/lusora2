@@ -20,13 +20,14 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceStyle,
   typeCase,
@@ -239,7 +240,7 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
                 fontFamily: fontStack(theme.typography.body),
                 fontSize: height * 0.024 * typeScale(theme, "caption"),
                 fontVariantNumeric: "tabular-nums",
-                color: theme.colors.neutral,
+                color: mutedInk(theme),
                 letterSpacing: typeTracking(theme, 0.1),
                 whiteSpace: "nowrap",
               }}

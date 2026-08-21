@@ -478,6 +478,21 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   `doc-minimal`, `history-dark`) — a theme nobody picks is a file that goes
   stale and a row in every picker. `standard` is the default for a new channel,
   for both preview scripts and for the fixture channel config.
+- **The fonts are actually packaged now (D70).** `engine/fonts/` carries Inter,
+  Playfair Display and Oswald as latin-subset variable woff2;
+  `node scripts/pack-fonts.mjs` inlines them into `src/themes/fonts.generated.ts`
+  as data URIs and `<PackagedFonts />` mounts that in `VideoComposition` and
+  `OverlaySolo`, holding the render until the faces decode. Before this,
+  `typography.display` named a family nothing on the machine had and every theme
+  fell through to DejaVu — check with `fc-list : family | grep -i inter` if a
+  render ever looks like the wrong face. `engine/test/fonts.test.ts` fails if a
+  shipped theme names a family the directory does not carry, and if
+  `fonts.generated.ts` drifts from it.
+- **`layout.composition` (D70).** `standard` sets `poster`, so its charts own
+  the frame — full-bleed ground, headline top-left, plot filling the rest —
+  where the other three themes stay on the centred card. Only `BarChart`,
+  `LineChart` and `PieChart` have a poster branch; everything else ignores the
+  token. See D70 for the five deliberate pixel changes that came with it.
 - **Overlay templates** (`engine/src/components/templates/`): an entry may set
   `template: card|lower_third|big_number|bullet_list|statement` instead of
   shipping a React component, and `TemplateOverlay` draws it from the theme

@@ -25,6 +25,7 @@ import { COMPONENTS } from "../../components/index.ts";
 import { TemplateOverlay } from "../../components/templates/TemplateOverlay.tsx";
 import { isTemplateKind } from "../../components/templates/registry.ts";
 import { captionStyle } from "../../themes/runtime.ts";
+import { PackagedFonts } from "../../themes/fonts.tsx";
 import { BaseTrack } from "./BaseTrack.tsx";
 import { audioVolumeAt } from "./audioVolume.ts";
 import { captionBottom, captionPose } from "./captionEffects.ts";
@@ -263,6 +264,7 @@ export function VideoComposition({ plan, theme, assets }: VideoInput) {
   const resolvedAssets = assets ?? fallbackAssets(plan);
   return (
     <AbsoluteFill style={{ background: "#000" }}>
+      <PackagedFonts />
       <BaseTrack plan={plan} assets={resolvedAssets} />
       <Overlays plan={plan} theme={theme} />
       <Captions plan={plan} theme={theme} />

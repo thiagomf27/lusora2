@@ -17,13 +17,14 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   contrastInk,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceColor,
   surfaceStyle,
@@ -322,7 +323,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
                 fontSize: plateH * 0.028 * typeScale(theme, "body"),
                 letterSpacing: typeTracking(theme, 0.1),
                 textTransform: typeCase(theme, "uppercase"),
-                color: theme.colors.neutral,
+                color: mutedInk(theme),
                 whiteSpace: "nowrap",
               }}
             >
@@ -341,7 +342,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
               fontSize: plateH * 0.026 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.14),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: 0.35,
             }}
           >

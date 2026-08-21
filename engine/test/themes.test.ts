@@ -10,12 +10,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Theme } from "@lusora/contracts";
+import { readFileSync, readdirSync } from "node:fs";
+import { join, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   DEFAULT_THEME,
+  capsTracking,
   chartStyle,
+  composition,
   densityScale,
   easingCurve,
   entranceFor,
+  mutedInk,
   ruleWidth,
   surfaceStyle,
   textureLayer,
@@ -105,6 +111,66 @@ test("every shipped theme authored before D66 is unchanged by it", () => {
   assert.equal(ruleWidth(preD66, 2), 2);
   assert.equal(textureLayer(preD66), null);
   assert.equal(chartStyle(preD66, { grid: "axes", stroke: 3.6 }).strokeWidth, 3.6);
+});
+
+test("every shipped theme authored before D70 is unchanged by it", () => {
+  const preD70: Theme = themed({
+    surface: { radius: "square", fill: "solid", accent_rule: "none" },
+    typography: { display: "Inter", body: "Inter", caption_preset: "plain", case: "as_written" },
+    chart: { grid: "horizontal", legend: "inline" },
+  });
+  // Composition: no layout block means the component's own.
+  assert.equal(composition(preD70), "centered");
+  assert.equal(composition(preD70, "poster"), "poster");
+  // `as_written` still leaves a component's own caps alone, and the tracking
+  // that goes with them.
+  assert.equal(typeCase(preD70, "uppercase"), "uppercase");
+  assert.equal(capsTracking(preD70, 0.06), "0.06em");
+  // `axis` has no default, so an untouched chart theme keeps neutral at the
+  // component's own weight.
+  const chart = chartStyle(preD70, { axisWeight: 400 });
+  assert.equal(chart.axis, "muted");
+  assert.equal(chart.axisInk, preD70.colors.neutral);
+  assert.equal(chart.axisWeight, 400);
+});
+
+test("`sentence` takes a component's own caps away, which `as_written` cannot", () => {
+  const sentence = themed({
+    typography: { display: "Inter", body: "Inter", caption_preset: "plain", case: "sentence" },
+  });
+  assert.equal(typeCase(sentence, "uppercase"), "none");
+  // The +0.06em existed only to open up the caps, so it goes with them.
+  assert.equal(capsTracking(sentence, 0.06), undefined);
+  const upper = themed({
+    typography: { display: "Inter", body: "Inter", caption_preset: "plain", case: "upper" },
+  });
+  assert.equal(typeCase(upper, "none"), "uppercase");
+});
+
+test("chart.axis: ink promotes an annotation to content, in colour and weight", () => {
+  const ink = themed({ chart: { axis: "ink" } });
+  const style = chartStyle(ink, { axisWeight: 400 });
+  assert.equal(style.axisInk, ink.colors.text);
+  assert.ok(style.axisWeight > 400, "an ink axis is set heavier than a muted one");
+});
+
+test("mutedInk returns the theme's own neutral whenever it is already readable", () => {
+  // The identity that makes this a resolver rather than a token: every shipped
+  // theme but `standard` clears 3:1, so every one of them renders unchanged.
+  const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
+  const light = { ...DEFAULT_THEME, colors: { ...DEFAULT_THEME.colors } };
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+    const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
+    const resolved = mutedInk(theme);
+    if (file.startsWith("standard")) {
+      assert.notEqual(resolved, theme.colors.neutral, "standard's neutral is a fill, not ink");
+    } else {
+      assert.equal(resolved, theme.colors.neutral, `${file}: mutedInk moved a readable neutral`);
+    }
+  }
+  // And it only ever moves TOWARDS readable.
+  light.colors = { bg: "#ffffff", text: "#000000", accent: "#0000ff", neutral: "#f2f2f2" };
+  assert.notEqual(mutedInk(light), "#f2f2f2");
 });
 
 // ---------------- D66: the tokens actually move ----------------

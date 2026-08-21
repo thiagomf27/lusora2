@@ -96,6 +96,28 @@ function luminance(hex: string): number {
 }
 
 /**
+ * A colour as it is actually PAINTED: `color` drawn at `alpha` over `ground`.
+ *
+ * Needed because `contrastInk` answers "what reads on THIS colour", and a
+ * component that fades a mark to 42% and then asks about the mark's full
+ * strength gets the answer for a colour nobody can see. PieChart did exactly
+ * that, and it failed in both directions — white type on a washed-out slice on
+ * a light theme, dark type on a darkened one on a dark theme.
+ */
+export function blend(color: string, ground: string, alpha: number): string {
+  if (alpha >= 1) return color;
+  const parse = (hex: string) => {
+    const v = parseInt(hex.replace("#", ""), 16);
+    return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  };
+  const [r1, g1, b1] = parse(ground);
+  const [r2, g2, b2] = parse(color);
+  const hex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
+  const ch = (g: number, c: number) => g + (c - g) * Math.max(0, alpha);
+  return `#${hex(ch(r1, r2))}${hex(ch(g1, g2))}${hex(ch(b1, b2))}`;
+}
+
+/**
  * Type colour for text set ON a given ground: whichever of the theme's ink
  * (`text`) and its page (`bg`) reads better against it.
  *
@@ -111,6 +133,52 @@ export function contrastInk(theme: Theme, background: string): string {
   return ratio(luminance(theme.colors.text)) >= ratio(luminance(theme.colors.bg))
     ? theme.colors.text
     : theme.colors.bg;
+}
+
+/**
+ * `neutral` as INK, guaranteed to be readable on the ground it is set on.
+ *
+ * The fourth colour does two jobs — the fill behind a muted bar, the type in a
+ * credit line — and a value that is right for one can be wrong for the other. A
+ * bar fill at ink strength competes with the accent it is meant to sit behind;
+ * ink at fill strength cannot be read. A theme that wants the light grey the
+ * fill wants has to be able to have it without its captions disappearing.
+ *
+ * So this is a resolver with an IDENTITY, not a token: it returns the theme's
+ * neutral untouched whenever that already clears `min` against the ground, and
+ * only steps it toward the theme's own ink when it does not. Every shipped
+ * theme but `standard` clears it with margin, so every one of them renders
+ * exactly as it did — the same shape as `groundStyle`'s `legible` flag, which
+ * is the other place the engine overrules a theme rather than obeying it into
+ * something unreadable.
+ *
+ * 3:1 is the WCAG floor for large text, which is what neutral sets: captions,
+ * credits, axis figures, units. Steps are a fixed 6% mix so the result is a
+ * pure function of the two colours.
+ */
+export function mutedInk(theme: Theme, on: string = surfaceColor(theme), min = 3): string {
+  const ground = luminance(on);
+  const ratio = (hex: string) => {
+    const l = luminance(hex);
+    return (Math.max(l, ground) + 0.05) / (Math.min(l, ground) + 0.05);
+  };
+  if (ratio(theme.colors.neutral) >= min) return theme.colors.neutral;
+
+  const target = contrastInk(theme, on);
+  const parse = (hex: string) => {
+    const v = parseInt(hex.replace("#", ""), 16);
+    return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  };
+  const [r1, g1, b1] = parse(theme.colors.neutral);
+  const [r2, g2, b2] = parse(target);
+  const hex = (n: number) => n.toString(16).padStart(2, "0");
+  for (let step = 1; step <= 16; step += 1) {
+    const t = step * 0.06;
+    const mix = (a: number, b: number) => Math.round(a + (b - a) * t);
+    const candidate = `#${hex(mix(r1, r2))}${hex(mix(g1, g2))}${hex(mix(b1, b2))}`;
+    if (ratio(candidate) >= min) return candidate;
+  }
+  return target;
 }
 
 /**
@@ -330,12 +398,34 @@ export function typeWeight(theme: Theme, base = 400): number {
   return Math.min(900, Math.max(300, Math.round(shifted / 100) * 100));
 }
 
-/** `as_written` keeps the component's own value — a kicker already upper stays upper. */
+/**
+ * `as_written` keeps the component's own value — a kicker already upper stays
+ * upper. `upper` forces caps on; D70's `sentence` forces them OFF, which was
+ * previously unreachable: every component that sets a label in caps did so as
+ * its own value, and `as_written` is precisely the instruction to leave that
+ * alone. A theme wanting a chart whose axis reads as words had no token.
+ */
 export function typeCase(
   theme: Theme,
   base: "none" | "uppercase" = "none"
 ): "none" | "uppercase" {
-  return (theme.typography.case ?? "as_written") === "upper" ? "uppercase" : base;
+  const token = theme.typography.case ?? "as_written";
+  if (token === "upper") return "uppercase";
+  if (token === "sentence") return "none";
+  return base;
+}
+
+/**
+ * Letter-spacing for a label whose tracking exists only BECAUSE it is set in
+ * caps — the +0.06em under a chart's category labels, a kicker, a source line.
+ * Caps need the air and lowercase does not, so when a theme takes the caps away
+ * the tracking has to go with them or the words come apart.
+ *
+ * `base` is the component's own caps tracking. Returns `typeTracking(theme, 0)`
+ * once the caps are gone, so the theme's own tracking token still applies.
+ */
+export function capsTracking(theme: Theme, base: number): string | undefined {
+  return typeTracking(theme, typeCase(theme, "uppercase") === "uppercase" ? base : 0);
 }
 
 const TRACKING_SHIFT: Record<TrackingToken, number> = { tight: -0.03, normal: 0, wide: 0.07 };
@@ -357,6 +447,43 @@ const DENSITY_SCALE: Record<DensityToken, number> = { tight: 0.7, normal: 1, air
 /** Multiplier on padding, gaps, margins and panel insets. */
 export function densityScale(theme: Theme): number {
   return DENSITY_SCALE[theme.surface?.density ?? "normal"];
+}
+
+export type Composition = "centered" | "poster";
+
+/**
+ * Where an overlay sits in the frame (D70). A CHOICE token — a composition has
+ * no identity element, so there is no default and an omitted token keeps the
+ * component's own, which is `centered` everywhere (the `accent_rule` precedent).
+ *
+ * `centered`: a card floated over the shot. The component sizes its own content
+ * box, the stack is centred, the title is centred above it. Everything drew
+ * this before D70.
+ *
+ * `poster`: the overlay owns the frame. Ground edge to edge, title in the
+ * top-left of the padding box, content taking every pixel left over. There is
+ * no separate height or width token because under `poster` those are not
+ * separate decisions: the content box is the frame minus `posterPad`.
+ *
+ * A component that has not been given a poster branch simply ignores this, the
+ * same way a component that plots nothing ignores every `chart` token.
+ */
+export function composition(theme: Theme, own: Composition = "centered"): Composition {
+  return theme.layout?.composition ?? own;
+}
+
+/**
+ * The padding box a poster composition sets its content in, scaled by density.
+ * Wider than it is tall would crowd the type against the top edge, so the
+ * vertical inset runs deeper — these are frame FRACTIONS, not pixels, so a
+ * vertical composition gets the same optical margin.
+ */
+export function posterPad(
+  theme: Theme,
+  frame: { width: number; height: number }
+): { x: number; y: number } {
+  const d = densityScale(theme);
+  return { x: frame.width * 0.03 * d, y: frame.height * 0.052 * d };
 }
 
 const RULE_SCALE: Record<RuleToken, number> = { hairline: 0.45, normal: 1, heavy: 2.4 };
@@ -475,6 +602,10 @@ export interface ChartBase {
   markers?: "ends" | "none" | "dot";
   /** The component's own series stroke width, in px at the current frame size. */
   stroke?: number;
+  /** The component's own weight for axis annotations. Only consulted for
+   *  `axis: "muted"` — `ink` is a promotion to content, and content has its
+   *  own weight. */
+  axisWeight?: number;
 }
 
 export interface ChartStyle {
@@ -489,6 +620,12 @@ export interface ChartStyle {
   strokeScale: number;
   /** Axis and label figures. A counter's own `decimals` prop still wins. */
   formatNumber: (v: number) => string;
+  /** D70 — scaffolding or content. */
+  axis: "muted" | "ink";
+  /** Resolved ink for an axis annotation. */
+  axisInk: string;
+  /** Resolved weight for an axis annotation, already through typeWeight(). */
+  axisWeight: number;
 }
 
 const STROKE_SCALE: Record<RuleToken, number> = { hairline: 0.42, normal: 1, heavy: 2.3 };
@@ -509,6 +646,7 @@ function compactNumber(v: number): string {
 export function chartStyle(theme: Theme, base: ChartBase = {}): ChartStyle {
   const chart = theme.chart ?? {};
   const strokeScale = STROKE_SCALE[chart.stroke ?? "normal"];
+  const axis = chart.axis ?? "muted";
   const stroke = base.stroke ?? 3;
   return {
     grid: chart.grid ?? base.grid ?? "axes",
@@ -523,6 +661,14 @@ export function chartStyle(theme: Theme, base: ChartBase = {}): ChartStyle {
       (chart.number_format ?? "plain") === "compact"
         ? compactNumber
         : (v: number) => Math.round(v).toLocaleString("en-US"),
+    axis,
+    // `ink` is one decision with two consequences, and they have to move
+    // together: a label promoted to content but left in the neutral colour
+    // reads as a mistake rather than as emphasis.
+    axisInk: axis === "ink" ? theme.colors.text : theme.colors.neutral,
+    // 600, not 700: promoted to content, but a semibold label under a bold
+    // headline keeps the hierarchy the promotion would otherwise flatten.
+    axisWeight: typeWeight(theme, axis === "ink" ? 600 : (base.axisWeight ?? 400)),
   };
 }
 

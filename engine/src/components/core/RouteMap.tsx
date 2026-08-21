@@ -18,11 +18,12 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   easingCurve,
   emphasisColor,
   fontStack,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   surfaceColor,
   surfaceStyle,
   typeCase,
@@ -258,7 +259,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
                     fontSize: plateH * 0.026 * typeScale(theme, "caption"),
                     fontVariantNumeric: "tabular-nums",
                     letterSpacing: typeTracking(theme, 0.08),
-                    color: theme.colors.neutral,
+                    color: mutedInk(theme),
                   }}
                 >
                   {node.date}
@@ -298,7 +299,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
               fontSize: plateH * 0.026 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.14),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: 0.35,
             }}
           >

@@ -10,7 +10,6 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  TEXT_ENTRANCES,
   borderSides,
   densityScale,
   easingCurve,
@@ -18,8 +17,10 @@ import {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
   ruleWidth,
   surfaceStyle,
+  TEXT_ENTRANCES,
   typeCase,
   typeScale,
   typeTracking,
@@ -193,7 +194,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.024 * typeScale(theme, "caption"),
             fontStyle: "italic",
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: interpolate(frame, [attrStart + 8, attrStart + 8 + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",

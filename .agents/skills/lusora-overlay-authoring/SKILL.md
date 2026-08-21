@@ -112,7 +112,8 @@ const { width, height } = useVideoConfig();
 
 fontSize: height * typeScale(theme, "title"),
 fontWeight: typeWeight(theme),
-letterSpacing: typeTracking(theme),
+letterSpacing: typeTracking(theme),        // ...or capsTracking(theme, 0.06) when the
+                                           // tracking exists only BECAUSE of the caps
 textTransform: typeCase(theme),
 padding: height * 0.04 * densityScale(theme),
 ...surfaceStyle(theme, { radius: 12 }),   // 12 is this component's PROPORTION, scaled by the token
@@ -151,16 +152,39 @@ be set on a theme that draws no charts:
 ```yaml
 typography:  display, body, scale, weight, case, tracking, caption_preset
 surface:     radius, fill, accent_rule, density, rule, texture
+layout:      composition                    # D70 — where the overlay sits in the FRAME
 motion:      entrance, easing, per_component
-chart:       grid, legend, markers, stroke, number_format
+chart:       grid, legend, axis, markers, area, stroke, number_format
 colors:      bg, text, accent, neutral      # everything else is DERIVED
 sound:       pack, entrance, per_entrance, mood_beds, gain
 ```
 
 **Colors stay at four.** Anything else is derived by a resolver
-(`surfaceColor`, `seriesColors`, `contrastInk`) so a new component works under
-themes authored before it existed. Wanting a fifth color token is the signal
-that you wanted a resolver.
+(`surfaceColor`, `seriesColors`, `contrastInk`, `paperStock`, `mutedInk`) so a
+new component works under themes authored before it existed. Wanting a fifth
+color token is the signal that you wanted a resolver.
+
+**Resolver or token?** Both derive an appearance from the theme, and the test
+is whether the derivation has an IDENTITY — a value it returns when the theme
+says nothing:
+
+- `mutedInk(theme)` returns the theme's own `neutral` whenever that is already
+  readable, so themes authored before it are untouched. No token.
+- `chart.axis` is a genuine either/or — an axis label is scaffolding or it is
+  content, and neither answer is the neutral one. Token.
+
+A derivation with an identity is a resolver. One without is a token, and it
+carries **no schema default** (the `accent_rule` precedent), so it falls back to
+the component's own.
+
+**Not every token is a surface token.** Everything through D66 changed what an
+overlay was painted IN; `layout.composition` changes what it IS — `centered` is
+a card floated over the shot, `poster` hands the component the frame. If four
+themes over your component give four palettes of the same picture, the missing
+token is probably a composition, not another colour. There is deliberately no
+`layout.width` or `layout.height`: under a poster those are not separate
+decisions, because the content box is the frame minus its padding and
+`surface.density` already scales that padding.
 
 ### Declare what you honor
 
@@ -168,6 +192,7 @@ Every component declares which optional tokens it can obey:
 
 ```ts
 LineChart.honors = ["typography", "surface", "chart", "motion.entrance"];
+BarChart.honors  = [..., "layout.composition"];   // only if it HAS a poster branch
 ```
 
 Two reasons. `motion.entrance` is a **request, not a guarantee** — a typewriter

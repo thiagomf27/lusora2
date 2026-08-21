@@ -24,14 +24,14 @@ export const CAPTION_PRESETS = ["plain", "serif-lower-third", "boxed"] as const;
 export const MOTION_FEELS = ["slow_heavy", "neutral", "fast_light"] as const;
 export const GRAINS = ["none", "archival", "film"] as const;
 
-export const FONTS = [
-  "Inter",
-  "Playfair Display",
-  "Georgia",
-  "Merriweather",
-  "Lora",
-  "Times New Roman",
-] as const;
+/**
+ * The families `engine/fonts/` actually carries (D70). Anything else renders in
+ * the fallback stack, which is what every theme did before the fonts were
+ * packaged — offering Georgia or Merriweather here was offering a face the
+ * renderer has never had. Keep in step with `PACKAGED_FAMILIES`;
+ * `engine/test/fonts.test.ts` fails a shipped theme naming anything else.
+ */
+export const FONTS = ["Inter", "Oswald", "Playfair Display"] as const;
 
 export const THEME_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 

@@ -15,6 +15,7 @@ import { COMPONENTS } from "../../components/index.ts";
 import { TemplateOverlay } from "../../components/templates/TemplateOverlay.tsx";
 import { isTemplateKind } from "../../components/templates/registry.ts";
 import { fontStack } from "../../themes/runtime.ts";
+import { PackagedFonts } from "../../themes/fonts.tsx";
 
 export interface OverlaySoloInput {
   component: string;
@@ -108,6 +109,7 @@ export const OverlaySolo: React.FC<OverlaySoloInput> = ({
 
   return (
     <AbsoluteFill style={{ background: backdrop }}>
+      <PackagedFonts />
       {Overlay ? (
         <PreviewBoundary
           key={JSON.stringify(props)}

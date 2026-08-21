@@ -9,13 +9,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   typeScale,
   typeTracking,
@@ -158,7 +159,7 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
             easing: curve,
           });
           const isHighlight = props.highlight_index === i;
-          const color = isHighlight ? accent : theme.colors.neutral;
+          const color = isHighlight ? accent : mutedInk(theme);
           const above = i % 2 === 0;
           const dot = height * 0.022;
 

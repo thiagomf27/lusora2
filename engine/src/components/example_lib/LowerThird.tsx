@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
-import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../themes/runtime.ts";
+import { emphasisColor, fadeInOutRange, fontStack, motionScale, mutedInk } from "../../themes/runtime.ts";
 
 export const LowerThirdProps = z.object({
   title: z.string(),
@@ -58,7 +58,7 @@ export function LowerThird({ props, theme }: { props: LowerThirdProps; theme: Th
             style={{
               fontFamily: fontStack(theme.typography.body),
               fontSize: height * 0.026,
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               marginTop: 2,
             }}
           >

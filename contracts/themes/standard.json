@@ -1,10 +1,10 @@
 {
   "name": "standard",
   "colors": {
-    "bg": "#eef1f6",
-    "text": "#0f1115",
-    "accent": "#2f5cf5",
-    "neutral": "#8b93a3"
+    "bg": "#f5f6f7",
+    "text": "#111827",
+    "accent": "#2858e8",
+    "neutral": "#b9c0ca"
   },
   "typography": {
     "display": "Inter",
@@ -12,7 +12,7 @@
     "caption_preset": "boxed",
     "scale": "normal",
     "weight": "bold",
-    "case": "as_written",
+    "case": "sentence",
     "tracking": "tight"
   },
   "motion_feel": "fast_light",
@@ -21,13 +21,16 @@
     "radius": "soft",
     "fill": "solid",
     "accent_rule": "none",
-    "density": "tight",
+    "density": "normal",
     "rule": "normal",
     "texture": "none"
   },
+  "layout": {
+    "composition": "poster"
+  },
   "chart": {
-    "grid": "horizontal",
     "legend": "inline",
+    "axis": "ink",
     "markers": "dot",
     "stroke": "heavy",
     "number_format": "compact",

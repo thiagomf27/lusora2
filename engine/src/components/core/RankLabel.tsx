@@ -9,13 +9,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   typeCase,
   typeScale,
@@ -173,7 +174,7 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
             gap: width * 0.012 * density,
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.026 * typeScale(theme, "kicker"),
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             letterSpacing: typeTracking(theme, 0.1),
             textTransform: typeCase(theme, "uppercase"),
             whiteSpace: "nowrap",

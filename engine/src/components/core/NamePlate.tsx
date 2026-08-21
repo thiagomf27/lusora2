@@ -10,7 +10,6 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   borderSides,
   captionStyle,
   contrastInk,
@@ -20,6 +19,8 @@ import {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceColor,
   surfaceStyle,
@@ -166,7 +167,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
                 fontFamily: fontStack(theme.typography.body),
                 fontSize: height * 0.024 * typeScale(theme, "caption"),
                 fontVariantNumeric: "tabular-nums",
-                color: theme.colors.neutral,
+                color: mutedInk(theme),
                 whiteSpace: "nowrap",
               }}
             >

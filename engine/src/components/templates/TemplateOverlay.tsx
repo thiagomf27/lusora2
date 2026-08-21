@@ -13,11 +13,12 @@
  */
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
-  TEXT_ENTRANCES,
   emphasisColor,
   fontStack,
+  mutedInk,
+  PANEL_ENTRANCES,
   surfaceStyle,
+  TEXT_ENTRANCES,
   useEntrance,
 } from "../theme.ts";
 import { useVideoConfig } from "remotion";
@@ -182,7 +183,7 @@ export function TemplateOverlay({
                 fontSize: height * 0.022,
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                color: theme.colors.neutral,
+                color: mutedInk(theme),
                 opacity: after(12),
               }}
             >
@@ -248,7 +249,7 @@ export function TemplateOverlay({
                   marginTop: height * 0.01,
                   fontFamily: body,
                   fontSize: height * 0.026,
-                  color: theme.colors.neutral,
+                  color: mutedInk(theme),
                   opacity: after(4),
                 }}
               >

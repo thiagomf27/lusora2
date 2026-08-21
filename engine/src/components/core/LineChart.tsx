@@ -31,14 +31,17 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   chartStyle,
+  composition,
+  contrastInk,
   densityScale,
   easingCurve,
-  contrastInk,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  posterPad,
+  PANEL_ENTRANCES,
   ruleWidth,
   seriesColors,
   surfaceStyle,
@@ -125,19 +128,48 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
   // The component's own panel alpha is "00": LineChart never had one, so a theme
   // that says nothing (fill defaults to `translucent` = keep your own alpha)
   // still draws none. `solid` gives it a plate; `texture` gives it a ground.
-  const ground = groundStyle(theme, { radius: 14, accentRule: "none" });
+  const ground = groundStyle(theme, {
+    radius: composition(theme) === "poster" ? 0 : 14,
+    accentRule: "none",
+  });
   // `fill: solid` is a theme that draws panels; an end-of-line badge is one.
   const pillLabels = (theme.surface?.fill ?? "translucent") === "solid";
   const plateInset = { x: width * 0.05 * density, y: height * 0.07 * density };
 
   // ---- geometry -----------------------------------------------------------
+  // The same two compositions BarChart has (D70): `centered` is the card it
+  // always drew, `poster` hands it the frame. A line chart earns the poster
+  // more than most — its plot is the widest thing in the catalog, and a 72% box
+  // centred in the frame is the shape that wastes the most of it.
+  const poster = composition(theme) === "poster";
+  const framePad = posterPad(theme, { width, height });
   const inlineGutter = chart.legend === "inline" ? width * 0.13 : 0;
-  // A denser theme fits a wider plot; an airy one gives the margins back.
-  const plotW = width * 0.72 * (1 + (1 - density) * 0.22) - inlineGutter;
-  const plotH = height * (props.title ? 0.4 : 0.46);
   const pad = { left: width * 0.06 * density, bottom: height * 0.06 * density };
-  const svgW = plotW + pad.left * 2 + inlineGutter;
+  // A denser theme fits a wider plot; an airy one gives the margins back.
+  const plotW = poster
+    ? width - framePad.x * 2 - pad.left * 2 - inlineGutter
+    : width * 0.72 * (1 + (1 - density) * 0.22) - inlineGutter;
+  const titleSize = height * (poster ? 0.07 : 0.05) * typeScale(theme, "title");
   const kicker = chart.legend === "inline" ? [props.y_label, props.x_label].filter(Boolean).join(" · ") : "";
+  const kickerSize = height * 0.02 * typeScale(theme, "kicker");
+  const titleGap = height * (poster ? 0.039 : 0.035) * density;
+  /**
+   * Centred, the plot is a fixed slice of the frame and the furniture arranges
+   * itself around it. A poster is the other way round: the furniture is fixed
+   * and the plot takes what is left, so its height has to be the frame minus
+   * everything else. The SVG is a sized element rather than a flex child, so
+   * this is arithmetic rather than `flex: 1`.
+   */
+  const plotH = poster
+    ? height -
+      framePad.y * 2 -
+      pad.bottom -
+      (props.title ? titleSize * 1.08 + titleGap : 0) -
+      (kicker ? kickerSize * 1.4 + height * 0.014 * density : 0) -
+      height * 0.02 -
+      (props.source ? height * 0.045 * density : 0)
+    : height * (props.title ? 0.4 : 0.46);
+  const svgW = plotW + pad.left * 2 + inlineGutter;
 
   const maxLen = Math.max(...props.series.map((s) => s.points.length));
   const allY = props.series.flatMap((s) => s.points.map((p) => p.y));
@@ -214,10 +246,10 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
         <div
           style={{
             position: "absolute",
-            left: plateInset.x,
-            top: plateInset.y,
-            width: width - plateInset.x * 2,
-            height: height - plateInset.y * 2,
+            left: poster ? 0 : plateInset.x,
+            top: poster ? 0 : plateInset.y,
+            width: poster ? width : width - plateInset.x * 2,
+            height: poster ? height : height - plateInset.y * 2,
             ...ground,
             opacity: axisIn,
           }}
@@ -228,10 +260,12 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
         style={{
           position: "absolute",
           inset: 0,
+          boxSizing: "border-box",
+          padding: poster ? `${framePad.y}px ${framePad.x}px` : 0,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
+          alignItems: poster ? "flex-start" : "center",
+          justifyContent: poster ? "flex-start" : "center",
         }}
       >
         {/* With no legend row underneath, the axis names ride above the plot,
@@ -245,11 +279,11 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
               paddingLeft: pad.left,
               marginBottom: height * 0.014 * density,
               fontFamily: body,
-              fontSize: height * 0.02 * typeScale(theme, "kicker"),
+              fontSize: kickerSize,
               fontWeight: typeWeight(theme, 500),
               letterSpacing: typeTracking(theme, 0.2),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: axisIn,
             }}
           >
@@ -260,15 +294,18 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
         {props.title ? (
           <div
             style={{
-              marginBottom: height * 0.035 * density,
+              marginBottom: titleGap,
               fontFamily: display,
-              fontSize: height * 0.05 * typeScale(theme, "title"),
-              fontWeight: typeWeight(theme, 700),
-              letterSpacing: typeTracking(theme),
+              fontSize: titleSize,
+              lineHeight: poster ? 1.08 : undefined,
+              // 600 under poster: typeWeight snaps to hundreds, so a 600 base
+              // is the only one a theme's `bold` can land on 800.
+              fontWeight: typeWeight(theme, poster ? 600 : 700),
+              letterSpacing: poster ? typeTracking(theme, -0.01) : typeTracking(theme),
               textTransform: typeCase(theme),
               color: theme.colors.text,
-              maxWidth: width * 0.8,
-              textAlign: "center",
+              maxWidth: poster ? "100%" : width * 0.8,
+              textAlign: poster ? "left" : "center",
               overflowWrap: "anywhere",
               display: "-webkit-box",
               WebkitBoxOrient: "vertical",
@@ -281,7 +318,14 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
           </div>
         ) : null}
 
-        <svg width={svgW} height={plotH + pad.bottom * 2}>
+        {/* Centred, the canvas is symmetric slack around a centred stack and
+            the extra bottom band never shows. A poster stack starts at the top,
+            so the same slack becomes a strip of empty page under the x labels —
+            the canvas has to be what is actually drawn on it. */}
+        <svg
+          width={svgW}
+          height={poster ? height * 0.02 + plotH + pad.bottom : plotH + pad.bottom * 2}
+        >
           <defs>
             {props.series.map((_, i) => (
               <clipPath key={i} id={`${clipId}-${i}`}>
@@ -336,10 +380,10 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
                 y={py(v)}
                 textAnchor="end"
                 dominantBaseline="central"
-                fill={theme.colors.neutral}
+                fill={chart.axisInk}
                 fontFamily={body}
                 fontSize={tickSize}
-                fontWeight={typeWeight(theme, 400)}
+                fontWeight={chart.axisWeight}
                 style={{ fontVariantNumeric: "tabular-nums" }}
                 opacity={axisIn}
               >
@@ -355,10 +399,10 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
                   x={px(i)}
                   y={plotH + height * 0.035}
                   textAnchor="middle"
-                  fill={theme.colors.neutral}
+                  fill={chart.axisInk}
                   fontFamily={body}
                   fontSize={tickSize}
-                  fontWeight={typeWeight(theme, 400)}
+                  fontWeight={chart.axisWeight}
                   style={{ fontVariantNumeric: "tabular-nums" }}
                   opacity={axisIn}
                 >
@@ -518,7 +562,7 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
             {props.y_label || props.x_label ? (
               <span
                 style={{
-                  color: theme.colors.neutral,
+                  color: mutedInk(theme),
                   letterSpacing: typeTracking(theme, 0.08),
                   textTransform: typeCase(theme, "uppercase"),
                   opacity: axisIn,
@@ -535,14 +579,18 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
         <div
           style={{
             position: "absolute",
-            left: plateInset.x + width * 0.035 * density,
-            bottom: plateInset.y + height * 0.03 * density,
+            left: (poster ? framePad.x : plateInset.x) + width * 0.035 * density,
+            // Poster reserves a band for the credit inside `plotH` above, so
+            // it sits just off the padding box; centred keeps its own inset.
+            bottom: poster
+              ? framePad.y + height * 0.005 * density
+              : plateInset.y + height * 0.03 * density,
             fontFamily: body,
             fontSize: height * 0.019 * typeScale(theme, "caption"),
             fontWeight: typeWeight(theme, 400),
             letterSpacing: typeTracking(theme, 0.1),
             textTransform: typeCase(theme, "uppercase"),
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: interpolate(revealOf(props.series.length - 1), [0.88, 1], [0, 0.9], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -557,4 +605,11 @@ export function LineChart({ props, theme }: { props: LineChartProps; theme: Them
 }
 
 /** Which optional token blocks this component can actually obey (Part 3). */
-LineChart.honors = ["typography", "surface", "chart", "motion.entrance", "motion.easing"];
+LineChart.honors = [
+  "typography",
+  "surface",
+  "layout.composition",
+  "chart",
+  "motion.entrance",
+  "motion.easing",
+];

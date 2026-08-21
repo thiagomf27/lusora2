@@ -245,8 +245,9 @@ export interface Theme {
     scale?: "compact" | "normal" | "generous";
     /** D66 — offset on the component's own fontWeight. */
     weight?: "light" | "regular" | "bold";
-    /** D66 — `as_written` keeps whatever the component set. */
-    case?: "as_written" | "upper";
+    /** D66 — `as_written` keeps whatever the component set; D70 added
+     *  `sentence`, which takes a component's own caps AWAY. */
+    case?: "as_written" | "upper" | "sentence";
     /** D66 — em offset on the component's own letterSpacing. */
     tracking?: "tight" | "normal" | "wide";
   };
@@ -266,12 +267,20 @@ export interface Theme {
      *  top-level `grain`, which is a post-look over the whole frame. */
     texture?: "none" | "paper" | "grain" | "scanline";
   };
+  /** D70 — where an overlay sits in the FRAME, as opposed to `surface`, which
+   *  is the shape of the panel once it is there. Choice token: omitted keeps
+   *  each component's own composition. */
+  layout?: {
+    composition?: "centered" | "poster";
+  };
   /** D66 — how a plotted component reads. `grid`, `legend` and `markers` carry
    *  no default: there is no identity element for a choice, so omitted keeps
    *  each component's own (the `accent_rule` precedent). */
   chart?: {
     grid?: "none" | "horizontal" | "full";
     legend?: "inline" | "bottom";
+    /** D70 — whether a plot's own annotations are scaffolding or content. */
+    axis?: "muted" | "ink";
     /** D69 — whether a line encloses the space under it. */
     area?: "none" | "tint";
     markers?: "none" | "dot";

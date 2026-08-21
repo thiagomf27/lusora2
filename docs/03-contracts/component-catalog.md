@@ -131,6 +131,18 @@ quietly rather than loudly:
    a prop — those are themes smuggled through the planner, and the planner must
    never choose a look.
 
+   Since D70 that has a second half: **a component may have more than one
+   COMPOSITION**, and `composition(theme)` is how it asks which. `centered` is
+   what every component draws today and what an untouched theme keeps; `poster`
+   hands the component the frame — ground edge to edge, headline top-left,
+   content filling the rest. Give a component a poster branch when its centred
+   form is a card with dead space around it (a chart, a table, a full-frame
+   statement); skip it when the component is furniture that belongs in a band of
+   the frame (a lower third, a corner tag) and let it ignore the token. Inside a
+   poster branch a component may legitimately choose different proportions —
+   a bigger headline, a capped column width, a heavier corner — because the
+   composition is the question the theme asked.
+
    The acceptance test is visual and it is cheap: render it under two
    maximally different themes and look at both.
    `node scripts/preview-batch.mjs --theme paper-print <Name>` and again with

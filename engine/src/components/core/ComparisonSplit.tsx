@@ -10,7 +10,6 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   chartStyle,
   densityScale,
   easingCurve,
@@ -18,6 +17,8 @@ import {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   typeCase,
   typeScale,
@@ -98,7 +99,7 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
             }),
           );
           const wins = data.value >= (isLeft ? props.right.value : props.left.value);
-          const color = wins ? accent : theme.colors.neutral;
+          const color = wins ? accent : mutedInk(theme);
           return (
             <div
               key={isLeft ? "left" : "right"}
@@ -146,7 +147,7 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
                   style={{
                     fontFamily: fontStack(theme.typography.body),
                     fontSize: height * 0.026 * typeScale(theme, "kicker"),
-                    color: theme.colors.neutral,
+                    color: mutedInk(theme),
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -192,13 +193,16 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
             position: "absolute",
             left: 0,
             right: 0,
-            bottom: height * 0.1 * density,
+            // INSIDE the plate. The plate's bottom is 0.12h up and the caption
+            // sat at 0.10h, so it straddled the edge at every density — visible
+            // only once a theme made the plate opaque and light.
+            bottom: height * 0.145 * density,
             textAlign: "center",
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.024 * typeScale(theme, "caption"),
             letterSpacing: typeTracking(theme, 0.1),
             textTransform: typeCase(theme, "uppercase"),
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: interpolate(frame, [countDur * 0.6, countDur * 0.6 + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",

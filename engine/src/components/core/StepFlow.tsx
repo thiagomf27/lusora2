@@ -8,13 +8,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceStyle,
   typeScale,
@@ -251,7 +252,7 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
                       fontFamily: fontStack(theme.typography.body),
                       fontSize: height * 0.022 * typeScale(theme, "kicker"),
                       lineHeight: 1.3,
-                      color: theme.colors.neutral,
+                      color: mutedInk(theme),
                       display: "-webkit-box",
                       WebkitBoxOrient: "vertical",
                       WebkitLineClamp: 3,

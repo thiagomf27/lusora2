@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
-import { emphasisColor, fadeInOutRange, fontStack } from "../../themes/runtime.ts";
+import { emphasisColor, fadeInOutRange, fontStack, mutedInk } from "../../themes/runtime.ts";
 
 export const AnimatedMapProps = z.object({
   place_name: z.string(),
@@ -83,7 +83,7 @@ export function AnimatedMap({ props, theme }: { props: AnimatedMapProps; theme: 
         }}
       >
         {props.label ?? props.place_name}
-        <span style={{ color: theme.colors.neutral, marginLeft: 8, fontSize: height * 0.018 }}>
+        <span style={{ color: mutedInk(theme), marginLeft: 8, fontSize: height * 0.018 }}>
           {props.lat.toFixed(2)}, {props.lng.toFixed(2)}
         </span>
       </div>

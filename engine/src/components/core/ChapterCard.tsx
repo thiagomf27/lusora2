@@ -19,6 +19,7 @@ import {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
   ruleWidth,
   typeCase,
   typeScale,
@@ -216,7 +217,7 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
               fontSize: height * 0.03 * typeScale(theme, "body"),
               letterSpacing: typeTracking(theme, 0.16),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: interpolate(frame, [titleStart + fps * 0.4, titleStart + fps * 0.9], [0, 1], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",

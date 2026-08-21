@@ -6,13 +6,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceStyle,
   typeCase,
@@ -146,7 +147,7 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
               fontSize: height * 0.022 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.1),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: interpolate(frame, [inDur + 14, inDur + 14 + fps * 0.4], [0, 1], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",

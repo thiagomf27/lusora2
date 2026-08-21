@@ -7,9 +7,12 @@
 export type { Entrance, Theme } from "@lusora/contracts";
 export {
   DEFAULT_THEME,
+  blend,
   borderSides,
+  capsTracking,
   captionStyle,
   chartStyle,
+  composition,
   contrastInk,
   densityScale,
   easingCurve,
@@ -19,7 +22,9 @@ export {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
   paperStock,
+  posterPad,
   ruleWidth,
   seriesColors,
   surfaceColor,
@@ -33,6 +38,7 @@ export {
   type CaptionStyle,
   type ChartBase,
   type ChartStyle,
+  type Composition,
   type SurfaceStyle,
   type TypeRole,
 } from "../themes/runtime.ts";

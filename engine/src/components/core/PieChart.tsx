@@ -16,19 +16,23 @@
  * for percentages that sum to 100 is asking it to do arithmetic, which is D5's
  * whole point in miniature.
  */
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
+  blend,
   chartStyle,
+  composition,
   contrastInk,
   densityScale,
   easingCurve,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  posterPad,
+  PANEL_ENTRANCES,
   seriesColors,
   surfaceColor,
   typeCase,
@@ -54,6 +58,32 @@ export type PieChartProps = z.infer<typeof PieChartProps>;
 /** A slice's mid-angle in radians, measuring clockwise from twelve o'clock. */
 function midAngle(startFrac: number, endFrac: number): number {
   return ((startFrac + endFrac) / 2) * Math.PI * 2 - Math.PI / 2;
+}
+
+/** How far a wedge that is not the highlighted one is faded back. */
+const DIM = 0.42;
+
+/**
+ * A poster stacks from the top so the headline sits in the corner, which would
+ * leave a fixed-aspect plot pinned under it with the page empty below. This
+ * takes the room that is left and centres the plot in it. Inert (a passthrough)
+ * for the centred composition, where the whole stack is centred already.
+ */
+function PosterCentre({ on, children }: { on: boolean; children: ReactNode }) {
+  if (!on) return <>{children}</>;
+  return (
+    <div
+      style={{
+        flex: 1,
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme }) {
@@ -84,13 +114,39 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
   const sliceColor = (i: number) =>
     props.emphasis === "neutral" ? theme.colors.neutral : ramp[i % ramp.length];
 
-  const ground = groundStyle(theme, { radius: 14, accentRule: "none", legible: true });
+  // The two compositions (D70). A donut is the one chart whose plot is a fixed
+  // aspect, so `poster` does not stretch it — it moves the headline into the
+  // corner and lets the ring grow into the room that frees up.
+  const poster = composition(theme) === "poster";
+  const framePad = posterPad(theme, { width, height });
+  const ground = groundStyle(theme, {
+    radius: poster ? 0 : 14,
+    accentRule: "none",
+    legible: true,
+  });
   const plateInset = { x: width * 0.05 * density, y: height * 0.07 * density };
   const clipId = `pie-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
+  const titleSize = height * (poster ? 0.07 : 0.05) * typeScale(theme, "title");
+  const titleGap = height * (poster ? 0.035 : 0.03) * density;
+
   const total = props.slices.reduce((sum, s) => sum + s.value, 0) || 1;
-  const R = Math.min(width * 0.2, height * (props.title ? 0.3 : 0.34)) * (2 - density) ** 0.35;
-  const box = R * 2.6; // room for the pulled-out slice and its label
+  // `box` is R * 2.6 — the ring plus the room a pulled-out slice and its label
+  // need around it — so a poster sizes the BOX to the space below the headline
+  // and works back to the radius, rather than guessing a radius and hoping.
+  const posterBox = Math.min(
+    width * 0.42,
+    height - framePad.y * 2 - (props.title ? titleSize * 1.08 + titleGap : 0),
+  );
+  // Centred, the ring is a fixed slice of the frame and nothing checked it fit:
+  // a compact, tight theme grew the box past the plate and pushed the title out
+  // through the plate's top edge. The stack has to fit the plate it sits on.
+  const centredBox = Math.min(
+    Math.min(width * 0.2, height * (props.title ? 0.3 : 0.34)) * (2 - density) ** 0.35 * 2.6,
+    height - plateInset.y * 2 - (props.title ? titleSize * 1.25 + titleGap : 0),
+  );
+  const R = (poster ? posterBox / 2.6 : centredBox / 2.6) * (poster ? (2 - density) ** 0.35 : 1);
+  const box = R * 2.6;
 
   const sweepDur = Math.round(fps * 1.1 * durationMul);
   const titleIn = interpolate(frame, [0, Math.round(fps * 0.4 * durationMul)], [0, 1], {
@@ -149,10 +205,10 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
         <div
           style={{
             position: "absolute",
-            left: plateInset.x,
-            top: plateInset.y,
-            width: width - plateInset.x * 2,
-            height: height - plateInset.y * 2,
+            left: poster ? 0 : plateInset.x,
+            top: poster ? 0 : plateInset.y,
+            width: poster ? width : width - plateInset.x * 2,
+            height: poster ? height : height - plateInset.y * 2,
             ...ground,
             opacity: titleIn,
           }}
@@ -163,24 +219,30 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
         style={{
           position: "absolute",
           inset: 0,
+          boxSizing: "border-box",
+          padding: poster ? `${framePad.y}px ${framePad.x}px` : 0,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: poster ? "flex-start" : "center",
         }}
       >
         {props.title ? (
           <div
             style={{
-              marginBottom: height * 0.03 * density,
+              marginBottom: titleGap,
+              alignSelf: poster ? "flex-start" : "center",
               fontFamily: fontStack(theme.typography.display),
-              fontSize: height * 0.05 * typeScale(theme, "title"),
-              fontWeight: typeWeight(theme, 700),
-              letterSpacing: typeTracking(theme),
+              fontSize: titleSize,
+              lineHeight: poster ? 1.08 : undefined,
+              // 600 under poster: typeWeight snaps to hundreds, so a 600 base
+              // is the only one a theme's `bold` can land on 800.
+              fontWeight: typeWeight(theme, poster ? 600 : 700),
+              letterSpacing: poster ? typeTracking(theme, -0.01) : typeTracking(theme),
               textTransform: typeCase(theme),
               color: theme.colors.text,
-              maxWidth: width * 0.8,
-              textAlign: "center",
+              maxWidth: poster ? "100%" : width * 0.8,
+              textAlign: poster ? "left" : "center",
               overflowWrap: "anywhere",
               opacity: titleIn,
             }}
@@ -189,6 +251,7 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
           </div>
         ) : null}
 
+        <PosterCentre on={poster}>
         <svg width={box} height={box}>
           <defs>
             {/* The sweep is a rotating half-plane mask: a clip rect cannot cut
@@ -224,7 +287,7 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
                   key={w.i}
                   d={wedgePath(w.startFrac, w.endFrac, pull)}
                   fill={sliceColor(w.i)}
-                  fillOpacity={lit ? 1 : 0.42}
+                  fillOpacity={lit ? 1 : DIM}
                   stroke={surfaceColor(theme)}
                   strokeWidth={chart.strokeWidth}
                   strokeLinejoin="round"
@@ -257,7 +320,11 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
                 y={cy + Math.sin(mid) * (r + pull)}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fill={contrastInk(theme, sliceColor(w.i))}
+                // Against the colour the wedge is PAINTED, not the colour it
+                // was given: a dimmed wedge is a different colour, and asking
+                // about the full-strength one put white type on a washed-out
+                // slice here and dark type on a darkened one on a dark theme.
+                fill={contrastInk(theme, blend(sliceColor(w.i), surfaceColor(theme), lit ? 1 : DIM))}
                 fontFamily={fontStack(theme.typography.body)}
                 fontSize={height * 0.021 * typeScale(theme, "caption")}
                 fontWeight={typeWeight(theme, 600)}
@@ -296,20 +363,21 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
               : chart.formatNumber(total * sweep)}
           </text>
         </svg>
+        </PosterCentre>
       </div>
 
       {props.source ? (
         <div
           style={{
             position: "absolute",
-            left: plateInset.x + width * 0.035 * density,
-            bottom: plateInset.y + height * 0.03 * density,
+            left: (poster ? framePad.x : plateInset.x) + width * 0.035 * density,
+            bottom: (poster ? framePad.y : plateInset.y) + height * 0.03 * density,
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.019 * typeScale(theme, "caption"),
             fontWeight: typeWeight(theme, 400),
             letterSpacing: typeTracking(theme, 0.1),
             textTransform: typeCase(theme, "uppercase"),
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: interpolate(sweep, [0.85, 1], [0, 0.9], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -324,4 +392,11 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
 }
 
 /** Which optional token blocks this component can actually obey (Part 3). */
-PieChart.honors = ["typography", "surface", "chart", "motion.entrance", "motion.easing"];
+PieChart.honors = [
+  "typography",
+  "surface",
+  "layout.composition",
+  "chart",
+  "motion.entrance",
+  "motion.easing",
+];

@@ -34,12 +34,13 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceColor,
   surfaceStyle,
@@ -279,7 +280,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
               fontSize: plateH * 0.028,
               fontVariantNumeric: "tabular-nums",
               letterSpacing: typeTracking(theme, 0.08),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               whiteSpace: "nowrap",
             }}
           >
@@ -299,7 +300,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
               fontSize: plateH * 0.026,
               letterSpacing: typeTracking(theme, 0.14),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: 0.35,
             }}
           >

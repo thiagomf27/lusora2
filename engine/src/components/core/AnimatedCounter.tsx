@@ -10,7 +10,6 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   chartStyle,
   densityScale,
   easingCurve,
@@ -18,6 +17,8 @@ import {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceStyle,
   typeCase,
@@ -172,7 +173,7 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.022 * typeScale(theme, "caption"),
             fontStyle: "italic",
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             overflowWrap: "anywhere",
             opacity: interpolate(frame, [labelStart + fps * 0.2, labelStart + fps * 0.65], [0, 0.9], {
               extrapolateLeft: "clamp",

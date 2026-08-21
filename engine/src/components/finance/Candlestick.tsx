@@ -16,13 +16,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   chartStyle,
   densityScale,
   easingCurve,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   seriesColors,
   typeCase,
@@ -177,7 +178,7 @@ export function Candlestick({ props, theme }: { props: CandlestickProps; theme: 
               fontWeight: typeWeight(theme, 500),
               letterSpacing: typeTracking(theme, 0.2),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: axisIn,
             }}
           >
@@ -342,7 +343,7 @@ export function Candlestick({ props, theme }: { props: CandlestickProps; theme: 
             fontWeight: typeWeight(theme, 400),
             letterSpacing: typeTracking(theme, 0.1),
             textTransform: typeCase(theme, "uppercase"),
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: interpolate(swept, [0.85, 1], [0, 0.9], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",

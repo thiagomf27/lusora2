@@ -14,12 +14,12 @@ colors:
   accent: "#c8a24a"
   neutral: "#6b675e"
 typography:
-  display: "Playfair Display"     # packaged fonts only, by name
+  display: "Playfair Display"     # packaged fonts only, by name (engine/fonts)
   body: "Inter"
   caption_preset: "serif-lower-third"   # from the engine's caption presets
   scale: generous                 # D66 compact | normal | generous
   weight: light                   # D66 light | regular | bold
-  case: as_written                # D66 as_written | upper
+  case: as_written                # D66 as_written | upper | sentence (D70)
   tracking: wide                  # D66 tight | normal | wide
 motion_feel: slow_heavy           # global duration/easing scale
 grain: archival                   # optional post-look (Remotion path)
@@ -30,9 +30,12 @@ surface:                          # D46 — the SHAPE of an overlay
   density: airy                   # D66 tight | normal | airy
   rule: hairline                  # D66 hairline | normal | heavy
   texture: paper                  # D66 none | paper | grain | scanline
+layout:                           # D70 — where an overlay sits in the FRAME
+  composition: poster             # centered | poster
 chart:                            # D66 — how a PLOTTED overlay reads
   grid: horizontal                # none | horizontal | full
   legend: inline                  # inline | bottom
+  axis: ink                       # D70 muted | ink — scaffolding, or content
   markers: dot                    # none | dot
   area: tint                      # D69 none | tint — does a line enclose the space under it
   stroke: hairline                # hairline | normal | heavy
@@ -145,7 +148,8 @@ at all.
   replacing it. `typeWeight(theme, 700)` is 700 under an untouched theme and
   `typeWeight(theme, 400)` is 400, so a title and a label keep their
   relationship at every setting instead of collapsing onto one weight.
-- **CHOICE tokens** — `chart.grid|legend|markers|area` — have no identity element.
+- **CHOICE tokens** — `chart.grid|legend|markers|area`, `chart.axis` and
+  `layout.composition` (D70) — have no identity element.
   There is no neutral answer to "where does the legend go". They therefore
   carry **no schema default** and fall back to the component's own, which is
   the `surface.accent_rule` precedent. Writing `legend: inline` as a default
@@ -155,6 +159,14 @@ at all.
   enums: `chart.grid` resolves to `axes | baseline | none | horizontal |
   full`, where `axes` (LineChart's y-and-x lines) and `baseline` (BarChart's
   single rule) are values a component can hold but no theme can name.
+- `typography.case` is the one SCALE token whose identity was incomplete until
+  D70. `as_written` is the instruction to leave a component's own caps alone,
+  and `upper` forces them on — so a theme could add caps and never take them
+  away, and a chart whose category labels should read as names rather than as a
+  legend had no token. `sentence` is the mirror of `upper`. The tracking goes
+  with it: a component's `+0.06em` on a label exists BECAUSE it is set in caps,
+  so `capsTracking(theme, 0.06)` returns it under `as_written` and drops it
+  under `sentence`. Caps need the air; lowercase set that wide comes apart.
 - `typography.tracking` is an em OFFSET, not a multiplier. A title at `0em`
   has to be reachable by `wide`, and zero times anything is zero. It returns
   nothing at all when the result is 0, so the component omits the property
@@ -169,6 +181,41 @@ at all.
 - `chart.number_format` governs axis and label figures. An authored
   `decimals` prop still wins: a figure the script asked for to two places is
   a fact about the claim, not a look.
+
+### `layout` semantics (D70) — the token that changes what an overlay IS
+
+Every token before D70 was a SURFACE token. `scale`, `weight`, `density`,
+`radius`, `fill`, `grid` — each of them changes what an overlay is painted in
+without touching what it is. Four themes over one bar chart therefore gave four
+palettes of the same picture, which is the honest reason "the theme only changed
+a font and a colour" was said twice.
+
+`layout.composition` is the first token that moves the furniture:
+
+- `centered` — a card floated over the shot. The component sizes its own
+  content box, the stack is centred in the frame, the title is centred above it.
+  Every component drew this before D70, and it is what an omitted token keeps.
+- `poster` — the overlay OWNS the frame. Its ground runs edge to edge, its
+  title sits top-left inside `posterPad()`, and its content takes every pixel
+  left over.
+
+**Height and width are not separate tokens, on purpose.** Under a poster they
+are not separate decisions: the content box IS the frame minus its padding, and
+`surface.density` already scales that padding. A `layout.width` token would be a
+second way to say the same thing and a way to say a contradictory one.
+
+A composition legitimately changes a component's own proportions — `BarChart`
+sets a bigger headline, caps its column width and rounds a heavier corner under
+`poster` — and that is not a leak. The rule that a resolver SCALES rather than
+replaces is about the theme reaching into a component; this is the component
+answering a question the theme asked. The precedent is `chart.legend: inline`,
+which already changes BarChart's bar height.
+
+Not every component has a poster branch, and that is fine: a component with no
+second composition ignores `layout` exactly the way a component that plots
+nothing ignores `chart`. Today `BarChart`, `LineChart` and `PieChart` have one —
+the three whose centred form is a plot in a card with the page empty around it.
+A lower third, a corner tag and a caption never will.
 
 ### The one place a theme is overruled
 
@@ -224,10 +271,51 @@ four, so no theme has to be re-authored when a component pack arrives:
   alpha (`"00"` if it never had a panel) and `legible: true` if it carries
   type; see *The one place a theme is overruled* above.
 
-D66 added two resolvers and no colours. That is the rule working: **wanting a
-fifth colour token is the signal that you wanted a resolver.** A token would
-leave every theme authored before the component without a value for it; a
-resolver derives one from the four that were always there.
+- `blend(color, ground, alpha)` (D70) — the colour a mark is actually PAINTED
+  when drawn at `alpha` over `ground`. `contrastInk` answers "what reads on THIS
+  colour", so a component that fades a mark to 42% and then asks about its full
+  strength gets the answer for a colour nobody can see. PieChart did exactly
+  that, and it failed in both directions at once.
+- `mutedInk(theme, on?, min = 3)` (D70) — `neutral` as INK, guaranteed to be
+  readable on the ground it is set on. The fourth colour does two jobs — the
+  fill behind a muted bar, the type in a credit line — and the light grey the
+  fill wants (`#b9c0ca` in `standard`, straight off the reference) sits at
+  1.7:1 as type. This returns the theme's neutral **untouched** whenever it
+  already clears 3:1 and only steps it toward the theme's own ink when it does
+  not, so every theme whose neutral was already readable renders unchanged.
+  Every shipped theme but `standard` clears it with margin, and
+  `themes.test.ts` asserts that.
+
+D66 added two resolvers and no colours; D70 added two more and still no
+colours. That is the rule working: **wanting a fifth colour token is the signal
+that you wanted a resolver.** A token would leave every theme authored before
+the component without a value for it; a resolver derives one from the four that
+were always there. Note which of the two resolvers D70 needed: `mutedInk` has
+an identity (a readable neutral is returned as-is), so it needs no token at
+all, while `chart.axis` is a genuine either/or and therefore had to be one.
+**A derivation with an identity is a resolver; one without is a token.**
+
+### The fonts are packaged (D70)
+
+`typography.display` and `typography.body` name **packaged** families, and
+until D70 nothing packaged any. `fontStack()` built a CSS stack with the theme's
+name first and system fallbacks behind it, the name matched nothing on the
+render machine, and every theme came out in the fallback — DejaVu Sans and
+DejaVu Serif for all four. The most powerful token in the block was inert, and
+two themes that differ by their whole type voice rendered in the same two faces.
+
+`engine/fonts/` now carries the latin subset of each family as a variable
+woff2; `scripts/pack-fonts.mjs` inlines them into `src/themes/fonts.generated.ts`
+as data URIs, and `<PackagedFonts />` mounts that in both render roots and holds
+the render (`delayRender`) until the faces have decoded. Data URIs rather than
+`staticFile()` because the render path overrides `publicDir` per render, and a
+face that arrives late renders the first frames in the fallback.
+
+`fontStack()` still matters and still runs: it is what a theme naming a family
+nobody packaged falls back to, and it is what routes a name to the right kind of
+fallback (mono for a typewriter face, condensed for Oswald, serif for Playfair).
+`engine/test/fonts.test.ts` fails if a shipped theme names a family
+`engine/fonts/` does not carry — the failure mode is silent otherwise.
 
 ### Motion roles — the deferred shape (D47)
 

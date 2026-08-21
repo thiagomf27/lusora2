@@ -16,13 +16,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   typeCase,
   typeScale,
@@ -155,7 +156,7 @@ export function DataTable({ props, theme }: { props: DataTableProps; theme: Them
                     fontWeight: typeWeight(theme, 600),
                     letterSpacing: typeTracking(theme, 0.1),
                     textTransform: typeCase(theme, "uppercase"),
-                    color: theme.colors.neutral,
+                    color: mutedInk(theme),
                     borderBottom: `${headRule}px solid ${accent}`,
                     opacity: headIn,
                   }}
@@ -211,7 +212,7 @@ export function DataTable({ props, theme }: { props: DataTableProps; theme: Them
               fontWeight: typeWeight(theme, 400),
               letterSpacing: typeTracking(theme, 0.1),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               opacity: interpolate(
                 frame,
                 [bodyStart + rows.length * rowStagger, bodyStart + rows.length * rowStagger + fps * 0.4],

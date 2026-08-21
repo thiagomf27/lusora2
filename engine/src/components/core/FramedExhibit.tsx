@@ -13,13 +13,14 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   paperStock,
   ruleWidth,
   surfaceColor,
@@ -207,7 +208,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
               fontSize: height * 0.02 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.12),
               textTransform: typeCase(theme, "uppercase"),
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
             }}
           >
             {props.credit}

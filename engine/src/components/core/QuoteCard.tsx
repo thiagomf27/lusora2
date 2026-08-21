@@ -9,7 +9,7 @@
 import { z } from "zod";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { emphasisColor, fadeInOutRange, fontStack } from "../theme.ts";
+import { emphasisColor, fadeInOutRange, fontStack, mutedInk } from "../theme.ts";
 
 export const QuoteCardProps = z.object({
   quote: z.string(),
@@ -59,7 +59,7 @@ export function QuoteCard({ props, theme }: { props: QuoteCardProps; theme: Them
             marginLeft: 32,
             fontFamily: fontStack(theme.typography.body),
             fontSize: height * 0.028,
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             letterSpacing: "0.08em",
             textTransform: "uppercase",
           }}

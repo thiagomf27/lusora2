@@ -17,12 +17,13 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   seriesColors,
   typeCase,
@@ -68,7 +69,7 @@ export function MetricGrid({ props, theme }: { props: MetricGridProps; theme: Th
   const ramp = seriesColors(theme);
   const dirColor = (d: "up" | "down" | "flat") =>
     props.emphasis === "neutral" || d === "flat"
-      ? theme.colors.neutral
+      ? mutedInk(theme)
       : d === "up"
         ? ramp[0]
         : ramp[2];
@@ -156,7 +157,7 @@ export function MetricGrid({ props, theme }: { props: MetricGridProps; theme: Th
                   fontWeight: typeWeight(theme, 500),
                   letterSpacing: typeTracking(theme, 0.1),
                   textTransform: typeCase(theme, "uppercase"),
-                  color: theme.colors.neutral,
+                  color: mutedInk(theme),
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",

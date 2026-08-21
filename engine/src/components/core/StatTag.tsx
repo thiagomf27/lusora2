@@ -10,13 +10,14 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceStyle,
   typeCase,
@@ -127,7 +128,7 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
           marginTop: height * 0.008 * density,
           fontFamily: fontStack(theme.typography.body),
           fontSize: height * 0.026 * typeScale(theme, "caption"),
-          color: theme.colors.neutral,
+          color: mutedInk(theme),
           letterSpacing: typeTracking(theme, 0.08),
           textTransform: typeCase(theme, "uppercase"),
           maxWidth: width * 0.3,

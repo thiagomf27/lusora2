@@ -15,7 +15,6 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   chartStyle,
   densityScale,
   easingCurve,
@@ -23,6 +22,8 @@ import {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   seriesColors,
   surfaceStyle,
@@ -276,7 +277,7 @@ export function WaterfallChart({ props, theme }: { props: WaterfallChartProps; t
             fontWeight: typeWeight(theme, 400),
             letterSpacing: typeTracking(theme, 0.1),
             textTransform: typeCase(theme, "uppercase"),
-            color: theme.colors.neutral,
+            color: mutedInk(theme),
             opacity: growOf(columns.length - 1),
           }}
         >

@@ -4,59 +4,115 @@
   "title": "Theme",
   "description": "Appearance tokens, consumed by the ENGINE only. The AI never sees this. Final token list: OQ-10 (draft).",
   "type": "object",
-  "required": ["name", "colors", "typography"],
+  "required": [
+    "name",
+    "colors",
+    "typography"
+  ],
   "additionalProperties": false,
   "properties": {
-    "name": { "type": "string", "minLength": 1 },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
     "colors": {
       "type": "object",
-      "required": ["bg", "text", "accent", "neutral"],
+      "required": [
+        "bg",
+        "text",
+        "accent",
+        "neutral"
+      ],
       "additionalProperties": false,
       "properties": {
-        "bg": { "$ref": "#/$defs/color" },
-        "text": { "$ref": "#/$defs/color" },
-        "accent": { "$ref": "#/$defs/color" },
-        "neutral": { "$ref": "#/$defs/color" }
+        "bg": {
+          "$ref": "#/$defs/color"
+        },
+        "text": {
+          "$ref": "#/$defs/color"
+        },
+        "accent": {
+          "$ref": "#/$defs/color"
+        },
+        "neutral": {
+          "$ref": "#/$defs/color"
+        }
       }
     },
     "typography": {
       "type": "object",
-      "required": ["display", "body", "caption_preset"],
+      "required": [
+        "display",
+        "body",
+        "caption_preset"
+      ],
       "additionalProperties": false,
       "description": "D66 adds scale/weight/case/tracking. Each is a SCALE token: its default is the identity element, so a component reads it as a multiplier or an offset over the ratio it already had, and a theme setting none of them renders byte-identically (Principle 7).",
       "properties": {
-        "display": { "type": "string", "description": "packaged fonts only, by name" },
-        "body": { "type": "string" },
-        "caption_preset": { "type": "string", "description": "one of the engine's caption presets" },
+        "display": {
+          "type": "string",
+          "description": "packaged fonts only, by name"
+        },
+        "body": {
+          "type": "string"
+        },
+        "caption_preset": {
+          "type": "string",
+          "description": "one of the engine's caption presets"
+        },
         "scale": {
-          "enum": ["compact", "normal", "generous"],
+          "enum": [
+            "compact",
+            "normal",
+            "generous"
+          ],
           "default": "normal",
           "description": "multiplier over every fontSize ratio, per type role (title and number move most, caption least). normal = 1, i.e. the component's own ratio."
         },
         "weight": {
-          "enum": ["light", "regular", "bold"],
+          "enum": [
+            "light",
+            "regular",
+            "bold"
+          ],
           "default": "regular",
           "description": "offset on the component's own fontWeight, clamped to 300..900. regular keeps it, so a 700 title and a 400 label keep their relationship."
         },
         "case": {
-          "enum": ["as_written", "upper"],
+          "enum": [
+            "as_written",
+            "upper",
+            "sentence"
+          ],
           "default": "as_written",
-          "description": "as_written keeps whatever the component set (a kicker that was already uppercase stays uppercase); upper forces uppercase everywhere."
+          "description": "as_written keeps whatever the component set (a kicker that was already uppercase stays uppercase); upper forces uppercase everywhere; sentence forces it OFF everywhere. D70 added sentence: `as_written` was the only way to leave a component's caps alone and there was no way to take them away, so a theme could not ask for a chart whose axis labels read as words rather than as a legend."
         },
         "tracking": {
-          "enum": ["tight", "normal", "wide"],
+          "enum": [
+            "tight",
+            "normal",
+            "wide"
+          ],
           "default": "normal",
           "description": "em offset on the component's own letterSpacing, floored at -0.05em. Additive, not multiplicative: a title at 0em has to be reachable by `wide`."
         }
       }
     },
     "motion_feel": {
-      "enum": ["slow_heavy", "neutral", "fast_light"],
+      "enum": [
+        "slow_heavy",
+        "neutral",
+        "fast_light"
+      ],
       "default": "neutral",
       "description": "maps to easing/duration scales in components"
     },
     "grain": {
-      "enum": ["none", "archival", "film"],
+      "enum": [
+        "none",
+        "archival",
+        "film"
+      ],
       "default": "none",
       "description": "optional post-look (Remotion path)"
     },
@@ -66,33 +122,72 @@
       "description": "D46 — the SHAPE of an overlay. Every token optional; omitted means the value components hardcoded before D46, so an untouched theme renders identically.",
       "properties": {
         "radius": {
-          "enum": ["square", "soft", "rounded"],
+          "enum": [
+            "square",
+            "soft",
+            "rounded"
+          ],
           "default": "soft",
           "description": "corner radius scale; the engine owns the pixels"
         },
         "fill": {
-          "enum": ["solid", "translucent", "none"],
+          "enum": [
+            "solid",
+            "translucent",
+            "none"
+          ],
           "default": "translucent",
           "description": "panel background: opaque bg, bg at ~90%, or nothing"
         },
         "accent_rule": {
-          "enum": ["top", "left", "none"],
+          "enum": [
+            "top",
+            "left",
+            "none"
+          ],
           "description": "where the accent bar sits. No default on purpose: omitted keeps each component's own choice (FactCard draws it on top, the card template on the left)."
         },
         "density": {
-          "enum": ["tight", "normal", "airy"],
+          "enum": [
+            "tight",
+            "normal",
+            "airy"
+          ],
           "default": "normal",
           "description": "D66 — multiplier on padding, gaps, margins and panel insets. normal = 1, i.e. the component's own spacing."
         },
         "rule": {
-          "enum": ["hairline", "normal", "heavy"],
+          "enum": [
+            "hairline",
+            "normal",
+            "heavy"
+          ],
           "default": "normal",
           "description": "D66 — multiplier on the width of every rule a component draws: accent bars, borders, axes, baselines. normal = 1, i.e. the component's own width."
         },
         "texture": {
-          "enum": ["none", "paper", "grain", "scanline"],
+          "enum": [
+            "none",
+            "paper",
+            "grain",
+            "scanline"
+          ],
           "default": "none",
           "description": "D66 — treatment on the ground an overlay sets type on. `none` is today's value everywhere, so this token is inert until a theme asks for it. Distinct from top-level `grain`, which is a post-look over the whole FRAME; this is the overlay's own plate."
+        }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D70 — where an overlay sits in the FRAME, as opposed to `surface`, which is the shape of the panel once it is there. Choice tokens with no defaults: omitted keeps each component's own composition, which is what it drew before D70.",
+      "properties": {
+        "composition": {
+          "enum": [
+            "centered",
+            "poster"
+          ],
+          "description": "centered = a card floated over the shot: the component sizes its own content box and the whole stack sits in the middle of the frame, with its title centred above it. poster = the overlay owns the frame: its ground runs edge to edge, its title sits top-left inside the padding box, and its content takes every pixel left over. Height and width are not separate tokens because in a poster they are not separate decisions — the content box IS the frame minus its padding, and `surface.density` scales that padding."
         }
       }
     },
@@ -106,15 +201,24 @@
           "description": "a REQUEST, not a guarantee: a component that cannot honor it (typewriter on a chart) degrades to fade. No default on purpose: omitted keeps each component's own entrance, so an untouched theme is unchanged."
         },
         "easing": {
-          "enum": ["smooth", "snap", "spring", "linear"],
+          "enum": [
+            "smooth",
+            "snap",
+            "spring",
+            "linear"
+          ],
           "default": "smooth",
           "description": "smooth is the pre-D46 curve, bezier(0.16, 1, 0.3, 1)"
         },
         "per_component": {
           "type": "object",
           "description": "per-catalog-name entrance override. Exceptions only — a map approaching one entry per component is the trigger for motion roles (D47).",
-          "propertyNames": { "pattern": "^[A-Z][A-Za-z0-9]*$" },
-          "additionalProperties": { "$ref": "#/$defs/entrance" }
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Za-z0-9]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/entrance"
+          }
         }
       }
     },
@@ -124,28 +228,55 @@
       "description": "D66 — how a plotted component reads. Split out so a theme that draws no charts never has to carry these. `grid`, `legend` and `markers` have NO default on purpose (the accent_rule precedent): there is no identity element for a choice, so omitted keeps each component's own — LineChart's own legend is a bottom row, ArchiveLineChart's is names at the end of each line, and both must survive a theme that says nothing. `stroke` and `number_format` DO default, because `normal` and `plain` ARE today's value everywhere.",
       "properties": {
         "grid": {
-          "enum": ["none", "horizontal", "full"],
+          "enum": [
+            "none",
+            "horizontal",
+            "full"
+          ],
           "description": "none = a baseline and nothing else; horizontal = ruled values across the plot; full = horizontal plus a vertical at every labelled tick. Omitted keeps the component's own axes."
         },
         "legend": {
-          "enum": ["inline", "bottom"],
+          "enum": [
+            "inline",
+            "bottom"
+          ],
           "description": "inline = each series named at the end of its own line, no cross-referencing; bottom = a swatch row under the plot. Omitted keeps the component's own."
         },
+        "axis": {
+          "enum": [
+            "muted",
+            "ink"
+          ],
+          "description": "D70 — how heavily a plot's own annotations are set: the category labels under a bar chart, the tick figures beside it, a table's header row. `muted` is the neutral colour at the component's own weight, which reads as scaffolding around the data; `ink` is the text colour at content weight, which makes the labels part of what the viewer is meant to read. No default (choice token): omitted keeps the component's own, which is `muted` everywhere."
+        },
         "area": {
-          "enum": ["none", "tint"],
+          "enum": [
+            "none",
+            "tint"
+          ],
           "description": "D69 — whether a line encloses the space under it. `tint` fills to the baseline in the series colour at low alpha, which reads as VOLUME and is wrong for a series that can go negative or for two series that cross. No default (choice token): omitted keeps the component's own, which is `none`."
         },
         "markers": {
-          "enum": ["none", "dot"],
+          "enum": [
+            "none",
+            "dot"
+          ],
           "description": "dot = a mark at every data point; none = no marks at all. Omitted keeps the component's own (LineChart marks only where a series ends)."
         },
         "stroke": {
-          "enum": ["hairline", "normal", "heavy"],
+          "enum": [
+            "hairline",
+            "normal",
+            "heavy"
+          ],
           "default": "normal",
           "description": "multiplier on the component's own series stroke width. Dash patterns scale with it, so a dashed series stays legible under `heavy`."
         },
         "number_format": {
-          "enum": ["plain", "compact"],
+          "enum": [
+            "plain",
+            "compact"
+          ],
           "default": "plain",
           "description": "plain = 50,000; compact = 50.0K. Axis and label figures only — a counter's own `decimals` prop still wins."
         }
@@ -170,19 +301,35 @@
           "additionalProperties": false,
           "description": "cue by the entrance kind that actually plays, after the theme's motion tokens and the component's support are resolved. A typewriter entrance wants a typing loop; a pop wants a transient.",
           "properties": {
-            "fade": { "$ref": "#/$defs/cueRef" },
-            "rise": { "$ref": "#/$defs/cueRef" },
-            "slide": { "$ref": "#/$defs/cueRef" },
-            "pop": { "$ref": "#/$defs/cueRef" },
-            "wipe": { "$ref": "#/$defs/cueRef" },
-            "typewriter": { "$ref": "#/$defs/cueRef" }
+            "fade": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "rise": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "slide": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "pop": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "wipe": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "typewriter": {
+              "$ref": "#/$defs/cueRef"
+            }
           }
         },
         "per_component": {
           "type": "object",
           "description": "per-catalog-name cue override. Exceptions only, like motion.per_component. Set \"none\" to silence one component.",
-          "propertyNames": { "pattern": "^[A-Z][A-Za-z0-9]*$" },
-          "additionalProperties": { "$ref": "#/$defs/cueRef" }
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Za-z0-9]*$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/cueRef"
+          }
         },
         "transition": {
           "$ref": "#/$defs/cueRef",
@@ -193,14 +340,30 @@
           "additionalProperties": false,
           "description": "mood -> bed name. A mood with no entry gets no music for that span, which is a legitimate choice: silence under the turn.",
           "properties": {
-            "neutral": { "$ref": "#/$defs/cueRef" },
-            "tense": { "$ref": "#/$defs/cueRef" },
-            "somber": { "$ref": "#/$defs/cueRef" },
-            "hopeful": { "$ref": "#/$defs/cueRef" },
-            "urgent": { "$ref": "#/$defs/cueRef" },
-            "triumphant": { "$ref": "#/$defs/cueRef" },
-            "reflective": { "$ref": "#/$defs/cueRef" },
-            "playful": { "$ref": "#/$defs/cueRef" }
+            "neutral": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "tense": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "somber": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "hopeful": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "urgent": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "triumphant": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "reflective": {
+              "$ref": "#/$defs/cueRef"
+            },
+            "playful": {
+              "$ref": "#/$defs/cueRef"
+            }
           }
         },
         "gain": {
@@ -208,13 +371,24 @@
           "additionalProperties": false,
           "description": "the mix. Numbers, not enums, because these ARE the mix — there is no vocabulary that means '18 dB under the voice'. All three are absolute levels applied to the pack's files; the channel's source_policy trims them.",
           "properties": {
-            "sfx": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.35 },
+            "sfx": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.35
+            },
             "music_duck": {
-              "type": "number", "minimum": 0, "maximum": 1, "default": 0.16,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.16,
               "description": "bed level while a sentence is playing. Against the shipped packs (beds at -24 LUFS) this lands the bed about 18 dB under a typical narration — present, never competing."
             },
             "music_lift": {
-              "type": "number", "minimum": 0, "maximum": 1, "default": 0.5,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.5,
               "description": "bed level in a narration gap long enough to be heard: about 8 dB under the voice, so the music is unmistakably there in the silence."
             }
           }
@@ -223,9 +397,19 @@
     }
   },
   "$defs": {
-    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
     "entrance": {
-      "enum": ["fade", "rise", "slide", "pop", "wipe", "typewriter"]
+      "enum": [
+        "fade",
+        "rise",
+        "slide",
+        "pop",
+        "wipe",
+        "typewriter"
+      ]
     },
     "cueRef": {
       "type": "string",

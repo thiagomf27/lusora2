@@ -9,7 +9,6 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
-  PANEL_ENTRANCES,
   borderSides,
   densityScale,
   easingCurve,
@@ -17,6 +16,8 @@ import {
   fontStack,
   groundStyle,
   motionScale,
+  mutedInk,
+  PANEL_ENTRANCES,
   ruleWidth,
   surfaceStyle,
   textureLayer,
@@ -159,7 +160,7 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
                       fontSize: height * 0.03 * typeScale(theme, "number"),
                       fontWeight: typeWeight(theme, lit ? 700 : 400),
                       fontVariantNumeric: "tabular-nums",
-                      color: lit ? accent : theme.colors.neutral,
+                      color: lit ? accent : mutedInk(theme),
                     }}
                   >
                     {i + 1}
@@ -173,7 +174,7 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
                     fontSize: height * 0.024 * typeScale(theme, "caption"),
                     letterSpacing: typeTracking(theme, 0.1),
                     textTransform: typeCase(theme, "uppercase"),
-                    color: theme.colors.neutral,
+                    color: mutedInk(theme),
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -217,7 +218,7 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
               fontFamily: fontStack(theme.typography.body),
               fontSize: height * 0.02 * typeScale(theme, "kicker"),
               fontStyle: "italic",
-              color: theme.colors.neutral,
+              color: mutedInk(theme),
               overflowWrap: "anywhere",
               display: "-webkit-box",
               WebkitBoxOrient: "vertical",
