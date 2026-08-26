@@ -44,7 +44,7 @@ export const WaterfallChartProps = z.object({
   /** The closing total. Omitted, the component adds up the steps itself. */
   end: z.object({ label: z.string().max(16), value: z.number() }).optional(),
   source: z.string().max(52).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type WaterfallChartProps = z.infer<typeof WaterfallChartProps>;
 

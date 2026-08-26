@@ -37,11 +37,13 @@ import {
   easingCurve,
   emphasisColor,
   fontStack,
+  contrastInk,
   groundStyle,
   motionScale,
   mutedInk,
   PANEL_ENTRANCES,
   ruleWidth,
+  plateColor,
   surfaceColor,
   surfaceStyle,
   typeCase,
@@ -74,7 +76,7 @@ export const SatelliteLocateProps = z.object({
     .default("region"),
   framing: z.enum(["full", "panel"]).default("full"),
   plate: plateSchema.optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type SatelliteLocateProps = z.infer<typeof SatelliteLocateProps>;
 
@@ -252,8 +254,13 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
             left: target.x + ringR * 2,
             top: target.y - plateH * 0.045,
             maxWidth: plateW * 0.45,
-            background: `${theme.colors.bg}e0`,
-            borderLeft: `${Math.max(3, plateH * 0.006)}px solid ${accent}`,
+            // The label's own plate — a stamp over the map, not a piece of the
+            // page — so `plateColor`, with its ink asked against that plate.
+            background: `${plateColor(theme)}e0`,
+            borderLeft:
+              surface.accentRule === "none"
+                ? undefined
+                : `${Math.max(3, plateH * 0.006)}px solid ${accent}`,
             padding: `${plateH * 0.016}px ${plateW * 0.018}px`,
             clipPath: `inset(0 ${interpolate(frame, [labelStart, labelStart + fps * 0.4 * durationMul], [100, 0], {
               extrapolateLeft: "clamp",
@@ -267,7 +274,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
               fontFamily: fontStack(theme.typography.display),
               fontSize: plateH * 0.055,
               fontWeight: typeWeight(theme, 700),
-              color: theme.colors.text,
+              color: contrastInk(theme, plateColor(theme)),
               whiteSpace: "nowrap",
             }}
           >
@@ -280,7 +287,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
               fontSize: plateH * 0.028,
               fontVariantNumeric: "tabular-nums",
               letterSpacing: typeTracking(theme, 0.08),
-              color: mutedInk(theme),
+              color: mutedInk(theme, plateColor(theme)),
               whiteSpace: "nowrap",
             }}
           >

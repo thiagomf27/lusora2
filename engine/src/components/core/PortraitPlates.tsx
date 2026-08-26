@@ -24,6 +24,7 @@ import {
   groundStyle,
   motionScale,
   ruleWidth,
+  plateColor,
   surfaceColor,
   typeCase,
   typeScale,
@@ -60,7 +61,7 @@ export const PortraitPlatesProps = z.object({
    * over unknown archive footage, where it can vanish.
    */
   label_style: z.enum(["plate", "bare"]).default("plate"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type PortraitPlatesProps = z.infer<typeof PortraitPlatesProps>;
 
@@ -87,12 +88,18 @@ export function PortraitPlates({ props, theme }: { props: PortraitPlatesProps; t
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const density = densityScale(theme);
-  const paper = surfaceColor(theme);
+  // The label plate, which is a stamp on the frame rather than a piece of the
+  // page — so it is `plateColor`, and `surface.plate: invert` turns it white
+  // with black type the way the reference sets a caption bar.
+  const paper = plateColor(theme);
   const accent = emphasisColor(theme, props.emphasis);
 
   const pair = props.frames.length > 1;
   const bare = props.label_style === "bare";
-  const ink = theme.colors.text;
+  // The ink that goes ON the label plate, asked against the plate rather than
+  // assumed to be the theme's. The two were the same value until the plate
+  // could differ from the page (D71), and then this printed white on white.
+  const ink = contrastInk(theme, paper);
   // Type on the tan, not type on the page: the kicker bar and the sub-bar are
   // grounds, so they read their own ink rather than the theme's.
   const accentInk = contrastInk(theme, accent);

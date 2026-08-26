@@ -139,6 +139,13 @@
           "default": "translucent",
           "description": "panel background: opaque bg, bg at ~90%, or nothing"
         },
+        "plate": {
+          "enum": [
+            "page",
+            "invert"
+          ],
+          "description": "WHICH colour a panel is painted, as opposed to `fill`, which is whether there is one at all. `page` paints it in the theme's ground, so a panel reads as a continuation of the page and contrastInk sets the theme's ink on it. `invert` paints it in the theme's INK instead — a white box with black type on a dark theme, a black box with light type on a light one — so a panel reads as a stamp on top of the page rather than part of it. The idiom already existed: captionStyle's `boxed` preset has always paired `colors.bg` ink with a `colors.text` plate. No default (choice token): there is no neutral answer to continuation-or-stamp, so an omitted token keeps `page`, which is what every component drew before D71."
+        },
         "accent_rule": {
           "enum": [
             "top",
@@ -182,6 +189,15 @@
       "additionalProperties": false,
       "description": "D70 — where an overlay sits in the FRAME, as opposed to `surface`, which is the shape of the panel once it is there. Choice tokens with no defaults: omitted keeps each component's own composition, which is what it drew before D70.",
       "properties": {
+        "scrim": {
+          "enum": [
+            "none",
+            "soft",
+            "heavy"
+          ],
+          "default": "none",
+          "description": "D72 — a wash laid over the FRAME while an overlay is on screen, so the footage stops competing with the type. It is not the overlay's own panel (`surface.fill`) and not the page an overlay is set on (`colors.bg`): it is the shot being turned down for as long as the graphic is up, which is what a human editor does by hand. Timed and faded with the overlay that asks for it, drawn by the host rather than by each component. `none` is today's value everywhere, so the token is inert until a theme asks for it."
+        },
         "composition": {
           "enum": [
             "centered",

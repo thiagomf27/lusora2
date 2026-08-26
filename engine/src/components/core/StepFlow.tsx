@@ -28,7 +28,7 @@ export const StepFlowProps = z.object({
   steps: z.array(z.object({ label: z.string().max(28), detail: z.string().max(60).optional() })).min(2).max(5),
   direction: z.enum(["horizontal", "vertical"]).default("horizontal"),
   numbered: z.boolean().default(true),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type StepFlowProps = z.infer<typeof StepFlowProps>;
 

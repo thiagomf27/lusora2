@@ -85,6 +85,32 @@ export function surfaceColor(theme: Theme): string {
   return theme.colors.bg;
 }
 
+/**
+ * The colour a PLATE is painted, which is not always the page.
+ *
+ * `surface.plate: "page"` — every theme through D70 — paints a panel in the
+ * theme's own ground, so a dark theme gets a dark plate and `contrastInk` sets
+ * light type on it. `"invert"` paints it in the theme's INK instead: on a dark
+ * theme a white box with black type, on a light theme a black box with light
+ * type. It is the same panel either way; what changes is whether a panel reads
+ * as a continuation of the page or as a stamp on top of it.
+ *
+ * The idiom is not new — `captionStyle`'s `boxed` preset has always paired
+ * `colors.bg` ink with a `colors.text` plate, which is exactly this. The token
+ * is what lets the rest of the catalogue say the same thing.
+ *
+ * A CHOICE token: there is no neutral answer to "is a plate a continuation or a
+ * stamp", so it carries no schema default and an omitted token keeps `page`,
+ * which is what every component drew before it existed.
+ *
+ * `surfaceColor` deliberately stays the PAGE. A map's terrain, a chart's
+ * inter-wedge stroke and the ground a faded mark is blended against are not
+ * plates, and inverting them would repaint the world white.
+ */
+export function plateColor(theme: Theme): string {
+  return (theme.surface?.plate ?? "page") === "invert" ? theme.colors.text : theme.colors.bg;
+}
+
 /** WCAG relative luminance of a #rrggbb colour. */
 function luminance(hex: string): number {
   const h = hex.replace("#", "");
@@ -133,6 +159,21 @@ export function contrastInk(theme: Theme, background: string): string {
   return ratio(luminance(theme.colors.text)) >= ratio(luminance(theme.colors.bg))
     ? theme.colors.text
     : theme.colors.bg;
+}
+
+/**
+ * WCAG contrast ratio between two #rrggbb colours, 1 (identical) to 21.
+ *
+ * Exported because "does this colour read on that one" is a question components
+ * have to ask about grounds the THEME does not own — a document's paper stock, a
+ * photographic mat — where `contrastInk` cannot help, since it only ever picks
+ * between the theme's own two. 3 is the floor for a non-text mark, 4.5 for body
+ * type.
+ */
+export function contrastRatio(a: string, b: string): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
 /**
@@ -200,6 +241,29 @@ export function paperStock(theme: Theme): { stock: string; ink: string } {
     : { stock: theme.colors.bg, ink: theme.colors.text };
 }
 
+/** How much chroma a #rrggbb actually carries, 0 (grey) to 1 (saturated). */
+function chroma(hex: string): number {
+  const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(...v);
+  return max === 0 ? 0 : (max - Math.min(...v)) / max;
+}
+
+/**
+ * Whether the theme has any colour in it at all.
+ *
+ * A black-and-white channel is not a theme with an unlucky accent — it is a
+ * deliberate palette, and every resolver that would otherwise reach for one of
+ * the engine's own hues has to know. The threshold is generous: 8% chroma is a
+ * warm white or a cool grey, not a colour anyone chose to see.
+ */
+export function achromatic(theme: Theme): boolean {
+  return (
+    chroma(theme.colors.accent) < 0.08 &&
+    chroma(theme.colors.text) < 0.08 &&
+    chroma(theme.colors.bg) < 0.08
+  );
+}
+
 /**
  * The data ramp: hues for two or three series that have to be told apart.
  *
@@ -235,6 +299,34 @@ const SERIES_ON_DARK = ["#e8b45c", "#7fa8c8", "#a34c58"] as const;
  */
 export function seriesColors(theme: Theme): readonly string[] {
   const plate = surfaceColor(theme);
+  // An achromatic theme gets an achromatic ramp. Handing a black-and-white
+  // channel the engine's blue and oxblood is not a fallback, it is two colours
+  // the theme deliberately does not have — and the tell is the palette itself,
+  // so this needs no token. A theme that names a coloured accent is untouched.
+  if (achromatic(theme)) {
+    const ink = contrastInk(theme, plate);
+    // Separated by LIGHTNESS rather than hue, which is what an achromatic ramp
+    // has to be — and which is the one encoding no form of colour-blindness can
+    // take away. Against #0a0a0a these are 20:1, 8.7:1 and 3.4:1.
+    // The darkest step that still clears the 3:1 a non-text mark has to hold —
+    // FOUND, not assumed. sRGB is not linear, so the blend that works against a
+    // black page is nowhere near the one that works against a white one, and a
+    // hand-picked pair of alphas gets one of the two directions wrong.
+    let floor = 1;
+    for (let a = 0.2; a <= 1.0001; a += 0.02) {
+      if (contrastRatio(blend(ink, plate, a), plate) >= 3) {
+        floor = a;
+        break;
+      }
+    }
+    // Six steps, not three: a pie takes up to six slices and `ramp[i % 3]`
+    // wrapped the first colour back round to slice four. They are evenly spaced
+    // across [floor, 1] but EMITTED extremes-first, so the three a line chart
+    // uses are the top, the middle and the floor — two lines have to be told
+    // apart at a glance, where six wedges only have to not repeat.
+    const at = (t: number) => blend(ink, plate, floor + (1 - floor) * t);
+    return [at(1), at(0.4), at(0), at(0.8), at(0.2), at(0.6)];
+  }
   const base = luminance(plate) > 0.4 ? SERIES_ON_LIGHT : SERIES_ON_DARK;
   const bg = luminance(plate);
   const accent = luminance(theme.colors.accent);
@@ -294,7 +386,7 @@ export function surfaceStyle(theme: Theme, opts: SurfaceOptions = {}): SurfaceSt
 
   return {
     borderRadius: Math.round(radius * scale),
-    background: fillAlpha === "" ? "transparent" : `${theme.colors.bg}${fillAlpha ?? alpha}`,
+    background: fillAlpha === "" ? "transparent" : `${plateColor(theme)}${fillAlpha ?? alpha}`,
     accentRule: surface.accent_rule ?? accentRule,
   };
 }
@@ -472,6 +564,30 @@ export function composition(theme: Theme, own: Composition = "centered"): Compos
   return theme.layout?.composition ?? own;
 }
 
+const SCRIM_ALPHA: Record<NonNullable<NonNullable<Theme["layout"]>["scrim"]>, number> = {
+  none: 0,
+  soft: 0.34,
+  heavy: 0.58,
+};
+
+/**
+ * How far the shot is turned down while an overlay is on screen (D72).
+ *
+ * A scrim is none of the things the surface tokens describe. It is not the
+ * overlay's own panel, and it is not the page an overlay is set on — it is the
+ * FOOTAGE being dimmed for exactly as long as the graphic is up, which is the
+ * move a human editor makes by hand so type stops fighting the picture.
+ *
+ * Black rather than derived from the palette, deliberately: a scrim is a
+ * lighting change, not a surface. Turning a shot down is what reads as one, and
+ * tinting it the theme's ground would read as a colour cast over the footage.
+ *
+ * Returns 0 for every theme that says nothing, which is all of them before D72.
+ */
+export function scrimAlpha(theme: Theme): number {
+  return SCRIM_ALPHA[theme.layout?.scrim ?? "none"];
+}
+
 /**
  * The padding box a poster composition sets its content in, scaled by density.
  * Wider than it is tall would crowd the type against the top edge, so the
@@ -580,7 +696,7 @@ export function groundStyle(theme: Theme, opts: GroundOptions = {}): CSSProperti
   const invisible = surface.background === "transparent" || surface.background.endsWith("00");
   if (invisible && texture === null) {
     if (!legible || luminance(theme.colors.text) >= luminance(theme.colors.bg)) return null;
-    return { borderRadius: surface.borderRadius, backgroundColor: surfaceColor(theme) };
+    return { borderRadius: surface.borderRadius, backgroundColor: plateColor(theme) };
   }
   return {
     borderRadius: surface.borderRadius,
@@ -635,7 +751,12 @@ function compactNumber(v: number): string {
   const unit = abs >= 1e9 ? ["B", 1e9] : abs >= 1e6 ? ["M", 1e6] : abs >= 1e3 ? ["K", 1e3] : null;
   if (!unit) return Math.round(v * 10) / 10 === Math.round(v) ? String(Math.round(v)) : v.toFixed(1);
   const scaled = v / (unit[1] as number);
-  const text = Math.abs(scaled) >= 100 ? String(Math.round(scaled)) : scaled.toFixed(1);
+  // `.0` is not precision, it is noise: the reference sets 32K and 80K, never
+  // 32.0K. One decimal only when there is actually a fraction to show.
+  const text =
+    Math.abs(scaled) >= 100 || Math.round(scaled * 10) % 10 === 0
+      ? String(Math.round(scaled))
+      : scaled.toFixed(1);
   return `${text}${unit[0]}`;
 }
 

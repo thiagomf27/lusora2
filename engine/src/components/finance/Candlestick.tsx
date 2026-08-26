@@ -54,7 +54,7 @@ export const CandlestickProps = z.object({
     .optional(),
   y_label: z.string().max(24).optional(),
   source: z.string().max(52).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type CandlestickProps = z.infer<typeof CandlestickProps>;
 

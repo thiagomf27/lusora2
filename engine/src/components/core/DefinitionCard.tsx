@@ -25,7 +25,7 @@ export const DefinitionCardProps = z.object({
   part_of_speech: z.string().max(16).optional(),
   definition: z.string().max(180),
   origin: z.string().max(60).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type DefinitionCardProps = z.infer<typeof DefinitionCardProps>;
 

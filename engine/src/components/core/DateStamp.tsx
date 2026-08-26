@@ -19,6 +19,7 @@ import {
   mutedInk,
   PANEL_ENTRANCES,
   ruleWidth,
+  surfaceStyle,
   typeCase,
   typeScale,
   typeTracking,
@@ -32,7 +33,7 @@ export const DateStampProps = z.object({
   place: z.string().max(32).optional(),
   position: z.enum(["top_left", "top_right", "bottom_left", "bottom_right"]).default("top_left"),
   variant: z.enum(["stamped", "typed"]).default("stamped"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type DateStampProps = z.infer<typeof DateStampProps>;
 
@@ -79,19 +80,24 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
           : {}),
       }}
     >
-      {/* Accent hairline wipes out from the corner first. */}
-      <div
-        style={{
-          height: ruleWidth(theme, Math.max(2, height * 0.005)),
-          background: accent,
-          marginBottom: height * 0.018 * density,
-          width: interpolate(frame, [0, ruleDur], [0, width * 0.12], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: curve,
-          }),
-        }}
-      />
+      {/* Accent hairline wipes out from the corner first — and `accent_rule:
+          "none"` takes it away, the same way it takes the underline out from
+          under AnimatedCounter's figure. They are one ornament in two places:
+          a theme asking for a bare slug does not want a stripe over it. */}
+      {surfaceStyle(theme, { accentRule: "top" }).accentRule === "none" ? null : (
+        <div
+          style={{
+            height: ruleWidth(theme, Math.max(2, height * 0.005)),
+            background: accent,
+            marginBottom: height * 0.018 * density,
+            width: interpolate(frame, [0, ruleDur], [0, width * 0.12], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: curve,
+            }),
+          }}
+        />
+      )}
       <div
         style={{
           fontFamily: fontStack(theme.typography.display),

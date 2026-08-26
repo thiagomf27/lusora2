@@ -42,7 +42,7 @@ export const FactSheetProps = z.object({
   highlight_index: z.number().int().min(0).max(5).optional(),
   footnote: z.string().max(80).optional(),
   position: z.enum(["left", "right"]).default("left"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type FactSheetProps = z.infer<typeof FactSheetProps>;
 

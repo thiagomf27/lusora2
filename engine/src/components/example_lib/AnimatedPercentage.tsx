@@ -6,7 +6,7 @@ import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../the
 export const AnimatedPercentageProps = z.object({
   value: z.number().min(0).max(100),
   label: z.string(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type AnimatedPercentageProps = z.infer<typeof AnimatedPercentageProps>;
 

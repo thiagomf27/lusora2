@@ -56,7 +56,7 @@ export const RouteMapProps = z.object({
     .max(6),
   mode: z.enum(["march", "flight", "sea"]).default("march"),
   plate: plateSchema.optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type RouteMapProps = z.infer<typeof RouteMapProps>;
 

@@ -36,7 +36,7 @@ export const ChapterCardProps = z.object({
   rule: z.enum(["over", "under", "both", "none"]).default("both"),
   /** Was ArchiveChapterTitle's. A left-set act break is a different shot, not a look. */
   align: z.enum(["center", "left"]).default("center"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type ChapterCardProps = z.infer<typeof ChapterCardProps>;
 

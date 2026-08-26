@@ -26,6 +26,7 @@ import {
   mutedInk,
   PANEL_ENTRANCES,
   ruleWidth,
+  plateColor,
   surfaceColor,
   surfaceStyle,
   typeCase,
@@ -75,7 +76,7 @@ export const RegionHighlightProps = z.object({
   label: z.string().max(40).optional(),
   annotation: z.string().max(40).optional(),
   plate: plateSchema.optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type RegionHighlightProps = z.infer<typeof RegionHighlightProps>;
 
@@ -294,8 +295,13 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
             left: leaderEnd.x,
             top: leaderEnd.y - plateH * 0.06,
             maxWidth: plateW * 0.4,
-            background: `${theme.colors.bg}e0`,
-            borderBottom: `${Math.max(3, plateH * 0.005)}px solid ${accent}`,
+            // The label's own plate — a stamp over the map, not a piece of the
+            // page — so `plateColor`, with its ink asked against that plate.
+            background: `${plateColor(theme)}e0`,
+            borderBottom:
+              surfaceStyle(theme, { accentRule: "top" }).accentRule === "none"
+                ? undefined
+                : `${Math.max(3, plateH * 0.005)}px solid ${accent}`,
             padding: `${plateH * 0.016}px ${plateW * 0.018}px`,
             clipPath: `inset(0 ${interpolate(frame, [labelStart + 6, labelStart + 6 + fps * 0.4 * durationMul], [100, 0], {
               extrapolateLeft: "clamp",
@@ -309,7 +315,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
               fontFamily: fontStack(theme.typography.display),
               fontSize: plateH * 0.05 * typeScale(theme, "title"),
               fontWeight: typeWeight(theme, 700),
-              color: theme.colors.text,
+              color: contrastInk(theme, plateColor(theme)),
               whiteSpace: "nowrap",
             }}
           >
@@ -323,7 +329,10 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
                 fontSize: plateH * 0.028 * typeScale(theme, "body"),
                 letterSpacing: typeTracking(theme, 0.1),
                 textTransform: typeCase(theme, "uppercase"),
-                color: mutedInk(theme),
+                // Muted against the PLATE it is set on, not against the page.
+                // The two were the same colour until a plate could differ from
+                // the page (D71), and then this went pale grey on white.
+                color: mutedInk(theme, plateColor(theme)),
                 whiteSpace: "nowrap",
               }}
             >

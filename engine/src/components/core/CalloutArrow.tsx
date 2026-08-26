@@ -14,12 +14,15 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  contrastInk,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   motionScale,
+  plateColor,
   ruleWidth,
+  surfaceStyle,
   typeScale,
   useEntrance,
 } from "../theme.ts";
@@ -41,7 +44,7 @@ export const CalloutArrowProps = z.object({
     .default("center"),
   from: z.enum(["left", "right", "above", "below"]).default("left"),
   style: z.enum(["curved", "straight", "elbow"]).default("curved"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type CalloutArrowProps = z.infer<typeof CalloutArrowProps>;
 
@@ -206,14 +209,19 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
           top: ly,
           translate: "-50% -50%",
           maxWidth: width * 0.28,
-          background: `${theme.colors.bg}e6`,
-          borderLeft: `${ruleWidth(theme, Math.max(3, height * 0.005))}px solid ${accent}`,
+          // The label's own plate — a stamp over the footage, not a piece of
+          // the page — so `plateColor`, with its ink asked against that plate.
+          background: `${plateColor(theme)}e6`,
+          borderLeft:
+            surfaceStyle(theme, { accentRule: "left" }).accentRule === "none"
+              ? undefined
+              : `${ruleWidth(theme, Math.max(3, height * 0.005))}px solid ${accent}`,
           borderRadius: "0 6px 6px 0",
           padding: `${height * 0.016 * density}px ${width * 0.016 * density}px`,
           fontFamily: fontStack(theme.typography.body),
           fontSize: height * 0.03 * typeScale(theme, "body"),
           lineHeight: 1.25,
-          color: theme.colors.text,
+          color: contrastInk(theme, plateColor(theme)),
           clipPath: `inset(0 ${clip}% 0 0)`,
         }}
       >

@@ -28,7 +28,7 @@ export const FactCardProps = z.object({
   body: z.string().max(220),
   source: z.string().max(48).optional(),
   position: z.enum(["left", "right", "center"]).default("right"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type FactCardProps = z.infer<typeof FactCardProps>;
 

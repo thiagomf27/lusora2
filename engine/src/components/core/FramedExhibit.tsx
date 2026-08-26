@@ -23,7 +23,7 @@ import {
   PANEL_ENTRANCES,
   paperStock,
   ruleWidth,
-  surfaceColor,
+  plateColor,
   typeCase,
   typeScale,
   typeTracking,
@@ -97,7 +97,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
           position: "relative",
           padding: matPad,
           paddingBottom: polaroid ? matPad * 3 : matPad,
-          background: museum ? `${surfaceColor(theme)}f2` : polaroid ? `${paperStock(theme).stock}f2` : "transparent",
+          background: museum ? `${plateColor(theme)}f2` : polaroid ? `${paperStock(theme).stock}f2` : "transparent",
           border: museum ? `1px solid ${theme.colors.neutral}66` : "none",
           boxShadow: props.frame_style === "hairline" ? "none" : "0 20px 60px rgba(0,0,0,0.55)",
           scale: `${interpolate(frame, [0, inDur], [1.04, 1], {

@@ -20,6 +20,7 @@ export default function OverlayPreview({
   template = null,
   durationSeconds,
   background = "gradient",
+  backdropImage = null,
 }: {
   component: string;
   props: Record<string, unknown>;
@@ -28,11 +29,13 @@ export default function OverlayPreview({
   template?: string | null;
   durationSeconds: number;
   background?: "gradient" | "flat";
+  /** A real frame to stand the overlay on; wins over `background`. */
+  backdropImage?: string | null;
 }) {
   const ref = useRef<PlayerRef>(null);
   const inputProps = useMemo(
-    () => ({ component, props, theme, template, background }),
-    [component, props, theme, template, background]
+    () => ({ component, props, theme, template, background, backdropImage }),
+    [component, props, theme, template, background, backdropImage]
   );
   const durationInFrames = Math.max(Math.round(durationSeconds * FPS), 2);
   return (

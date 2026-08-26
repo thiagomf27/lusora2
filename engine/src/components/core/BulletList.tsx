@@ -28,7 +28,7 @@ export const BulletListProps = z.object({
   items: z.array(z.string().max(90)).min(2).max(5),
   marker: z.enum(["dot", "rule", "number", "none"]).default("rule"),
   align: z.enum(["left", "center"]).default("left"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type BulletListProps = z.infer<typeof BulletListProps>;
 

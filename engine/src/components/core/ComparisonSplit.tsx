@@ -38,7 +38,7 @@ export const ComparisonSplitProps = z.object({
   right: side,
   unit: z.string().max(16).optional(),
   caption: z.string().max(64).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type ComparisonSplitProps = z.infer<typeof ComparisonSplitProps>;
 

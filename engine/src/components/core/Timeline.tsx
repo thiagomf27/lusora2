@@ -29,7 +29,7 @@ export const TimelineProps = z.object({
   events: z.array(z.object({ date: z.string().max(16), label: z.string().max(48) })).min(2).max(6),
   orientation: z.enum(["horizontal", "vertical"]).default("horizontal"),
   highlight_index: z.number().int().min(0).max(5).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type TimelineProps = z.infer<typeof TimelineProps>;
 

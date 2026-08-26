@@ -14,7 +14,7 @@ import { emphasisColor, fadeInOutRange, fontStack, mutedInk } from "../theme.ts"
 export const QuoteCardProps = z.object({
   quote: z.string(),
   attribution: z.string().optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type QuoteCardProps = z.infer<typeof QuoteCardProps>;
 

@@ -15,14 +15,20 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_THEME,
+  achromatic,
   capsTracking,
   chartStyle,
   composition,
+  contrastInk,
+  contrastRatio,
+  plateColor,
+  seriesColors,
   densityScale,
   easingCurve,
   entranceFor,
   mutedInk,
   ruleWidth,
+  scrimAlpha,
   surfaceStyle,
   textureLayer,
   typeCase,
@@ -156,21 +162,26 @@ test("chart.axis: ink promotes an annotation to content, in colour and weight", 
 
 test("mutedInk returns the theme's own neutral whenever it is already readable", () => {
   // The identity that makes this a resolver rather than a token: every shipped
-  // theme but `standard` clears 3:1, so every one of them renders unchanged.
+  // theme clears 3:1, so every one of them renders unchanged. `standard` was the
+  // exception until D71 turned it mono — its neutral was #b9c0ca on a near-white
+  // page, which is a FILL and 1.7:1 as ink. The synthetic case below keeps that
+  // pair pinned now that no shipped theme carries it.
   const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
-  const light = { ...DEFAULT_THEME, colors: { ...DEFAULT_THEME.colors } };
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
     const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
-    const resolved = mutedInk(theme);
-    if (file.startsWith("standard")) {
-      assert.notEqual(resolved, theme.colors.neutral, "standard's neutral is a fill, not ink");
-    } else {
-      assert.equal(resolved, theme.colors.neutral, `${file}: mutedInk moved a readable neutral`);
-    }
+    assert.equal(mutedInk(theme), theme.colors.neutral, `${file}: mutedInk moved a readable neutral`);
   }
-  // And it only ever moves TOWARDS readable.
-  light.colors = { bg: "#ffffff", text: "#000000", accent: "#0000ff", neutral: "#f2f2f2" };
+  // And it only ever moves TOWARDS readable, from either direction.
+  const light = {
+    ...DEFAULT_THEME,
+    colors: { bg: "#ffffff", text: "#000000", accent: "#0000ff", neutral: "#f2f2f2" },
+  };
   assert.notEqual(mutedInk(light), "#f2f2f2");
+  const wasStandard = {
+    ...DEFAULT_THEME,
+    colors: { bg: "#f5f6f7", text: "#111827", accent: "#2858e8", neutral: "#b9c0ca" },
+  };
+  assert.notEqual(mutedInk(wasStandard), "#b9c0ca", "a fill-weight neutral is not ink");
 });
 
 // ---------------- D66: the tokens actually move ----------------
@@ -223,8 +234,13 @@ test("a theme names a chart choice and the component's own is overridden", () =>
 
 test("compact numbers are compact, and plain ones are not", () => {
   const compact = chartStyle(themed({ chart: { number_format: "compact" } })).formatNumber;
-  assert.equal(compact(50000), "50.0K");
+  // A decimal only when there is a fraction to show. `.0` is not precision, it
+  // is noise, and every reference sets 50K and 32K rather than 50.0K (D71).
+  assert.equal(compact(50000), "50K");
+  assert.equal(compact(32000), "32K");
+  assert.equal(compact(52_400), "52.4K");
   assert.equal(compact(1_240_000), "1.2M");
+  assert.equal(compact(2_000_000), "2M");
   assert.equal(compact(940), "940");
   assert.equal(chartStyle(DEFAULT_THEME).formatNumber(50000), "50,000");
 });
@@ -294,4 +310,113 @@ test("every easing token resolves to a bezier", () => {
     assert.equal(curve.length, 4);
     assert.ok(curve.every((n) => typeof n === "number" && Number.isFinite(n)));
   }
+});
+
+
+// ---------------- D71: a panel's colour, and a palette with no colour in it ----------------
+
+const MONO: Theme = {
+  ...DEFAULT_THEME,
+  colors: { bg: "#0a0a0a", text: "#ffffff", accent: "#ffffff", neutral: "#c9c9c9" },
+};
+
+test("plate: omitted paints a panel in the page, `invert` paints it in the ink", () => {
+  // The identity: every theme authored before D71 says nothing and keeps `page`.
+  assert.equal(plateColor(MONO), MONO.colors.bg);
+  assert.equal(plateColor(DEFAULT_THEME), DEFAULT_THEME.colors.bg);
+
+  const inverted = { ...MONO, surface: { plate: "invert" as const } };
+  assert.equal(plateColor(inverted), MONO.colors.text);
+  // And the ink follows without being told, because contrastInk already picks
+  // whichever of the theme's two colours holds contrast against what it is on.
+  assert.equal(contrastInk(inverted, plateColor(inverted)), MONO.colors.bg);
+  assert.equal(contrastInk(MONO, plateColor(MONO)), MONO.colors.text);
+});
+
+test("surfaceStyle paints with the plate colour, not the page colour", () => {
+  const inverted = { ...MONO, surface: { plate: "invert" as const, fill: "solid" as const } };
+  assert.ok(surfaceStyle(inverted).background.startsWith(MONO.colors.text));
+  const page = { ...MONO, surface: { fill: "solid" as const } };
+  assert.ok(surfaceStyle(page).background.startsWith(MONO.colors.bg));
+});
+
+test("every shipped theme is unchanged by the plate token", () => {
+  const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+    const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
+    if (theme.surface?.plate === "invert") continue;
+    assert.equal(plateColor(theme), theme.colors.bg, `${file}: plate moved without being asked`);
+  }
+});
+
+test("a palette with no chroma in it gets a ramp with no chroma in it", () => {
+  assert.equal(achromatic(MONO), true);
+  const coloured = {
+    ...DEFAULT_THEME,
+    colors: { bg: "#f5f6f7", text: "#111827", accent: "#2858e8", neutral: "#b9c0ca" },
+  };
+  assert.equal(achromatic(coloured), false);
+
+  const ramp = seriesColors(MONO);
+  // Six steps, because a pie takes six slices and `ramp[i % 3]` wrapped white
+  // back round to slice four.
+  assert.equal(ramp.length, 6);
+  for (const c of ramp) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    assert.equal(r, g, `${c} is not grey`);
+    assert.equal(g, b, `${c} is not grey`);
+  }
+  // Every mark clears the 3:1 a non-text mark has to hold against the plate,
+  // and no two adjacent steps collapse into each other.
+  for (const c of ramp) assert.ok(contrastRatio(c, MONO.colors.bg) >= 3, `${c} is unreadable`);
+  assert.equal(new Set(ramp).size, ramp.length);
+
+  // The same has to hold with the palette the other way up: sRGB is not linear,
+  // so a floor tuned against a black page is wrong against a white one.
+  const monoLight = {
+    ...DEFAULT_THEME,
+    colors: { bg: "#ffffff", text: "#111111", accent: "#111111", neutral: "#767676" },
+  };
+  assert.equal(achromatic(monoLight), true);
+  const lightRamp = seriesColors(monoLight);
+  assert.equal(lightRamp.length, 6);
+  for (const c of lightRamp) {
+    assert.ok(contrastRatio(c, monoLight.colors.bg) >= 3, `${c} is unreadable on a light page`);
+  }
+
+  // A theme that names a colour keeps the engine's hues.
+  assert.ok(seriesColors(coloured).some((c) => !/^#(\w\w)\1\1$/.test(c)));
+});
+
+test("contrastRatio is WCAG, so a component can ask about a ground the theme does not own", () => {
+  assert.equal(Math.round(contrastRatio("#ffffff", "#000000")), 21);
+  assert.equal(contrastRatio("#ffffff", "#ffffff"), 1);
+  // The case DocumentCard hit: a white accent stamped on white paper.
+  assert.ok(contrastRatio("#ffffff", "#f2f2f2") < 3);
+});
+
+
+// ---------------- D72: the shot turned down under an overlay ----------------
+
+test("scrim is inert until a theme asks, and only `standard` asks", () => {
+  // The identity: omitted means 0, so a theme from before D72 mounts no element
+  // at all and every existing render is untouched.
+  assert.equal(scrimAlpha(DEFAULT_THEME), 0);
+  assert.equal(scrimAlpha({ ...DEFAULT_THEME, layout: { scrim: "none" } }), 0);
+
+  const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+    const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
+    if (theme.layout?.scrim && theme.layout.scrim !== "none") continue;
+    assert.equal(scrimAlpha(theme), 0, `${file}: dimmed the shot without asking`);
+  }
+});
+
+test("scrim steps up, and never reaches opaque", () => {
+  const soft = scrimAlpha({ ...DEFAULT_THEME, layout: { scrim: "soft" } });
+  const heavy = scrimAlpha({ ...DEFAULT_THEME, layout: { scrim: "heavy" } });
+  assert.ok(soft > 0 && soft < heavy && heavy < 1);
+  // A scrim turns the shot DOWN. One that hid it would be a background, and the
+  // theme already has `colors.bg` for that.
+  assert.ok(heavy <= 0.75, "a scrim that opaque is a backdrop, not a dim");
 });

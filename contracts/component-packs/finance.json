@@ -4,11 +4,14 @@
     {
       "name": "Candlestick",
       "pack": "finance",
-      "when_to_use": "a price or index moving over an ordered sequence where the RANGE within each period matters — how far it swung, not just where it closed",
+      "when_to_use": "a price or index moving over an ordered sequence where the RANGE within each period matters \u2014 how far it swung, not just where it closed",
       "when_not_to_use": "a quantity where only the level matters at each point (LineChart); values at one moment (BarChart); how a single total was built up or eroded (WaterfallChart); one figure and its change (MetricGrid)",
       "anchor_types": [],
       "props": {
-        "title": { "type": "string", "maxWords": 8 },
+        "title": {
+          "type": "string",
+          "maxWords": 8
+        },
         "bars": {
           "type": "array",
           "required": true,
@@ -18,32 +21,73 @@
           "items": {
             "type": "object",
             "properties": {
-              "t": { "type": "string", "maxWords": 2, "description": "the period label ('Mar', 'Q3', '1929')" },
-              "o": { "type": "number", "description": "open" },
-              "h": { "type": "number", "description": "high" },
-              "l": { "type": "number", "description": "low" },
-              "c": { "type": "number", "description": "close" }
+              "t": {
+                "type": "string",
+                "maxWords": 2,
+                "description": "the period label ('Mar', 'Q3', '1929')"
+              },
+              "o": {
+                "type": "number",
+                "description": "open"
+              },
+              "h": {
+                "type": "number",
+                "description": "high"
+              },
+              "l": {
+                "type": "number",
+                "description": "low"
+              },
+              "c": {
+                "type": "number",
+                "description": "close"
+              }
             }
           }
         },
         "annotations": {
           "type": "array",
           "max": 2,
-          "description": "a note pinned above one period — what happened that week",
+          "description": "a note pinned above one period \u2014 what happened that week",
           "items": {
             "type": "object",
             "properties": {
-              "index": { "type": "number", "min": 0, "description": "index into `bars`" },
-              "text": { "type": "string", "maxWords": 5 }
+              "index": {
+                "type": "number",
+                "min": 0,
+                "description": "index into `bars`"
+              },
+              "text": {
+                "type": "string",
+                "maxWords": 5
+              }
             }
           }
         },
-        "y_label": { "type": "string", "maxWords": 3 },
-        "source": { "type": "string", "maxWords": 8 },
-        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+        "y_label": {
+          "type": "string",
+          "maxWords": 3
+        },
+        "source": {
+          "type": "string",
+          "maxWords": 8
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
       },
-      "region": { "y_min": 0.08, "y_max": 0.9 },
-      "duration_hint_s": { "min": 4, "default": 6.5 },
+      "region": {
+        "y_min": 0.08,
+        "y_max": 0.9
+      },
+      "duration_hint_s": {
+        "min": 4,
+        "default": 6.5
+      },
       "entrance_seconds": 0.4,
       "entrance_support": "panel",
       "renderer": "remotion"
@@ -51,11 +95,14 @@
     {
       "name": "MetricGrid",
       "pack": "finance",
-      "when_to_use": "two to six headline figures shown together as peers, each with how it moved — a results block, a quarter at a glance",
+      "when_to_use": "two to six headline figures shown together as peers, each with how it moved \u2014 a results block, a quarter at a glance",
       "when_not_to_use": "label/value rows about one subject read top to bottom, where no figure dominates (FactSheet); ONE figure worth dwelling on (AnimatedCounter); several subjects across several attributes (DataTable); figures compared by size (BarChart)",
       "anchor_types": [],
       "props": {
-        "title": { "type": "string", "maxWords": 8 },
+        "title": {
+          "type": "string",
+          "maxWords": 8
+        },
         "metrics": {
           "type": "array",
           "required": true,
@@ -64,21 +111,47 @@
           "items": {
             "type": "object",
             "properties": {
-              "label": { "type": "string", "maxWords": 4 },
-              "value": { "type": "string", "maxWords": 2, "description": "formatted as it should read: 'GBP 4.1bn', '12.4%'" },
-              "change_pct": { "type": "number", "description": "magnitude only; `direction` carries the sign" },
+              "label": {
+                "type": "string",
+                "maxWords": 4
+              },
+              "value": {
+                "type": "string",
+                "maxWords": 2,
+                "description": "formatted as it should read: 'GBP 4.1bn', '12.4%'"
+              },
+              "change_pct": {
+                "type": "number",
+                "description": "magnitude only; `direction` carries the sign"
+              },
               "direction": {
-                "enum": ["up", "down", "flat"],
+                "enum": [
+                  "up",
+                  "down",
+                  "flat"
+                ],
                 "default": "flat",
                 "description": "authored, not derived: casualties DOWN is a good quarter, and the arrow must be able to disagree with the sign"
               }
             }
           }
         },
-        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
       },
-      "region": { "y_min": 0.15, "y_max": 0.85 },
-      "duration_hint_s": { "min": 3, "default": 5 },
+      "region": {
+        "y_min": 0.15,
+        "y_max": 0.85
+      },
+      "duration_hint_s": {
+        "min": 3,
+        "default": 5
+      },
       "entrance_seconds": 0.4,
       "entrance_support": "panel",
       "renderer": "remotion"
@@ -86,17 +159,27 @@
     {
       "name": "WaterfallChart",
       "pack": "finance",
-      "when_to_use": "how ONE total was built up or eaten away — an opening figure, the things that moved it, the closing figure. Each column starts where the last one stopped",
+      "when_to_use": "how ONE total was built up or eaten away \u2014 an opening figure, the things that moved it, the closing figure. Each column starts where the last one stopped",
       "when_not_to_use": "separate quantities compared against each other rather than adding up to something (BarChart); parts of a whole with no sequence (PieChart); a level moving over time (LineChart); stages of a process with no arithmetic (StepFlow)",
-      "anchor_types": ["comparison"],
+      "anchor_types": [
+        "comparison"
+      ],
       "props": {
-        "title": { "type": "string", "maxWords": 8 },
+        "title": {
+          "type": "string",
+          "maxWords": 8
+        },
         "start": {
           "type": "object",
           "required": true,
           "properties": {
-            "label": { "type": "string", "maxWords": 3 },
-            "value": { "type": "number" }
+            "label": {
+              "type": "string",
+              "maxWords": 3
+            },
+            "value": {
+              "type": "number"
+            }
           }
         },
         "steps": {
@@ -109,8 +192,13 @@
           "items": {
             "type": "object",
             "properties": {
-              "label": { "type": "string", "maxWords": 3 },
-              "delta": { "type": "number" }
+              "label": {
+                "type": "string",
+                "maxWords": 3
+              },
+              "delta": {
+                "type": "number"
+              }
             }
           }
         },
@@ -118,15 +206,35 @@
           "type": "object",
           "description": "the closing total; omitted, the component adds up the steps itself",
           "properties": {
-            "label": { "type": "string", "maxWords": 3 },
-            "value": { "type": "number" }
+            "label": {
+              "type": "string",
+              "maxWords": 3
+            },
+            "value": {
+              "type": "number"
+            }
           }
         },
-        "source": { "type": "string", "maxWords": 8 },
-        "emphasis": { "enum": ["accent", "neutral"], "default": "accent" }
+        "source": {
+          "type": "string",
+          "maxWords": 8
+        },
+        "emphasis": {
+          "enum": [
+            "accent",
+            "neutral"
+          ],
+          "default": "neutral"
+        }
       },
-      "region": { "y_min": 0.08, "y_max": 0.9 },
-      "duration_hint_s": { "min": 4, "default": 6.5 },
+      "region": {
+        "y_min": 0.08,
+        "y_max": 0.9
+      },
+      "duration_hint_s": {
+        "min": 4,
+        "default": 6.5
+      },
       "entrance_seconds": 0.4,
       "entrance_support": "panel",
       "renderer": "remotion"

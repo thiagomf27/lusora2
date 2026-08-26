@@ -10,6 +10,13 @@
  * silently, so editing `text` in Studio can never crash the render. Overlapping
  * matches are dropped. Each annotation gets a FIXED integer seed so the
  * hand-drawn scribble is identical on every render pass.
+ *
+ * Two compositions (D70). `centered` is the card it always drew, floated over
+ * the shot. `poster` is the passage AS the page: ground edge to edge, the text
+ * set to the padding box and ranged left the way a printed column is, which is
+ * what a theme means when it says every other overlay owns the frame. The marks
+ * are unchanged between the two — they are drawn around the glyphs wherever the
+ * glyphs land.
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
@@ -17,14 +24,18 @@ import { Box, Bracket, Circle, Highlight, StrikeThrough, Underline } from "@remo
 import type { Theme } from "../theme.ts";
 import {
   TEXT_ENTRANCES,
+  composition,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  posterPad,
   ruleWidth,
   typeScale,
+  typeTracking,
+  typeWeight,
   useEntrance,
 } from "../theme.ts";
 
@@ -39,7 +50,7 @@ export const HighlightedPassageProps = z.object({
     )
     .max(3)
     .default([]),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type HighlightedPassageProps = z.infer<typeof HighlightedPassageProps>;
 
@@ -48,7 +59,9 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const density = densityScale(theme);
-  const ground = groundStyle(theme, { radius: 12, legible: true });
+  const poster = composition(theme) === "poster";
+  const framePad = posterPad(theme, { width, height });
+  const ground = groundStyle(theme, { radius: poster ? 0 : 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
 
   const curve = Easing.bezier(...easingCurve(theme));
@@ -88,10 +101,15 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
   const marksStart = Math.round(fps * 0.7 * durationMul);
   const markStagger = Math.round(fps * 0.5 * durationMul);
   const markDur = Math.round(fps * 0.5 * durationMul);
+  // A page can carry bigger type than a card can, because it is not competing
+  // with the footage around it for the reader's attention — it has replaced it.
   const size =
     Math.max(
-      height * 0.038,
-      Math.min(height * 0.07, (width * 1.5) / Math.max(1, props.text.length * 0.5)),
+      height * (poster ? 0.05 : 0.038),
+      Math.min(
+        height * (poster ? 0.11 : 0.07),
+        (width * (poster ? 2.4 : 1.5)) / Math.max(1, props.text.length * 0.5),
+      ),
     ) * typeScale(theme, "title");
   const strokeWidth = ruleWidth(theme, Math.max(2, height * 0.004));
 
@@ -110,19 +128,34 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: `0 ${width * 0.11 * density}px`,
+        padding: poster ? 0 : `0 ${width * 0.11 * density}px`,
         opacity,
       }}
     >
+      {/* On a poster the ground is the FRAME, so it cannot be the text block's
+          own background — a plate that hugs three lines of type is a card, which
+          is the composition this branch exists to leave behind. */}
+      {poster && ground ? (
+        <div style={{ position: "absolute", inset: 0, ...ground }} />
+      ) : null}
       <div
         style={{
-          ...(ground ? { ...ground, padding: `${height * 0.04 * density}px ${width * 0.04 * density}px` } : {}),
+          // A block, not a flex column: the children are the inline runs of one
+          // paragraph, and making them flex items would set every marked phrase
+          // on a line of its own. The outer container already centres this.
+          ...(poster
+            ? { boxSizing: "border-box", width: "100%", padding: `${framePad.y}px ${framePad.x}px` }
+            : ground
+              ? { ...ground, padding: `${height * 0.04 * density}px ${width * 0.04 * density}px` }
+              : {}),
           fontFamily: fontStack(theme.typography.display),
           fontSize: size,
-          lineHeight: 1.55,
+          fontWeight: poster ? typeWeight(theme, 600) : undefined,
+          letterSpacing: poster ? typeTracking(theme, -0.01) : undefined,
+          lineHeight: poster ? 1.28 : 1.55,
           color: theme.colors.text,
           overflowWrap: "anywhere",
-          maxWidth: width * 0.78,
+          maxWidth: poster ? "100%" : width * 0.78,
           opacity: interpolate(frame, [0, inDur], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -184,4 +217,9 @@ export function HighlightedPassage({ props, theme }: { props: HighlightedPassage
 }
 
 /** Which optional token blocks this component can actually obey (Part 3). */
-HighlightedPassage.honors = ["typography", "surface", "motion.entrance"];
+HighlightedPassage.honors = [
+  "typography",
+  "surface",
+  "layout.composition",
+  "motion.entrance",
+];

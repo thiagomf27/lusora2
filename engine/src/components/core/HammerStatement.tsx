@@ -19,6 +19,7 @@ import {
   groundStyle,
   motionScale,
   ruleWidth,
+  surfaceStyle,
   typeCase,
   typeScale,
   typeTracking,
@@ -30,7 +31,7 @@ export const HammerStatementProps = z.object({
   text: z.string().max(90),
   kicker: z.string().max(40).optional(),
   align: z.enum(["left", "center"]).default("left"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type HammerStatementProps = z.infer<typeof HammerStatementProps>;
 
@@ -68,7 +69,11 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
   });
   // The fitted size is a ratio of the frame, so the scale token multiplies
   // the whole fit rather than only its floor.
-  const size = Math.max(height * 0.06, Math.min(fontSize, height * 0.16)) * typeScale(theme, "title");
+  // 0.13, not 0.16: at three lines the old ceiling ran the statement edge to
+  // edge and turned an overlay into a title card. This is still the largest
+  // type in the catalogue — a hammer has to be the loudest thing on screen —
+  // but it now leaves the frame it is set over visible around it.
+  const size = Math.max(height * 0.06, Math.min(fontSize, height * 0.13)) * typeScale(theme, "title");
 
   const kickerIn = Math.round(fps * 0.15 * durationMul);
   const wordsStart = props.kicker ? Math.round(fps * 0.45 * durationMul) : kickerIn;
@@ -177,20 +182,25 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
         })}
       </div>
 
-      <div
-        style={{
-          marginTop: height * 0.035 * density,
-          width: boxWidth,
-          height: ruleWidth(theme, Math.max(3, height * 0.008)),
-          background: accent,
-          scale: `${interpolate(frame, [ruleStart, ruleStart + Math.round(fps * 0.3 * durationMul)], [0, 1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: curve,
-          })} 1`,
-          transformOrigin: centered ? "center" : "left center",
-        }}
-      />
+      {/* The bar that slams in under the statement is this component's accent
+          rule, so `accent_rule: "none"` takes it away — the same ornament the
+          counter's underline and the lower third's stripe already answer to. */}
+      {surfaceStyle(theme, { accentRule: "top" }).accentRule === "none" ? null : (
+        <div
+          style={{
+            marginTop: height * 0.035 * density,
+            width: boxWidth,
+            height: ruleWidth(theme, Math.max(3, height * 0.008)),
+            background: accent,
+            scale: `${interpolate(frame, [ruleStart, ruleStart + Math.round(fps * 0.3 * durationMul)], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: curve,
+            })} 1`,
+            transformOrigin: centered ? "center" : "left center",
+          }}
+        />
+      )}
       </div>
     </div>
   );

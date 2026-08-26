@@ -24,12 +24,15 @@ export default function OverlayThumb({
   theme,
   template = null,
   durationSeconds,
+  backdropImage = null,
 }: {
   component: string;
   props: Record<string, unknown>;
   theme: Theme;
   template?: string | null;
   durationSeconds: number;
+  /** A real frame to stand the overlay on; wins over the gradient. */
+  backdropImage?: string | null;
 }) {
   const durationInFrames = Math.max(Math.round(durationSeconds * FPS), 2);
   return (
@@ -37,7 +40,14 @@ export default function OverlayThumb({
       component={OverlaySolo}
       // `as const` on purpose: Thumbnail infers its Props from this literal, and
       // a widened `background: string` no longer matches OverlaySolo's union.
-      inputProps={{ component, props, theme, template, background: "gradient" as const }}
+      inputProps={{
+        component,
+        props,
+        theme,
+        template,
+        background: "gradient" as const,
+        backdropImage,
+      }}
       durationInFrames={durationInFrames}
       frameToDisplay={Math.floor(durationInFrames * 0.66)}
       fps={FPS}

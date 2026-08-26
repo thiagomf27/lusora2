@@ -6,7 +6,7 @@ import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../the
 export const TitleCardProps = z.object({
   text: z.string(),
   subtext: z.string().optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type TitleCardProps = z.infer<typeof TitleCardProps>;
 

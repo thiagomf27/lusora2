@@ -12,6 +12,7 @@
  * Usage:
  *   node scripts/preview-batch.mjs --theme <name> --props <file.json> Comp1 Comp2 ...
  *   node scripts/preview-batch.mjs --theme <name> --all
+ *   node scripts/preview-batch.mjs --theme <name> --bg frame.jpg --all
  *
  * Stills land in engine/fixtures/preview/<theme>/<Component>.png.
  */
@@ -31,6 +32,11 @@ const theme = flag("theme", "standard");
 const hold = Number(flag("hold", "4"));
 const at = Number(flag("at", "0.7"));
 const propsFile = flag("props", join(engineRoot, "src/catalog/sample-props.json"));
+// A real frame to stand the overlays on. The synthesized gradient answers "does
+// this draw"; only a photograph answers "does this read over the shot" — and a
+// scrim is invisible against a flat dark backdrop, which is the one case it is
+// there for.
+const bgFile = flag("bg", null);
 
 const sample = JSON.parse(readFileSync(propsFile, "utf8")).props;
 const named = argv.filter((a, i) => !a.startsWith("--") && !argv[i - 1]?.startsWith("--"));
@@ -59,7 +65,11 @@ mkdirSync(join(work, "clips"));
 try {
   // Same seeded gradient as preview-overlay.mjs: an unseeded one differs on
   // every run, which makes any before/after comparison meaningless.
-  ff(["-f", "lavfi", "-i", "gradients=size=1280x720:x0=0:y0=0:x1=1280:y1=720:c0=0x0d1220:c1=0x243350:seed=7", "-frames:v", "1", join(work, "clips/bg.png")], "bg");
+  if (bgFile) {
+    ff(["-i", resolve(bgFile), "-vf", "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720", "-frames:v", "1", join(work, "clips/bg.png")], "bg");
+  } else {
+    ff(["-f", "lavfi", "-i", "gradients=size=1280x720:x0=0:y0=0:x1=1280:y1=720:c0=0x0d1220:c1=0x243350:seed=7", "-frames:v", "1", join(work, "clips/bg.png")], "bg");
+  }
   ff(["-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", String(total), "-c:a", "libmp3lame", "-q:a", "9", join(work, "audio.mp3")], "audio");
 
   const plan = {

@@ -11,6 +11,7 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
   PANEL_ENTRANCES,
+  contrastRatio,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -33,7 +34,7 @@ export const DocumentCardProps = z.object({
   stamp: z.string().max(16).optional(),
   signature: z.string().max(32).optional(),
   variant: z.enum(["typed", "telegram", "handwritten"]).default("typed"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type DocumentCardProps = z.infer<typeof DocumentCardProps>;
 
@@ -47,6 +48,15 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
   // theme's two neutrals plays which part is a derivation, not a token.
   const { stock, ink } = paperStock(theme);
   const accent = emphasisColor(theme, props.emphasis);
+  /**
+   * A stamp is ink pressed into PAPER. The stock is always the lighter of the
+   * theme's two colours and has nothing to do with the page, so an accent that
+   * reads perfectly well over footage can be invisible on it — a white accent
+   * on a dark theme stamps white on white. It is admitted only if it clears the
+   * 3:1 a non-text mark has to hold, and otherwise the document's own ink does
+   * the stamping, which is what a real stamp would have used anyway.
+   */
+  const stampInk = contrastRatio(accent, stock) >= 3 ? accent : ink;
 
   const curve = Easing.bezier(...easingCurve(theme));
   const entrance = useEntrance(theme, {
@@ -205,14 +215,14 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
               right: width * 0.05 * density,
               top: height * 0.1 * density,
               padding: `${height * 0.012 * density}px ${width * 0.018 * density}px`,
-              border: `${ruleWidth(theme, Math.max(3, height * 0.006))}px solid ${accent}`,
+              border: `${ruleWidth(theme, Math.max(3, height * 0.006))}px solid ${stampInk}`,
               borderRadius: surfaceStyle(theme, { radius: 4 }).borderRadius,
               fontFamily: fontStack(theme.typography.body),
               fontSize: height * 0.04 * typeScale(theme, "kicker"),
               fontWeight: typeWeight(theme, 700),
               letterSpacing: typeTracking(theme, 0.16),
               textTransform: typeCase(theme, "uppercase"),
-              color: accent,
+              color: stampInk,
               opacity: interpolate(frame, [stampStart, stampStart + 4], [0, 0.75], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",

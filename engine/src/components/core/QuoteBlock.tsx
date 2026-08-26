@@ -36,7 +36,7 @@ export const QuoteBlockProps = z.object({
    *  a decision about the LINE, not about the channel, so it stays a prop. */
   size: z.enum(["standard", "large"]).default("standard"),
   align: z.enum(["left", "center"]).default("left"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type QuoteBlockProps = z.infer<typeof QuoteBlockProps>;
 

@@ -6,7 +6,7 @@ import { emphasisColor, fadeInOutRange, fontStack, motionScale } from "../../the
 export const ComparisonBarsProps = z.object({
   items: z.array(z.object({ label: z.string(), value: z.number() })).min(2).max(4),
   unit: z.string().optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type ComparisonBarsProps = z.infer<typeof ComparisonBarsProps>;
 

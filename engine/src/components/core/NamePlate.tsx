@@ -1,6 +1,11 @@
 /**
  * NamePlate — identifies a person: name, role, optional lifespan.
  *
+ * `side` carries `center` as well as the two edges. A lower third anchored to a
+ * corner and one centred under the subject are the same lockup in a different
+ * place, and the choice belongs to the shot: a centred portrait wants a centred
+ * name, an interview framed left does not.
+ *
  * The one component that uses captionStyle(). That helper returns absolute px
  * "sized against a 1080p reference; callers scale" — so every size it hands
  * back is multiplied by height / 1080 here. Forgetting that renders the role
@@ -22,7 +27,7 @@ import {
   mutedInk,
   PANEL_ENTRANCES,
   ruleWidth,
-  surfaceColor,
+  plateColor,
   surfaceStyle,
   typeCase,
   typeScale,
@@ -36,9 +41,9 @@ export const NamePlateProps = z.object({
   role: z.string().max(56).optional(),
   /** e.g. "1896–1974" */
   lifespan: z.string().max(16).optional(),
-  side: z.enum(["left", "right"]).default("left"),
+  side: z.enum(["left", "right", "center"]).default("left"),
   variant: z.enum(["bar", "boxed", "underline"]).default("bar"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type NamePlateProps = z.infer<typeof NamePlateProps>;
 
@@ -59,8 +64,18 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
   const { opacity, inDur } = entrance;
   const surface = surfaceStyle(theme, { radius: 6 });
   const ground = groundStyle(theme, { radius: 6, alpha: "e0", legible: true });
+  // The plate this lockup actually got. `surface.fill: none` on a theme whose
+  // ink is lighter than its page returns nothing at all, and the role line has
+  // to know: asking contrastInk about a plate that was never painted sets the
+  // ink against an imaginary background and puts black type on the footage.
+  const plate = groundStyle(theme, {
+    radius: 6,
+    alpha: props.variant === "boxed" ? "e6" : "bf",
+    legible: true,
+  });
 
-  const left = props.side === "left";
+  const centred = props.side === "center";
+  const left = props.side !== "right";
   const barDur = Math.round(fps * 0.3 * durationMul);
   const wipeStart = barDur * 0.6;
   const wipeDur = Math.round(fps * 0.45 * durationMul);
@@ -86,18 +101,22 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
       style={{
         position: "absolute",
         bottom: height * 0.15 * density,
-        left: left ? width * 0.06 : undefined,
-        right: left ? undefined : width * 0.06,
+        left: centred ? 0 : left ? width * 0.06 : undefined,
+        right: centred ? 0 : left ? undefined : width * 0.06,
         display: "flex",
         flexDirection: left ? "row" : "row-reverse",
         alignItems: "stretch",
+        justifyContent: centred ? "center" : undefined,
         opacity,
         translate: entrance.translate,
         scale: `${entrance.scale}`,
         clipPath: entrance.clipPath,
       }}
     >
-      {props.variant === "bar" ? (
+      {/* The stripe is this component's accent rule, in the one place a lower
+          third can put one — so `accent_rule: "none"` takes it away, exactly as
+          it takes the underline out from under a counter's figure. */}
+      {props.variant === "bar" && surface.accentRule !== "none" ? (
         <div
           style={{
             width: ruleWidth(theme, Math.max(5, width * 0.005)),
@@ -117,15 +136,11 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
         style={{
           // A lower third is the one overlay that ALWAYS sits over footage, so
           // its plate is the difference between a name and a smudge.
-          ...(groundStyle(theme, {
-            radius: 6,
-            alpha: props.variant === "boxed" ? "e6" : "bf",
-            legible: true,
-          }) ?? {}),
+          ...(plate ?? {}),
           ...borderSides(
             props.variant === "boxed"
               ? { width: ruleWidth(theme, 1), color: `${accent}66` }
-              : props.variant === "underline"
+              : props.variant === "underline" && surface.accentRule !== "none"
                 ? { side: "bottom", ruleWidth: ruleWidth(theme, Math.max(3, height * 0.006)), ruleColor: accent }
                 : {}
           ),
@@ -143,6 +158,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
           style={{
             display: "flex",
             alignItems: "baseline",
+            justifyContent: centred ? "center" : undefined,
             gap: width * 0.012 * density,
             opacity: interpolate(frame, [wipeStart, wipeStart + fps * 0.35], [0, 1], {
               extrapolateLeft: "clamp",
@@ -187,7 +203,8 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
               // over footage WITH its own background — the `boxed` preset pairs
               // `colors.bg` ink with a `colors.text` plate. Lift the ink out on
               // its own and a dark theme sets near-black on a near-black plate.
-              color: contrastInk(theme, surfaceColor(theme)),
+              color: plate ? contrastInk(theme, plateColor(theme)) : theme.colors.text,
+              textAlign: centred ? "center" : undefined,
               fontStyle: cs.fontStyle,
               letterSpacing: typeTracking(theme, cs.letterSpacing ? parseFloat(cs.letterSpacing) : 0),
               textTransform: typeCase(theme, cs.textTransform === "uppercase" ? "uppercase" : "none"),

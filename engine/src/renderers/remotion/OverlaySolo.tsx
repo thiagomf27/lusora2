@@ -9,13 +9,14 @@
  * which is the one place we want that failure to be visible.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { AbsoluteFill, Sequence, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, Sequence, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
 import { COMPONENTS } from "../../components/index.ts";
 import { TemplateOverlay } from "../../components/templates/TemplateOverlay.tsx";
 import { isTemplateKind } from "../../components/templates/registry.ts";
 import { fontStack } from "../../themes/runtime.ts";
 import { PackagedFonts } from "../../themes/fonts.tsx";
+import { Scrim } from "../../themes/scrim.tsx";
 
 export interface OverlaySoloInput {
   component: string;
@@ -25,6 +26,12 @@ export interface OverlaySoloInput {
   template?: string | null;
   /** Backdrop under the overlay: a shot stand-in, or the flat theme bg. */
   background?: "gradient" | "flat";
+  /**
+   * A real frame to stand the overlay on, as a URL or data URI. Wins over
+   * `background` when set — the whole point of it is to answer "what does this
+   * look like over actual footage", which a synthesized gradient cannot.
+   */
+  backdropImage?: string | null;
 }
 
 /** Mix a hex colour towards another by `amount` (0..1). */
@@ -70,6 +77,7 @@ export const OverlaySolo: React.FC<OverlaySoloInput> = ({
   theme,
   template,
   background = "gradient",
+  backdropImage = null,
 }) => {
   const { durationInFrames, height } = useVideoConfig();
   const registered = COMPONENTS[component];
@@ -110,12 +118,19 @@ export const OverlaySolo: React.FC<OverlaySoloInput> = ({
   return (
     <AbsoluteFill style={{ background: backdrop }}>
       <PackagedFonts />
+      {/* Remotion's Img rather than a bare <img>: a Thumbnail paints one frame
+          and does not wait for a browser image to decode, so a plain tag shows
+          the gradient underneath instead of the picture. */}
+      {backdropImage ? (
+        <Img src={backdropImage} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : null}
       {Overlay ? (
         <PreviewBoundary
           key={JSON.stringify(props)}
           fallback={(err) => message(`${component} could not render these props — ${err}`)}
         >
           <Sequence from={0} durationInFrames={durationInFrames}>
+            <Scrim theme={theme} />
             <Overlay props={props} theme={theme} />
           </Sequence>
         </PreviewBoundary>

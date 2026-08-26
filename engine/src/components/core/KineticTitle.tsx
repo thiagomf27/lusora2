@@ -28,7 +28,7 @@ export const KineticTitleProps = z.object({
   entrance: z.enum(["rise", "mask", "scale"]).default("mask"),
   align: z.enum(["left", "center"]).default("center"),
   emphasize_last: z.boolean().default(false),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type KineticTitleProps = z.infer<typeof KineticTitleProps>;
 

@@ -9,7 +9,7 @@ export const AnimatedMapProps = z.object({
   lng: z.number().min(-180).max(180),
   label: z.string().optional(),
   zoom: z.enum(["city", "region", "country", "continent"]).default("region"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type AnimatedMapProps = z.infer<typeof AnimatedMapProps>;
 

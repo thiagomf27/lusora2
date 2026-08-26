@@ -46,7 +46,7 @@ export const MetricGridProps = z.object({
     )
     .min(2)
     .max(6),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type MetricGridProps = z.infer<typeof MetricGridProps>;
 

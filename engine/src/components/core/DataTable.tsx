@@ -39,7 +39,7 @@ export const DataTableProps = z.object({
   /** The row the narration is about; the rest go quiet around it. */
   highlight_row: z.number().int().min(0).max(5).optional(),
   source: z.string().max(52).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type DataTableProps = z.infer<typeof DataTableProps>;
 

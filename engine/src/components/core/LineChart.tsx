@@ -67,7 +67,7 @@ export const LineChartProps = z.object({
   x_label: z.string().max(20).optional(),
   /** Credit line along the bottom. Was ArchiveLineChart's; every chart wants it. */
   source: z.string().max(52).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type LineChartProps = z.infer<typeof LineChartProps>;
 

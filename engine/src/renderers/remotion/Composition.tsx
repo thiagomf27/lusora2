@@ -23,6 +23,7 @@ import {
 import type { EditPlan, Theme, CaptionItem, OverlayItem } from "@lusora/contracts";
 import { COMPONENTS } from "../../components/index.ts";
 import { TemplateOverlay } from "../../components/templates/TemplateOverlay.tsx";
+import { Scrim } from "../../themes/scrim.tsx";
 import { isTemplateKind } from "../../components/templates/registry.ts";
 import { captionStyle } from "../../themes/runtime.ts";
 import { PackagedFonts } from "../../themes/fonts.tsx";
@@ -58,6 +59,9 @@ function Overlays({ plan, theme }: { plan: EditPlan; theme: Theme }) {
             if (!item.template || !isTemplateKind(item.template)) return null;
             return (
               <Sequence key={item.id} from={from} durationInFrames={durFrames}>
+                {/* Inside the Sequence, so the wash is timed to this overlay
+                    without either of them knowing about the other. */}
+                <Scrim theme={theme} />
                 <TemplateOverlay
                   template={item.template}
                   component={item.component}
@@ -69,6 +73,7 @@ function Overlays({ plan, theme }: { plan: EditPlan; theme: Theme }) {
           }
           return (
             <Sequence key={item.id} from={from} durationInFrames={durFrames}>
+              <Scrim theme={theme} />
               <Component props={item.props ?? {}} theme={theme} />
             </Sequence>
           );

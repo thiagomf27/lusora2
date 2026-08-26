@@ -19,6 +19,14 @@
  * always drew. `poster` hands it the frame: ground edge to edge, headline in
  * the top-left, columns capped in width and centred under it. The bar heights
  * are identical between them — only the furniture around the plot moves.
+ *
+ * The horizontal orientation now has both too. It was left out of D70 on the
+ * argument that a ranked list "already fills its box", which was wrong in the
+ * one way that matters: the box was a 72%-wide card floating in the middle of
+ * the shot, so a theme that had put every other chart on the page still got a
+ * card here. A poster row is not a thinner rule — it is a SLAB, sized to the
+ * height the page leaves rather than to a fraction of the frame, with its name
+ * and its figure set inside it.
  */
 import { z } from "zod";
 import { Easing, interpolate, interpolateColors, useCurrentFrame, useVideoConfig } from "remotion";
@@ -38,7 +46,7 @@ import {
   PANEL_ENTRANCES,
   posterPad,
   ruleWidth,
-  surfaceColor,
+  plateColor,
   surfaceStyle,
   typeCase,
   typeScale,
@@ -55,7 +63,7 @@ export const BarChartProps = z.object({
   highlight_index: z.number().int().min(0).max(6).optional(),
   /** Credit line along the bottom. Was ArchiveBarGraph's; every chart wants it. */
   source: z.string().max(52).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type BarChartProps = z.infer<typeof BarChartProps>;
 
@@ -118,16 +126,13 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
     grid: "baseline", // this component's own: one rule under the columns
     stroke: height * 0.026, // its own horizontal-bar thickness
   });
-  // A poster is only a composition for the COLUMN chart. Horizontal bars are a
-  // ranked list of rows; they already fill their box and have no headline slot
-  // to move, so there is nothing for `poster` to do that `density` does not.
-  const poster = vertical && composition(theme) === "poster";
+  const poster = composition(theme) === "poster";
   const pad = posterPad(theme, { width, height });
   const ground = groundStyle(theme, { radius: poster ? 0 : 14, accentRule: "none" });
-  // A poster column is a slab and carries the radius a card would; a centred
-  // one is small enough that 3px is all it ever had. The poster figure is a
-  // FRACTION of the frame — surfaceStyle's px are "at the 1080p reference", and
-  // a corner that stays 12px while the frame halves is a corner that doubles.
+  // A poster bar is a slab and carries the radius a card would; a centred one is
+  // small enough that 3px is all it ever had. The poster figure is a FRACTION
+  // of the frame — surfaceStyle's px are "at the 1080p reference", and a corner
+  // that stays 12px while the frame halves is a corner that doubles.
   const barRadius = surfaceStyle(theme, {
     radius: poster ? height * 0.0111 : 3,
   }).borderRadius;
@@ -177,6 +182,32 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
     ? { width: columnW, flexShrink: 0 }
     : { flex: 1, minWidth: 0 };
   const baselineH = ruleWidth(theme, Math.max(2, height * 0.003));
+
+  /**
+   * Row geometry, the horizontal mirror of the column block above. A centred
+   * row is a rule whose thickness is a fraction of the FRAME; a poster row is a
+   * slab that divides up the height the headline leaves, so it is arithmetic on
+   * what is actually left rather than another fraction. The cap stops two rows
+   * on a full-bleed page from becoming two horizons.
+   */
+  const rowGap = height * 0.03 * density;
+  const titleBlockH = props.title
+    ? titleSize * 1.15 + height * (poster ? 0.039 : 0.05) * density
+    : 0;
+  /**
+   * The credit is positioned out of the flow, against the bottom of the frame,
+   * so a poster whose content runs to the padding box would print the source
+   * line straight through it. Reserving the band is the only thing that keeps
+   * the two off each other — it is why LineChart subtracts one from its plot.
+   */
+  const creditBand = poster && props.source ? height * 0.05 * density : 0;
+  const rowH = Math.min(
+    height * 0.2,
+    Math.max(
+      height * 0.06,
+      (height - pad.y * 2 - creditBand - titleBlockH - rowGap * (count - 1)) / count,
+    ),
+  );
 
   const titleBlock = props.title ? (
     <div
@@ -417,6 +448,26 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
     </div>
   );
 
+  const horizontalBars = vertical ? null : (
+    <HorizontalBars
+      props={props}
+      theme={theme}
+      chart={chart}
+      plotW={plotW}
+      barRadius={barRadius}
+      barColor={barColor}
+      density={density}
+      axisDur={axisDur}
+      growDur={growDur}
+      stagger={stagger}
+      curve={curve}
+      max={max}
+      poster={poster}
+      rowH={rowH}
+      rowGap={rowGap}
+    />
+  );
+
   const credit = props.source ? (
     <div
       style={{
@@ -479,7 +530,7 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
               paddingLeft: pad.x + gutter,
               paddingRight: pad.x,
               paddingTop: pad.y,
-              paddingBottom: pad.y,
+              paddingBottom: pad.y + creditBand,
               display: "flex",
               flexDirection: "column",
               alignItems: "stretch",
@@ -498,23 +549,27 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
             {categories}
           </>
         )
+      ) : poster ? (
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            boxSizing: "border-box",
+            padding: `${pad.y}px ${pad.x}px`,
+            paddingBottom: pad.y + creditBand,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "stretch",
+          }}
+        >
+          {titleBlock}
+          {horizontalBars}
+        </div>
       ) : (
         <>
           {titleBlock}
-          <HorizontalBars
-            props={props}
-            theme={theme}
-            chart={chart}
-            plotW={plotW}
-            barRadius={barRadius}
-            barColor={barColor}
-            density={density}
-            axisDur={axisDur}
-            growDur={growDur}
-            stagger={stagger}
-            curve={curve}
-            max={max}
-          />
+          {horizontalBars}
         </>
       )}
 
@@ -524,10 +579,20 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
 }
 
 /**
- * The horizontal orientation: a ranked list of rows, unchanged by D70. It has
- * no separate axis to promote — the labels already sit in the text colour,
- * which is what `chart.axis: "ink"` means — and no headline slot to move, so
- * `layout.composition` has nothing to say to it.
+ * The horizontal orientation: a ranked list of rows.
+ *
+ * It has no separate axis to promote — the labels already sit in the text
+ * colour, which is what `chart.axis: "ink"` means — so the only thing
+ * `layout.composition` moves here is the SIZE of a row. Centred, a row is a
+ * rule whose thickness is a fraction of the frame and the type inside it is
+ * sized off that thickness. On a poster the rows divide up the height the
+ * headline leaves, which makes each one a slab, and the type is sized off the
+ * slab. Both readings come out of the same three ratios (0.22 padding, 0.30
+ * label, 0.36 figure) — only the number they multiply changes.
+ *
+ * The rail behind a bar is this component's baseline seen end-on: it says where
+ * the scale runs out, exactly as the rule under a column does. So it answers to
+ * `chart.grid` and a theme that says `none` gets bars on bare ground.
  */
 function HorizontalBars({
   props,
@@ -542,6 +607,9 @@ function HorizontalBars({
   stagger,
   curve,
   max,
+  poster,
+  rowH,
+  rowGap,
 }: {
   props: BarChartProps;
   theme: Theme;
@@ -555,6 +623,9 @@ function HorizontalBars({
   stagger: number;
   curve: ReturnType<typeof Easing.bezier>;
   max: number;
+  poster: boolean;
+  rowH: number;
+  rowGap: number;
 }) {
   const frame = useCurrentFrame();
   const { width, height } = useVideoConfig();
@@ -563,19 +634,39 @@ function HorizontalBars({
   // is what "inline" already means on LineChart: the series names itself where
   // it sits instead of in a row you have to look away to.
   const inside = chart.legend === "inline";
-  const barH = chart.strokeWidth;
+  const barH = poster ? rowH : chart.strokeWidth;
+  /**
+   * The bar's own height, which is what every measurement inside it is a ratio
+   * of. A poster row that sets its name ABOVE the bar rather than inside it has
+   * to give that line back out of the same slot, or the last row runs off the
+   * bottom of the page.
+   */
+  const slab = poster ? (inside ? rowH : rowH * 0.6) : inside ? barH * 1.25 : barH;
+  const labelFont = poster
+    ? slab * (inside ? 0.3 : 0.34) * typeScale(theme, "caption")
+    : barH * 0.62 * typeScale(theme, "caption");
+  const valueFont = poster
+    ? slab * (inside ? 0.36 : 0.4) * typeScale(theme, "number")
+    : barH * 0.62 * typeScale(theme, "caption");
+  /** Air between the type and the bar's ends. Centred it is a frame fraction —
+   *  the bar is a rule and has no inside to speak of; on a poster it is a
+   *  fraction of the slab, so a taller row is not a tighter one. */
+  const inset = poster ? slab * 0.22 * density : width * 0.008 * density;
+  const rail = chart.grid !== "none";
 
   return (
     <div
       style={{
         position: "relative",
         width: plotW,
-        height: height * (props.title ? 0.42 : 0.5),
+        height: poster ? undefined : height * (props.title ? 0.42 : 0.5),
+        flex: poster ? 1 : undefined,
+        minHeight: poster ? 0 : undefined,
         display: "flex",
         flexDirection: "column",
         alignItems: "stretch",
         justifyContent: "center",
-        gap: height * 0.04 * density,
+        gap: poster ? rowGap : height * 0.04 * density,
       }}
     >
       {props.series.map((s, i) => {
@@ -599,19 +690,40 @@ function HorizontalBars({
         // follows — measured, not guessed at from a ratio, because a short bar
         // with a long figure and a long bar with a short one both exist and a
         // single threshold gets one of them wrong.
-        const valueW = valueText.length * barH * 0.62 * 0.6;
-        const gap = width * 0.008 * density;
-        const fitsInside = fraction * plotW - gap * 2 > valueW;
-        const valueInk = fitsInside ? insideInk : contrastInk(theme, surfaceColor(theme));
+        //
+        // "Long enough" means long enough for BOTH, because the name is already
+        // in there. Asking only whether the figure fits put `9.2K units` on top
+        // of `Germany` the moment a poster row made the type big relative to a
+        // short bar — the two were measured against the same span and neither
+        // knew about the other.
+        const valueW = valueText.length * valueFont * 0.6;
+        const labelW = s.label.length * labelFont * 0.58;
+        const gap = inset;
+        const barW = fraction * plotW;
+        // Inside when the bar can hold both; outside when the track can hold
+        // the figure; inside anyway when neither can, because a figure hanging
+        // off the end of a nearly-full bar leaves the frame entirely and the
+        // name is the half that can ellipsize.
+        const roomOutside = plotW - barW - gap * 2 > valueW;
+        const fitsInside = barW - gap * 3 - labelW > valueW || !roomOutside;
+        const valueInk = fitsInside ? insideInk : contrastInk(theme, plateColor(theme));
         return (
-          <div key={i} style={{ display: "flex", flexDirection: "column", gap: height * 0.008 * density }}>
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+              gap: height * 0.008 * density,
+            }}
+          >
             {inside ? null : (
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   fontFamily: fontStack(theme.typography.body),
-                  fontSize: height * 0.026 * typeScale(theme, "caption"),
+                  fontSize: poster ? labelFont : height * 0.026 * typeScale(theme, "caption"),
                   color: theme.colors.text,
                 }}
               >
@@ -644,8 +756,8 @@ function HorizontalBars({
               style={{
                 position: "relative",
                 width: "100%",
-                height: inside ? barH * 1.25 : barH,
-                background: `${theme.colors.neutral}33`,
+                height: slab,
+                background: rail ? `${theme.colors.neutral}33` : "transparent",
                 borderRadius: barRadius,
               }}
             >
@@ -665,7 +777,13 @@ function HorizontalBars({
                     position: "absolute",
                     inset: 0,
                     fontFamily: numeric,
-                    fontSize: barH * 0.62 * typeScale(theme, "caption"),
+                    // The base size stays on the wrapper even though both spans
+                    // set their own: `letterSpacing` is in em, so it resolves
+                    // against whatever font-size is HERE. Dropping it let the
+                    // tracking resolve against the page's inherited 16px, which
+                    // on a hairline theme is three times the bar's own type and
+                    // pulled every label apart.
+                    fontSize: labelFont,
                     fontWeight: typeWeight(theme, 700),
                     fontVariantNumeric: "tabular-nums",
                     letterSpacing: typeTracking(theme),
@@ -679,9 +797,14 @@ function HorizontalBars({
                       left: gap,
                       top: 0,
                       bottom: 0,
-                      maxWidth: `calc(${fraction * 100}% - ${gap * 2}px)`,
+                      // With the figure inside the bar the name gets what is
+                      // left over; with it outside, the whole bar.
+                      maxWidth: fitsInside
+                        ? `calc(${fraction * 100}% - ${gap * 3 + valueW}px)`
+                        : `calc(${fraction * 100}% - ${gap * 2}px)`,
                       display: "flex",
                       alignItems: "center",
+                      fontSize: labelFont,
                       // Ink picked against THIS bar, so a muted bar and the
                       // highlighted one both stay readable.
                       color: insideInk,
@@ -702,6 +825,7 @@ function HorizontalBars({
                       bottom: 0,
                       display: "flex",
                       alignItems: "center",
+                      fontSize: valueFont,
                       color: valueInk,
                       whiteSpace: "nowrap",
                     }}

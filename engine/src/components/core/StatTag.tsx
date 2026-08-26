@@ -32,7 +32,7 @@ export const StatTagProps = z.object({
   unit: z.string().max(20).optional(),
   label: z.string().max(48),
   position: z.enum(["top_left", "top_right", "bottom_left", "bottom_right"]).default("top_right"),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type StatTagProps = z.infer<typeof StatTagProps>;
 

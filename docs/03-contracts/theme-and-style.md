@@ -26,12 +26,14 @@ grain: archival                   # optional post-look (Remotion path)
 surface:                          # D46 — the SHAPE of an overlay
   radius: square                  # square | soft | rounded
   fill: translucent               # solid | translucent | none
+  plate: page                     # D71 page | invert — WHICH colour a panel is
   accent_rule: top                # top | left | none
   density: airy                   # D66 tight | normal | airy
   rule: hairline                  # D66 hairline | normal | heavy
   texture: paper                  # D66 none | paper | grain | scanline
 layout:                           # D70 — where an overlay sits in the FRAME
   composition: poster             # centered | poster
+  scrim: soft                     # D72 none | soft | heavy — the shot turned down
 chart:                            # D66 — how a PLOTTED overlay reads
   grid: horizontal                # none | horizontal | full
   legend: inline                  # inline | bottom
@@ -159,6 +161,14 @@ at all.
   enums: `chart.grid` resolves to `axes | baseline | none | horizontal |
   full`, where `axes` (LineChart's y-and-x lines) and `baseline` (BarChart's
   single rule) are values a component can hold but no theme can name.
+- The same enum means different geometry per component, because it names the
+  READING rather than the drawing. `chart.legend: inline` is names at the end
+  of each line on `LineChart`, the name and the figure set inside the bar on
+  `BarChart`, and the name written on the wedge on `PieChart`; `bottom` is a
+  swatch row, a name above the bar, and a key of filled rows beside the ring.
+  `chart.grid: none` takes away LineChart's axes, BarChart's baseline and the
+  rail behind a horizontal bar — all three are the same statement that the
+  marks are the data and the rule is a convention.
 - `typography.case` is the one SCALE token whose identity was incomplete until
   D70. `as_written` is the instruction to leave a component's own caps alone,
   and `upper` forces them on — so a theme could add caps and never take them
@@ -213,9 +223,106 @@ which already changes BarChart's bar height.
 
 Not every component has a poster branch, and that is fine: a component with no
 second composition ignores `layout` exactly the way a component that plots
-nothing ignores `chart`. Today `BarChart`, `LineChart` and `PieChart` have one —
-the three whose centred form is a plot in a card with the page empty around it.
-A lower third, a corner tag and a caption never will.
+nothing ignores `chart`. Today `BarChart` (both orientations), `LineChart`,
+`PieChart`, `AnimatedCounter` and `HighlightedPassage` have one — the ones whose
+centred form is content in a card with the page empty around it. A lower third,
+a corner tag and a caption never will.
+
+What a poster branch is NOT is the same card at a bigger size. Each of these
+re-lays-out rather than rescaling: `AnimatedCounter` promotes its label from a
+caption under the figure to the headline above it and measures the figure with
+`fitText` so a seven-digit total and a two-digit one both fill the page;
+`BarChart`'s horizontal rows stop being rules whose thickness is a fraction of
+the frame and become slabs that divide up the height the headline leaves. If a
+poster branch is a scale factor, the token did not earn itself.
+
+### `fill` is whether there is a panel; `plate` is which colour it is
+
+`surface.fill` decides whether a component paints a panel at all. `surface.plate`
+decides what it is painted with, and the two are genuinely independent:
+
+- `page` — the panel is `colors.bg`, so it reads as a piece of the page the
+  overlay is set on, and `contrastInk` puts the theme's own ink on it. Every
+  theme through D70 draws this, and an omitted token keeps it.
+- `invert` — the panel is `colors.text` instead, so it reads as a stamp pressed
+  onto the page: a white box with black type on a dark theme, a black box with
+  light type on a light one. `contrastInk` follows without being told, because
+  it already picks whichever of the two colours holds contrast.
+
+The idiom is older than the token. `captionStyle`'s `boxed` preset has always
+paired `colors.bg` ink with a `colors.text` plate — a burned caption is a stamp,
+not a piece of the page — and `plate` is what lets a lower third, a label under
+a picture or a stat callout say the same thing without each one hardcoding it.
+
+`plateColor(theme)` is the resolver, and it deliberately does NOT replace
+`surfaceColor`. A map's terrain, the stroke between two pie wedges and the
+ground a faded mark is blended against are not panels; inverting those would
+repaint the world. The rule is: **`plateColor` for a panel you are painting,
+`surfaceColor` for the page you are painting on.**
+
+Two consequences worth knowing before authoring an `invert` theme:
+
+- A component that asks `contrastInk(theme, …)` about a panel it never painted
+  gets the ink for an imaginary background. `NamePlate` hit exactly this — under
+  `fill: none` there is no plate, so the role line has to fall back to
+  `colors.text` rather than to the ink of a box that is not there.
+- `invert` is only visible where a panel exists. Under `fill: none` it is inert,
+  which is why a theme can be bare over footage and still stamp a white label
+  under a picture: that plate is the component's own, not the theme's `fill`.
+
+**The rule, in one line:** `plateColor` for a panel you are painting,
+`surfaceColor` for the page you are painting on — and ask whether you got a
+plate at all before asking what ink goes on it. Every bug D71 surfaced was one
+of those three sentences being skipped, and all of them were invisible until a
+plate could differ from the page.
+
+### The scrim is the shot, not the overlay
+
+`layout.scrim` dims the FOOTAGE for exactly as long as an overlay is on screen.
+It is none of the things the surface tokens describe: not the overlay's own
+panel (`surface.fill`), not the colour a panel is painted (`surface.plate`), and
+not the page an overlay is set on (`colors.bg`). It is the move a human editor
+makes by hand — turning the picture down so the type stops competing with it —
+and it belongs in `layout` for the same reason `composition` does: it is about
+the frame, not about the graphic.
+
+Two things follow from that, and both are why it is drawn by the HOST rather
+than by each component:
+
+- **No component knows about it.** `Composition.tsx` and `OverlaySolo.tsx` mount
+  `<Scrim>` inside the same `Sequence` as the overlay, so it is timed to that
+  overlay without either being told about the other. Thirty components each
+  drawing the same rectangle is thirty places for one idea to drift.
+- **It fades on its own curve.** A component's entrance is a MOVE — a rise, a
+  wipe — and the shot going down is a light cue. It leads slightly going in and
+  lags going out, or the first frames of the graphic land on undimmed footage
+  and the last frames of the exit snap the picture back to full brightness.
+
+Black, not derived from the palette: a scrim is a lighting change rather than a
+surface, and tinting it the theme's ground reads as a colour cast over the
+footage instead of as a dip.
+
+Overlapping overlays each mount one, so their scrims compound. That is the
+honest reading — two graphics up at once genuinely is more to separate from the
+shot — and the compiler puts one overlay on screen at a time anyway.
+
+### An achromatic theme gets an achromatic everything
+
+`seriesColors` hands a chart two or three hues that have to be told apart, and
+for a black-and-white channel those hues are two colours the theme deliberately
+does not have. So the resolver asks the palette: if `accent`, `text` and `bg`
+all carry under 8% chroma, the ramp is six steps of the theme's own ink blended
+toward its plate — separated by LIGHTNESS, which is the one encoding no form of
+colour-blindness can take away.
+
+Six steps rather than three because a pie takes up to six slices and `ramp[i % 3]`
+wrapped the first colour back round to slice four. The first three keep the
+widest separation, since a line chart only ever uses those and two lines have to
+be told apart at a glance.
+
+This needed no token, for the same reason `mutedInk` did not: whether a palette
+has any colour in it is legible **from the palette**. A theme that names a
+coloured accent is untouched.
 
 ### The one place a theme is overruled
 

@@ -31,7 +31,7 @@ export const RankLabelProps = z.object({
   subtitle: z.string().max(36).optional(),
   /** Renders "of 20" and gives the count-down somewhere to start. */
   total: z.number().int().min(1).optional(),
-  emphasis: z.enum(["accent", "neutral"]).default("accent"),
+  emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type RankLabelProps = z.infer<typeof RankLabelProps>;
 

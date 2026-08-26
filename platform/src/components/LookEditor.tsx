@@ -34,6 +34,7 @@ import Link from "next/link";
 import type { CatalogEntry, ChannelConfig, Theme } from "@lusora/contracts";
 import { Button, Dropdown, Toggle } from "@/components/ds";
 import { previewDuration, previewPropsFor } from "@/lib/overlaySamples";
+import { useBackdrop } from "@/lib/backdrop";
 import { SoundThumb, TransitionThumb } from "@/components/LookThumbs";
 import scr from "@/app/(app)/screen.module.css";
 import s from "./LookEditor.module.css";
@@ -144,6 +145,8 @@ export default function LookEditor({
   scope?: "channel" | "video";
 }) {
   const [options, setOptions] = useState<LookOptions | null>(null);
+  // The same still the Overlays screen stores, so one upload dresses both.
+  const { image: backdrop } = useBackdrop();
   const [backgrounds, setBackgrounds] = useState<BackgroundRow[]>([]);
   const [themeRows, setThemeRows] = useState<ThemeRow[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -603,6 +606,7 @@ export default function LookEditor({
                             theme={activeTheme}
                             template={item.entry.template ?? null}
                             durationSeconds={previewDuration(item.entry)}
+                            backdropImage={backdrop}
                           />
                         ) : (
                           <span className={s.thumbEmpty}>{item ? "no theme" : "not in the catalog"}</span>

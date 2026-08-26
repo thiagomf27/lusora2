@@ -20,7 +20,7 @@
         "label": {
           "type": "string",
           "maxWords": 8,
-          "required": true
+          "description": "what the figure counts. Omit it when the narration names the figure in the same breath — a bare number is a legitimate overlay, and a label that only repeats the voice-over is noise"
         },
         "prefix": {
           "type": "string",
@@ -46,7 +46,7 @@
         "caption": {
           "type": "string",
           "maxWords": 12,
-          "description": "a qualifying second line under the label ('at the 13 September count')"
+          "description": "a qualifying second line under the figure ('at the 13 September count')"
         },
         "position": {
           "enum": [
@@ -61,7 +61,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -190,7 +190,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -246,7 +246,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -309,7 +309,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -370,7 +370,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -442,7 +442,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -510,7 +510,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -566,7 +566,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "duration_hint_s": {
@@ -610,7 +610,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -668,7 +668,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -716,7 +716,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "duration_hint_s": {
@@ -783,7 +783,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -880,7 +880,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -940,7 +940,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -998,7 +998,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1074,7 +1074,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1140,7 +1140,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1182,7 +1182,8 @@
         "side": {
           "enum": [
             "left",
-            "right"
+            "right",
+            "center"
           ],
           "default": "left"
         },
@@ -1199,7 +1200,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1280,7 +1281,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1346,7 +1347,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1396,7 +1397,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1525,7 +1526,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1625,7 +1626,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1727,7 +1728,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1779,7 +1780,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "duration_hint_s": {
@@ -1835,7 +1836,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {
@@ -1896,7 +1897,7 @@
             "accent",
             "neutral"
           ],
-          "default": "accent"
+          "default": "neutral"
         }
       },
       "region": {

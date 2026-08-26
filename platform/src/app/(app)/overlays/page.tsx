@@ -10,6 +10,7 @@ import CatalogEntryFields, {
 import type { TemplateChoice } from "@/components/CatalogEntryFields";
 import PackImport from "@/components/PackImport";
 import { hasHandWrittenSample, previewDuration, sampleProps } from "@/lib/overlaySamples";
+import { fileToBackdrop, useBackdrop } from "@/lib/backdrop";
 import s from "./overlays.module.css";
 
 const OverlayPreview = dynamic(() => import("@/components/OverlayPreview"), { ssr: false });
@@ -101,6 +102,9 @@ export default function OverlaysPage() {
   const [busy, setBusy] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // The still every preview on this screen stands on, shared with the Look grid.
+  const { image: backdrop, setImage: setBackdrop } = useBackdrop();
+  const [backdropError, setBackdropError] = useState<string | null>(null);
 
   async function load(select?: string) {
     const res = await fetch("/api/catalog");
@@ -516,12 +520,60 @@ export default function OverlaysPage() {
                       theme={theme}
                       template={entryForPreview.template ?? null}
                       durationSeconds={previewDuration(entryForPreview)}
+                      backdropImage={backdrop}
                     />
                   ) : (
                     <div className={s.empty}>No theme to preview with.</div>
                   )}
                 </div>
                 <div className={s.previewSide}>
+                  <div className={s.sideField}>
+                    <span className={s.sideLabel}>
+                      BACKDROP
+                      {backdrop && (
+                        <button className={s.reset} onClick={() => setBackdrop(null)}>
+                          clear
+                        </button>
+                      )}
+                    </span>
+                    <label className={s.backdropDrop}>
+                      <input
+                        type="file"
+                        name="preview-backdrop"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          // Clear the input either way: picking the SAME file
+                          // twice fires no change event otherwise, so a failed
+                          // decode could never be retried.
+                          e.target.value = "";
+                          if (!file) return;
+                          setBackdropError(null);
+                          try {
+                            setBackdrop(await fileToBackdrop(file));
+                          } catch (err) {
+                            setBackdropError(
+                              err instanceof Error ? err.message : "could not read that file"
+                            );
+                          }
+                        }}
+                      />
+                      {backdrop ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img className={s.backdropThumb} src={backdrop} alt="" />
+                      ) : (
+                        <span className={s.backdropHint}>choose a frame…</span>
+                      )}
+                    </label>
+                    {backdropError ? (
+                      <span className={s.formError}>{backdropError}</span>
+                    ) : (
+                      <span className={s.sideHint}>
+                        a real frame to stand the overlay on — stays in this browser, and
+                        the Look grid uses it too
+                      </span>
+                    )}
+                  </div>
                   <label className={s.sideField}>
                     <span className={s.sideLabel}>THEME</span>
                     <select

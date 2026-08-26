@@ -257,6 +257,11 @@ export interface Theme {
   surface?: {
     radius?: "square" | "soft" | "rounded";
     fill?: "solid" | "translucent" | "none";
+    /** D71 — WHICH colour a panel is painted, where `fill` is whether there is
+     *  one at all. `page` is the theme's ground (a panel continues the page);
+     *  `invert` is the theme's ink (a panel stamps on top of it). Omitted keeps
+     *  `page`, which is what every component drew before D71. */
+    plate?: "page" | "invert";
     /** Omitted keeps each component's own placement. */
     accent_rule?: "top" | "left" | "none";
     /** D66 — multiplier on padding, gaps, margins and panel insets. */
@@ -272,6 +277,10 @@ export interface Theme {
    *  each component's own composition. */
   layout?: {
     composition?: "centered" | "poster";
+    /** D72 — a wash over the FRAME while an overlay is on screen, so the shot
+     *  stops competing with the type. Timed with the overlay, drawn by the
+     *  host. Omitted (`none`) is what every render did before D72. */
+    scrim?: "none" | "soft" | "heavy";
   };
   /** D66 — how a plotted component reads. `grid`, `legend` and `markers` carry
    *  no default: there is no identity element for a choice, so omitted keeps
