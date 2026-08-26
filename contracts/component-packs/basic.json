@@ -1,0 +1,185 @@
+{
+  "pack": "basic",
+  "components": [
+    {
+      "name": "TextTitle",
+      "pack": "basic",
+      "when_to_use": "the one line the shot is about — an opening title, the subject being named, or a figure written out as words ('14,2 MILHOES km2'). `sub` is the quiet line under it: a pronunciation, a translation, a date",
+      "when_not_to_use": "a passage where one phrase matters more than the rest (TextHighlight); labelling where we are while the shot continues (TextPlace); naming a person (TextName)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "maxWords": 12
+        },
+        "sub": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "a pronunciation, translation or date, set small under the title"
+        },
+        "position": {
+          "enum": [
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "default": "center",
+          "description": "leave it centred unless the shot needs the middle kept clear"
+        },
+        "size": {
+          "enum": [
+            "medium",
+            "big"
+          ],
+          "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
+          "default": "big"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "entrance_seconds": 1.1,
+      "entrance_support": "text",
+      "renderer": "remotion"
+    },
+    {
+      "name": "TextPlace",
+      "pack": "basic",
+      "when_to_use": "the footage already shows a location and the viewer only needs it named — a corner label that does not interrupt the shot",
+      "when_not_to_use": "the viewer needs to know WHERE the place is rather than what it is called (SatelliteLocate); the place is the subject of the whole shot and deserves the frame (TextTitle)",
+      "anchor_types": [],
+      "props": {
+        "place": {
+          "type": "string",
+          "required": true,
+          "maxWords": 6
+        },
+        "country": {
+          "type": "string",
+          "maxWords": 5,
+          "description": "the wider region, set small under the place"
+        },
+        "position": {
+          "enum": [
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "default": "top_right",
+          "description": "the default keeps it clear of captions; move it only to dodge something in the shot"
+        },
+        "size": {
+          "enum": [
+            "medium",
+            "big"
+          ],
+          "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
+          "default": "medium"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3
+      },
+      "entrance_seconds": 0.7,
+      "entrance_support": "text",
+      "renderer": "remotion"
+    },
+    {
+      "name": "TextName",
+      "pack": "basic",
+      "when_to_use": "introducing a person by name while the narration continues; `role` is who they were",
+      "when_not_to_use": "a person's words rather than their name (TextHighlight); the name IS the title card (TextTitle); a lower third with a plate and a rule is wanted (NamePlate)",
+      "anchor_types": [],
+      "props": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "maxWords": 6
+        },
+        "role": {
+          "type": "string",
+          "maxWords": 7,
+          "description": "what they did or were, set small under the name"
+        },
+        "position": {
+          "enum": [
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "default": "bottom_left",
+          "description": "the lower-third corner; move it only to dodge something in the shot"
+        },
+        "size": {
+          "enum": [
+            "medium",
+            "big"
+          ],
+          "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
+          "default": "medium"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3.5
+      },
+      "entrance_seconds": 0.7,
+      "entrance_support": "text",
+      "renderer": "remotion"
+    },
+    {
+      "name": "TextHighlight",
+      "pack": "basic",
+      "when_to_use": "a sentence or passage on screen where ONE phrase is the point — `mark` names that phrase and the rest of the line drops back behind it",
+      "when_not_to_use": "the whole line matters equally (TextTitle); several phrases need marking, or the marks should land one after another (HighlightedPassage); the words are a quotation being attributed (QuoteBlock)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "maxWords": 26
+        },
+        "mark": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "must be an exact substring of `text`; everything outside it dims"
+        },
+        "position": {
+          "enum": [
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "default": "center",
+          "description": "leave it centred unless the shot needs the middle kept clear"
+        },
+        "size": {
+          "enum": [
+            "medium",
+            "big"
+          ],
+          "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
+          "default": "medium"
+        }
+      },
+      "duration_hint_s": {
+        "min": 3,
+        "default": 5
+      },
+      "entrance_seconds": 1.4,
+      "entrance_support": "text",
+      "renderer": "remotion"
+    }
+  ]
+}

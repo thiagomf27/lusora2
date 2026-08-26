@@ -12,12 +12,21 @@
  * it draws rather than a look) and `ArchiveCaption` was deleted. What was left
  * was a look, and a look is a theme.
  *
+ * ./basic is the text-only pack (D73): four role entries over one renderer in
+ * basic/TextTag.tsx, which is itself unregistered because it is drawing, not a
+ * catalog name.
+ *
  * ./example_lib keeps the original six as reference copies and is deliberately
  * NOT registered.
  */
 import type { ComponentType } from "react";
 import type { Theme } from "@lusora/contracts";
 
+
+import { TextHighlight } from "./basic/TextHighlight.tsx";
+import { TextName } from "./basic/TextName.tsx";
+import { TextPlace } from "./basic/TextPlace.tsx";
+import { TextTitle } from "./basic/TextTitle.tsx";
 
 import { Candlestick } from "./finance/Candlestick.tsx";
 import { MetricGrid } from "./finance/MetricGrid.tsx";
@@ -96,6 +105,10 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
   SocialPost,
   StatTag,
   StepFlow,
+  TextHighlight,
+  TextName,
+  TextPlace,
+  TextTitle,
   Timeline,
   WaterfallChart,
   WebPageFrame,
@@ -134,6 +147,10 @@ export {
   SocialPost,
   StatTag,
   StepFlow,
+  TextHighlight,
+  TextName,
+  TextPlace,
+  TextTitle,
   Timeline,
   WaterfallChart,
   WebPageFrame,
