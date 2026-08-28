@@ -287,7 +287,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       },
       place: { type: "string", maxWords: 4 },
       position: { enum: ["top_left", "top_right", "bottom_left", "bottom_right"], default: "top_left" },
-      variant: { enum: ["stamped", "typed"], default: "stamped" },
+      variant: { enum: ["stamped", "typed"], default: "typed" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     duration_hint_s: { min: 2, default: 3.5 },

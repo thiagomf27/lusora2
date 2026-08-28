@@ -36,6 +36,7 @@ import {
   chartStyle,
   composition,
   contrastInk,
+  contrastRatio,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -91,7 +92,16 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
    * gives. `emphasis: "accent"` is the opt-in that tints the figure instead.
    */
   const boxGround = plateColor(theme);
-  const boxInk = props.emphasis === "accent" ? accent : contrastInk(theme, boxGround);
+  // `emphasis: "accent"` is a REQUEST for the tint, not a guarantee it is
+  // legible: an achromatic theme names white as its accent, `plate: invert`
+  // paints the box in the ink, and the two meet as a white figure on a white
+  // box — the whole overlay reduced to an empty rectangle with its label
+  // underneath. Same guard DocumentCard's stamp takes against its paper stock
+  // (D71); 3:1 because the figure is display-sized type.
+  const boxInk =
+    props.emphasis === "accent" && contrastRatio(accent, boxGround) >= 3
+      ? accent
+      : contrastInk(theme, boxGround);
   const boxTexture = textureLayer(theme);
 
   const framePad = posterPad(theme, { width, height });

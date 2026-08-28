@@ -559,7 +559,7 @@
             "stamped",
             "typed"
           ],
-          "default": "stamped"
+          "default": "typed"
         },
         "emphasis": {
           "enum": [

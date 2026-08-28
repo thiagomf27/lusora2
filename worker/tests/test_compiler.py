@@ -229,7 +229,9 @@ def test_overlay_props_from_anchor_and_defaults():
     props = overlays[0]["props"]
     assert props["value"] == 70          # from_anchor: the LLM cannot get the number wrong
     assert props["label"] == "converted"  # anchor label fallback
-    assert props["emphasis"] == "accent"  # default
+    # D71 flipped this catalogue-wide: the accent tint is now something the
+    # planner opts INTO, so an overlay that says nothing renders neutral.
+    assert props["emphasis"] == "neutral"  # default
     assert overlays[0]["end_s"] <= 5.0
 
 
@@ -711,3 +713,142 @@ def test_a_cold_open_overlay_stays_on_its_own_beat():
     overlay = plan["tracks"]["overlays"][0]
     assert overlay["beat_id"] == "b1"
     assert 0.0 <= overlay["start_s"] < 4.5
+
+
+def test_outro_clears_narration_when_the_cue_table_outruns_the_audio_file():
+    """The TTS cue table and the encoded mp3 are two sources of truth for where
+    narration ends, and a real run had them 0.99s apart (263.471s of cues, a
+    262.478s file). Narration items are laid out from the TABLE, so an outro
+    placed at the FILE's end started before the last narration item finished and
+    the plan failed its own contiguity check naming two unrelated items."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "First sentence.", "visual_intent": "a"},
+        # an outro: start_s only orders it, the DURATION is what counts (D58)
+        {"id": "b9", "kind": "timed", "timing": {"start_s": 900, "end_s": 903},
+         "visual_intent": "a card over music"},
+    )
+    st = timings(("First sentence.", 0.0, 7.0))   # cues run to 7.0s...
+    plan = compile_plan(doc, st, CFG, 6.0)        # ...but the file is only 6.0s
+
+    visual = plan["tracks"]["visual"]
+    narration = [v for v in visual if v["beat_id"] == "b1"]
+    outro = [v for v in visual if v["beat_id"] == "b9"]
+    assert outro, "the outro should still be placed"
+    assert outro[0]["start_s"] >= narration[-1]["end_s"] - 1e-6, (
+        f"outro starts at {outro[0]['start_s']} before narration ends at {narration[-1]['end_s']}"
+    )
+    # and the whole track stays contiguous, which is what actually broke
+    for prev, cur in zip(visual, visual[1:]):
+        assert abs(cur["start_s"] - prev["end_s"]) < 1e-6
+
+
+def test_outro_placement_is_unchanged_when_the_file_is_the_longer_one():
+    """The ordinary case must be untouched: cues inside the file length."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "First sentence.", "visual_intent": "a"},
+        {"id": "b9", "kind": "timed", "timing": {"start_s": 900, "end_s": 903},
+         "visual_intent": "a card over music"},
+    )
+    st = timings(("First sentence.", 0.0, 6.0))
+    plan = compile_plan(doc, st, CFG, 6.5)
+    visual = plan["tracks"]["visual"]
+    outro = [v for v in visual if v["beat_id"] == "b9"][0]
+    narration = [v for v in visual if v["beat_id"] == "b1"][-1]
+    # Pinned to the pre-fix numbers: the outro ends where vo_end + its duration
+    # put it (6.5 + 3.0), and its start snaps back to the last narration item,
+    # which stretches it. That stretch is pre-existing behaviour and not what
+    # this fix is about — the point here is that taking the LONGER of the two
+    # sources leaves this ordinary case untouched.
+    assert outro["start_s"] == narration["end_s"] == 6.0
+    assert outro["end_s"] == 9.5
+
+
+
+# The basic pack's TextName takes no anchor, which is what the real beat used.
+NAMED_CFG = {
+    **CFG,
+    "style_pack_doc": {
+        **CFG["style_pack_doc"],
+        "overlays": {"density": "normal", "allowed_components": ["TextName"]},
+    },
+}
+
+
+def _named(sentence, name="Edward Bransfield"):
+    return beats(
+        {"id": "b1", "kind": "narration", "script_text": sentence, "visual_intent": "a",
+         "overlay": {"component": "TextName",
+                     "props_hint": {"name": name, "role": "oficial britanico"}}},
+    )
+
+
+def test_overlay_waits_for_its_subject_to_be_spoken():
+    """The real failure: a lower third for "Edward Bransfield" came up 0.4s into
+    a beat whose sentence does not name him until two-thirds through, so it was
+    already leaving as the narration reached the name."""
+    sentence = ("Em 30 de janeiro de 1820 dois dias depois o oficial britanico "
+                "Edward Bransfield avista a peninsula")
+    plan = compile_plan(_named(sentence), timings((sentence, 0.0, 18.0)), NAMED_CFG, 18.0)
+    ov = plan["tracks"]["overlays"][0]
+    # 17 words evenly over 18s. The overlay carries BOTH "Edward Bransfield"
+    # and "oficial britanico", and the narration reaches the role first, at
+    # word index 10 -> 18 * 10/17 = 10.588s, less the 0.35s lead. It then holds
+    # through the name. Rising on the earliest thing it says is the point: the
+    # graphic introduces the person as the sentence starts introducing him.
+    assert abs(ov["start_s"] - 10.238) < 0.05, ov["start_s"]
+    # and nowhere near the old start-of-beat placement
+    assert ov["start_s"] > 9.0
+
+
+def test_overlay_with_an_early_subject_keeps_the_old_start():
+    """A subject at the front of the sentence must behave exactly as before."""
+    sentence = "Edward Bransfield avista a peninsula trinity nesse dia de janeiro"
+    plan = compile_plan(_named(sentence), timings((sentence, 0.0, 9.0)), NAMED_CFG, 9.0)
+    assert plan["tracks"]["overlays"][0]["start_s"] == 0.4
+
+
+def test_overlay_with_no_locatable_subject_keeps_the_old_start():
+    """Nothing in the props appears in the narration: fall back, do not guess."""
+    sentence = "First sentence here now."
+    plan = compile_plan(_named(sentence, "Someone Unmentioned"),
+                        timings((sentence, 0.0, 8.0)), NAMED_CFG, 8.0)
+    assert plan["tracks"]["overlays"][0]["start_s"] == 0.4
+
+
+def test_overlay_timing_does_not_depend_on_prop_order():
+    """The planner writes props_hint as JSON, and its key order is arbitrary.
+    Taking the first needle that matched made the same overlay land at 2.65s or
+    0.65s depending purely on which key came first."""
+    sentence = "o oficial britanico Edward Bransfield avista a peninsula trinity naquele dia frio"
+    st = timings((sentence, 0.0, 12.0))
+
+    def start_for(hint):
+        doc = beats({"id": "b1", "kind": "narration", "script_text": sentence,
+                     "visual_intent": "a",
+                     "overlay": {"component": "TextName", "props_hint": hint}})
+        return compile_plan(doc, st, NAMED_CFG, 12.0)["tracks"]["overlays"][0]["start_s"]
+
+    a = start_for({"name": "Edward Bransfield", "role": "oficial britanico"})
+    b = start_for({"role": "oficial britanico", "name": "Edward Bransfield"})
+    assert a == b, f"{a} != {b}"
+
+
+def test_a_single_word_subject_is_found_when_it_is_unambiguous():
+    """DefinitionCard.term and TextPlace.place are routinely ONE word, which the
+    first cut of this refused to locate at all."""
+    sentence = "durante decadas o continente permaneceu uma suspeita ate que Stalingrado mudasse tudo"
+    doc = beats({"id": "b1", "kind": "narration", "script_text": sentence, "visual_intent": "a",
+                 "overlay": {"component": "TextName", "props_hint": {"name": "Stalingrado"}}})
+    plan = compile_plan(doc, timings((sentence, 0.0, 13.0)), NAMED_CFG, 13.0)
+    # 12 words over 13s; "Stalingrado" is index 9 -> 13 * 9/12 = 9.75s,
+    # less the 0.35s lead
+    assert abs(plan["tracks"]["overlays"][0]["start_s"] - 9.4) < 0.05
+
+
+def test_an_ambiguous_single_word_is_ignored():
+    """The same word twice in one beat locates nothing, so fall back."""
+    sentence = "gelo contra gelo e nada mais alem disso naquele dia"
+    doc = beats({"id": "b1", "kind": "narration", "script_text": sentence, "visual_intent": "a",
+                 "overlay": {"component": "TextName", "props_hint": {"name": "gelo"}}})
+    plan = compile_plan(doc, timings((sentence, 0.0, 11.0)), NAMED_CFG, 11.0)
+    assert plan["tracks"]["overlays"][0]["start_s"] == 0.4

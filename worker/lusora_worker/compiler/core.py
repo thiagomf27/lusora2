@@ -57,7 +57,17 @@ def compile_plan(
     # ---- where the timed beats go (D58) ----
     leading, trailing = _split_timed(timed_beats, bool(narration_beats))
     vo_start = round(max([float(b["timing"]["end_s"]) for b in leading], default=0.0), 3)
-    vo_end = vo_start + audio_duration_s
+    # The TTS cue table and the encoded audio FILE are two sources of truth for
+    # where the narration ends, and they do not always agree: one real run had
+    # 263.471s of cues against a 262.478s mp3. Narration items are laid out from
+    # the TABLE (_align_beats below), so taking the FILE alone puts an outro
+    # 0.99s before the last narration item finishes, and the plan then fails its
+    # own contiguity check naming two items that look unrelated. Take whichever
+    # runs longer: the outro belongs after ALL of the narration, however the two
+    # disagree. Where the table is the shorter of the two — the ordinary case —
+    # this is exactly what it was before.
+    narration_end = max((float(s.get("end_s") or 0.0) for s in sentence_timings), default=0.0)
+    vo_end = vo_start + max(audio_duration_s, narration_end)
     placed_timed = _place_timed(leading, trailing, vo_end)
     total_end = round(max([end for _b, _s, end in placed_timed] + [vo_end]), 3)
 
@@ -67,6 +77,10 @@ def compile_plan(
     # narration beats by mistake fails earlier, against script.txt, in
     # validate_beat_sheet's coverage check.)
     aligned = _align_beats(narration_beats, sentence_timings, vo_start) if narration_beats else []
+    # Rebuilt rather than threaded out of _align_beats: it is a pure function of
+    # sentence_timings and cheap, and returning it would change that function's
+    # shape for four call sites that do not want it.
+    word_timeline = _word_timeline(sentence_timings) if narration_beats else []
 
     # ---- visual track ----
     visual: list[dict[str, Any]] = []
@@ -108,7 +122,7 @@ def compile_plan(
         if item:
             overlays.append(item)
     for beat, (start, end, _s) in aligned:
-        item = _compile_overlay(beat, start, end, captions_enabled)
+        item = _compile_overlay(beat, start, end, captions_enabled, word_timeline, vo_start)
         if item:
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
@@ -656,8 +670,60 @@ def _avoid_caption_band(entry: dict[str, Any], props: dict[str, Any]) -> None:
             props[prop_name] = alternative
 
 
+def _subject_start(
+    timeline: list[dict[str, Any]],
+    vo_start: float,
+    window: tuple[float, float],
+    needles: list[str],
+) -> float | None:
+    """When, inside `window`, the narration actually SAYS the overlay's subject.
+
+    An overlay used to start 0.4s into its beat whatever it was about, but a
+    beat is a whole sentence and its subject is rarely at the front of one:
+    "Em 30 de janeiro de 1820, dois dias depois, o oficial britânico Edward
+    Bransfield avista a Península Trinity" put the lower third on screen four
+    words before the sentence began and took it away as the name was spoken.
+
+    The word timeline is already built for alignment, so the subject can be
+    LOCATED rather than estimated. Returns the EARLIEST time any needle is
+    spoken inside the window, so the caller's ordering cannot change the answer.
+    """
+    lo, hi = window
+    best: float | None = None
+    for needle in needles:
+        words = [compare_key(w) for w in tokenize(str(needle))]
+        if not words:
+            continue
+        hits: list[float] = []
+        for i in range(len(timeline) - len(words) + 1):
+            at = timeline[i]["start_s"] + vo_start
+            if at < lo - 1e-6 or at > hi + 1e-6:
+                continue
+            if all(timeline[i + j]["norm"] == words[j] for j in range(len(words))):
+                hits.append(at)
+        if not hits:
+            continue
+        if len(words) == 1:
+            # One word locates a subject only when it is UNAMBIGUOUS in this
+            # beat and long enough not to be a function word. That is what lets
+            # a DefinitionCard on "Antartica" or a TextPlace on "Stalingrad"
+            # find itself, while a suffix "m" or a repeated "de" cannot.
+            if len(hits) != 1 or len(words[0]) < 4:
+                continue
+        # EARLIEST, not first-listed: needles arrive in the planner's JSON key
+        # order, and that must not decide when a graphic appears. Ordering the
+        # same two props differently used to move this overlay by two seconds.
+        best = min(hits) if best is None else min(best, min(hits))
+    return round(best, 3) if best is not None else None
+
+
 def _compile_overlay(
-    beat: dict[str, Any], start: float, end: float, captions_enabled: bool = False
+    beat: dict[str, Any],
+    start: float,
+    end: float,
+    captions_enabled: bool = False,
+    timeline: list[dict[str, Any]] | None = None,
+    vo_start: float = 0.0,
 ) -> dict[str, Any] | None:
     overlay = beat.get("overlay")
     if not overlay:
@@ -740,7 +806,31 @@ def _compile_overlay(
     hint = entry.get("duration_hint_s") or {}
     want = float(hint.get("default", 4.0))
     minimum = float(hint.get("min", 1.0))
+    # Bring the graphic up as its subject is SPOKEN, not as the beat opens.
+    # `start + 0.4` remains the floor and the fallback: a subject at the front
+    # of the sentence, or one the timeline cannot locate, behaves exactly as
+    # before. The small lead puts the overlay on screen just ahead of the words
+    # so the viewer is reading it as they hear it.
     o_start = round(start + 0.4, 3)
+    if timeline:
+        # Two tiers, not one list: an anchor's source_words is a validated
+        # verbatim span of the script and OWNS the moment when it matches. The
+        # props are the fallback for an overlay that carries no anchor at all —
+        # the case that produced this bug.
+        spoken = None
+        if anchor is not None and anchor.get("source_words"):
+            spoken = _subject_start(
+                timeline, vo_start, (start, end), [str(anchor["source_words"])]
+            )
+        if spoken is None:
+            spoken = _subject_start(
+                timeline,
+                vo_start,
+                (start, end),
+                [v for v in props.values() if isinstance(v, str) and v.strip()],
+            )
+        if spoken is not None:
+            o_start = round(max(o_start, spoken - 0.35), 3)
     # An overlay is NOT bound to its beat's cut — graphics routinely hold across
     # one, and editors expect that. Clamping the end to the beat (as this used to)
     # silently starved every component at fast pacing: a 1.4s beat gave a

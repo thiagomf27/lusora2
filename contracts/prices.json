@@ -3,40 +3,115 @@
   "comment": "Price table for the cost gate (OQ-15: values are placeholders until real providers are chosen; unknown provider+operation = hard error, never silent $0). unit_price_usd is per unit stated in 'unit'.",
   "prices": {
     "mock": {
-      "llm.generate_script": { "unit": "token", "unit_price_usd": 0 },
-      "llm.plan_beats": { "unit": "token", "unit_price_usd": 0 },
-      "llm.plan_spine": { "unit": "token", "unit_price_usd": 0 },
-      "llm.chat_edit": { "unit": "token", "unit_price_usd": 0 },
-      "tts.narrate": { "unit": "char", "unit_price_usd": 0 },
-      "image.generate": { "unit": "image", "unit_price_usd": 0 }
+      "image.generate": {
+        "unit": "image",
+        "unit_price_usd": 0
+      },
+      "llm.chat_edit": {
+        "unit": "token",
+        "unit_price_usd": 0
+      },
+      "llm.generate_research": {
+        "unit": "token",
+        "unit_price_usd": 0
+      },
+      "llm.generate_script": {
+        "unit": "token",
+        "unit_price_usd": 0
+      },
+      "llm.plan_beats": {
+        "unit": "token",
+        "unit_price_usd": 0
+      },
+      "llm.plan_spine": {
+        "unit": "token",
+        "unit_price_usd": 0
+      },
+      "tts.narrate": {
+        "unit": "char",
+        "unit_price_usd": 0
+      }
     },
     "local": {
-      "tts.narrate": { "unit": "char", "unit_price_usd": 0 },
-      "whisper.transcribe": { "unit": "second", "unit_price_usd": 0 }
+      "tts.narrate": {
+        "unit": "char",
+        "unit_price_usd": 0
+      },
+      "whisper.transcribe": {
+        "unit": "second",
+        "unit_price_usd": 0
+      }
     },
     "ai33": {
-      "comment": "aggregator at api.ai33.pro; charges internal credits (recorded in details) — per-char USD is an estimate until a real rate is known (OQ-15)",
-      "tts.narrate": { "unit": "char", "unit_price_usd": 0.00001 }
+      "comment": "aggregator at api.ai33.pro; charges internal credits (recorded in details) \u2014 per-char USD is an estimate until a real rate is known (OQ-15)",
+      "tts.narrate": {
+        "unit": "char",
+        "unit_price_usd": 1e-05
+      }
     },
     "deepseek": {
-      "llm.generate_script": { "unit": "token", "unit_price_usd": 0.00000028 },
-      "llm.plan_beats": { "unit": "token", "unit_price_usd": 0.00000028 },
-      "llm.plan_spine": { "unit": "token", "unit_price_usd": 0.00000028 },
-      "llm.chat_edit": { "unit": "token", "unit_price_usd": 0.00000028 }
+      "llm.chat_edit": {
+        "unit": "token",
+        "unit_price_usd": 2.8e-07
+      },
+      "llm.generate_research": {
+        "unit": "token",
+        "unit_price_usd": 2.8e-07
+      },
+      "llm.generate_script": {
+        "unit": "token",
+        "unit_price_usd": 2.8e-07
+      },
+      "llm.plan_beats": {
+        "unit": "token",
+        "unit_price_usd": 2.8e-07
+      },
+      "llm.plan_spine": {
+        "unit": "token",
+        "unit_price_usd": 2.8e-07
+      }
     },
     "anthropic": {
-      "llm.generate_script": { "unit": "token", "unit_price_usd": 0.000003 },
-      "llm.plan_beats": { "unit": "token", "unit_price_usd": 0.000003 },
-      "llm.plan_spine": { "unit": "token", "unit_price_usd": 0.000003 },
-      "llm.chat_edit": { "unit": "token", "unit_price_usd": 0.000003 }
+      "llm.chat_edit": {
+        "unit": "token",
+        "unit_price_usd": 3e-06
+      },
+      "llm.generate_research": {
+        "unit": "token",
+        "unit_price_usd": 3e-06
+      },
+      "llm.generate_script": {
+        "unit": "token",
+        "unit_price_usd": 3e-06
+      },
+      "llm.plan_beats": {
+        "unit": "token",
+        "unit_price_usd": 3e-06
+      },
+      "llm.plan_spine": {
+        "unit": "token",
+        "unit_price_usd": 3e-06
+      }
     },
     "openai": {
-      "tts.narrate": { "unit": "char", "unit_price_usd": 0.000015 },
-      "image.generate": { "unit": "image", "unit_price_usd": 0.04 }
+      "tts.narrate": {
+        "unit": "char",
+        "unit_price_usd": 1.5e-05
+      },
+      "image.generate": {
+        "unit": "image",
+        "unit_price_usd": 0.04
+      }
     },
     "pexels": {
-      "stock.search": { "unit": "request", "unit_price_usd": 0 },
-      "stock.download": { "unit": "asset", "unit_price_usd": 0 }
+      "stock.search": {
+        "unit": "request",
+        "unit_price_usd": 0
+      },
+      "stock.download": {
+        "unit": "asset",
+        "unit_price_usd": 0
+      }
     }
   }
 }

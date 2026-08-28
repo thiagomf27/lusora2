@@ -32,7 +32,9 @@ Every LLM caller resolves its budget the same way: **prompt pack
 | Caller | Code default | File |
 | --- | --- | --- |
 | Script agent | **8000** | [script.py:64](../worker/lusora_worker/agents/script.py#L64) |
+| Research agent | **4000** — the lowest in the tree, and the one the v4 migration missed; `contracts/prompts/research/default.json` now sets 32000 over it | [script.py:146](../worker/lusora_worker/agents/script.py#L146) |
 | Beat planner | **64000** | [planner.py:187](../worker/lusora_worker/agents/planner.py#L187) |
+| Spine (planner phase 1) | **4000** — same v4 exposure the planner was fixed for; `contracts/prompts/spine/default.json` now sets 32000 over it | [planner.py:70](../worker/lusora_worker/agents/planner.py#L70) |
 | Editor chat (platform) | **12000** | [chatAgent.ts:53](../platform/src/lib/chatAgent.ts#L53) |
 | Prompt "Test run" (platform) | **4000** | [preview/route.ts:170](../platform/src/app/api/prompts/preview/route.ts#L170) |
 | `llm.chat()` signature fallback | 4000 (never used — every caller passes one) | [llm.py:43](../worker/lusora_worker/providers/llm.py#L43) |

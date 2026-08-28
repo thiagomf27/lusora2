@@ -32,7 +32,7 @@ export const DateStampProps = z.object({
   date: z.string().max(28),
   place: z.string().max(32).optional(),
   position: z.enum(["top_left", "top_right", "bottom_left", "bottom_right"]).default("top_left"),
-  variant: z.enum(["stamped", "typed"]).default("stamped"),
+  variant: z.enum(["stamped", "typed"]).default("typed"),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type DateStampProps = z.infer<typeof DateStampProps>;
