@@ -14,6 +14,7 @@
       "per_minute": 9
     },
     "allowed_packs": [
+      "basic",
       "core",
       "finance",
       "social"

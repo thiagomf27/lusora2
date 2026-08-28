@@ -12,6 +12,7 @@
   "overlays": {
     "density": "high",
     "allowed_packs": [
+      "basic",
       "core",
       "social"
     ]

@@ -1,0 +1,38 @@
+{
+  "name": "descoberta-doc",
+  "colors": {
+    "bg": "#0A1520",
+    "text": "#F0EDE8",
+    "accent": "#3DB87A",
+    "neutral": "#8CA0B0"
+  },
+  "typography": {
+    "display": "Playfair Display",
+    "body": "Inter",
+    "caption_preset": "plain"
+  },
+  "motion_feel": "slow_heavy",
+  "grain": "none",
+  "surface": {
+    "radius": "square",
+    "fill": "none",
+    "accent_rule": "none"
+  },
+  "layout": {
+    "scrim": "soft"
+  },
+  "motion": {
+    "entrance": "fade",
+    "easing": "smooth",
+    "per_component": {
+      "SatelliteLocate": "typewriter"
+    }
+  },
+  "sound": {
+    "gain": {
+      "sfx": 0,
+      "music_duck": 0.16,
+      "music_lift": 0.48
+    }
+  }
+}
