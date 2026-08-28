@@ -163,13 +163,19 @@ test("every catalog component has sample props", () => {
     [],
     "catalog components with no entry in sample-props.json"
   );
+  // Core MUST have a sample; a pack entry MAY. Synthesis covers a data pack
+  // whose props are all required or defaulted, but it drops every optional prop
+  // that has neither — so an entry whose point IS an optional prop (a counter's
+  // suffix, a lockup's second line) previews as a component nobody would ship.
+  // A hand-written sample is the existing escape hatch for exactly that.
+  const known = ALL_ENTRIES.map((e) => e.name);
   assert.deepEqual(
-    Object.keys(props).filter((n) => !names.includes(n)),
+    Object.keys(props).filter((n) => !known.includes(n)),
     [],
     "sample props for components that are not in the catalog"
   );
   for (const [name, sample] of Object.entries(props)) {
-    const entry = CORE_COMPONENTS.find((c) => c.name === name)!;
+    const entry = ALL_ENTRIES.find((c) => c.name === name)!;
     const unknown = Object.keys(sample).filter((k) => !(k in entry.props));
     assert.deepEqual(unknown, [], `${name}: sample props not declared in the catalog`);
     const missing = Object.entries(entry.props)

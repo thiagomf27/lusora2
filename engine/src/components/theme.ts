@@ -31,6 +31,7 @@ export {
   seriesColors,
   surfaceColor,
   surfaceStyle,
+  textPlate,
   textureLayer,
   typeCase,
   typeScale,

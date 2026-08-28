@@ -39,14 +39,19 @@
   },
   "motion": {
     "entrance": "rise",
-    "easing": "snap"
+    "easing": "snap",
+    "per_component": {
+      "TextTitle": "typewriter",
+      "TextName": "typewriter"
+    }
   },
   "sound": {
     "pack": "punchy",
     "entrance": "swoosh-bright",
     "per_entrance": {
       "pop": "pop-tight",
-      "rise": "swoosh-bright"
+      "rise": "swoosh-bright",
+      "typewriter": "tick-typing"
     },
     "mood_beds": {
       "neutral": "neutral-01",

@@ -8,24 +8,26 @@
  */
 import { z } from "zod";
 import type { Theme } from "../theme.ts";
-import { POSITION, SIZE, TextTag } from "./TextTag.tsx";
+import { POSITION, SIZE, TextLockup } from "./TextLockup.tsx";
 
 export const TextPlaceProps = z.object({
   place: z.string().max(48),
   country: z.string().max(40).optional(),
   position: POSITION.default("top_right"),
   size: SIZE.default("medium"),
+  background: z.boolean().optional(),
 });
 export type TextPlaceProps = z.infer<typeof TextPlaceProps>;
 
 export function TextPlace({ props, theme }: { props: TextPlaceProps; theme: Theme }) {
   return (
-    <TextTag
+    <TextLockup
       component="TextPlace"
       lead={props.place}
       sub={props.country}
       position={props.position}
       size={props.size}
+      plated={props.background}
       theme={theme}
       seconds={0.7}
     />

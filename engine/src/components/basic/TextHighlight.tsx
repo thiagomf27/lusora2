@@ -8,24 +8,28 @@
  */
 import { z } from "zod";
 import type { Theme } from "../theme.ts";
-import { POSITION, SIZE, TextTag } from "./TextTag.tsx";
+import { POSITION, SIZE, TextLockup } from "./TextLockup.tsx";
 
 export const TextHighlightProps = z.object({
   text: z.string().max(160),
   mark: z.string().max(60).optional(),
+  label: z.string().max(60).optional(),
   position: POSITION.default("center"),
   size: SIZE.default("medium"),
+  background: z.boolean().optional(),
 });
 export type TextHighlightProps = z.infer<typeof TextHighlightProps>;
 
 export function TextHighlight({ props, theme }: { props: TextHighlightProps; theme: Theme }) {
   return (
-    <TextTag
+    <TextLockup
       component="TextHighlight"
       lead={props.text}
+      sub={props.label}
       mark={props.mark}
       position={props.position}
       size={props.size}
+      plated={props.background}
       theme={theme}
       seconds={1.4}
     />

@@ -8,24 +8,26 @@
  */
 import { z } from "zod";
 import type { Theme } from "../theme.ts";
-import { POSITION, SIZE, TextTag } from "./TextTag.tsx";
+import { POSITION, SIZE, TextLockup } from "./TextLockup.tsx";
 
 export const TextNameProps = z.object({
   name: z.string().max(48),
   role: z.string().max(56).optional(),
   position: POSITION.default("bottom_left"),
   size: SIZE.default("medium"),
+  background: z.boolean().optional(),
 });
 export type TextNameProps = z.infer<typeof TextNameProps>;
 
 export function TextName({ props, theme }: { props: TextNameProps; theme: Theme }) {
   return (
-    <TextTag
+    <TextLockup
       component="TextName"
       lead={props.name}
       sub={props.role}
       position={props.position}
       size={props.size}
+      plated={props.background}
       theme={theme}
       seconds={0.7}
     />

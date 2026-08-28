@@ -261,7 +261,8 @@ export interface Theme {
      *  one at all. `page` is the theme's ground (a panel continues the page);
      *  `invert` is the theme's ink (a panel stamps on top of it). Omitted keeps
      *  `page`, which is what every component drew before D71. */
-    plate?: "page" | "invert";
+    plate?: "page" | "invert" | "accent";
+    text_plate?: "on" | "off";
     /** Omitted keeps each component's own placement. */
     accent_rule?: "top" | "left" | "none";
     /** D66 — multiplier on padding, gaps, margins and panel insets. */

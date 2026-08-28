@@ -142,9 +142,17 @@
         "plate": {
           "enum": [
             "page",
-            "invert"
+            "invert",
+            "accent"
           ],
-          "description": "WHICH colour a panel is painted, as opposed to `fill`, which is whether there is one at all. `page` paints it in the theme's ground, so a panel reads as a continuation of the page and contrastInk sets the theme's ink on it. `invert` paints it in the theme's INK instead — a white box with black type on a dark theme, a black box with light type on a light one — so a panel reads as a stamp on top of the page rather than part of it. The idiom already existed: captionStyle's `boxed` preset has always paired `colors.bg` ink with a `colors.text` plate. No default (choice token): there is no neutral answer to continuation-or-stamp, so an omitted token keeps `page`, which is what every component drew before D71."
+          "description": "WHICH colour a panel is painted, as opposed to `fill`, which is whether there is one at all. `page` paints it in the theme's ground, so a panel reads as a continuation of the page and contrastInk sets the theme's ink on it. `invert` paints it in the theme's INK instead — a white box with black type on a dark theme, a black box with light type on a light one — so a panel reads as a stamp on top of the page rather than part of it. `accent` paints it in the theme's accent, which is the tag idiom: a coloured chip whose type takes whatever colour reads on it. The idiom already existed: captionStyle's `boxed` preset has always paired `colors.bg` ink with a `colors.text` plate. No default (choice token): there is no neutral answer to continuation-or-stamp-or-tag, so an omitted token keeps `page`, which is what every component drew before D71."
+        },
+        "text_plate": {
+          "enum": [
+            "on",
+            "off"
+          ],
+          "description": "whether an overlay that draws BARE TYPE on the shot puts a plate behind it by default — the `basic` pack's `background` prop, answered by the theme when the overlay itself says nothing. WHICH colour that plate is remains `plate`. An overlay that sets `background` explicitly still wins, and a role may opt out of the default entirely: a title is the subject of the frame rather than a label on it, so it stays bare unless asked. No default (choice token): omitted keeps `off`, which is bare type on the shot — what the pack is for."
         },
         "accent_rule": {
           "enum": [

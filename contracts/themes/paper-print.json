@@ -23,11 +23,19 @@
     "accent_rule": "none",
     "density": "airy",
     "rule": "hairline",
-    "texture": "paper"
+    "texture": "paper",
+    "text_plate": "on"
+  },
+  "layout": {
+    "scrim": "soft"
   },
   "motion": {
     "entrance": "rise",
-    "easing": "smooth"
+    "easing": "smooth",
+    "per_component": {
+      "TextTitle": "typewriter",
+      "TextName": "typewriter"
+    }
   },
   "chart": {
     "grid": "horizontal",

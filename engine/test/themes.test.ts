@@ -22,6 +22,7 @@ import {
   contrastInk,
   contrastRatio,
   plateColor,
+  textPlate,
   seriesColors,
   densityScale,
   easingCurve,
@@ -320,13 +321,24 @@ const MONO: Theme = {
   colors: { bg: "#0a0a0a", text: "#ffffff", accent: "#ffffff", neutral: "#c9c9c9" },
 };
 
-test("plate: omitted paints a panel in the page, `invert` paints it in the ink", () => {
+test("plate: omitted is the page, `invert` is the ink, `accent` is the accent", () => {
   // The identity: every theme authored before D71 says nothing and keeps `page`.
   assert.equal(plateColor(MONO), MONO.colors.bg);
   assert.equal(plateColor(DEFAULT_THEME), DEFAULT_THEME.colors.bg);
 
   const inverted = { ...MONO, surface: { plate: "invert" as const } };
   assert.equal(plateColor(inverted), MONO.colors.text);
+
+  // `accent` is the tag idiom: the chip IS the accent, and its ink is whatever
+  // reads on it — which is what lets a yellow tag carry black type without the
+  // component knowing the tag is yellow.
+  const tag = {
+    ...MONO,
+    colors: { ...MONO.colors, accent: "#f5c518" },
+    surface: { plate: "accent" as const },
+  };
+  assert.equal(plateColor(tag), "#f5c518");
+  assert.ok(contrastRatio(contrastInk(tag, plateColor(tag)), "#f5c518") >= 4.5);
   // And the ink follows without being told, because contrastInk already picks
   // whichever of the theme's two colours holds contrast against what it is on.
   assert.equal(contrastInk(inverted, plateColor(inverted)), MONO.colors.bg);
@@ -344,8 +356,35 @@ test("every shipped theme is unchanged by the plate token", () => {
   const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
     const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
-    if (theme.surface?.plate === "invert") continue;
+    // Keyed on whether the token is SET, not on which value it holds: the
+    // identity is "a theme that did not ask keeps the page", and enumerating
+    // the values means every new one has to be remembered here.
+    if (theme.surface?.plate !== undefined) continue;
     assert.equal(plateColor(theme), theme.colors.bg, `${file}: plate moved without being asked`);
+  }
+});
+
+test("text_plate: omitted leaves bare type, `on` plates it", () => {
+  // The identity: the pack drew bare type before the token, and a theme that
+  // does not mention it still does.
+  assert.equal(textPlate(DEFAULT_THEME), false);
+  assert.equal(textPlate(MONO), false);
+  assert.equal(textPlate({ ...MONO, surface: { text_plate: "on" as const } }), true);
+  assert.equal(textPlate({ ...MONO, surface: { text_plate: "off" as const } }), false);
+
+  // It is NOT `fill` wearing a different name: `paper-print` paints no panels
+  // and still wants its labels chipped, which is the pair that ruled `fill` out.
+  const paperish = { ...MONO, surface: { fill: "none" as const, text_plate: "on" as const } };
+  assert.equal(surfaceStyle(paperish).background, "transparent");
+  assert.equal(textPlate(paperish), true);
+});
+
+test("every shipped theme that does not ask for text_plate keeps bare type", () => {
+  const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+    const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
+    if (theme.surface?.text_plate !== undefined) continue;
+    assert.equal(textPlate(theme), false, `${file}: text plated without being asked`);
   }
 });
 

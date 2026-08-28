@@ -99,16 +99,46 @@ export function surfaceColor(theme: Theme): string {
  * `colors.bg` ink with a `colors.text` plate, which is exactly this. The token
  * is what lets the rest of the catalogue say the same thing.
  *
- * A CHOICE token: there is no neutral answer to "is a plate a continuation or a
- * stamp", so it carries no schema default and an omitted token keeps `page`,
- * which is what every component drew before it existed.
+ * A CHOICE token: there is no neutral answer to "is a plate a continuation, a
+ * stamp or a tag", so it carries no schema default and an omitted token keeps
+ * `page`, which is what every component drew before it existed.
  *
  * `surfaceColor` deliberately stays the PAGE. A map's terrain, a chart's
  * inter-wedge stroke and the ground a faded mark is blended against are not
  * plates, and inverting them would repaint the world white.
  */
 export function plateColor(theme: Theme): string {
-  return (theme.surface?.plate ?? "page") === "invert" ? theme.colors.text : theme.colors.bg;
+  switch (theme.surface?.plate ?? "page") {
+    case "invert":
+      return theme.colors.text;
+    // The tag idiom: a coloured chip, with whatever ink reads on it. Unlike
+    // `emphasis: "accent"` this is not the planner asking for emphasis on one
+    // overlay — it is the theme saying that a panel IS the accent, everywhere.
+    case "accent":
+      return theme.colors.accent;
+    default:
+      return theme.colors.bg;
+  }
+}
+
+/**
+ * Whether bare-type overlays plate themselves when nothing else has decided.
+ *
+ * The `basic` pack draws type straight onto the shot; `background` is its
+ * per-overlay prop and this is the theme's answer when that prop is absent. A
+ * CHOICE token for the same reason `plate` is one: there is no neutral answer
+ * to "is a label a chip", so an omitted token keeps `off` and the pack renders
+ * exactly as it did before the token existed.
+ *
+ * Deliberately NOT `surface.fill`. Reading `fill` was the first attempt and it
+ * was wrong twice over: it plated `field-manual` and `bold-editorial`, which had
+ * asked for solid PANELS rather than for their text to become tags, and it
+ * cannot express `paper-print`, whose panels are `none` while its labels want
+ * chips. Whether a component paints a panel and whether bare type gets a plate
+ * are two questions, and only the second one is this.
+ */
+export function textPlate(theme: Theme): boolean {
+  return (theme.surface?.text_plate ?? "off") === "on";
 }
 
 /** WCAG relative luminance of a #rrggbb colour. */

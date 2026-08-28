@@ -25,6 +25,9 @@
     "rule": "normal",
     "texture": "grain"
   },
+  "layout": {
+    "scrim": "soft"
+  },
   "motion": {
     "entrance": "slide",
     "easing": "smooth"

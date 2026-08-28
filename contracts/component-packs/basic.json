@@ -36,6 +36,10 @@
           ],
           "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
           "default": "big"
+        },
+        "background": {
+          "type": "boolean",
+          "description": "paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"
         }
       },
       "duration_hint_s": {
@@ -81,6 +85,10 @@
           ],
           "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
           "default": "medium"
+        },
+        "background": {
+          "type": "boolean",
+          "description": "paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"
         }
       },
       "duration_hint_s": {
@@ -126,6 +134,10 @@
           ],
           "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
           "default": "medium"
+        },
+        "background": {
+          "type": "boolean",
+          "description": "paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"
         }
       },
       "duration_hint_s": {
@@ -153,6 +165,11 @@
           "maxWords": 8,
           "description": "must be an exact substring of `text`; everything outside it dims"
         },
+        "label": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "a quiet second line under the passage — a source, a date, a qualifier"
+        },
         "position": {
           "enum": [
             "center",
@@ -171,6 +188,10 @@
           ],
           "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on",
           "default": "medium"
+        },
+        "background": {
+          "type": "boolean",
+          "description": "paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"
         }
       },
       "duration_hint_s": {
@@ -179,6 +200,123 @@
       },
       "entrance_seconds": 1.4,
       "entrance_support": "text",
+      "renderer": "remotion"
+    },
+    {
+      "name": "TextTag",
+      "pack": "basic",
+      "when_to_use": "a line of text that none of the role entries fit — a duration, a rank, a count, a caption — with an optional label under it. The general-purpose entry: it does not know what it is saying, so YOU choose where it sits",
+      "when_not_to_use": "the line is one of the four things that carry their own placement: a title or a figure written as words (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight). Reach for a role entry whenever one fits — it puts the text where that kind of text belongs without being asked",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "maxWords": 12
+        },
+        "label": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "a quiet second line under it"
+        },
+        "position": {
+          "enum": [
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "default": "center",
+          "description": "no role means no default worth trusting — say where it goes"
+        },
+        "size": {
+          "enum": [
+            "medium",
+            "big"
+          ],
+          "default": "medium",
+          "description": "`big` is a title filling the frame; `medium` is a label that lets the shot carry on"
+        },
+        "background": {
+          "type": "boolean",
+          "description": "paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 3.5
+      },
+      "entrance_seconds": 0.9,
+      "entrance_support": "text",
+      "renderer": "remotion"
+    },
+    {
+      "name": "TextCounter",
+      "pack": "basic",
+      "when_to_use": "the narration lands a single figure worth dwelling on and it should be written onto the shot rather than shown on a card — '$7.9 trillion', '29,000 tanks', '70%'. The number counts up to its value",
+      "when_not_to_use": "the figure belongs on a graphic with a plate and a rule (AnimatedCounter); two figures being compared (ComparisonSplit) or three and more (BarChart); a number already written out as words, which is just text (TextTitle)",
+      "anchor_types": [
+        "number",
+        "percentage"
+      ],
+      "props": {
+        "value": {
+          "type": "number",
+          "required": true,
+          "from_anchor": "value"
+        },
+        "prefix": {
+          "type": "string",
+          "maxWords": 1,
+          "description": "sits tight against the figure, e.g. a currency symbol"
+        },
+        "suffix": {
+          "type": "string",
+          "maxWords": 3,
+          "description": "follows the figure — spaced when it is a word ('Trillion'), tight when it is a sign ('%')"
+        },
+        "decimals": {
+          "type": "number",
+          "min": 0,
+          "max": 2,
+          "default": 0,
+          "description": "authored precision, which outranks the theme's number format"
+        },
+        "label": {
+          "type": "string",
+          "maxWords": 8,
+          "description": "what the figure counts, set small under it. Omit it when the narration names the figure in the same breath"
+        },
+        "position": {
+          "enum": [
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "default": "center"
+        },
+        "size": {
+          "enum": [
+            "medium",
+            "big"
+          ],
+          "default": "big",
+          "description": "`big` is a figure filling the frame; `medium` is a corner readout"
+        },
+        "background": {
+          "type": "boolean",
+          "description": "paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "entrance_seconds": 0.5,
+      "entrance_support": "panel",
       "renderer": "remotion"
     }
   ]

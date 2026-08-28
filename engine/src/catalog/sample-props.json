@@ -1,5 +1,5 @@
 {
-  "comment": "Representative props per catalog component: the batch still-preview script (preview-all.mjs) and the platform Overlays screen both render these, so a component that looks wrong here looks wrong in a video. Keep one entry per CORE_COMPONENTS name \u2014 engine/test/catalog.test.ts enforces it.",
+  "comment": "Representative props per catalog component: the batch still-preview script (preview-all.mjs) and the platform Overlays screen both render these, so a component that looks wrong here looks wrong in a video. Keep one entry per CORE_COMPONENTS name — engine/test/catalog.test.ts enforces it.",
   "props": {
     "KineticTitle": {
       "text": "The Siege of Stalingrad",
@@ -52,7 +52,7 @@
     },
     "DefinitionCard": {
       "term": "Rattenkrieg",
-      "pronunciation": "\u02c8\u0281atn\u0329k\u0281i\u02d0k",
+      "pronunciation": "ˈʁatn̩kʁiːk",
       "part_of_speech": "noun",
       "definition": "Rat war: close-quarters fighting through cellars, sewers and ruins, where artillery and armour lose their advantage.",
       "origin": "German, coined by troops in 1942"
@@ -224,7 +224,7 @@
       ]
     },
     "DocumentCard": {
-      "title": "F\u00fchrer Directive",
+      "title": "Führer Directive",
       "lines": [
         "The Sixth Army will hold its positions.",
         "Supply will be delivered by air.",
@@ -241,7 +241,7 @@
       "emphasis": "neutral"
     },
     "ArchivalFrame": {
-      "slate": "Reel 4 \u2014 city centre",
+      "slate": "Reel 4 — city centre",
       "date": "Oct 1942",
       "treatment": "archival",
       "flicker": true,
@@ -280,7 +280,7 @@
     "NamePlate": {
       "name": "Vasily Chuikov",
       "role": "Commander, 62nd Army",
-      "lifespan": "1900\u20131982",
+      "lifespan": "1900–1982",
       "side": "left",
       "variant": "bar"
     },
@@ -414,6 +414,46 @@
       "kicker": "The two commanders",
       "label_position": "below",
       "label_style": "plate"
+    },
+    "TextTitle": {
+      "text": "ANTÁRTICA",
+      "sub": "[anti-ártico]",
+      "position": "center",
+      "size": "big"
+    },
+    "TextPlace": {
+      "place": "Baía Paraíso",
+      "country": "Península Antártica",
+      "position": "top_right",
+      "size": "medium"
+    },
+    "TextName": {
+      "name": "Ernest Shackleton",
+      "role": "comandante da Endurance",
+      "position": "bottom_left",
+      "size": "medium"
+    },
+    "TextHighlight": {
+      "text": "o continente mais seco do planeta",
+      "mark": "mais seco",
+      "label": "média de 166 mm por ano",
+      "position": "center",
+      "size": "medium"
+    },
+    "TextTag": {
+      "text": "15 ANOS",
+      "label": "2003 - 2018 com a CP3",
+      "position": "bottom_right",
+      "size": "big"
+    },
+    "TextCounter": {
+      "value": 7.9,
+      "prefix": "$",
+      "suffix": "Trillion",
+      "decimals": 1,
+      "label": "em socorro emergencial",
+      "position": "center",
+      "size": "big"
     }
   }
 }

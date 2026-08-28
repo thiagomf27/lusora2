@@ -26,7 +26,8 @@ grain: archival                   # optional post-look (Remotion path)
 surface:                          # D46 — the SHAPE of an overlay
   radius: square                  # square | soft | rounded
   fill: translucent               # solid | translucent | none
-  plate: page                     # D71 page | invert — WHICH colour a panel is
+  plate: page                     # D71/D74 page | invert | accent — WHICH colour a panel is
+  text_plate: off                 # D75 on | off — do BARE-TYPE overlays get a plate by default
   accent_rule: top                # top | left | none
   density: airy                   # D66 tight | normal | airy
   rule: hairline                  # D66 hairline | normal | heavy
@@ -70,10 +71,11 @@ consistency is enforced by construction. Token list: D69 (adds `chart.area`)
 over D66 (supersedes D46, which superseded D30, which closed OQ-10 at the
 original eight).
 
-**Four themes ship** (D69): `standard` — the house look, light plate, one
-strong accent, tight bold sans, direct labels — plus `paper-print`,
-`field-manual` and `bold-editorial`. Six near-duplicates were deleted: a theme
-nobody picks goes stale and still costs a row in every picker.
+**Five themes ship**: `standard` — the house look, a black-and-white centred
+overlay theme since D71 — plus `paper-print`, `field-manual`, `bold-editorial`
+and `default-editorial` (D74), the yellow-tag look that pairs with the `basic`
+pack. Six near-duplicates were deleted at D69: a theme nobody picks goes stale
+and still costs a row in every picker.
 
 ### Why presentation lives HERE and not in a component pack
 
@@ -248,6 +250,18 @@ decides what it is painted with, and the two are genuinely independent:
   onto the page: a white box with black type on a dark theme, a black box with
   light type on a light one. `contrastInk` follows without being told, because
   it already picks whichever of the two colours holds contrast.
+- `accent` — the panel is `colors.accent` (D74): the tag idiom, a coloured chip
+  whose type takes whatever reads on it. Distinct from `emphasis: "accent"`,
+  which is the PLANNER asking for emphasis on one overlay; this is the theme
+  saying a panel IS the accent, everywhere. `default-editorial` is the shipped
+  example — a yellow chip with black type, and a quieter chip of page colour
+  under it for the second line. Note the division of labour with the `basic`
+  pack: its `background` PROP decides whether a lockup has a chip at all, the
+  theme's `surface.text_plate` answers when the overlay says nothing, and
+  `plate` decides what colour that chip is once either has asked for one.
+  A role may opt out of the theme default — `TextTitle` does, because a title
+  is the subject of the frame rather than a label on it — while an explicit
+  `background` still wins for every role.
 
 The idiom is older than the token. `captionStyle`'s `boxed` preset has always
 paired `colors.bg` ink with a `colors.text` plate — a burned caption is a stamp,
