@@ -211,7 +211,13 @@ Ordered so that nothing depends on work that comes later. Slices 1–2 are
 Nothing works end to end after Slice 0 — that is expected, Slices 1+3 are
 what make it run.
 
-### Slice 1 — port the fork's additions upstream (broll-engine)
+### Slice 1 — port the fork's additions upstream (broll-engine) ✅ BUILT
+
+> Done 2026-08-29, broll-engine `58501e0` on
+> `claude/lusora-automation-architecture-eh0hpk`. All five suites green
+> (`test_engine_api.py` is new and covers the four; `test_flows.py` ran
+> against real Postgres + pgvector, which is what exercises the SQL half of
+> the `licenses` filter).
 
 On a branch in **broll-engine**, all four straight lifts or small:
 
@@ -230,6 +236,17 @@ On a branch in **broll-engine**, all four straight lifts or small:
 
 Not ported: `?profile=`, `/profiles`, `/source-channels` (D76 — and
 `/sources` supersedes the last one).
+
+**Pulled forward from Slice 4:** `owned` → `own` and `stock-licensed` →
+`royalty-free` went into `_LICENSE_ALIASES` here rather than waiting for the
+contract change. The alias table is the right home for it either way, and it
+means a channel config that has *not* been migrated yet filters correctly
+instead of silently matching nothing — so Slice 4 stops being load-bearing
+for correctness and becomes only a tidying of the schema enum.
+
+**Also settled here:** both `license` and `licenses` normalize at the API
+boundary now. The singular did not before, so a caller sending `CC0` was
+already matching nothing — the same bug as #2, reached by a different route.
 
 Verify with the repo's own commands: `test_flows.py` on `broll_test` at
 `BROLL_EMBED_DIM=8`, plus `TestClient(create_app(start_worker=False))`
