@@ -467,9 +467,10 @@
         "source": { "enum": ["library", "stock", "ai_image"] },
         "media_types": {
           "type": "array",
-          "items": { "enum": ["video_clip", "image", "video"] }
+          "items": { "enum": ["video_clip", "image", "video"] },
+          "description": "INERT for source=library (D76): every library row is an mp4, including one made from an uploaded still, so there is nothing to select between. Still read by other sources."
         },
-        "profile": { "type": "string" },
+        "profile": { "type": "string", "description": "INERT (D76): which library to search. broll-engine binds one profile per API process, so one deployment is one library; kept so the field does not have to be reintroduced when a second one exists." },
         "include_global": { "type": "boolean", "default": true },
         "niches": { "type": "array", "items": { "type": "string" } },
         "tags": { "type": "array", "items": { "type": "string" } },

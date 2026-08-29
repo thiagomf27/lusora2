@@ -110,7 +110,7 @@ def test_library_min_score_fallthrough(tmp_path, monkeypatch):
         if url.endswith("/channels") or url.endswith("/niches"):
             body = []
         else:
-            body = [{"id": "seg_1", "score": 0.30, "media_type": "image", "license": "cc0"}]
+            body = [{"id": "seg_1", "score": 0.30, "sim": 0.30, "license": "cc0"}]
         return httpx.Response(200, json=body, request=httpx.Request("GET", url))
     monkeypatch.setattr(sources.httpx, "get", fake_get)
     adapter = sources.LibraryAdapter()
@@ -222,8 +222,12 @@ def _library_results(*segments):
     return handler
 
 
-def _seg(seg_id, score=0.9):
-    return {"id": seg_id, "score": score, "media_type": "image", "license": "cc0"}
+def _seg(seg_id, score=0.9, sim=None):
+    """A hit as broll-engine returns it: `sim` is the raw cosine the gate
+    reads, `score` the ranked order. No media_type — the library dropped the
+    field, every row is an mp4."""
+    return {"id": seg_id, "score": score,
+            "sim": score if sim is None else sim, "license": "cc0"}
 
 
 def _patch_library(monkeypatch, handler):
@@ -333,3 +337,146 @@ def test_near_duplicate_detection_is_deterministic_and_config_driven(tmp_path):
 def test_an_unreadable_file_has_no_opinion_about_similarity(tmp_path):
     (tmp_path / "broken.jpg").write_bytes(b"not an image")
     assert sources.perceptual_hash(tmp_path / "broken.jpg") is None
+
+
+# ---------------- the broll-engine contract (Slice 3) ----------------
+
+
+def _captured(monkeypatch, *segments):
+    """Patch the library and hand back the /search params it was called with."""
+    seen: dict = {}
+
+    def handler(request):
+        if request.url.path == "/search":
+            seen.update(dict(request.url.params))
+            return httpx.Response(200, json=list(segments))
+        if request.url.path.startswith("/clips/"):
+            return httpx.Response(200, content=b"mp4-bytes")
+        return httpx.Response(200, json=[])
+
+    _patch_library(monkeypatch, handler)
+    return seen
+
+
+def _item(vid="v1", start=0.0, end=6.0):
+    return {"id": vid, "beat_id": "b1", "start_s": start, "end_s": end}
+
+
+def test_a_library_hit_is_always_a_video(tmp_path, monkeypatch):
+    """Every library row is an mp4 — an uploaded still is stored as a still
+    CLIP. The adapter used to read a `media_type` field the library no longer
+    has, take the image branch for every hit, and write mp4 bytes to a .jpg."""
+    _captured(monkeypatch, _seg("seg_1"))
+    ctx = make_ctx(tmp_path)
+    item = _item()
+    assert sources.resolve_item(ctx, item, "harbour cranes",
+                                [{"source": "library", "min_score": 0.5}])
+    assert item["media_type"] == "video"
+    assert item["asset"]["path"] == "clips/v1.mp4"
+    assert (tmp_path / "clips" / "v1.mp4").read_bytes() == b"mp4-bytes"
+    assert "motion" not in item, "ken burns belongs to stills, not to a clip"
+
+
+def test_min_score_reads_sim_so_a_reused_clip_survives(tmp_path, monkeypatch):
+    """The re-run case. `score` carries the library's -1.0 same-project block,
+    so a clip this video already placed ranks far below any threshold while
+    still being a perfect match. Gating on `score` would drop it — and on a
+    re-run that is every clip already placed, i.e. the whole library."""
+    _captured(monkeypatch, _seg("seg_1", score=-0.55, sim=0.98))
+    ctx = make_ctx(tmp_path)
+    item = _item()
+    assert sources.resolve_item(ctx, item, "harbour cranes",
+                                [{"source": "library", "min_score": 0.5}])
+    assert item["asset"]["id"] == "seg_1"
+
+
+def test_a_weak_hit_is_skipped_not_a_stopping_point(tmp_path, monkeypatch):
+    """Results are ordered by `score` and gated on `sim`, so the two do not
+    agree on order and the walk cannot stop at the first miss."""
+    _captured(monkeypatch,
+              _seg("weak", score=0.90, sim=0.10),
+              _seg("strong", score=0.60, sim=0.80))
+    ctx = make_ctx(tmp_path)
+    item = _item()
+    assert sources.resolve_item(ctx, item, "harbour cranes",
+                                [{"source": "library", "min_score": 0.5}])
+    assert item["asset"]["id"] == "strong"
+
+
+def test_a_library_with_no_sim_cannot_be_thresholded(tmp_path, monkeypatch):
+    """Pointed at a library predating the raw-similarity field, a configured
+    min_score has nothing correct to read: fall through and say why, rather
+    than quietly gating on `score`."""
+    _captured(monkeypatch, {"id": "seg_1", "score": 0.9, "license": "cc0"})
+    ctx = make_ctx(tmp_path)
+    assert not sources.resolve_item(ctx, _item(), "cranes",
+                                    [{"source": "library", "min_score": 0.5}])
+    assert any(p == "library" and not ok and "sim" in (e or "")
+               for p, ok, e in ctx.db.health)
+
+
+def test_without_a_threshold_a_missing_sim_is_harmless(tmp_path, monkeypatch):
+    """No min_score means nothing to compare, so the same library works."""
+    _captured(monkeypatch, {"id": "seg_1", "score": 0.9, "license": "cc0"})
+    ctx = make_ctx(tmp_path)
+    item = _item()
+    assert sources.resolve_item(ctx, item, "cranes", [{"source": "library"}])
+    assert item["asset"]["id"] == "seg_1"
+
+
+def test_search_is_always_channel_scoped(tmp_path, monkeypatch):
+    """Fail closed. /channels here returns nothing, so the lusora channel has
+    no library channel of its own — the search must still carry a channel_id,
+    or the library applies no channel filter and every channel's private
+    uploads are in scope."""
+    seen = _captured(monkeypatch, _seg("seg_1"))
+    ctx = make_ctx(tmp_path)
+    assert sources.resolve_item(ctx, _item(), "cranes",
+                                [{"source": "library", "min_score": 0.5}])
+    assert seen["channel_id"] == "CH", "the unmatched name, so is_mine is false"
+    assert seen["include_global"] == "true", "...and only the global pool passes"
+
+
+def test_include_global_false_with_no_library_channel_matches_nothing(tmp_path, monkeypatch):
+    """The other half of the same rule: asked for this channel's own footage
+    only, a channel that has none in the library gets nothing — not everyone's."""
+    seen = _captured(monkeypatch, _seg("seg_1"))
+    ctx = make_ctx(tmp_path)
+    sources.resolve_item(ctx, _item(), "cranes",
+                         [{"source": "library", "include_global": False,
+                           "min_score": 0.5}])
+    assert seen["channel_id"] == "CH"
+    assert seen["include_global"] == "false"
+
+
+def test_the_slot_length_aims_the_duration_fit(tmp_path, monkeypatch):
+    """Ranking prefers clips near `prefer_seconds`; the caller knows the slot,
+    so it says so instead of leaving ranking on its 5s default."""
+    seen = _captured(monkeypatch, _seg("seg_1"))
+    ctx = make_ctx(tmp_path)
+    assert sources.resolve_item(ctx, _item(start=3.0, end=15.5), "cranes",
+                                [{"source": "library", "min_score": 0.5}])
+    assert seen["prefer_seconds"] == "12.5"
+
+
+def test_licences_go_out_as_an_any_of_list(tmp_path, monkeypatch):
+    """A source policy names every copyright status it will accept."""
+    seen = _captured(monkeypatch, _seg("seg_1"))
+    ctx = make_ctx(tmp_path)
+    assert sources.resolve_item(
+        ctx, _item(), "cranes",
+        [{"source": "library", "min_score": 0.5, "licenses": ["cc0", "own"]}])
+    assert seen["licenses"] == "cc0,own"
+
+
+def test_inert_config_fields_are_not_sent(tmp_path, monkeypatch):
+    """D76: media_types has nothing to select between (every row is an mp4)
+    and profile is not a per-request choice. Sending either would be a filter
+    the library silently ignores."""
+    seen = _captured(monkeypatch, _seg("seg_1"))
+    ctx = make_ctx(tmp_path)
+    assert sources.resolve_item(
+        ctx, _item(), "cranes",
+        [{"source": "library", "min_score": 0.5,
+          "media_types": ["video_clip"], "profile": "archive"}])
+    assert "media_type" not in seen and "profile" not in seen

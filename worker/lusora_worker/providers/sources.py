@@ -70,10 +70,17 @@ def keywords_from_intent(intent: str, limit: int = 3) -> str:
 
 
 class LibraryAdapter:
-    """Adapter over broll-lib-maker's HTTP API (api.py):
-    GET /search?q=…  (score included), GET /clips/{id} (bytes),
-    POST /segments/{id}/mark_used. Niches/channels are lookup tables in
-    the library — names resolve to ids via /niches and /channels."""
+    """Adapter over broll-engine's HTTP API (api.py):
+    GET /search?q=… (each hit carrying `sim` and `score`), GET /clips/{id}
+    (bytes), POST /segments/{id}/mark_used. Niches/channels are lookup tables
+    in the library — names resolve to ids via /niches and /channels.
+
+    Every row it returns is an mp4, including one made from an uploaded still
+    (the library stores an image as a short still clip so nothing downstream
+    needs a second media type). `source.media_types` and `source.profile` in
+    channel_config are therefore inert here (D76): the first has nothing to
+    select between, and the second needs a per-request profile the library
+    does not serve — one deployment is one library."""
 
     # embeddings: it matches MEANING, so it wants the whole scout sentence
     query_kind = "semantic"
@@ -96,23 +103,29 @@ class LibraryAdapter:
             ctx.db.provider_health("library", False, "LIBRARY_API_URL not set")
             return None
         params: dict[str, Any] = {"q": query, "top_k": 5, "project_id": ctx.video_id}
+        # the slot this clip has to fill: ranking's duration-fit term is
+        # measured against it instead of its 5s default
+        slot = float(item.get("end_s", 0)) - float(item.get("start_s", 0))
+        if slot > 0:
+            params["prefer_seconds"] = round(slot, 3)
         if source_cfg.get("tags"):
             params["tags"] = ",".join(source_cfg["tags"])
         if source_cfg.get("licenses"):
             params["licenses"] = ",".join(source_cfg["licenses"])
-        if source_cfg.get("profile") and source_cfg["profile"] != "default":
-            params["profile"] = source_cfg["profile"]
-        media_types = source_cfg.get("media_types") or []
-        if len(media_types) == 1:
-            params["media_type"] = media_types[0]
         if source_cfg.get("niches"):
             niche_ids = self._lookup_ids(base, "niches", source_cfg["niches"])
             if niche_ids:
                 params["niches"] = ",".join(niche_ids)
+        # Scoping is FAIL-CLOSED. With no channel_id the library applies no
+        # channel filter at all, so an unresolved name would search every
+        # channel's private uploads — the one outcome that must not happen by
+        # accident. A lusora channel that has no library channel of its own
+        # (nothing ingested under that name yet) is a normal state, not an
+        # error: send the unmatched name so `is_mine` is false for every row
+        # and `include_global` decides, which is exactly "the global pool".
         lib_channel = self._lookup_ids(base, "channels", [ctx.channel_id])
-        if lib_channel:
-            params["channel_id"] = lib_channel[0]
-            params["include_global"] = str(bool(source_cfg.get("include_global", True))).lower()
+        params["channel_id"] = lib_channel[0] if lib_channel else str(ctx.channel_id)
+        params["include_global"] = str(bool(source_cfg.get("include_global", True))).lower()
         max_clip = ((ctx.cfg.get("source_policy") or {}).get("visual") or {}).get("max_clip_seconds")
         if max_clip:
             params["max_duration"] = float(max_clip)
@@ -130,14 +143,33 @@ class LibraryAdapter:
         # video has already used is worse than the next one down, however much
         # better it scores (D54).
         for best in results:
-            if float(best.get("score", 0)) < min_score:
-                break  # ranked, so everything after is worse — honest fallthrough
+            # THRESHOLD ON `sim`, NOT `score`. `score` is the ranked order and
+            # carries a -1.0 hard block on a clip already used in this project,
+            # so gating on it drops a perfect match for having been used — and
+            # on a re-run of one video that is every clip already placed, i.e.
+            # the library falls through to stock wholesale. `sim` is the raw
+            # cosine. The list is ordered by `score`, so this cannot `break`:
+            # a lower-ranked result may still be similar enough.
+            sim = best.get("sim")
+            if sim is None:
+                if min_score <= 0:
+                    sim = 1.0          # no gate configured, nothing to compare
+                else:
+                    ctx.db.provider_health(
+                        "library", False,
+                        "search results carry no `sim`: this library predates "
+                        "the raw-similarity field, and min_score cannot be "
+                        "applied to `score` without discarding used clips")
+                    return None
+            if float(sim) < min_score:
+                continue
             seg_id = str(best.get("id"))
             if ledger is not None and ledger.blocked("library", None, seg_id):
                 continue
-            is_video = best.get("media_type") == "video_clip"
-            ext = "mp4" if is_video else "jpg"
-            out_rel = f"clips/{item['id']}.{ext}"
+            # Every library row is an mp4 — an uploaded image is stored as a
+            # still CLIP, deliberately, so that nothing downstream has to know
+            # about a second kind of segment. There is no image branch to take.
+            out_rel = f"clips/{item['id']}.mp4"
             try:
                 with httpx.stream("GET", f"{base}/clips/{seg_id}", timeout=180) as clip:
                     clip.raise_for_status()
@@ -152,8 +184,11 @@ class LibraryAdapter:
             try:
                 httpx.post(
                     f"{base}/segments/{seg_id}/mark_used",
+                    # the same channel the search was scoped to, so the overuse
+                    # penalty it feeds is read back under the key it was
+                    # written under
                     json={"project_id": ctx.video_id,
-                          "channel_id": lib_channel[0] if lib_channel else ctx.channel_id},
+                          "channel_id": params["channel_id"]},
                     timeout=30,
                 )
             except httpx.HTTPError as e:
@@ -164,7 +199,7 @@ class LibraryAdapter:
                 source="library", id=seg_id, provider=None,
                 license=best.get("license"), path=out_rel,
                 score=float(best.get("score", 0)), query=query[:200],
-                media_type="video" if is_video else "image",
+                media_type="video",
             )
         return None
 

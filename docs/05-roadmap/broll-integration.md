@@ -310,7 +310,12 @@ The measurement behind #6 is worth keeping: the first argument for
 that turned out to be false. Checking it is what turned up the duration
 mismatch, which is the argument that actually holds.
 
-### Slice 3 — fix the adapter (`worker/lusora_worker/providers/sources.py`)
+### Slice 3 — fix the adapter (`worker/lusora_worker/providers/sources.py`) ✅ BUILT
+
+> Done 2026-08-29. `worker/tests/test_sources.py` gained nine tests; eight of
+> them fail against the previous adapter, which is the check that they are
+> testing the change rather than passing either way. Full worker suite (265)
+> and `pnpm run ci` green.
 
 The blocker set, all in `LibraryAdapter`:
 
@@ -324,6 +329,25 @@ The blocker set, all in `LibraryAdapter`:
 
 `worker/tests/test_sources.py` is the seam — the adapter is already
 exercised there with a stubbed HTTP layer.
+
+**Two things the slice had to decide that the plan left open:**
+
+*What to do when a hit has no `sim`* (a library older than Slice 1). Falling
+back to `score` would reinstate the bug silently, so: with no `min_score`
+configured there is nothing to compare and the hit is taken; with one, the
+adapter records `provider_health` naming the reason and falls through. That
+matches D12 — an unusable source falls through, it does not guess.
+
+*Fail-closed scoping without breaking a fresh library.* The plan said record
+health and fall through when the channel does not resolve, but that would
+make the library dark on any deployment that has not yet ingested under the
+lusora channel's name — including the global pool, which is legitimately
+searchable. Instead the unmatched name is sent AS the `channel_id`: it
+matches no library channel, so `is_mine` is false for every row and
+`include_global` decides. That is exactly "the global pool", it needs no
+library change, and `include_global: false` correctly yields nothing rather
+than everything. `mark_used` posts the same value, so the overuse counter is
+read back under the key it was written under.
 
 ### Slice 4 — licence vocabulary (D72)
 
