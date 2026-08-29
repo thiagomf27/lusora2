@@ -1,0 +1,161 @@
+/* Library + Review. One stylesheet for both: they are near-copies by design
+   (they answer different questions but draw the same grid), and a second file
+   would be the one that drifts. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.filters { display: flex; gap: 8px; margin: 14px 0 16px; flex-wrap: wrap; }
+.search { flex: 1; min-width: 260px; font-size: 13px; }
+.filter { font-size: 12.5px; }
+
+.empty {
+  padding: 44px 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.error, .notice {
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  margin-bottom: 12px;
+}
+.error { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+.notice { background: var(--status-success-bg); color: var(--status-success-fg); }
+
+.reviewCta, .reviewCtaQuiet {
+  font-size: 12.5px;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.reviewCta { color: var(--accent); }
+.reviewCtaQuiet { color: var(--text-muted); }
+
+/* --- ingest --- */
+.ingest {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.ingestHead {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 12px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.jobCount { font-size: 11px; color: var(--accent); }
+.ingestBody { padding: 0 12px 12px; display: grid; gap: 8px; }
+.urlBox {
+  width: 100%;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--field-border);
+  background: transparent;
+  color: var(--text);
+  resize: vertical;
+}
+.ingestRow { display: flex; gap: 7px; flex-wrap: wrap; }
+.ingestRow > * { flex: 1; min-width: 130px; }
+.hint { font-size: 11px; color: var(--muted-2); line-height: 1.45; }
+
+.jobs { border-top: 1px solid var(--border); padding: 7px 12px 9px; display: grid; gap: 4px; }
+.job { display: flex; align-items: center; gap: 7px; font-size: 11.5px; }
+.jobDot { width: 6px; height: 6px; border-radius: 999px; background: var(--muted-2); flex-shrink: 0; }
+.jobDot.done { background: var(--status-success-fg); }
+.jobDot.failed { background: var(--status-danger-fg); }
+.jobDot.downloading, .jobDot.tagging, .jobDot.cutting, .jobDot.storing, .jobDot.preparing { background: var(--accent); }
+.jobStatus { color: var(--text-muted); min-width: 76px; }
+.jobUrl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; color: var(--muted-2); }
+.jobDone { color: var(--status-success-fg); font-size: 11px; white-space: nowrap; }
+.jobErr { color: var(--status-danger-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+
+/* --- review --- */
+.bulkBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  position: sticky;
+  top: 10px;
+  z-index: 2;
+}
+.bulkAll { display: flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; }
+.bulkActions { display: flex; gap: 7px; }
+.pickedCard { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 11px; }
+.pick { display: flex; align-items: center; gap: 5px; font-size: 11.5px; cursor: pointer; margin-right: auto; }
+
+/* --- trim workbench --- */
+.workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 14px;
+  padding: 13px;
+  margin-bottom: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.wbPlayer { width: 100%; max-height: 380px; background: #000; border-radius: 7px; }
+.wbSide { display: grid; gap: 8px; align-content: start; }
+.wbTitle { font-size: 13px; line-height: 1.35; }
+.wbMeta { font-size: 11.5px; color: var(--text-muted); }
+.wbWarn { font-size: 11.5px; color: var(--amber-400); }
+.wbField { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.wbField input {
+  width: 96px;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--field-border);
+  background: transparent;
+  color: var(--text);
+}
+.wbActions { display: flex; gap: 7px; margin-top: 3px; }
+
+/* --- buttons --- */
+.primaryBtn, .ghostBtn, .dangerBtn, .cardBtn, .cardDanger {
+  font-size: 12px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.primaryBtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ghostBtn { background: transparent; color: var(--text-muted); border-color: var(--field-border); }
+.dangerBtn { background: var(--status-danger-bg); color: var(--status-danger-fg); border-color: transparent; }
+.cardBtn, .cardDanger {
+  font-size: 11.5px;
+  padding: 3px 9px;
+  background: transparent;
+  border-color: var(--field-border);
+  color: var(--text-muted);
+}
+.cardDanger { color: var(--status-danger-fg); margin-left: auto; }
+.primaryBtn:disabled, .ghostBtn:disabled, .dangerBtn:disabled, .cardBtn:disabled, .cardDanger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

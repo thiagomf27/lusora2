@@ -260,10 +260,9 @@ through the proxy — the bot signature the serial queue exists to avoid.
 `SKIP LOCKED` makes that correct, not unnoticeable. The compose file carries
 the stop-then-run recipe instead; Slice 5 removes the need for it (D75).
 
-**Known gap until Slice 5:** with only the API service running there is no
-UI for approving clips, and nothing enters the library unreviewed — so a
-fresh deployment can ingest but the worker will find an empty library until
-someone reviews, by the recipe above or `POST /segments/approve`.
+~~**Known gap until Slice 5:** with only the API service running there is no
+UI for approving clips.~~ **Closed** — `/library/review` in the platform now
+does it, so the compose deployment needs no Streamlit at all.
 
 ### Slice 1 — port the fork's additions upstream (broll-engine) ✅ BUILT
 
@@ -405,18 +404,55 @@ a source whose free-text `style` was `"owned look, stock-licensed feel"`,
 which is exactly what a blanket search-and-replace over the document would
 have corrupted. Second run reports `UPDATE 0`.
 
-### Slice 5 — the platform's Library + Review screens (M9)
+### Slice 5 — the platform's Library + Review screens (M9) ✅ BUILT
 
-1. Add `PATCH` to `api/library/[...path]/route.ts`'s exports (#5).
-2. Rewrite `library/page.tsx` against the real API: `q`/`top_k`,
-   `caption`/`thumb_uri`, `GET /thumbs/{id}` for the card image.
-3. **Ingest form** — `POST /jobs` with `{urls, channel, niches,
-   source_name, license}`. This is also what provisions the library
-   channel that Slice 3 now fails closed without.
-4. **Review screen** (D75) — `GET /segments?status=pending`,
-   `POST /segments/approve`, `DELETE /segments?ids=`,
-   `POST /segments/{id}/trim`. Port the Streamlit page's semantics, not
-   its layout; `pages/3_Review.py` is the behavioural spec.
+> Done 2026-08-29. Verified against a live library, not just typechecked:
+> a seeded Postgres + the real `api:app`, driven through the platform in
+> headless Chromium. Trim, approve and reject were exercised for real and
+> their effects read back out of the database.
+
+1. `PATCH` added to the proxy's exports (#5) — and the proxy now forwards
+   headers instead of rebuilding them, because two library routes serve
+   BYTES. A `<video>` scrubbing a clip issues Range requests; the old proxy
+   dropped `Range` outbound and `Content-Range`/`Accept-Ranges` inbound, so
+   every seek refetched the whole file. Verified: `Range: bytes=0-15` now
+   returns `206` with `content-range: bytes 0-15/64`.
+2. `library/page.tsx` rewritten against the real API. An empty query BROWSES
+   (`GET /segments`) rather than searching for the empty string — `/search`
+   embeds its `q` and ranks by distance to it, so `q=""` ranks the library
+   against nothing.
+3. **Ingest form** — `POST /jobs`, with the serial queue's job list beside
+   it. That list is not decoration: one download at a time through the proxy
+   means a link queued behind a 40-minute documentary looks broken without
+   it. This form is also the only thing that creates library channels, which
+   is what Slice 3's fail-closed scoping needs.
+4. **Review screen** (D75) — pending grid, bulk approve/reject, inline
+   caption/tag editing, and the trim workbench.
+
+**What the card shows is `sim`, not `score`.** A "% match" built from
+`score` would read as a similarity while carrying the -1.0 same-project block
+(D74). The ranked score is in the tooltip.
+
+**The trim workbench is a workbench, not a card control**, for the reason
+broll-engine gives: finding the frame a bad edge ends on means scrubbing, and
+a player one third of a column wide cannot be scrubbed. Wide player, bounds
+beside it. A cut that would leave less than the minimum clip length is
+refused before it is sent — the server refuses it too, this just says so
+first.
+
+**Editing before approving is the right order and the screen says so.** Dedup
+runs at approval, not at ingest, so it compares the caption the reviewer
+settled on rather than the model's first guess.
+
+**Shared as far as the body and no further.** `ClipCard` is one component
+across both screens; the actions are each page's own. That mirrors
+broll-engine's own reasoning for keeping its Review page a near-copy of its
+Gallery rather than a mode of it — folding them together puts review controls
+on library cards.
+
+Also: a row without bytes now renders "no preview" instead of the browser's
+broken-image icon. That is a normal state, not a bug — a duplicate row holds
+no bytes, and `00-status.md` records 64 rows whose clip files were lost.
 
 ### Slice 6 — tagging quality (open-ended, deliberately last)
 
