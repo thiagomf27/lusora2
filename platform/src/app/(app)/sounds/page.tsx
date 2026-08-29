@@ -24,7 +24,7 @@ const MOODS = [
   "urgent", "triumphant", "reflective", "playful",
 ] as const;
 
-const LICENSES = ["cc0", "cc-by", "cc-by-sa", "owned", "stock-licensed", "unknown"] as const;
+const LICENSES = ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc", "royalty-free", "licensed", "own", "unknown"] as const;
 
 /** The two levels a theme applies, so the preview slider starts somewhere real. */
 const DEFAULT_GAIN = { cues: 0.32, beds: 0.16 };

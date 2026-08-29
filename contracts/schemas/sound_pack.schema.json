@@ -9,8 +9,8 @@
   "properties": {
     "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "license": {
-      "enum": ["cc0", "cc-by", "cc-by-sa", "owned", "stock-licensed", "unknown"],
-      "description": "D33 vocabulary, pack-wide. A pack mixing licenses should be split in two."
+      "enum": ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc", "royalty-free", "licensed", "own", "unknown"],
+      "description": "The library's vocabulary (D72, supersedes D33), pack-wide. A pack mixing licenses should be split in two. `restricted` is absent for the same reason it is absent from a channel's allow-list: a pack we may not use is a pack we do not ship."
     },
     "attribution": {
       "type": "string",

@@ -349,13 +349,40 @@ library change, and `include_global: false` correctly yields nothing rather
 than everything. `mark_used` posts the same value, so the overuse counter is
 read back under the key it was written under.
 
-### Slice 4 — licence vocabulary (D72)
+### Slice 4 — licence vocabulary (D72) ✅ BUILT
 
-- `contracts/schemas/channel_config.schema.json:478` and
-  `sound_pack.schema.json:12` → broll-engine's tokens, minus `restricted`.
-- Migrate existing configs: `owned` → `own`, `stock-licensed` →
-  `royalty-free`.
-- Mark D33 superseded in the decision log.
+> Done 2026-08-29. D33 marked superseded; D71–D76 written into the decision
+> log, which until now carried only D73. `pnpm run ci` and the 265-test
+> worker suite green.
+
+- `channel_config.schema.json` and `sound_pack.schema.json` → the library's
+  tokens, minus `restricted`.
+- `contracts/src/types.ts` (`LicenseKind`) and the three UI lists that had
+  their own copies: `SourcePolicyEditor.tsx`, `ChannelConfigForm.tsx`
+  (list + the new-channel default) and `sounds/page.tsx`.
+- The two producers in the worker that emitted the old tokens: Pexels
+  `stock-licensed` → `royalty-free`, ai_image `owned` → `own`.
+- `contracts/db/0003_license_vocabulary.sql` rewrites stored channel configs.
+
+**The enum is the library's full list, not just the two that collided.** Any
+token the library can STORE but the schema cannot express is footage no
+channel can ever allow, so `cc-pd`, `cc-by-nd` and `cc-by-nc` come across
+too. `restricted` does not: it means "known NOT usable", which is not an
+allow-list value.
+
+**What the migration deliberately does not touch.** `videos.cfg` is the
+immutable snapshot of what a video was produced with (Principle 7), and
+nothing re-validates it — the platform validates the LIVE channel config at
+enqueue — so an old snapshot keeps its old words and stays true.
+`asset_usage.license` is provenance for footage already on disk.
+
+The SQL rewrites `source_policy.visual.chain[].licenses` specifically,
+because that is the only place `licenses` appears in the schema
+(`$defs/visualSource`). Tested against a real Postgres 16 on four shapes —
+mixed tokens, already-migrated, no chain, chain without licences — including
+a source whose free-text `style` was `"owned look, stock-licensed feel"`,
+which is exactly what a blanket search-and-replace over the document would
+have corrupted. Second run reports `UPDATE 0`.
 
 ### Slice 5 — the platform's Library + Review screens (M9)
 

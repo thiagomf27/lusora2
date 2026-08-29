@@ -18,7 +18,7 @@ type VisualSource = Visual["chain"][number];
 type MediaType = NonNullable<VisualSource["media_types"]>[number];
 
 const ORIENTATIONS = ["landscape", "portrait", "square"];
-const LICENSES = ["cc0", "cc-by", "cc-by-sa", "owned", "stock-licensed", "unknown"] as const;
+const LICENSES = ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc", "royalty-free", "licensed", "own", "unknown"] as const;
 type License = (typeof LICENSES)[number];
 
 const SOURCE_META: Record<string, { name: string; desc: string; risk: string; riskClass: string }> = {

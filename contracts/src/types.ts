@@ -422,10 +422,14 @@ export interface ResolvedPrompt {
 
 export type LicenseKind =
   | "cc0"
+  | "cc-pd"
   | "cc-by"
   | "cc-by-sa"
-  | "owned"
-  | "stock-licensed"
+  | "cc-by-nd"
+  | "cc-by-nc"
+  | "royalty-free"
+  | "licensed"
+  | "own"
   | "unknown";
 
 export interface VisualSource {

@@ -476,7 +476,8 @@
         "tags": { "type": "array", "items": { "type": "string" } },
         "licenses": {
           "type": "array",
-          "items": { "enum": ["cc0", "cc-by", "cc-by-sa", "owned", "stock-licensed", "unknown"] }
+          "items": { "enum": ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc", "royalty-free", "licensed", "own", "unknown"] },
+          "description": "copyright statuses this source may return, any-of. The library's vocabulary (D72): every token it can STORE has to be expressible here, or a clip tagged with one is footage no channel can ever allow. `restricted` is deliberately absent — it means known NOT usable, so it is not an allow-list value. Omission is forbidding (D12), so `unknown` matches only when listed."
         },
         "min_score": { "type": "number", "minimum": 0, "maximum": 1 },
         "providers": { "type": "array", "items": { "type": "string" } },

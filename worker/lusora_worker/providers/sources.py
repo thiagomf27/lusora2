@@ -294,7 +294,7 @@ class PexelsAdapter:
                 continue
             ctx.db.provider_health("stock.pexels", True)
             return Resolution(
-                source="stock", id=asset_id, provider="pexels", license="stock-licensed",
+                source="stock", id=asset_id, provider="pexels", license="royalty-free",
                 path=out_rel, score=None, query=query[:200],
                 media_type="video" if want_video else "image",
             )
@@ -376,7 +376,7 @@ class AiImageAdapter:
                 "-frames:v", "1", "-q:v", "3", str(ctx.folder / out_rel),
             ])
         ctx.db.provider_health("ai_image.mock", True)
-        return Resolution(source="ai", id=None, provider="mock", license="owned",
+        return Resolution(source="ai", id=None, provider="mock", license="own",
                           path=out_rel, score=None, query=query[:200], media_type="image")
 
     def _openai(self, ctx: StageContext, item: dict, query: str, prompt: str) -> Resolution | None:
@@ -401,7 +401,7 @@ class AiImageAdapter:
             out_rel = f"clips/{item['id']}.png"
             (ctx.folder / out_rel).write_bytes(base64.b64decode(b64))
         ctx.db.provider_health("ai_image.openai", True)
-        return Resolution(source="ai", id=None, provider="openai", license="owned",
+        return Resolution(source="ai", id=None, provider="openai", license="own",
                           path=out_rel, score=None, query=query[:200], media_type="image")
 
 
