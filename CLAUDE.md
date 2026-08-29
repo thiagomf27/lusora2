@@ -53,6 +53,10 @@ docker-compose.
 - [Milestones](05-roadmap/milestones.md) — build order for Claude Code
 - [Destination Map](05-roadmap/destination-map.md) — the five changes ahead,
   in two axes, with the slice order ★ read before starting one of them
+- [B-roll Integration](05-roadmap/broll-integration.md) — swapping the
+  vendored library snapshot for the live broll-engine repo: the API
+  mismatches it exposes and the slice order ★ read before touching
+  `library/` or `providers/sources.py`
 
 ### 07 — Authoring
 - [Authoring Guide](07-authoring.md) — ready-made prompts for adding a
