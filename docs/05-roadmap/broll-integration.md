@@ -228,21 +228,42 @@ the `+0.08 * duration_fit` term from noise into signal.
 Ordered so that nothing depends on work that comes later. Slices 1–2 are
 **broll-engine** changes; 3–6 are **lusora**.
 
-### Slice 0 — the swap
+### Slice 0 — the swap ✅ BUILT
 
-1. `git rm -r library/broll-lib-maker` (the history backup at
-   `data/broll-lib-maker.git-history-backup` stays where it is).
-2. `git submodule add https://github.com/thiagomf27/broll-engine library/broll-engine`
-3. `.github/workflows/*`: `submodules: recursive` on checkout.
-4. `deploy/docker-compose.yml`: write the `library` service (currently
-   commented out) + `deploy/library.Dockerfile`. It needs its **own**
-   pgvector database, a **named volume** for `BROLL_STORAGE_ROOT` (never
-   `/tmp` — the clip-loss incident in `00-status.md`), and
-   `LIBRARY_API_URL` wired to it.
-5. Fix the `:8500`/`:8321` split (#9). Pick one, set it in `.env.example`.
+> Done 2026-08-29. Ran last rather than first: Slices 1–4 had to settle what
+> the submodule is pinned TO. The pin is broll-engine `17cb0be`, on its
+> `claude/lusora-automation-architecture-eh0hpk` branch — **re-pin to
+> `master` once that merges**; an older commit does not serve this worker.
 
-Nothing works end to end after Slice 0 — that is expected, Slices 1+3 are
-what make it run.
+1. `git rm -r library/broll-lib-maker`; submodule added at
+   `library/broll-engine`. Note broll-engine's default branch is `master`.
+2. `.github/workflows/ci.yml`: `submodules: recursive` on both checkouts.
+3. `deploy/library.Dockerfile` + the `library` service on port 8321, its own
+   database in the shared Postgres (`deploy/postgres-init/`, which runs only
+   on a fresh volume — an existing cluster needs `createdb broll` once), and
+   a **named volume** for clips and staged uploads. Never a bind into `/tmp`:
+   sources are deleted after tagging, so anything cleared on restart is
+   footage gone with rows pointing at nothing.
+4. `LIBRARY_API_URL` wired into both consumers; the `:8500`/`:8321` split
+   (#9) resolved to 8321 everywhere.
+
+**The boundary is now enforced, not just described.** `library/` used to be
+a placeholder, so "no code imports across the boundary" (D11) was
+unenforceable. With the package really on disk, `scripts/lint-boundaries.mjs`
+fails the build on an `import broll` from the worker — verified by planting
+one.
+
+**No Streamlit service, deliberately.** The library's UI starts an ingest
+worker unconditionally (`ui_common._ensure_worker`) and the API service
+already runs one. Two workers on one queue is parallel yt-dlp traffic
+through the proxy — the bot signature the serial queue exists to avoid.
+`SKIP LOCKED` makes that correct, not unnoticeable. The compose file carries
+the stop-then-run recipe instead; Slice 5 removes the need for it (D75).
+
+**Known gap until Slice 5:** with only the API service running there is no
+UI for approving clips, and nothing enters the library unreviewed — so a
+fresh deployment can ingest but the worker will find an empty library until
+someone reviews, by the recipe above or `POST /segments/approve`.
 
 ### Slice 1 — port the fork's additions upstream (broll-engine) ✅ BUILT
 

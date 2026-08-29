@@ -211,8 +211,9 @@ pnpm --filter @lusora/platform run db:migrate     # idempotent
 pnpm --filter @lusora/platform run dev            # http://localhost:3000
 # login: admin@example.com / admin  (from .env; db:seed creates it once)
 
-# 3. library service (vendored broll-lib-maker, own venv)
-cd library/broll-lib-maker && ./.venv/bin/python -m uvicorn api:app --host 127.0.0.1 --port 8321
+# 3. library service (broll-engine, a submodule — own venv, own DB)
+#    git submodule update --init --recursive   (once, if the dir is empty)
+cd library/broll-engine && ./.venv/bin/python -m uvicorn api:app --host 127.0.0.1 --port 8321
 
 # 4. worker (MUST run from worker/ — uv resolves the project by cwd)
 cd worker && uv run python -m lusora_worker
@@ -220,15 +221,15 @@ cd worker && uv run python -m lusora_worker
 # tests
 pnpm run ci                                       # schemas+boundaries+ts tests+catalog drift
 cd worker && uv run pytest                        # 28 tests
-cd library/broll-lib-maker && BROLL_DATABASE_URL=postgresql://broll:broll@localhost:5432/broll_test \
-  BROLL_EMBED_DIM=8 .venv/bin/python test_flows.py
+cd library/broll-engine && BROLL_DATABASE_URL=postgresql://broll:broll@localhost:5432/broll_test \
+  BROLL_EMBED_DIM=8 .venv/bin/python test_flows.py   # also: test_engine_api.py
 ```
 
 `.env` at the repo root is the single shared config (D26). Set:
 `DATABASE_URL` (5433 dev cluster), `SESSION_SECRET`, `VIDEOS_ROOT`,
 `LIBRARY_API_URL=http://127.0.0.1:8321`, `DEEPSEEK_API_KEY`,
 `AI33_API_KEY` + `AI33_BASE_URL=https://api.ai33.pro`, `PEXELS_API_KEY`.
-The library keeps its own `library/broll-lib-maker/.env` (`ZAI_API_KEY`
+The library keeps its own `library/broll-engine/.env` (`ZAI_API_KEY`
 for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 
 ## Providers wired
@@ -238,7 +239,7 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 | TTS | `local` (ffmpeg flite, $0, en), `mock` (silence), `ai33` (api.ai33.pro) | ai33 is async: POST `/v3/text-to-speech` (multipart, `xi-api-key` header) → `task_id`; poll GET `/v3/task/{id}` (429s are normal — backoff is implemented) → CDN `audio_url`. Voices: GET `/v3/voices?provider=edge|minimax|elevenlabs|kokoro`, ids like `edge_en-US-GuyNeural`. All TTS adapters synthesize per sentence and emit `tts_timings.json` → exact SRT without Whisper |
 | LLM | `deepseek` (default), `openai`, `anthropic` | worker/providers/llm.py; injectable `chat_fn` is the test seam |
 | Script/planner agents | deepseek live-tested | planner repair loop max 3 attempts, ALL violations fed back |
-| Visual sources | `library` (broll-lib-maker HTTP), `stock` (Pexels, cached), `ai_image` (`mock` slates, `openai` untested) | chain semantics per D12; unavailable source falls through with provider_health record |
+| Visual sources | `library` (broll-engine HTTP), `stock` (Pexels, cached), `ai_image` (`mock` slates, `openai` untested) | chain semantics per D12; unavailable source falls through with provider_health record |
 | Whisper | faster-whisper, optional dep, CPU | only for human audio without SRT |
 
 ## Gotchas / environment quirks
@@ -256,9 +257,13 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 - pt-BR voices: use ai33 `edge_pt-BR-*` voices; flite is English-only.
 - ai33 charges opaque "credits" (recorded in cost_event details); the
   per-char USD in `contracts/prices.json` is an estimate (OQ-15 note).
-- The lusora repo vendors the library **files**; the library's original
-  git history is preserved at `data/broll-lib-maker.git-history-backup`
-  (move it back to `library/broll-lib-maker/.git` to restore).
+- The library is a **submodule** now (D71), pinned to a commit on
+  broll-engine's `claude/lusora-automation-architecture-eh0hpk` branch —
+  re-pin to `master` once that merges. An empty `library/broll-engine/`
+  means `git submodule update --init --recursive` has not been run. The
+  hand-vendored copy it replaced is gone; its git history backup at
+  `data/broll-lib-maker.git-history-backup` is no longer needed, since the
+  real history is the submodule's.
 
 ## Known gaps (intentional, small)
 

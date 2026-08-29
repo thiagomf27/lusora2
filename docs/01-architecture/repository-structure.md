@@ -40,7 +40,7 @@ lusora/
     src/components/           # catalog components, themeable
     src/themes/               # theme runtime (tokens -> component styling)
     packs/<pack-name>/        # per-channel component packs (versioned)
-  library/                    # broll-lib-maker, vendored or submodule (OQ-4)
+  library/broll-engine/       # the b-roll library, a git submodule (D71)
   deploy/
     docker-compose.yml        # postgres + api + worker + web (+ library)
   docs/                       # THIS documentation

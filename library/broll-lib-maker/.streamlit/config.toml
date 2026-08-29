@@ -1,9 +1,0 @@
-[theme]
-base = "dark"
-
-[server]
-# local video uploads — Streamlit's default cap is 200 MB
-maxUploadSize = 2048
-
-[browser]
-gatherUsageStats = false

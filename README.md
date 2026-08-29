@@ -17,7 +17,7 @@ everything (M0–M9) is built; that file says how to run it and what's left.
 | `platform/` | Next.js web UI + HTTP API + auth/roles + DB queue |
 | `worker/` | Python stage pipeline (script → TTS → beats → compile → resolve → validate → render) |
 | `engine/` | ffmpeg + Remotion renderers, component catalog, themes; CLI + npm package |
-| `library/` | vendored broll-lib-maker service (placeholder) |
+| `library/` | broll-engine, the b-roll library — a git submodule (D71); HTTP boundary only |
 | `deploy/` | docker-compose |
 
 ## Dev setup

@@ -20,7 +20,7 @@ all depend on.
 | 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
 | 2b | Beat planner — spine | `worker/lusora_worker/agents/planner.py` | `prompts/spine/` + `welded/spine.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 4000 tok, one shot | `{arc, sections:[{start_sentence, summary}]}` | arithmetic: first index 0, strictly increasing, in range — anything else falls back to the word-balanced split |
 | 3 | Editor chat | `platform/src/lib/chatAgent.ts` | `prompts/chat/` + `welded/chat.{system,user}.txt` | `deepseek-v4-flash`, `anthropic` fallback | 12000 tok, one shot | `{explanation, beat_ops, plan_ops}` | `beatEdit`/`planEdit` + `validateBeats` in the chat route |
-| 4 | Library coarse | `library/broll-lib-maker/broll/tagging.py` | `_COARSE_SYSTEM` (in code) | GLM-4.6V (z.ai or local vLLM) | 500 tok | `{score, rough_ranges}` | clamping parser |
+| 4 | Library coarse | `library/broll-engine/broll/tagging.py` | `_COARSE_SYSTEM` (in code) | GLM-4.6V (z.ai or local vLLM) | 500 tok | `{score, rough_ranges}` | clamping parser |
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
 | 6 | Library fine | same file | `_FINE_INSTRUCTIONS` (in code) | GLM-4.6V | 12000 tok | array of `{start,end,tags,caption,confidence}` | `_parse_segments` + truncation salvage |
 | 7 | AI image | `worker/lusora_worker/providers/sources.py` | `f"{query}. {style}"` (in code) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |

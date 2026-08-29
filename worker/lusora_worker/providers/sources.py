@@ -66,7 +66,7 @@ def keywords_from_intent(intent: str, limit: int = 3) -> str:
     return " ".join(kept[:limit]) or str(intent)[:60]
 
 
-# ---------------- library (broll-lib-maker over HTTP, D11) ----------------
+# ---------------- library (broll-engine over HTTP, D11) ----------------
 
 
 class LibraryAdapter:

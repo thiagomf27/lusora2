@@ -12,7 +12,9 @@ sessions, record outcomes in the Decision Log.
 
 **OQ-3 — Tooling.** ✅ DECIDED (D23): pnpm workspaces + uv + one CI workflow.
 
-**OQ-4 — Library repo placement.** ✅ DECIDED (D24): vendored into `library/`.
+**OQ-4 — Library repo placement.** ✅ DECIDED (D24): vendored into `library/`;
+**amended (D71)** to a git submodule on broll-engine after the hand-copied
+snapshot drifted in both directions.
 
 **OQ-5 — Auth.** ✅ DECIDED (D25): cookie sessions + bcrypt, single-tenant.
 
