@@ -153,19 +153,52 @@ This screen has never worked against either side. It is M9 work
 Also: `api/library/[...path]/route.ts` exports GET/POST/PUT/DELETE — no
 **PATCH**, so `PATCH /segments/{id}` (edit tags/caption) would 405.
 
-### 6. Clip cutting: the default is wrong for this consumer specifically
+### 6. Clip cutting: copy mode makes a clip's duration a lie
+
+> **Corrected 2026-08-29.** This entry first claimed the ffmpeg renderer
+> would show the previous shot, because it concatenates. That is wrong and
+> was not checked before it was written. `renderSegment`
+> (`engine/src/renderers/ffmpeg/render.ts:264`) decodes each library clip
+> with a plain `-i`, and ffmpeg honours MP4 edit lists by default, so the
+> extra head frames are dropped before anything is concatenated — and the
+> concat at step 2 joins already-re-encoded `seg###.mp4` files, not library
+> clips. Verified on a fixture: rendering a copy-mode clip whose hidden head
+> frames are a different shot still produces the correct first frame. The
+> recommendation below stands, but on different and weaker grounds.
 
 `BROLL_CUT_MODE=copy` stream-copies, seeking to the keyframe at or before
 the requested start, and hides the extra head frames behind an MP4 edit
-list. From broll-engine's own CLAUDE.md:
+list. Measured on a fixture with keyframes deliberately not aligned to the
+shot change (a 6s cut at [10.5, 16.5] of a two-shot source):
 
-> tools that ignore them (some NLE importers, **anything re-muxing or
-> concatenating**) show those frames — which after scene detection means
-> showing a cut.
+| | packets in the file | first packet pts | `format=duration` | first frame, edit list ignored |
+|---|---|---|---|---|
+| `copy` | 8.07s worth | **-2.0** | **6.133** | the PREVIOUS shot |
+| `reencode` | 6.0s worth | 0.0 | 6.000 | correct |
 
-**lusora's ffmpeg renderer concatenates.** lusora is precisely the
-consumer the documented trade-off resolves against. Measured there: an
-"8s" clip carrying 11.36s of packets. `reencode` costs ~8x cutting time
+Nothing in lusora reads that file ignoring the edit list today. What does
+bite is the fourth column: the row says `duration = 6.000` and ffprobe says
+`6.133`. `degrade.py`'s short-clip fallback (D55) compares
+`probe_seconds(file)` against the slot with a 0.05s tolerance, so a copy-mode
+clip is systematically reported longer than the library believes it to be,
+and the comparison that decides whether a slot needs a loop or a speed ramp
+is made against a number the database contradicts.
+
+Three things together decide it rather than any one of them:
+
+1. the duration mismatch above — small, but it is exactly the input to the
+   short-clip machinery
+2. **the library is already mixed-mode**: `trim_segment` (the fast cut)
+   ignores `BROLL_CUT_MODE` and always re-encodes, because a stream copy
+   cannot do a frame-accurate head trim. Every clip a reviewer touches is
+   already re-encoded
+3. lusora has **three** consumers of these bytes — the ffmpeg renderer,
+   Remotion's `OffthreadVideo`, and `@remotion/player` in the browser
+   editor. Only the first was verified here. Frame-accurate bytes mean the
+   other two never have to be
+
+The cost is ~8x cutting time at ingest (offline, on a queue that is serial
+by design) and one generation of loss at CRF 20. `reencode` costs ~8x cutting time
 and one generation of loss, once, at ingest.
 
 ### 7. Clip resolution: 480p into a 1080p timeline, permanently
@@ -254,16 +287,28 @@ for the new endpoint. **Pin `BROLL_PROFILES_FILE`/`BROLL_DATABASE_URL`
 before any `broll` import** — importing `api.py` connects to the active
 profile and runs DDL.
 
-### Slice 2 — clip cutting + resolution (broll-engine config, D73)
+### Slice 2 — clip cutting + resolution (config, D73) ✅ BUILT
 
-`BROLL_CUT_MODE=reencode`, `BROLL_MAX_RES=1080` in the library's env, with
-the reasoning (#6, #7) written into `.env.example` next to each — the
-existing entries document the *trade-off*, and this records which way
-lusora resolves it and why. No code change; `cut_clip` already supports
-both.
+> Done 2026-08-29. lusora `.env.example` carries both values with their
+> reasoning; D73 is in the decision log. broll-engine `17cb0be` documents
+> the duration cost of copy mode in its own `.env.example` and CLAUDE.md
+> **without changing its default** — which mode is right depends on the
+> consumer, and that is the consumer's call. `cut_clip` already supported
+> both; no code changed on either side.
 
-Re-ingest anything already in the library that matters — the old clips
-are 480p with copy-mode edit lists and cannot be fixed in place.
+`BROLL_CUT_MODE=reencode`, `BROLL_MAX_RES=1080` in the library's env. They
+live in lusora's `.env.example` rather than in the submodule, because they
+are *this deployment's* answer, not the library's default.
+
+Both are **permanent per clip** — sources are deleted after tagging, so
+setting either one later only affects footage ingested after the change.
+Re-ingest anything already in the library that matters; the old clips are
+480p with copy-mode edit lists and cannot be fixed in place.
+
+The measurement behind #6 is worth keeping: the first argument for
+`reencode` was that the ffmpeg renderer would show the previous shot, and
+that turned out to be false. Checking it is what turned up the duration
+mismatch, which is the argument that actually holds.
 
 ### Slice 3 — fix the adapter (`worker/lusora_worker/providers/sources.py`)
 
