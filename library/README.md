@@ -50,5 +50,6 @@ git add library/broll-engine && git commit
 The pin currently sits on broll-engine's
 `claude/lusora-automation-architecture-eh0hpk` branch, which carries the
 `mark_used` endpoint, the `licenses` any-of filter and the `sim` field the
-worker's adapter requires. **Re-pin to `master` once that branch merges** —
+worker's adapter requires, plus the counting/ordering, `/tags`, `/videos`,
+`/stats`, `caption_edited` and un-approve the Library screens read. **Re-pin to `master` once that branch merges** —
 an older commit than this one will not serve this worker.
