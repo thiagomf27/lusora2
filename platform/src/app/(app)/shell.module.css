@@ -173,6 +173,18 @@
   overflow-y: auto;
 }
 
+/* The library's own screens, nested under the Library nav entry while you are
+   inside it. The rule keeps them visibly subordinate to it — there is no
+   section header here to do that job. */
+.navSub {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 2px 17px;
+  padding-left: 9px;
+  border-left: 1px solid var(--border-subtle);
+}
+
 /* Library nav badges. Review's queue depth gates everything downstream —
    nothing is searchable until it clears — so it reads as a warning; the
    ingest count is informational. */
@@ -185,3 +197,17 @@
 }
 .badgeWarn { background: var(--status-warning-bg); color: var(--status-warning-fg); }
 .badgeInfo { background: var(--status-info-bg); color: var(--status-info-fg); }
+
+/* Collapsed, there is no room for the count and no label to sit beside — but
+   "something is waiting" is exactly the thing you must not lose by narrowing
+   the sidebar. The number becomes a dot (font-size:0 hides it without a second
+   element to render); the title attribute still carries it. */
+.sidebar.collapsed .navLink .badgeWarn,
+.sidebar.collapsed .navLink .badgeInfo {
+  margin-left: 3px;
+  align-self: flex-start;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  font-size: 0;
+}

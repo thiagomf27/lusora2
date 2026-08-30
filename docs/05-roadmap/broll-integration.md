@@ -548,22 +548,26 @@ Shared components in `platform/src/components/library/`: `ClipCard`,
 one place that knows how to turn a filter set into query params and read
 `X-Total-Count` back).
 
-**The IA question the designs left open.** Their nav is a five-item sidebar
-belonging to a different app; ours already has one. The library's four
-screens went into the STUDIO group rather than becoming a sixth top-level
-entry — they are an authoring surface, like Themes or Prompts, not a
-destination the whole app orbits. What did NOT go there is the pending
-count: it gates everything downstream (an unreviewed clip is invisible to
-search AND to the worker), so it is a badge, polled every 15s off `/stats`,
-and it renders on the Studio header itself because Studio is collapsed by
-default — a badge that only appears once you have already opened the section
-is a badge for someone who already knew.
+**The IA question the designs left open** (D77). Their nav is a five-item
+sidebar belonging to a different app; ours already has one. **Library is a
+top-level entry in it.** It went into the collapsible STUDIO group first, on
+the argument that it is an authoring surface like Themes or Prompts — and that
+argument does not survive contact with the thing: Themes is something you set
+up once, while the library is where all the footage comes from and the only
+screen with a queue somebody has to keep clearing. The other three screens
+(Ingest, Review, Overview) nest under it and appear only on a library route,
+so a five-item nav does not become a nine-item nav mostly about one feature.
+The pending count rides on the Library entry as a badge — it gates everything
+downstream, since an unreviewed clip is invisible to search AND to the worker —
+polled every 15s off `/stats`, and rendered as a dot when the sidebar is
+collapsed.
 
 **Two things the browser run found that review did not.**
 
 1. *The badge was invisible.* It was on the `/library/review` sub-entry,
-   which is inside a section that defaults closed. Correct-looking code,
-   zero users reached by it. Hence the header badge above.
+   inside a section that defaults closed. Correct-looking code, zero users
+   reached by it. Patched by moving the badge to the section header, then
+   fixed properly by moving the library out of the section (D77).
 2. *Duplicates were unlistable.* The Overview's duplicate tile is a count,
    and `/segments` excluded duplicate rows with no override — so clicking
    through led nowhere. That is what

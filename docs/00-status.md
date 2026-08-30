@@ -190,20 +190,24 @@ already had (`min_score_floor`, `short_clip_fallback`, `dedup`, `fallback`,
 `overlays.emphasis`, the hold ratios).
 
 The authoring/ops screens the design does not draw (queue, pipeline, themes,
-style packs, prompts, overlays, sounds, library, panel, monitoring, admin,
-editor) are unchanged and reachable from the sidebar's collapsible STUDIO group.
+style packs, prompts, overlays, sounds, panel, monitoring, admin, editor) are
+unchanged and reachable from the sidebar's collapsible STUDIO group — things
+you set up once rather than come back to. The library left that group; see
+below.
 
 **The b-roll library is four screens now** (Slice 8): `/library` (browse +
 search, one screen), `/library/review` (the approval gate, with the trim
 workbench), `/library/ingest` (link / video file / image batch, plus the live
-queue) and `/library/overview` (totals, distributions, purge). They sit in the
-STUDIO group with the rest of the authoring surfaces, but the pending-review
-count is a badge on the STUDIO header itself — that group is collapsed by
-default, and an unreviewed clip is invisible to search AND to the worker, so
-that number cannot be something you only see after opening a section. Polled
-every 15s off the library's `/stats`; silent when the library is down, because
-zeroing it would read as "nothing to review". Shared card/editor/rail/trim
-components live in `platform/src/components/library/`.
+queue) and `/library/overview` (totals, distributions, purge). **Library is a
+top-level nav entry** (D77), not a STUDIO one: it is where footage comes from,
+and it is the only screen with a queue somebody has to keep clearing. The other
+three nest under it and appear only on a library route. The pending count rides
+on the Library entry as a badge — an unreviewed clip is invisible to search AND
+to the worker, so it gates the whole pipeline — polled every 15s off the
+library's `/stats`, silent when the library is down because zeroing it would
+read as "nothing to review", and rendered as a dot when the sidebar is
+collapsed. Shared card/editor/rail/trim components live in
+`platform/src/components/library/`.
 
 ## How to run (this machine's dev setup)
 

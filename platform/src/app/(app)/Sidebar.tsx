@@ -4,9 +4,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import s from "./shell.module.css";
 
-/** The destinations the design draws, with its icons. Brands is not among
- *  them any more: a brand profile is the channel's config document, so it is a
- *  tab on Channels rather than a route of its own. */
+/** The top-level destinations. Four are the ones the design draws (Brands is
+ *  not among them any more: a brand profile is the channel's config document,
+ *  so it is a tab on Channels rather than a route of its own). Library is the
+ *  fifth, and is ours: it is where footage comes from, it is the only screen
+ *  with a queue someone has to keep clearing, and burying it under a collapsed
+ *  section made both of those invisible. */
 const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   {
     href: "/",
@@ -39,6 +42,16 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    href: "/library",
+    label: "Library",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 3.5v9M5.5 3.5v9M9 3.8l4 8.2" />
+        <rect x="1.2" y="2.6" width="13.6" height="10.8" rx="2" />
+      </svg>
+    ),
+  },
+  {
     href: "/settings",
     label: "Settings",
     icon: (
@@ -50,9 +63,19 @@ const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-/** The design's nav has five entries; these authoring/ops screens are real
- *  routes it does not draw, so they live in a collapsible section rather
- *  than becoming unreachable. */
+/** Authoring/ops screens the design does not draw — real routes that would
+ *  otherwise be unreachable, so they live in a collapsible section. Things you
+ *  set up once, not things you come back to daily. */
+/** The library's other three screens. They are shown nested under Library and
+ *  only while a library route is active: they are places you go once you are
+ *  already in there, and a nav that carried all four at all times would be a
+ *  nav mostly about the library. */
+const LIBRARY_SUB: [string, string][] = [
+  ["/library/ingest", "Ingest"],
+  ["/library/review", "Review"],
+  ["/library/overview", "Overview"],
+];
+
 const STUDIO: [string, string][] = [
   ["/queue", "Queue"],
   ["/pipeline", "Pipeline"],
@@ -61,10 +84,6 @@ const STUDIO: [string, string][] = [
   ["/prompts", "Prompts"],
   ["/overlays", "Overlays"],
   ["/sounds", "Sounds"],
-  ["/library", "Library"],
-  ["/library/ingest", "· Ingest"],
-  ["/library/review", "· Review"],
-  ["/library/overview", "· Overview"],
   ["/panel", "Panel"],
   ["/monitoring", "Monitoring"],
   ["/admin", "Admin"],
@@ -79,7 +98,8 @@ interface RecentVideo {
  *  the system that gates everything downstream — a clip nobody has reviewed is
  *  invisible to search AND to the worker — so it is worth a poll and a badge
  *  rather than something you find by navigating to it. Silent on failure: an
- *  unreachable library must not make the whole nav look broken. */
+ *  unreachable library must not make the whole nav look broken, and zeroing the
+ *  count would read as "nothing to review". */
 function useLibraryBadges() {
   const [badges, setBadges] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -175,15 +195,44 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
 
       <nav className={s.nav}>
         {NAV.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            title={open ? undefined : item.label}
-            className={`${s.navLink}${isActive(item.href) ? " " + s.active : ""}`}
-          >
-            {item.icon}
-            <span className={s.navLabel}>{item.label}</span>
-          </Link>
+          <div key={item.href}>
+            <Link
+              href={item.href}
+              title={open ? undefined : item.label}
+              className={`${s.navLink}${isActive(item.href) ? " " + s.active : ""}`}
+            >
+              {item.icon}
+              <span className={s.navLabel}>{item.label}</span>
+              {/* Pending review gates everything downstream — an unreviewed
+                  clip is invisible to search AND to the worker — so it rides
+                  on the nav itself. Collapsed, the badge is a dot: the number
+                  has nowhere to go once the labels are hidden, but "there is
+                  something waiting" still fits. */}
+              {item.href === "/library" && badges["/library/review"] ? (
+                <span className={s.badgeWarn} title="clips awaiting review">
+                  {badges["/library/review"]}
+                </span>
+              ) : null}
+            </Link>
+            {item.href === "/library" && open && isActive("/library") && (
+              <div className={s.navSub}>
+                {LIBRARY_SUB.map(([href, label]) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`${s.subLink}${pathname === href ? " " + s.active : ""}`}
+                  >
+                    {label}
+                    {badges[href] ? (
+                      <span className={href === "/library/review" ? s.badgeWarn : s.badgeInfo}>
+                        {badges[href]}
+                      </span>
+                    ) : null}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </nav>
 
@@ -191,14 +240,6 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
         <div className={s.scroll}>
           <button type="button" className={s.sectionHead} onClick={() => setStudioOpen((o) => !o)}>
             Studio
-            {/* Studio is collapsed by default, so a badge that only appears
-                inside it is a badge nobody sees. Pending review surfaces on
-                the header itself: it is the one number that gates the whole
-                pipeline, and finding it should not require knowing where to
-                look. */}
-            {!studioOpen && badges["/library/review"] ? (
-              <span className={s.badgeWarn}>{badges["/library/review"]}</span>
-            ) : null}
             <Chevron flipped={studioOpen} />
           </button>
           {studioOpen && (
@@ -210,13 +251,6 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
                   className={`${s.subLink}${isActive(href) ? " " + s.active : ""}`}
                 >
                   {label}
-                  {badges[href] ? (
-                    <span
-                      className={href === "/library/review" ? s.badgeWarn : s.badgeInfo}
-                    >
-                      {badges[href]}
-                    </span>
-                  ) : null}
                 </Link>
               ))}
             </div>

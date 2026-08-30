@@ -110,7 +110,7 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
   approval gate and the trim workbench), `/library/ingest` (link / video file
   / image batch, plus the live serial queue) and `/library/overview` (totals,
   distributions, purge). Match strength shown to an operator is `sim`, never
-  `score` (D74). Nav placement and the pending badge: D77.
+  `score` (D74). Library is a top-level nav entry with the other three nested under it; the pending badge rides on it (D77).
 - **Monitoring** — worker heartbeat, provider health (last success/error
   per provider from events), storage usage, cost/usage charts.
 - **Admin** — users + grants; provider credential HEALTH (configured?

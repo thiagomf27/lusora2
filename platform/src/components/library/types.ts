@@ -191,6 +191,10 @@ export function fmtPrecise(s: number): string {
 }
 
 export function fmtFootage(seconds: number): string {
+  // Below a minute, say seconds. Rounding to minutes reports a library that
+  // has footage in it as "0 m", which is what a new library looks like for its
+  // whole first day.
+  if (seconds < 60) return `${Math.round(seconds)} s`;
   const h = Math.floor(seconds / 3600);
   const m = Math.round((seconds % 3600) / 60);
   return h ? `${h} h ${m} m` : `${m} m`;
