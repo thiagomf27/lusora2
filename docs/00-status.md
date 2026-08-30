@@ -233,6 +233,9 @@ cd library/broll-engine && ./.venv/bin/python -m uvicorn api:app --host 127.0.0.
 # 4. worker (MUST run from worker/ — uv resolves the project by cwd)
 cd worker && uv run python -m lusora_worker
 
+# is this machine actually set up? (read-only; run it FIRST when anything 502s)
+pnpm run doctor
+
 # tests
 pnpm run ci                                       # schemas+boundaries+ts tests+catalog drift
 cd worker && uv run pytest                        # 28 tests
@@ -261,7 +264,17 @@ cp .env.example .env                             # then fill it in (below)
 cp library/broll-engine/.env.example library/broll-engine/.env
 pnpm --filter @lusora/platform run db:migrate
 pnpm --filter @lusora/platform run db:seed       # creates the admin login
+
+pnpm run doctor                                  # confirms all of the above
 ```
+
+**`pnpm run doctor` is the thing to run before debugging anything.** Four
+processes have to agree about two databases, one submodule, one shared `.env`
+and one the submodule keeps for itself, and nearly every way that goes wrong is
+silent — an empty `library/`, a `.env` a shell export is overriding, migrations
+that never ran, a library pointed at the platform's database. It connects,
+reads, writes nothing, and prints the command that fixes each thing it finds.
+Every check in it is there because the setup failed that way at least once.
 
 **The two things that stop a first ingest dead**, both in the library's
 `.env` and neither with a usable default:
@@ -294,6 +307,26 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_CLIP_ROOT` — see gotchas).
 | Whisper | faster-whisper, optional dep, CPU | only for human audio without SRT |
 
 ## Gotchas / environment quirks
+
+- **The library used to adopt the platform's `DATABASE_URL`** — fixed in
+  broll-engine, worth knowing because the symptom was baffling. Its
+  `load_dotenv()` took no argument, so it walked UP from the cwd until it
+  found a `.env`; as a submodule the first one it met was lusora's. Its
+  `DEFAULT_DSN` then falls back to a bare `DATABASE_URL`, so a library with
+  no `.env` of its own connected to the CONTROL PLANE database and ran its
+  `CREATE TABLE`s in it. The load is pinned to the library's own directory
+  now. Still give it a `library/broll-engine/.env` with an explicit
+  `BROLL_DATABASE_URL`: `pnpm run doctor` fails if it is missing.
+- **A shell export silently beats `.env`, permanently.** `loadEnv()` skips any
+  key already in `process.env` and Next reads `.env` once per process, so an
+  `export LIBRARY_API_URL=…` left in a shell (or a profile) overrides the file
+  for every server started from it, with nothing anywhere saying so — this cost
+  an afternoon of 502s against a port nothing was listening on. `pnpm run
+  doctor` reports any exported variable that disagrees with `.env`.
+- **A venv never arrives with a clone** (`.venv/` is git-ignored in both
+  repos), and neither does the submodule's content (`git submodule update
+  --init --recursive`). Both look like "the code is broken" rather than
+  "nothing is installed".
 
 - **Library clip bytes were lost once**: the clip root (then named
   `BROLL_STORAGE_ROOT`, renamed `BROLL_CLIP_ROOT` in broll-engine) defaulted
