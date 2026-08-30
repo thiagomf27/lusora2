@@ -12,7 +12,7 @@
  * it draws rather than a look) and `ArchiveCaption` was deleted. What was left
  * was a look, and a look is a theme.
  *
- * ./basic is the text-only pack (D73): four role entries plus the general
+ * ./basic is the text-only pack (D80): four role entries plus the general
  * TextTag, all over one renderer in basic/TextLockup.tsx, which is itself
  * unregistered because it is drawing rather than a catalog name.
  *

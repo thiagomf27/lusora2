@@ -331,7 +331,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
                 textTransform: typeCase(theme, "uppercase"),
                 // Muted against the PLATE it is set on, not against the page.
                 // The two were the same colour until a plate could differ from
-                // the page (D71), and then this went pale grey on white.
+                // the page (D78), and then this went pale grey on white.
                 color: mutedInk(theme, plateColor(theme)),
                 whiteSpace: "nowrap",
               }}

@@ -164,7 +164,7 @@ test("chart.axis: ink promotes an annotation to content, in colour and weight", 
 test("mutedInk returns the theme's own neutral whenever it is already readable", () => {
   // The identity that makes this a resolver rather than a token: every shipped
   // theme clears 3:1, so every one of them renders unchanged. `standard` was the
-  // exception until D71 turned it mono — its neutral was #b9c0ca on a near-white
+  // exception until D78 turned it mono — its neutral was #b9c0ca on a near-white
   // page, which is a FILL and 1.7:1 as ink. The synthetic case below keeps that
   // pair pinned now that no shipped theme carries it.
   const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
@@ -236,7 +236,7 @@ test("a theme names a chart choice and the component's own is overridden", () =>
 test("compact numbers are compact, and plain ones are not", () => {
   const compact = chartStyle(themed({ chart: { number_format: "compact" } })).formatNumber;
   // A decimal only when there is a fraction to show. `.0` is not precision, it
-  // is noise, and every reference sets 50K and 32K rather than 50.0K (D71).
+  // is noise, and every reference sets 50K and 32K rather than 50.0K (D78).
   assert.equal(compact(50000), "50K");
   assert.equal(compact(32000), "32K");
   assert.equal(compact(52_400), "52.4K");
@@ -314,7 +314,7 @@ test("every easing token resolves to a bezier", () => {
 });
 
 
-// ---------------- D71: a panel's colour, and a palette with no colour in it ----------------
+// ---------------- D78: a panel's colour, and a palette with no colour in it ----------------
 
 const MONO: Theme = {
   ...DEFAULT_THEME,
@@ -322,7 +322,7 @@ const MONO: Theme = {
 };
 
 test("plate: omitted is the page, `invert` is the ink, `accent` is the accent", () => {
-  // The identity: every theme authored before D71 says nothing and keeps `page`.
+  // The identity: every theme authored before D78 says nothing and keeps `page`.
   assert.equal(plateColor(MONO), MONO.colors.bg);
   assert.equal(plateColor(DEFAULT_THEME), DEFAULT_THEME.colors.bg);
 
@@ -435,10 +435,10 @@ test("contrastRatio is WCAG, so a component can ask about a ground the theme doe
 });
 
 
-// ---------------- D72: the shot turned down under an overlay ----------------
+// ---------------- D79: the shot turned down under an overlay ----------------
 
 test("scrim is inert until a theme asks, and only `standard` asks", () => {
-  // The identity: omitted means 0, so a theme from before D72 mounts no element
+  // The identity: omitted means 0, so a theme from before D79 mounts no element
   // at all and every existing render is untouched.
   assert.equal(scrimAlpha(DEFAULT_THEME), 0);
   assert.equal(scrimAlpha({ ...DEFAULT_THEME, layout: { scrim: "none" } }), 0);

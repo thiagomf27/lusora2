@@ -98,7 +98,7 @@ export function PortraitPlates({ props, theme }: { props: PortraitPlatesProps; t
   const bare = props.label_style === "bare";
   // The ink that goes ON the label plate, asked against the plate rather than
   // assumed to be the theme's. The two were the same value until the plate
-  // could differ from the page (D71), and then this printed white on white.
+  // could differ from the page (D78), and then this printed white on white.
   const ink = contrastInk(theme, paper);
   // Type on the tan, not type on the page: the kicker bar and the sub-bar are
   // grounds, so they read their own ink rather than the theme's.

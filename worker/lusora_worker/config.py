@@ -46,5 +46,5 @@ class WorkerConfig:
             worker_id=os.environ.get("WORKER_ID", "worker-1"),
             poll_seconds=float(os.environ.get("WORKER_POLL_SECONDS", "3")),
             engine_cli=engine_cli,
-            library_api_url=os.environ.get("LIBRARY_API_URL", "http://localhost:8500"),
+            library_api_url=os.environ.get("LIBRARY_API_URL", "http://localhost:8321"),
         )

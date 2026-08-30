@@ -1,0 +1,79 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--space-6);
+}
+.skel {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.skelPlate { aspect-ratio: 16/9; background: var(--gray-800); }
+.skelBody { padding: 12px; display: flex; flex-direction: column; gap: var(--space-2); }
+.bar { height: 9px; border-radius: var(--radius-pill); background: var(--gray-700); }
+.barThin { height: 7px; border-radius: var(--radius-pill); background: var(--gray-750); }
+
+.empty, .noResults {
+  display: flex; flex-direction: column; align-items: center;
+  gap: var(--space-5); text-align: center;
+  padding: 48px 24px;
+  color: var(--text-faint);
+}
+.empty { border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); }
+.noResults {
+  align-items: flex-start; text-align: left;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+}
+.emptyTitle { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.emptyBody {
+  margin: 0; font-size: 13px; line-height: 1.6;
+  color: var(--text-secondary); max-width: 420px;
+}
+.suggest {
+  padding: 11px 13px; width: 100%; box-sizing: border-box;
+  background: var(--surface-field); border: 1px solid var(--border-field);
+  border-radius: var(--radius-md); font-size: 13px; color: var(--text-tertiary);
+}
+.suggestStrong { color: var(--text-primary); }
+.footnote { font-size: 12px; color: var(--text-muted); }
+.link { font-size: inherit; color: var(--accent-link); background: none; border: 0; padding: 0; cursor: pointer; }
+
+.backdrop {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(0,0,0,.6);
+  display: grid; place-items: center;
+  padding: 24px;
+}
+.dialog {
+  width: 480px; max-width: 100%;
+  padding: 24px;
+  background: var(--surface-card);
+  border: 1px solid var(--status-danger-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dropdown);
+  display: flex; flex-direction: column; gap: var(--space-6);
+}
+.dialogTitle { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.confirmLabel { display: flex; flex-direction: column; gap: var(--space-2); font-size: 12px; color: var(--text-tertiary); }
+.mono { font-family: var(--font-mono); color: var(--text-primary); }
+.confirmInput {
+  font: inherit; font-family: var(--font-mono); font-size: 13px;
+  padding: 10px 12px;
+  background: var(--surface-field); border: 1px solid var(--border-field);
+  border-radius: var(--radius-md); color: var(--text-primary);
+}
+.dialogActions { display: flex; justify-content: flex-end; gap: var(--space-3); }
+
+.primary, .ghost, .danger {
+  font-size: 13px; padding: 9px 14px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.primary { background: var(--accent-primary); color: #fff; }
+.ghost { background: transparent; color: var(--text-muted); border-color: var(--border-field); }
+.danger { background: var(--status-danger-bg); color: var(--status-danger-fg); border-color: var(--status-danger-border); }
+.danger:disabled, .ghost:disabled { opacity: .5; cursor: default; }

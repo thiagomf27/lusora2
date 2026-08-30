@@ -34,7 +34,7 @@ Five parts, one machine, one docker-compose.
 | **platform** | TypeScript | Web UI (all screens), HTTP API, auth/roles, DB-backed job queue, beat editor + timeline editor, chat agent host |
 | **worker** | Python | The deterministic stage pipeline: script → TTS → beats → compile → resolve → validate → render → deliver. Bounded LLM agents INSIDE creative stages only |
 | **engine** | TypeScript | Rendering package: ffmpeg renderer (default), Remotion renderer (premium), component catalog, theme system. Consumed as a CLI by the worker and as an npm package by the platform's editor (preview parity) |
-| **broll library** | Python | The existing broll-lib-maker service, connected via its HTTP API. Persistent, tagged, vector-searchable asset library — preferred over stock, preferred over generation |
+| **broll library** | Python | broll-engine (`library/`, a submodule), connected via its HTTP API. Persistent, tagged, vector-searchable asset library — preferred over stock, preferred over generation |
 | **postgres** | — | One container: control plane for the platform + pgvector for the library |
 
 ## What is deliberately NOT here

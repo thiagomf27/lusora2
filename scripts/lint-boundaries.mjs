@@ -17,7 +17,11 @@ const rules = [
   { pkg: "contracts", forbidden: [/@lusora\/(engine|platform)/, /from ["'].*\.\.\/(engine|platform|worker|library)/] },
   { pkg: "engine", forbidden: [/@lusora\/platform/, /from ["'].*\.\.\/\.\.\/(platform|worker|library)/] },
   { pkg: "platform", forbidden: [/from ["'].*\.\.\/\.\.\/worker/, /lusora_worker/] },
-  { pkg: "worker", forbidden: [/from platform|import platform\./, /lusora_platform/, /@lusora\//] },
+  // D11: the worker reaches the library over HTTP and never imports it. That
+  // was unenforceable while library/ was a placeholder; as a submodule (D71)
+  // the package is really on disk and `import broll` would resolve if anyone
+  // put it on the path.
+  { pkg: "worker", forbidden: [/from platform|import platform\./, /lusora_platform/, /@lusora\//, /^\s*(?:from|import)\s+broll[\s.]/m] },
 ];
 
 const exts = new Set([".ts", ".tsx", ".mts", ".py"]);

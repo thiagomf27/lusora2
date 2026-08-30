@@ -601,7 +601,7 @@ const SCRIM_ALPHA: Record<NonNullable<NonNullable<Theme["layout"]>["scrim"]>, nu
 };
 
 /**
- * How far the shot is turned down while an overlay is on screen (D72).
+ * How far the shot is turned down while an overlay is on screen (D79).
  *
  * A scrim is none of the things the surface tokens describe. It is not the
  * overlay's own panel, and it is not the page an overlay is set on — it is the
@@ -612,7 +612,7 @@ const SCRIM_ALPHA: Record<NonNullable<NonNullable<Theme["layout"]>["scrim"]>, nu
  * lighting change, not a surface. Turning a shot down is what reads as one, and
  * tinting it the theme's ground would read as a colour cast over the footage.
  *
- * Returns 0 for every theme that says nothing, which is all of them before D72.
+ * Returns 0 for every theme that says nothing, which is all of them before D79.
  */
 export function scrimAlpha(theme: Theme): number {
   return SCRIM_ALPHA[theme.layout?.scrim ?? "none"];

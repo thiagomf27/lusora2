@@ -1,0 +1,162 @@
+/* Library, Review, Ingest and Overview. One stylesheet: they are near-copies
+   by design — different questions, the same grid and the same chrome — and a
+   second file would be the one that drifts. */
+
+.layout { display: flex; gap: var(--space-11); align-items: flex-start; }
+.results { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.headActions { display: flex; gap: var(--space-3); align-items: center; flex-shrink: 0; }
+
+/* ---- banners ---- */
+.error, .notice {
+  padding: 10px 13px;
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  margin-bottom: var(--space-5);
+  display: flex; align-items: center; gap: var(--space-4);
+}
+.error { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+.notice { background: var(--status-success-bg); color: var(--status-success-fg); }
+.undoLink {
+  margin-left: auto; background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  color: inherit; text-decoration: underline;
+}
+
+.pendingBanner {
+  display: flex; align-items: center; gap: var(--space-9);
+  padding: 14px 18px;
+  margin-bottom: var(--space-7);
+  border: 1px solid var(--status-danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--status-danger-bg);
+  text-decoration: none;
+}
+.pendingCount {
+  font-family: var(--font-mono); font-size: 28px; font-weight: 700;
+  line-height: 1; color: var(--status-danger-fg);
+}
+.pendingBody { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.pendingBody strong { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.pendingBody span { font-size: 13px; color: var(--text-secondary); }
+
+/* ---- search ---- */
+.searchRow { display: flex; gap: var(--space-4); margin-bottom: var(--space-3); }
+.searchField {
+  flex: 1; display: flex; align-items: center; gap: var(--space-4);
+  padding: 0 14px; height: 46px;
+  background: var(--surface-field);
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+}
+.searchField:focus-within { border-color: var(--accent-primary); box-shadow: var(--shadow-focus); }
+.searchField input {
+  flex: 1; border: 0; background: none; outline: none;
+  font: inherit; font-size: 14px; color: var(--text-primary);
+}
+.clearBtn {
+  background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 12px; color: var(--text-muted);
+}
+.searchHint { font-size: 12px; color: var(--text-muted); margin-bottom: var(--space-8); }
+.hintLead { color: var(--accent-link); }
+
+/* ---- results bar ---- */
+.resultsBar { display: flex; align-items: center; gap: var(--space-4); }
+.resultsCount { font-size: 13px; color: var(--text-tertiary); }
+.resultsCount strong { color: var(--text-primary); font-weight: 600; }
+.sortSelect {
+  margin-left: auto; font: inherit; font-size: 13px;
+  padding: 8px 11px; border-radius: var(--radius-md);
+  background: var(--surface-field); border: 1px solid var(--border-field);
+  color: var(--text-secondary);
+}
+
+/* ---- review chrome ---- */
+.bulkBarTop {
+  display: flex; align-items: center; gap: var(--space-6);
+  padding: 11px 16px; margin-bottom: var(--space-5);
+  background: var(--surface-table-head);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  position: sticky; top: 10px; z-index: 3;
+  flex-wrap: wrap;
+}
+.bulkAll { display: flex; align-items: center; gap: var(--space-3); font-size: 13px; font-weight: 600; cursor: pointer; }
+.bulkActions { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
+.uneditedWarn { font-size: 12px; color: var(--amber-400); }
+
+.keyHints {
+  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+  margin-bottom: var(--space-6); font-size: 12px; color: var(--text-muted);
+}
+.keyHint { display: flex; align-items: center; gap: var(--space-2); }
+.kbd {
+  font-family: var(--font-mono); font-size: 11px;
+  padding: 2px 6px; border-radius: var(--radius-sm);
+  background: var(--surface-field); border: 1px solid var(--border-field);
+  color: var(--text-secondary);
+}
+.keyNote { margin-left: auto; }
+
+.cursorCard { outline: 2px solid var(--accent-primary); outline-offset: 3px; border-radius: 17px; }
+
+.editedBadge, .originalBadge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+}
+.editedBadge { background: var(--status-info-bg); color: var(--status-info-fg); }
+.originalBadge { background: var(--status-warning-bg); color: var(--status-warning-fg); }
+
+.lowConf {
+  padding: 9px 11px; border-radius: var(--radius-md);
+  background: var(--status-warning-bg); color: var(--status-warning-fg);
+  font-size: 12px; line-height: 1.5; font-weight: 600;
+}
+
+/* ---- bulk bar (library, floating) ---- */
+.bulkBar {
+  position: sticky; bottom: 16px; z-index: 5;
+  display: flex; align-items: center; gap: var(--space-5);
+  padding: 12px 16px; margin-top: var(--space-7);
+  background: var(--surface-table-head);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dropdown);
+}
+.bulkCount { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+
+/* ---- buttons ---- */
+.primaryBtn, .outlineBtn, .dangerBtn, .cardBtn, .cardDanger, .primarySm {
+  font-size: 13px; padding: 9px 14px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  border: 1px solid transparent; white-space: nowrap;
+  text-decoration: none; display: inline-flex; align-items: center;
+}
+.primaryBtn { background: var(--accent-primary); color: #fff; }
+.primaryBtn:hover { background: var(--accent-primary-hover); }
+.outlineBtn { background: transparent; color: var(--text-secondary); border-color: var(--border-field); }
+.dangerBtn { background: var(--status-danger-bg); color: var(--status-danger-fg); border-color: var(--status-danger-border); }
+.cardBtn, .cardDanger, .primarySm {
+  font-size: 11.5px; padding: 4px 10px;
+  background: transparent; border-color: var(--border-field); color: var(--text-muted);
+}
+.primarySm { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+.cardDanger { color: var(--status-danger-fg); margin-left: auto; }
+.cardHint { margin-left: auto; font-size: 11px; color: var(--text-faint); }
+.primaryBtn:disabled, .outlineBtn:disabled, .dangerBtn:disabled,
+.cardBtn:disabled, .cardDanger:disabled, .primarySm:disabled { opacity: .5; cursor: default; }
+
+.link {
+  font-size: 12px; color: var(--accent-link);
+  background: none; border: 0; padding: 0; cursor: pointer;
+}

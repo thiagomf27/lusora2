@@ -190,12 +190,29 @@ already had (`min_score_floor`, `short_clip_fallback`, `dedup`, `fallback`,
 `overlays.emphasis`, the hold ratios).
 
 The authoring/ops screens the design does not draw (queue, pipeline, themes,
-style packs, prompts, overlays, sounds, library, panel, monitoring, admin,
-editor) are unchanged and reachable from the sidebar's collapsible STUDIO group.
+style packs, prompts, overlays, sounds, panel, monitoring, admin, editor) are
+unchanged and reachable from the sidebar's collapsible STUDIO group — things
+you set up once rather than come back to. The library left that group; see
+below.
+
+**The b-roll library is four screens now** (Slice 8): `/library` (browse +
+search, one screen), `/library/review` (the approval gate, with the trim
+workbench), `/library/ingest` (link / video file / image batch, plus the live
+queue) and `/library/overview` (totals, distributions, purge). **Library is a
+top-level nav entry** (D77), not a STUDIO one: it is where footage comes from,
+and it is the only screen with a queue somebody has to keep clearing. The other
+three nest under it and appear only on a library route. The pending count rides
+on the Library entry as a badge — an unreviewed clip is invisible to search AND
+to the worker, so it gates the whole pipeline — polled every 15s off the
+library's `/stats`, silent when the library is down because zeroing it would
+read as "nothing to review", and rendered as a dot when the sidebar is
+collapsed. Shared card/editor/rail/trim components live in
+`platform/src/components/library/`.
 
 ## How to run (this machine's dev setup)
 
-No docker, no sudo used. Everything runs as the user:
+No docker, no sudo used. Everything runs as the user. **First time on a fresh
+clone, do the one-time setup below first.**
 
 ```sh
 # 0. one-time PATH (corepack pnpm + uv live in ~/.local/bin)
@@ -211,25 +228,77 @@ pnpm --filter @lusora/platform run db:migrate     # idempotent
 pnpm --filter @lusora/platform run dev            # http://localhost:3000
 # login: admin@example.com / admin  (from .env; db:seed creates it once)
 
-# 3. library service (vendored broll-lib-maker, own venv)
-cd library/broll-lib-maker && ./.venv/bin/python -m uvicorn api:app --host 127.0.0.1 --port 8321
+# 3. library service (broll-engine, a submodule — own venv, own DB)
+cd library/broll-engine && ./.venv/bin/python -m uvicorn api:app --host 127.0.0.1 --port 8321
+# Library UI is now the PLATFORM's /library, /library/review, /library/ingest
+# and /library/overview — broll_ui.py still works but do not run it while this
+# is up: it starts a second ingest worker on the same serial queue.
 
 # 4. worker (MUST run from worker/ — uv resolves the project by cwd)
 cd worker && uv run python -m lusora_worker
 
+# is this machine actually set up? (read-only; run it FIRST when anything 502s)
+pnpm run doctor
+
 # tests
 pnpm run ci                                       # schemas+boundaries+ts tests+catalog drift
 cd worker && uv run pytest                        # 28 tests
-cd library/broll-lib-maker && BROLL_DATABASE_URL=postgresql://broll:broll@localhost:5432/broll_test \
-  BROLL_EMBED_DIM=8 .venv/bin/python test_flows.py
+cd library/broll-engine && BROLL_DATABASE_URL=postgresql://broll:broll@localhost:5432/broll_test \
+  BROLL_EMBED_DIM=8 .venv/bin/python test_flows.py   # also: test_engine_api.py
 ```
+
+### One-time setup on a fresh clone
+
+```sh
+git submodule update --init --recursive          # library/ is a submodule (D71)
+pnpm install
+
+# two databases, both in the same cluster. The library creates its own
+# `vector` extension and tables on first connect; it only needs the database
+# to exist and its role to be allowed CREATE EXTENSION.
+createdb -h 127.0.0.1 -U broll lusora
+createdb -h 127.0.0.1 -U broll broll
+
+# the library's own venv. sentence-transformers pulls torch — this is a
+# multi-minute, ~2 GB install, and it is the slowest step by far.
+cd library/broll-engine && python3 -m venv .venv \
+  && .venv/bin/pip install -r requirements.txt && cd -
+
+cp .env.example .env                             # then fill it in (below)
+cp library/broll-engine/.env.example library/broll-engine/.env
+pnpm --filter @lusora/platform run db:migrate
+pnpm --filter @lusora/platform run db:seed       # creates the admin login
+
+pnpm run doctor                                  # confirms all of the above
+```
+
+**`pnpm run doctor` is the thing to run before debugging anything.** Four
+processes have to agree about two databases, one submodule, one shared `.env`
+and one the submodule keeps for itself, and nearly every way that goes wrong is
+silent — an empty `library/`, a `.env` a shell export is overriding, migrations
+that never ran, a library pointed at the platform's database. It connects,
+reads, writes nothing, and prints the command that fixes each thing it finds.
+Every check in it is there because the setup failed that way at least once.
+
+**The two things that stop a first ingest dead**, both in the library's
+`.env` and neither with a usable default:
+
+- `YTDLP_PROXY` — every network touchpoint passes it explicitly and **raises
+  when it is unset**; there is deliberately no silent direct fallback.
+  `YTDLP_PROXY=direct` is the explicit opt-out for local testing.
+- `ZAI_API_KEY` — GLM does the tagging. `GLMClient` constructs fine without
+  it and fails on the first CALL, so a keyless ingest fails partway rather
+  than at startup.
+
+An **upload** (`video_file` / `image`) never touches the proxy — the bytes are
+already local — but still needs the GLM key to tag. A **link** needs both.
 
 `.env` at the repo root is the single shared config (D26). Set:
 `DATABASE_URL` (5433 dev cluster), `SESSION_SECRET`, `VIDEOS_ROOT`,
 `LIBRARY_API_URL=http://127.0.0.1:8321`, `DEEPSEEK_API_KEY`,
 `AI33_API_KEY` + `AI33_BASE_URL=https://api.ai33.pro`, `PEXELS_API_KEY`.
-The library keeps its own `library/broll-lib-maker/.env` (`ZAI_API_KEY`
-for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
+The library keeps its own `library/broll-engine/.env` (`ZAI_API_KEY`
+for GLM tagging, `YTDLP_PROXY`, `BROLL_CLIP_ROOT` — see gotchas).
 
 ## Providers wired
 
@@ -238,12 +307,33 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 | TTS | `local` (ffmpeg flite, $0, en), `mock` (silence), `ai33` (api.ai33.pro) | ai33 is async: POST `/v3/text-to-speech` (multipart, `xi-api-key` header) → `task_id`; poll GET `/v3/task/{id}` (429s are normal — backoff is implemented) → CDN `audio_url`. Voices: GET `/v3/voices?provider=edge|minimax|elevenlabs|kokoro`, ids like `edge_en-US-GuyNeural`. All TTS adapters synthesize per sentence and emit `tts_timings.json` → exact SRT without Whisper |
 | LLM | `deepseek` (default), `openai`, `anthropic` | worker/providers/llm.py; injectable `chat_fn` is the test seam |
 | Script/planner agents | deepseek live-tested | planner repair loop max 3 attempts, ALL violations fed back |
-| Visual sources | `library` (broll-lib-maker HTTP), `stock` (Pexels, cached), `ai_image` (`mock` slates, `openai` untested) | chain semantics per D12; unavailable source falls through with provider_health record |
+| Visual sources | `library` (broll-engine HTTP), `stock` (Pexels, cached), `ai_image` (`mock` slates, `openai` untested) | chain semantics per D12; unavailable source falls through with provider_health record |
 | Whisper | faster-whisper, optional dep, CPU | only for human audio without SRT |
 
 ## Gotchas / environment quirks
 
-- **Library clip bytes were lost once**: `BROLL_STORAGE_ROOT` defaulted
+- **The library used to adopt the platform's `DATABASE_URL`** — fixed in
+  broll-engine, worth knowing because the symptom was baffling. Its
+  `load_dotenv()` took no argument, so it walked UP from the cwd until it
+  found a `.env`; as a submodule the first one it met was lusora's. Its
+  `DEFAULT_DSN` then falls back to a bare `DATABASE_URL`, so a library with
+  no `.env` of its own connected to the CONTROL PLANE database and ran its
+  `CREATE TABLE`s in it. The load is pinned to the library's own directory
+  now. Still give it a `library/broll-engine/.env` with an explicit
+  `BROLL_DATABASE_URL`: `pnpm run doctor` fails if it is missing.
+- **A shell export silently beats `.env`, permanently.** `loadEnv()` skips any
+  key already in `process.env` and Next reads `.env` once per process, so an
+  `export LIBRARY_API_URL=…` left in a shell (or a profile) overrides the file
+  for every server started from it, with nothing anywhere saying so — this cost
+  an afternoon of 502s against a port nothing was listening on. `pnpm run
+  doctor` reports any exported variable that disagrees with `.env`.
+- **A venv never arrives with a clone** (`.venv/` is git-ignored in both
+  repos), and neither does the submodule's content (`git submodule update
+  --init --recursive`). Both look like "the code is broken" rather than
+  "nothing is installed".
+
+- **Library clip bytes were lost once**: the clip root (then named
+  `BROLL_STORAGE_ROOT`, renamed `BROLL_CLIP_ROOT` in broll-engine) defaulted
   to `/tmp/broll_clips`, wiped on reboot. 64 pre-existing segments have
   rows but no bytes (their `/clips/{id}` 500s; the lusora adapter treats
   that as fall-through). It now points at `data/broll-store/`. To make
@@ -256,9 +346,13 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 - pt-BR voices: use ai33 `edge_pt-BR-*` voices; flite is English-only.
 - ai33 charges opaque "credits" (recorded in cost_event details); the
   per-char USD in `contracts/prices.json` is an estimate (OQ-15 note).
-- The lusora repo vendors the library **files**; the library's original
-  git history is preserved at `data/broll-lib-maker.git-history-backup`
-  (move it back to `library/broll-lib-maker/.git` to restore).
+- The library is a **submodule** now (D71), pinned to a commit on
+  broll-engine's `claude/lusora-automation-architecture-eh0hpk` branch —
+  re-pin to `master` once that merges. An empty `library/broll-engine/`
+  means `git submodule update --init --recursive` has not been run. The
+  hand-vendored copy it replaced is gone; its git history backup at
+  `data/broll-lib-maker.git-history-backup` is no longer needed, since the
+  real history is the submodule's.
 
 ## Known gaps (intentional, small)
 
@@ -319,7 +413,14 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   (Core Principle 7). Named files live in `contracts/style-packs/` and
   `contracts/themes/`.
 - The library API gained `licenses` filters and
-  `POST /segments/{id}/mark_used` (documented library changes, OQ-13).
+  `POST /segments/{id}/mark_used` (documented library changes, OQ-13), then
+  the browse surface the screens needed: `video_id`/`sort`/`offset` on
+  `/segments` with the total in an `X-Total-Count` header,
+  `include_duplicates` (default off, so the duplicate count on Overview has
+  somewhere to lead), `GET /tags` `/videos` `/stats`,
+  `POST /segments/unapprove`, and `DELETE|POST /jobs/{id}[/retry]`.
+  `segments.caption_edited` is a real column because the Review warning
+  ("still the model's original caption") has to survive a reload.
 - Platform API gained `GET /api/videos/{id}/files/{...path}` (video
   folder artifacts for the editor's Player preview) and the `set_lock`
   plan op.

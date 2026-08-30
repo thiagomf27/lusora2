@@ -1,5 +1,5 @@
 /**
- * The wash a theme lays over the frame while an overlay is on screen (D72).
+ * The wash a theme lays over the frame while an overlay is on screen (D79).
  *
  * Lives here rather than in any component because it is not a component's
  * business: every overlay would otherwise have to draw the same rectangle, and
@@ -25,7 +25,7 @@ export function Scrim({ theme }: { theme: Theme }) {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
-  // Inert unless a theme asks: no element at all, so a theme from before D72
+  // Inert unless a theme asks: no element at all, so a theme from before D79
   // renders the same DOM it always did.
   if (alpha === 0) return null;
 

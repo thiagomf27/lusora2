@@ -26,15 +26,15 @@ grain: archival                   # optional post-look (Remotion path)
 surface:                          # D46 — the SHAPE of an overlay
   radius: square                  # square | soft | rounded
   fill: translucent               # solid | translucent | none
-  plate: page                     # D71/D74 page | invert | accent — WHICH colour a panel is
-  text_plate: off                 # D75 on | off — do BARE-TYPE overlays get a plate by default
+  plate: page                     # D78/D81 page | invert | accent — WHICH colour a panel is
+  text_plate: off                 # D82 on | off — do BARE-TYPE overlays get a plate by default
   accent_rule: top                # top | left | none
   density: airy                   # D66 tight | normal | airy
   rule: hairline                  # D66 hairline | normal | heavy
   texture: paper                  # D66 none | paper | grain | scanline
 layout:                           # D70 — where an overlay sits in the FRAME
   composition: poster             # centered | poster
-  scrim: soft                     # D72 none | soft | heavy — the shot turned down
+  scrim: soft                     # D79 none | soft | heavy — the shot turned down
 chart:                            # D66 — how a PLOTTED overlay reads
   grid: horizontal                # none | horizontal | full
   legend: inline                  # inline | bottom
@@ -72,8 +72,8 @@ over D66 (supersedes D46, which superseded D30, which closed OQ-10 at the
 original eight).
 
 **Five themes ship**: `standard` — the house look, a black-and-white centred
-overlay theme since D71 — plus `paper-print`, `field-manual`, `bold-editorial`
-and `default-editorial` (D74), the yellow-tag look that pairs with the `basic`
+overlay theme since D78 — plus `paper-print`, `field-manual`, `bold-editorial`
+and `default-editorial` (D81), the yellow-tag look that pairs with the `basic`
 pack. Six near-duplicates were deleted at D69: a theme nobody picks goes stale
 and still costs a row in every picker.
 
@@ -250,7 +250,7 @@ decides what it is painted with, and the two are genuinely independent:
   onto the page: a white box with black type on a dark theme, a black box with
   light type on a light one. `contrastInk` follows without being told, because
   it already picks whichever of the two colours holds contrast.
-- `accent` — the panel is `colors.accent` (D74): the tag idiom, a coloured chip
+- `accent` — the panel is `colors.accent` (D81): the tag idiom, a coloured chip
   whose type takes whatever reads on it. Distinct from `emphasis: "accent"`,
   which is the PLANNER asking for emphasis on one overlay; this is the theme
   saying a panel IS the accent, everywhere. `default-editorial` is the shipped
@@ -286,7 +286,7 @@ Two consequences worth knowing before authoring an `invert` theme:
 
 **The rule, in one line:** `plateColor` for a panel you are painting,
 `surfaceColor` for the page you are painting on — and ask whether you got a
-plate at all before asking what ink goes on it. Every bug D71 surfaced was one
+plate at all before asking what ink goes on it. Every bug D78 surfaced was one
 of those three sentences being skipped, and all of them were invisible until a
 plate could differ from the page.
 

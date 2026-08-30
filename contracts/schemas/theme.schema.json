@@ -145,7 +145,7 @@
             "invert",
             "accent"
           ],
-          "description": "WHICH colour a panel is painted, as opposed to `fill`, which is whether there is one at all. `page` paints it in the theme's ground, so a panel reads as a continuation of the page and contrastInk sets the theme's ink on it. `invert` paints it in the theme's INK instead — a white box with black type on a dark theme, a black box with light type on a light one — so a panel reads as a stamp on top of the page rather than part of it. `accent` paints it in the theme's accent, which is the tag idiom: a coloured chip whose type takes whatever colour reads on it. The idiom already existed: captionStyle's `boxed` preset has always paired `colors.bg` ink with a `colors.text` plate. No default (choice token): there is no neutral answer to continuation-or-stamp-or-tag, so an omitted token keeps `page`, which is what every component drew before D71."
+          "description": "WHICH colour a panel is painted, as opposed to `fill`, which is whether there is one at all. `page` paints it in the theme's ground, so a panel reads as a continuation of the page and contrastInk sets the theme's ink on it. `invert` paints it in the theme's INK instead — a white box with black type on a dark theme, a black box with light type on a light one — so a panel reads as a stamp on top of the page rather than part of it. `accent` paints it in the theme's accent, which is the tag idiom: a coloured chip whose type takes whatever colour reads on it. The idiom already existed: captionStyle's `boxed` preset has always paired `colors.bg` ink with a `colors.text` plate. No default (choice token): there is no neutral answer to continuation-or-stamp-or-tag, so an omitted token keeps `page`, which is what every component drew before D78."
         },
         "text_plate": {
           "enum": [
@@ -204,7 +204,7 @@
             "heavy"
           ],
           "default": "none",
-          "description": "D72 — a wash laid over the FRAME while an overlay is on screen, so the footage stops competing with the type. It is not the overlay's own panel (`surface.fill`) and not the page an overlay is set on (`colors.bg`): it is the shot being turned down for as long as the graphic is up, which is what a human editor does by hand. Timed and faded with the overlay that asks for it, drawn by the host rather than by each component. `none` is today's value everywhere, so the token is inert until a theme asks for it."
+          "description": "D79 — a wash laid over the FRAME while an overlay is on screen, so the footage stops competing with the type. It is not the overlay's own panel (`surface.fill`) and not the page an overlay is set on (`colors.bg`): it is the shot being turned down for as long as the graphic is up, which is what a human editor does by hand. Timed and faded with the overlay that asks for it, drawn by the host rather than by each component. `none` is today's value everywhere, so the token is inert until a theme asks for it."
         },
         "composition": {
           "enum": [

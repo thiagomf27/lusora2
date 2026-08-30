@@ -1,0 +1,139 @@
+.layout { display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: var(--space-11); align-items: start; }
+
+.form {
+  padding: 24px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: var(--space-8);
+}
+.tabs {
+  display: flex; padding: 3px; gap: 2px;
+  background: var(--surface-field); border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
+}
+.tab {
+  flex: 1; padding: 7px 10px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-muted);
+  font: inherit; font-size: 13px; cursor: pointer;
+}
+.tabOn { background: var(--surface-secondary-btn); color: var(--text-primary); font-weight: 600; }
+
+.field { display: flex; flex-direction: column; gap: var(--space-2); }
+.fieldLabel { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.input, .textarea {
+  width: 100%; box-sizing: border-box;
+  font: inherit; font-size: 13px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-field);
+  background: var(--surface-field);
+  color: var(--text-primary);
+}
+.textarea { resize: vertical; line-height: 1.5; }
+.input:focus, .textarea:focus {
+  outline: none; border-color: var(--accent-primary); box-shadow: var(--shadow-focus);
+}
+.hint { font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+.row { display: flex; gap: var(--space-4); }
+.row > * { flex: 1; min-width: 0; }
+.sep { height: 1px; background: var(--border-subtle); }
+.groupLabel {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-label);
+}
+.provenance { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.drop {
+  position: relative;
+  padding: 24px 18px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
+  text-align: center; color: var(--text-muted);
+}
+.dropText { font-size: 13px; color: var(--text-secondary); }
+.fileInput { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.warnBox {
+  padding: 11px 13px;
+  border-radius: var(--radius-md);
+  background: var(--status-danger-bg);
+  border: 1px solid var(--status-danger-border);
+  font-size: 12px; line-height: 1.55; color: var(--text-secondary);
+}
+.queueBtn {
+  padding: 12px; border: 0; border-radius: var(--radius-md);
+  background: var(--accent-primary); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.queueBtn:hover:not(:disabled) { background: var(--accent-primary-hover); }
+.queueBtn:disabled { opacity: .5; cursor: default; }
+
+/* ---- queue ---- */
+.queue { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.queueHead { display: flex; align-items: center; gap: var(--space-4); }
+.queueTitle { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.dim { font-size: 12px; color: var(--text-muted); }
+.queueEmpty {
+  padding: 32px; text-align: center; font-size: 13px; color: var(--text-faint);
+  border: 1px dashed var(--border-subtle); border-radius: var(--radius-lg);
+}
+
+.job {
+  padding: 16px 18px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+.jobActive { border-color: var(--accent-primary); }
+.jobFailed { border-color: var(--status-danger-border); }
+
+.jobHead { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.kind {
+  font-size: 11px; padding: 2px 7px; border-radius: var(--radius-pill);
+  background: var(--status-neutral-bg); color: var(--text-secondary); font-weight: 600;
+}
+.jobTitle {
+  flex: 1; min-width: 0; font-size: 13px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.status {
+  font-size: 11px; padding: 3px 9px; border-radius: var(--radius-pill);
+  background: var(--status-neutral-bg); color: var(--text-secondary); font-weight: 600;
+}
+.statusActive { background: var(--status-info-bg); color: var(--status-info-fg); }
+.statusDone { background: var(--status-success-bg); color: var(--status-success-fg); }
+.statusFailed { background: var(--status-danger-bg); color: var(--status-danger-fg); }
+
+.stepper { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.step { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); flex: 1; }
+.dot { width: 10px; height: 10px; border-radius: var(--radius-pill); background: var(--gray-700); }
+.dotDone { background: var(--green-500); }
+.dotNow { background: var(--accent-primary); box-shadow: 0 0 0 4px var(--focus-ring); }
+.stepLabel { font-size: 11px; color: var(--text-faint); }
+.stepNow { font-size: 11px; font-weight: 600; color: var(--text-primary); }
+
+.progressTrack { height: 6px; border-radius: var(--radius-pill); background: var(--gray-700); overflow: hidden; }
+.progressFill { height: 100%; background: var(--accent-primary); transition: width var(--transition-fast); }
+.progressMeta { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); }
+
+.jobDone { font-size: 12px; color: var(--text-secondary); }
+.link { color: var(--accent-link); }
+.jobError {
+  padding: 12px 13px; border-radius: var(--radius-md);
+  background: var(--status-danger-bg); border: 1px solid var(--status-danger-border);
+  display: flex; flex-direction: column; gap: var(--space-1);
+  font-size: 12px; line-height: 1.55; color: var(--text-secondary);
+}
+.jobError strong { color: var(--status-danger-fg); }
+
+.jobActions { display: flex; gap: var(--space-2); }
+.smallBtn, .smallGhost {
+  font-size: 12px; padding: 5px 11px; border-radius: var(--radius-sm);
+  cursor: pointer; border: 1px solid var(--border-field); background: transparent;
+}
+.smallBtn { color: var(--text-secondary); }
+.smallGhost { color: var(--text-muted); }
+.smallBtn:disabled, .smallGhost:disabled { opacity: .5; cursor: default; }

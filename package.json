@@ -6,6 +6,7 @@
   "scripts": {
     "validate:schemas": "node scripts/validate-schemas.mjs",
     "lint:boundaries": "node scripts/lint-boundaries.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "typecheck": "pnpm -r --filter './contracts' --filter './engine' --filter './platform' run typecheck",
     "test": "pnpm -r run test",
     "catalog:check": "pnpm --filter @lusora/engine run catalog:check",

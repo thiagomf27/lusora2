@@ -9,6 +9,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-lusora}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # creates the library's database on a fresh volume; see the file
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -25,6 +27,7 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-lusora}:${POSTGRES_PASSWORD:-lusora}@postgres:5432/${POSTGRES_DB:-lusora}
       VIDEOS_ROOT: /videos-data
+      LIBRARY_API_URL: http://library:8321
     volumes:
       - videos-data:/videos-data
     ports:
@@ -41,16 +44,54 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-lusora}:${POSTGRES_PASSWORD:-lusora}@postgres:5432/${POSTGRES_DB:-lusora}
       VIDEOS_ROOT: /videos-data
+      LIBRARY_API_URL: http://library:8321
     volumes:
       - videos-data:/videos-data
     depends_on:
       postgres:
         condition: service_healthy
 
-  # library:  # broll-lib-maker — enable once vendored into library/ (M5)
-  #   build: ../library
-  #   env_file: ../.env
+  # broll-engine, the b-roll library (D71: a submodule at library/broll-engine).
+  # Its own code, its own database, its own clip bytes — reached only over HTTP
+  # (D11), which is why nothing here is shared with the worker but the network.
+  library:
+    build:
+      context: ..
+      dockerfile: deploy/library.Dockerfile
+    env_file: ../.env
+    environment:
+      BROLL_DATABASE_URL: postgres://${POSTGRES_USER:-lusora}:${POSTGRES_PASSWORD:-lusora}@postgres:5432/broll
+      # 384 = all-MiniLM-L6-v2, the embedder in broll/pipeline.py. It is fixed
+      # at CREATE TABLE (segments.embedding is vector(N)) — changing it later
+      # means re-embedding the whole library, not editing this line.
+      BROLL_EMBED_DIM: 384
+      # D73, both permanent per clip: sources are deleted after tagging, so
+      # neither can be applied retroactively to footage already ingested.
+      BROLL_CUT_MODE: ${BROLL_CUT_MODE:-reencode}
+      BROLL_MAX_RES: ${BROLL_MAX_RES:-1080}
+    volumes:
+      - broll-data:/broll-data
+    ports:
+      - "${LIBRARY_PORT:-8321}:8321"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # There is deliberately NO second service for the library's Streamlit UI.
+    # It starts an ingest worker unconditionally (ui_common._ensure_worker),
+    # and this service already runs one — two workers on one queue is parallel
+    # yt-dlp traffic through the proxy, which is the bot signature the serial
+    # queue exists to avoid. SKIP LOCKED keeps that CORRECT, not unnoticeable.
+    # To ingest or review by hand, stop this service first:
+    #   docker compose stop library
+    #   docker compose run --rm --service-ports library \
+    #     streamlit run broll_ui.py --server.port 8501 --server.address 0.0.0.0
+    # Reviewing moves into the platform at Slice 5 (D75), which removes the
+    # need for this entirely.
 
 volumes:
   pgdata:
   videos-data:
+  # clips and staged uploads. A named volume, never a bind into /tmp: sources
+  # are deleted after tagging, so anything cleared on restart is footage gone
+  # for good with rows left pointing at nothing. This has happened once.
+  broll-data:

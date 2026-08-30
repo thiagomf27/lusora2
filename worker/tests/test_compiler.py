@@ -229,7 +229,7 @@ def test_overlay_props_from_anchor_and_defaults():
     props = overlays[0]["props"]
     assert props["value"] == 70          # from_anchor: the LLM cannot get the number wrong
     assert props["label"] == "converted"  # anchor label fallback
-    # D71 flipped this catalogue-wide: the accent tint is now something the
+    # D78 flipped this catalogue-wide: the accent tint is now something the
     # planner opts INTO, so an overlay that says nothing renders neutral.
     assert props["emphasis"] == "neutral"  # default
     assert overlays[0]["end_s"] <= 5.0

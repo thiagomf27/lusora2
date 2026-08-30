@@ -19,7 +19,7 @@ const CLIP_RETENTION = ["on_render", "on_posted", "keep"] as const;
 const ORIENTATIONS = ["landscape", "portrait", "square"] as const;
 const VISUAL_SOURCE_KINDS = ["library", "stock", "ai_image"] as const;
 const MEDIA_TYPES = ["video_clip", "image", "video"] as const;
-const LICENSES: LicenseKind[] = ["cc0", "cc-by", "cc-by-sa", "owned", "stock-licensed", "unknown"];
+const LICENSES: LicenseKind[] = ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc", "royalty-free", "licensed", "own", "unknown"];
 
 // Small hardcoded registries mirrored from the worker (no schema enum / no API):
 //   voice providers → worker/.../providers/tts.py
@@ -86,7 +86,7 @@ export function defaultChannelConfig(): ChannelConfig {
             include_global: true,
             niches: [],
             tags: [],
-            licenses: ["cc0", "cc-by", "owned"],
+            licenses: ["cc0", "cc-by", "own"],
             min_score: 0.55,
           },
         ],
