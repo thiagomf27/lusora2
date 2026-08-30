@@ -476,3 +476,64 @@ RSS. Starting points — 4 vCPU / 8 GB / 80 GB is the floor (Remotion wants
 ~2 GB per concurrency slot and the library API carries torch for
 `all-MiniLM-L6-v2`); 8 vCPU / 16 GB is comfortable. Every model is remote
 (DeepSeek, ai33, Z.ai GLM), so there is no GPU anywhere.
+
+---
+
+## Slice 7 — the API the designs need (broll-engine)
+
+Seven artboards came back from Claude Design (Library browse, Search results,
+Library states, Review, Trim workbench, Ingest, Library overview). They are
+mostly grounded — they respect `sim` vs `score`, the no-undo-on-delete rule,
+duplicate rows holding no bytes, the serial queue, and licence permanence.
+
+But roughly a third of what they draw has no API behind it. Rather than build
+two thirds of each screen and come back, the API lands first.
+
+### What the designs need that does not exist
+
+| Need | Where it appears | Shape |
+|---|---|---|
+| `video_id` filter | Review's per-source filter; a source's clips | param on `/segments` |
+| `sort` | Review "confidence: low first"; Library "newest first" | param on `/segments` |
+| `offset` | Library "showing 1,892 of 3,184" | param on `/segments` |
+| total count under the active filters | the same line | `X-Total-Count` header |
+| tag vocabulary with counts | Library's tag filter rail | `GET /tags` |
+| library totals | Library overview's five stat tiles | `GET /stats` |
+| source videos with counts | Review filter, purge picker, recent ingests | `GET /videos` |
+| "caption is still the model's original" | Review's bulk-bar warning | `caption_edited` flag |
+| un-approve | Review's "Undo" on a just-approved card | `POST /segments/unapprove` |
+| cancel / retry a job | Ingest queue | `DELETE /jobs/{id}`, `POST /jobs/{id}/retry` |
+
+`caption_edited` is worth the column. The Review bulk bar warning — *"2
+selected clips still have the model's original caption"* — is the design
+enforcing the rule that dedup compares the reviewer's words, and it cannot be
+done client-side because it has to survive a reload.
+
+Un-approve is the one "undo" that is honest: approval is a status flip, not a
+deletion, so unlike a delete it genuinely can be reversed.
+
+### Dropped from the designs, deliberately
+
+- **The near-duplicate warning before approval.** Dedup runs AT approval and
+  compares the caption the reviewer settled on, so a pre-approval verdict
+  would be a guess that disagrees with the real result the moment the caption
+  is touched. The approve response already reports what happened
+  (`approved 3 · 1 linked as duplicate`); that is where it belongs.
+- **The ranking breakdown** (`fit 1.0 · reuse −.4`). `rank_segments` computes
+  those terms internally and returns only the final number; exposing them
+  means changing what ranking returns, and the debug line works with the
+  `score` and `confidence` that are already there.
+- **Job ETA and live clip counts** ("~9 min left · 128 clips so far").
+  `segments_created` is written once, at the end. An ETA over a GLM pass
+  whose duration varies per chunk would be a number we cannot stand behind.
+- **The trim filmstrip.** Frame thumbnails along the scrubber need an API
+  that renders them. The wide player, frame stepping and 0.25x playback all
+  work from the `<video>` element alone, which is what makes the scrubbing
+  accurate; the filmstrip is the expensive 10%.
+
+### Slice 8 — the screens
+
+Once the API lands and the submodule is re-pinned, the seven artboards are
+buildable as drawn, minus the four items above. Order: Library + Search +
+states (one screen, three artboards), then Review, then Ingest, then
+Overview.
