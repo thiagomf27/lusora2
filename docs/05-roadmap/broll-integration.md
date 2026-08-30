@@ -479,7 +479,7 @@ RSS. Starting points — 4 vCPU / 8 GB / 80 GB is the floor (Remotion wants
 
 ---
 
-## Slice 7 — the API the designs need (broll-engine)
+## Slice 7 — the API the designs need (broll-engine) ✅ built
 
 Seven artboards came back from Claude Design (Library browse, Search results,
 Library states, Review, Trim workbench, Ingest, Library overview). They are
@@ -531,9 +531,59 @@ deletion, so unlike a delete it genuinely can be reversed.
   work from the `<video>` element alone, which is what makes the scrubbing
   accurate; the filmstrip is the expensive 10%.
 
-### Slice 8 — the screens
+### Slice 8 — the screens ✅ built
 
-Once the API lands and the submodule is re-pinned, the seven artboards are
-buildable as drawn, minus the four items above. Order: Library + Search +
-states (one screen, three artboards), then Review, then Ingest, then
-Overview.
+Four routes under `/library`, built from the seven artboards minus the four
+dropped items above:
+
+| Route | Artboards | What it is |
+|---|---|---|
+| `/library` | Library, Search results, Library states | browse + search, one screen |
+| `/library/review` | Review, Trim workbench | the approval gate |
+| `/library/ingest` | Ingest | three ways in, one queue |
+| `/library/overview` | Library overview | totals, distributions, purge |
+
+Shared components in `platform/src/components/library/`: `ClipCard`,
+`ClipEditor`, `FilterRail`, `TrimWorkbench`, `States`, and `types.ts` (the
+one place that knows how to turn a filter set into query params and read
+`X-Total-Count` back).
+
+**The IA question the designs left open.** Their nav is a five-item sidebar
+belonging to a different app; ours already has one. The library's four
+screens went into the STUDIO group rather than becoming a sixth top-level
+entry — they are an authoring surface, like Themes or Prompts, not a
+destination the whole app orbits. What did NOT go there is the pending
+count: it gates everything downstream (an unreviewed clip is invisible to
+search AND to the worker), so it is a badge, polled every 15s off `/stats`,
+and it renders on the Studio header itself because Studio is collapsed by
+default — a badge that only appears once you have already opened the section
+is a badge for someone who already knew.
+
+**Two things the browser run found that review did not.**
+
+1. *The badge was invisible.* It was on the `/library/review` sub-entry,
+   which is inside a section that defaults closed. Correct-looking code,
+   zero users reached by it. Hence the header badge above.
+2. *Duplicates were unlistable.* The Overview's duplicate tile is a count,
+   and `/segments` excluded duplicate rows with no override — so clicking
+   through led nowhere. That is what
+   [`include_duplicates`](https://github.com/thiagomf27/broll-engine) adds
+   on the library side; the default is unchanged.
+
+**Deliberate choices inside the screens.**
+
+- An empty search box browses `/segments`, not `/search` — an empty query
+  embeds to a meaningless vector, and ranking a whole library against noise
+  is not "everything", it is an arbitrary order.
+- `sim` is what the card's match pill shows; `score` rides in its `title`.
+  Rendering `score` as a percentage would show a perfect clip at 0% for the
+  crime of already being in this project (D74).
+- Delete confirms by typing `delete N clips`. Sources are gone after
+  tagging, so there is nothing behind a deleted clip to restore.
+- The trim workbench splits the track into keep/cut regions with a playhead,
+  steps by 1/30s, and plays at 0.25x — the frame-accuracy the fast cut needs
+  without the filmstrip API that was dropped.
+- Review's keyboard culling (J/K/Space/E/A/X/T) suspends inside inputs and
+  modals, so typing a caption never approves the next clip.
+
+**Not built:** the four dropped items listed above, unchanged.

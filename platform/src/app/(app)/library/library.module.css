@@ -1,161 +1,162 @@
-/* Library + Review. One stylesheet for both: they are near-copies by design
-   (they answer different questions but draw the same grid), and a second file
-   would be the one that drifts. */
+/* Library, Review, Ingest and Overview. One stylesheet: they are near-copies
+   by design — different questions, the same grid and the same chrome — and a
+   second file would be the one that drifts. */
+
+.layout { display: flex; gap: var(--space-11); align-items: flex-start; }
+.results { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--space-6);
   align-items: start;
 }
 
-.filters { display: flex; gap: 8px; margin: 14px 0 16px; flex-wrap: wrap; }
-.search { flex: 1; min-width: 260px; font-size: 13px; }
-.filter { font-size: 12.5px; }
+.headActions { display: flex; gap: var(--space-3); align-items: center; flex-shrink: 0; }
 
-.empty {
-  padding: 44px 0;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
+/* ---- banners ---- */
 .error, .notice {
-  padding: 9px 12px;
-  border-radius: 8px;
+  padding: 10px 13px;
+  border-radius: var(--radius-md);
   font-size: 12.5px;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-5);
+  display: flex; align-items: center; gap: var(--space-4);
 }
 .error { background: var(--status-danger-bg); color: var(--status-danger-fg); }
 .notice { background: var(--status-success-bg); color: var(--status-success-fg); }
+.undoLink {
+  margin-left: auto; background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  color: inherit; text-decoration: underline;
+}
 
-.reviewCta, .reviewCtaQuiet {
-  font-size: 12.5px;
+.pendingBanner {
+  display: flex; align-items: center; gap: var(--space-9);
+  padding: 14px 18px;
+  margin-bottom: var(--space-7);
+  border: 1px solid var(--status-danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--status-danger-bg);
   text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
-.reviewCta { color: var(--accent); }
-.reviewCtaQuiet { color: var(--text-muted); }
+.pendingCount {
+  font-family: var(--font-mono); font-size: 28px; font-weight: 700;
+  line-height: 1; color: var(--status-danger-fg);
+}
+.pendingBody { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.pendingBody strong { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.pendingBody span { font-size: 13px; color: var(--text-secondary); }
 
-/* --- ingest --- */
-.ingest {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--panel);
-  overflow: hidden;
-}
-.ingestHead {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 9px 12px;
-  background: none;
-  border: 0;
-  color: var(--text);
-  font: inherit;
-  font-size: 12.5px;
-  cursor: pointer;
-}
-.jobCount { font-size: 11px; color: var(--accent); }
-.ingestBody { padding: 0 12px 12px; display: grid; gap: 8px; }
-.urlBox {
-  width: 100%;
-  font: inherit;
-  font-size: 12.5px;
-  padding: 7px 9px;
-  border-radius: 7px;
-  border: 1px solid var(--field-border);
-  background: transparent;
-  color: var(--text);
-  resize: vertical;
-}
-.ingestRow { display: flex; gap: 7px; flex-wrap: wrap; }
-.ingestRow > * { flex: 1; min-width: 130px; }
-.hint { font-size: 11px; color: var(--muted-2); line-height: 1.45; }
-
-.jobs { border-top: 1px solid var(--border); padding: 7px 12px 9px; display: grid; gap: 4px; }
-.job { display: flex; align-items: center; gap: 7px; font-size: 11.5px; }
-.jobDot { width: 6px; height: 6px; border-radius: 999px; background: var(--muted-2); flex-shrink: 0; }
-.jobDot.done { background: var(--status-success-fg); }
-.jobDot.failed { background: var(--status-danger-fg); }
-.jobDot.downloading, .jobDot.tagging, .jobDot.cutting, .jobDot.storing, .jobDot.preparing { background: var(--accent); }
-.jobStatus { color: var(--text-muted); min-width: 76px; }
-.jobUrl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; color: var(--muted-2); }
-.jobDone { color: var(--status-success-fg); font-size: 11px; white-space: nowrap; }
-.jobErr { color: var(--status-danger-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
-
-/* --- review --- */
-.bulkBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
-  margin-bottom: 14px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--panel);
-  position: sticky;
-  top: 10px;
-  z-index: 2;
-}
-.bulkAll { display: flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; }
-.bulkActions { display: flex; gap: 7px; }
-.pickedCard { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 11px; }
-.pick { display: flex; align-items: center; gap: 5px; font-size: 11.5px; cursor: pointer; margin-right: auto; }
-
-/* --- trim workbench --- */
-.workbench {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 240px;
-  gap: 14px;
-  padding: 13px;
-  margin-bottom: 16px;
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  background: var(--panel);
-}
-.wbPlayer { width: 100%; max-height: 380px; background: #000; border-radius: 7px; }
-.wbSide { display: grid; gap: 8px; align-content: start; }
-.wbTitle { font-size: 13px; line-height: 1.35; }
-.wbMeta { font-size: 11.5px; color: var(--text-muted); }
-.wbWarn { font-size: 11.5px; color: var(--amber-400); }
-.wbField { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
-.wbField input {
-  width: 96px;
-  font: inherit;
-  font-size: 12px;
-  padding: 4px 7px;
-  border-radius: 6px;
-  border: 1px solid var(--field-border);
-  background: transparent;
-  color: var(--text);
-}
-.wbActions { display: flex; gap: 7px; margin-top: 3px; }
-
-/* --- buttons --- */
-.primaryBtn, .ghostBtn, .dangerBtn, .cardBtn, .cardDanger {
-  font-size: 12px;
-  padding: 5px 11px;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-.primaryBtn { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.ghostBtn { background: transparent; color: var(--text-muted); border-color: var(--field-border); }
-.dangerBtn { background: var(--status-danger-bg); color: var(--status-danger-fg); border-color: transparent; }
-.cardBtn, .cardDanger {
-  font-size: 11.5px;
-  padding: 3px 9px;
-  background: transparent;
-  border-color: var(--field-border);
+/* ---- search ---- */
+.searchRow { display: flex; gap: var(--space-4); margin-bottom: var(--space-3); }
+.searchField {
+  flex: 1; display: flex; align-items: center; gap: var(--space-4);
+  padding: 0 14px; height: 46px;
+  background: var(--surface-field);
+  border: 1px solid var(--border-field);
+  border-radius: var(--radius-md);
   color: var(--text-muted);
 }
+.searchField:focus-within { border-color: var(--accent-primary); box-shadow: var(--shadow-focus); }
+.searchField input {
+  flex: 1; border: 0; background: none; outline: none;
+  font: inherit; font-size: 14px; color: var(--text-primary);
+}
+.clearBtn {
+  background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 12px; color: var(--text-muted);
+}
+.searchHint { font-size: 12px; color: var(--text-muted); margin-bottom: var(--space-8); }
+.hintLead { color: var(--accent-link); }
+
+/* ---- results bar ---- */
+.resultsBar { display: flex; align-items: center; gap: var(--space-4); }
+.resultsCount { font-size: 13px; color: var(--text-tertiary); }
+.resultsCount strong { color: var(--text-primary); font-weight: 600; }
+.sortSelect {
+  margin-left: auto; font: inherit; font-size: 13px;
+  padding: 8px 11px; border-radius: var(--radius-md);
+  background: var(--surface-field); border: 1px solid var(--border-field);
+  color: var(--text-secondary);
+}
+
+/* ---- review chrome ---- */
+.bulkBarTop {
+  display: flex; align-items: center; gap: var(--space-6);
+  padding: 11px 16px; margin-bottom: var(--space-5);
+  background: var(--surface-table-head);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  position: sticky; top: 10px; z-index: 3;
+  flex-wrap: wrap;
+}
+.bulkAll { display: flex; align-items: center; gap: var(--space-3); font-size: 13px; font-weight: 600; cursor: pointer; }
+.bulkActions { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); }
+.uneditedWarn { font-size: 12px; color: var(--amber-400); }
+
+.keyHints {
+  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+  margin-bottom: var(--space-6); font-size: 12px; color: var(--text-muted);
+}
+.keyHint { display: flex; align-items: center; gap: var(--space-2); }
+.kbd {
+  font-family: var(--font-mono); font-size: 11px;
+  padding: 2px 6px; border-radius: var(--radius-sm);
+  background: var(--surface-field); border: 1px solid var(--border-field);
+  color: var(--text-secondary);
+}
+.keyNote { margin-left: auto; }
+
+.cursorCard { outline: 2px solid var(--accent-primary); outline-offset: 3px; border-radius: 17px; }
+
+.editedBadge, .originalBadge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+}
+.editedBadge { background: var(--status-info-bg); color: var(--status-info-fg); }
+.originalBadge { background: var(--status-warning-bg); color: var(--status-warning-fg); }
+
+.lowConf {
+  padding: 9px 11px; border-radius: var(--radius-md);
+  background: var(--status-warning-bg); color: var(--status-warning-fg);
+  font-size: 12px; line-height: 1.5; font-weight: 600;
+}
+
+/* ---- bulk bar (library, floating) ---- */
+.bulkBar {
+  position: sticky; bottom: 16px; z-index: 5;
+  display: flex; align-items: center; gap: var(--space-5);
+  padding: 12px 16px; margin-top: var(--space-7);
+  background: var(--surface-table-head);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dropdown);
+}
+.bulkCount { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+
+/* ---- buttons ---- */
+.primaryBtn, .outlineBtn, .dangerBtn, .cardBtn, .cardDanger, .primarySm {
+  font-size: 13px; padding: 9px 14px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  border: 1px solid transparent; white-space: nowrap;
+  text-decoration: none; display: inline-flex; align-items: center;
+}
+.primaryBtn { background: var(--accent-primary); color: #fff; }
+.primaryBtn:hover { background: var(--accent-primary-hover); }
+.outlineBtn { background: transparent; color: var(--text-secondary); border-color: var(--border-field); }
+.dangerBtn { background: var(--status-danger-bg); color: var(--status-danger-fg); border-color: var(--status-danger-border); }
+.cardBtn, .cardDanger, .primarySm {
+  font-size: 11.5px; padding: 4px 10px;
+  background: transparent; border-color: var(--border-field); color: var(--text-muted);
+}
+.primarySm { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
 .cardDanger { color: var(--status-danger-fg); margin-left: auto; }
-.primaryBtn:disabled, .ghostBtn:disabled, .dangerBtn:disabled, .cardBtn:disabled, .cardDanger:disabled {
-  opacity: 0.5;
-  cursor: default;
+.cardHint { margin-left: auto; font-size: 11px; color: var(--text-faint); }
+.primaryBtn:disabled, .outlineBtn:disabled, .dangerBtn:disabled,
+.cardBtn:disabled, .cardDanger:disabled, .primarySm:disabled { opacity: .5; cursor: default; }
+
+.link {
+  font-size: 12px; color: var(--accent-link);
+  background: none; border: 0; padding: 0; cursor: pointer;
 }

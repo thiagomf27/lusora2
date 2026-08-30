@@ -104,8 +104,13 @@ at API route level. No permission builder UI. (Auth mechanism: OQ-5.)
   Remotion Player for preview parity; chat agent that emits beat
   operations and plan patches (see [Edit Plan](../03-contracts/edit-plan.md)
   for the lock/provenance rule).
-- **Library** — grid + filters over the broll library API; ingest form;
-  ingest job progress. (Reuses the library's existing API 1:1.)
+- **Library** — four routes over the broll library API, which the platform
+  reaches only through `/api/library/[...path]` (D11): `/library` (browse +
+  search, with the filter rail, sort and selection), `/library/review` (the
+  approval gate and the trim workbench), `/library/ingest` (link / video file
+  / image batch, plus the live serial queue) and `/library/overview` (totals,
+  distributions, purge). Match strength shown to an operator is `sim`, never
+  `score` (D74). Nav placement and the pending badge: D77.
 - **Monitoring** — worker heartbeat, provider health (last success/error
   per provider from events), storage usage, cost/usage charts.
 - **Admin** — users + grants; provider credential HEALTH (configured?

@@ -1,0 +1,39 @@
+.editor {
+  display: grid;
+  gap: var(--space-2);
+  padding: 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+}
+.area, .field {
+  width: 100%;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-field);
+  background: var(--surface-field);
+  color: var(--text-primary);
+}
+.area { resize: vertical; line-height: 1.5; }
+.area:focus, .field:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-focus);
+}
+.row { display: flex; gap: var(--space-2); align-items: center; }
+.row > select, .row > input { flex: 1; }
+
+.primary, .ghost {
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.primary { background: var(--accent-primary); color: #fff; }
+.primary:hover:not(:disabled) { background: var(--accent-primary-hover); }
+.ghost { background: transparent; color: var(--text-muted); border-color: var(--border-field); }
+.primary:disabled, .ghost:disabled { opacity: .5; cursor: default; }
+.hint { margin-left: auto; font-size: 11px; color: var(--text-faint); }

@@ -62,6 +62,9 @@ const STUDIO: [string, string][] = [
   ["/overlays", "Overlays"],
   ["/sounds", "Sounds"],
   ["/library", "Library"],
+  ["/library/ingest", "· Ingest"],
+  ["/library/review", "· Review"],
+  ["/library/overview", "· Overview"],
   ["/panel", "Panel"],
   ["/monitoring", "Monitoring"],
   ["/admin", "Admin"],
@@ -70,6 +73,43 @@ const STUDIO: [string, string][] = [
 interface RecentVideo {
   id: string;
   title: string;
+}
+
+/** Badges for the library's screens. The pending count is the one number in
+ *  the system that gates everything downstream — a clip nobody has reviewed is
+ *  invisible to search AND to the worker — so it is worth a poll and a badge
+ *  rather than something you find by navigating to it. Silent on failure: an
+ *  unreachable library must not make the whole nav look broken. */
+function useLibraryBadges() {
+  const [badges, setBadges] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let stop = false;
+    const tick = async () => {
+      try {
+        const [stats, jobs] = await Promise.all([
+          fetch("/api/library/stats").then((r) => (r.ok ? r.json() : null)),
+          fetch("/api/library/jobs?limit=50").then((r) => (r.ok ? r.json() : [])),
+        ]);
+        if (stop) return;
+        const running = Array.isArray(jobs)
+          ? jobs.filter((j: { status: string }) =>
+              ["queued", "preparing", "downloading", "tagging", "cutting", "storing"]
+                .includes(j.status)).length
+          : 0;
+        setBadges({
+          "/library/review": stats?.pending ?? 0,
+          "/library/ingest": running,
+        });
+      } catch {
+        /* library down: leave the badges as they were rather than zeroing them,
+           which would read as "nothing to review" */
+      }
+    };
+    void tick();
+    const t = setInterval(tick, 15000);
+    return () => { stop = true; clearInterval(t); };
+  }, []);
+  return badges;
 }
 
 function initials(name: string): string {
@@ -98,6 +138,7 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
   const [studioOpen, setStudioOpen] = useState(false);
   const [recentOpen, setRecentOpen] = useState(true);
   const [recent, setRecent] = useState<RecentVideo[]>([]);
+  const badges = useLibraryBadges();
 
   useEffect(() => {
     fetch("/api/videos")
@@ -150,6 +191,14 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
         <div className={s.scroll}>
           <button type="button" className={s.sectionHead} onClick={() => setStudioOpen((o) => !o)}>
             Studio
+            {/* Studio is collapsed by default, so a badge that only appears
+                inside it is a badge nobody sees. Pending review surfaces on
+                the header itself: it is the one number that gates the whole
+                pipeline, and finding it should not require knowing where to
+                look. */}
+            {!studioOpen && badges["/library/review"] ? (
+              <span className={s.badgeWarn}>{badges["/library/review"]}</span>
+            ) : null}
             <Chevron flipped={studioOpen} />
           </button>
           {studioOpen && (
@@ -161,6 +210,13 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
                   className={`${s.subLink}${isActive(href) ? " " + s.active : ""}`}
                 >
                   {label}
+                  {badges[href] ? (
+                    <span
+                      className={href === "/library/review" ? s.badgeWarn : s.badgeInfo}
+                    >
+                      {badges[href]}
+                    </span>
+                  ) : null}
                 </Link>
               ))}
             </div>

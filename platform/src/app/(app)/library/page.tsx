@@ -1,32 +1,48 @@
 "use client";
 /**
- * Library — search and browse what the b-roll library holds, and queue ingests
- * into it. Everything here is broll-engine over HTTP through the platform's
- * proxy (D11); nothing imports across the boundary.
+ * Library — search and browse what the b-roll library holds.
  *
- * The ingest form is not a convenience. Library channels are created
- * get-or-create at POST /jobs and nowhere else, and the worker's adapter now
- * fails closed on an unresolved channel — so until a channel has ingested
- * something under its own name, it sees only the global pool. This form is how
- * that name comes to exist.
+ * Everything is broll-engine over HTTP through the platform's proxy (D11);
+ * nothing imports across the boundary.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ClipCard, ClipEditor } from "@/components/library/ClipCard";
-import { libGet, libSend, type Job, type Lookup, type Segment } from "@/components/library/types";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ClipCard } from "@/components/library/ClipCard";
+import { ClipEditor } from "@/components/library/ClipEditor";
+import { FilterRail } from "@/components/library/FilterRail";
+import { ConfirmDelete, EmptyLibrary, NoResults, SkeletonGrid } from "@/components/library/States";
+import {
+  activeFilterCount, filterParams, fmtFootage, libGet, libList, libSend,
+  type Filters, type LibraryStats, type Lookup, type Segment, type SourceCount, type TagCount,
+} from "@/components/library/types";
 import s from "./library.module.css";
 
-const ACTIVE_JOBS = new Set(["queued", "preparing", "downloading", "tagging", "cutting", "storing"]);
+const PAGE = 48;
 
 export default function LibraryPage() {
+  const router = useRouter();
+  const params = useSearchParams();
   const [query, setQuery] = useState("");
-  const [license, setLicense] = useState("");
-  const [sourceName, setSourceName] = useState("");
+  const [submitted, setSubmitted] = useState("");
+  const [filters, setFilters] = useState<Filters>({ include_global: true });
+  // Duplicates are hidden everywhere by default — they hold no bytes and are
+  // not footage anyone would pick. This is the one view that asks for them, so
+  // the count on the overview has somewhere to lead.
+  const [dupes, setDupes] = useState(false);
+  const [sort, setSort] = useState("newest");
   const [rows, setRows] = useState<Segment[] | null>(null);
-  const [licenses, setLicenses] = useState<string[]>([]);
-  const [sources, setSources] = useState<{ name: string; segments: number }[]>([]);
-  const [pending, setPending] = useState<number | null>(null);
+  const [total, setTotal] = useState(0);
+
+  const [licences, setLicences] = useState<{ name: string; segments: number }[]>([]);
+  const [tags, setTags] = useState<TagCount[]>([]);
+  const [sources, setSources] = useState<SourceCount[]>([]);
+  const [channels, setChannels] = useState<Lookup[]>([]);
+  const [stats, setStats] = useState<LibraryStats | null>(null);
+
+  const [picked, setPicked] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -35,275 +51,227 @@ export default function LibraryPage() {
   const load = useCallback(async () => {
     const mine = ++seq.current;
     setError(null);
+    setRows(null);
     try {
       // No query means BROWSE, which is a different endpoint, not an empty
       // search: /search embeds its q and ranks by distance to it, so "" would
-      // rank the whole library against the empty string.
-      const params = { license, source_name: sourceName };
-      const hits = query.trim()
-        ? await libGet<Segment[]>("search", { q: query.trim(), top_k: 48, ...params })
-        : await libGet<Segment[]>("segments", { limit: 48, ...params });
-      if (mine === seq.current) setRows(hits);
+      // rank the whole library against nothing.
+      const params = filterParams(filters);
+      const got = submitted.trim()
+        ? await libList("search", { q: submitted.trim(), top_k: PAGE, ...params })
+        : await libList("segments", {
+            limit: PAGE, sort, ...params,
+            include_duplicates: dupes ? "true" : undefined,
+          });
+      if (mine === seq.current) { setRows(got.rows); setTotal(got.total); }
     } catch (e) {
       if (mine === seq.current) {
         setRows([]);
-        setError(e instanceof Error ? e.message : "search failed");
+        setError(e instanceof Error ? e.message : "the library is unreachable");
       }
     }
-  }, [query, license, sourceName]);
+  }, [submitted, filters, sort, dupes]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setDupes(params.get("duplicates") === "1"); }, [params]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [lic, src, pend] = await Promise.all([
-          libGet<{ known: string[] }>("licenses"),
-          libGet<{ name: string; segments: number }[]>("sources"),
-          libGet<Segment[]>("segments", { status: "pending", limit: 200 }),
-        ]);
-        setLicenses(lic.known);
-        setSources(src);
-        setPending(pend.length);
-      } catch {
-        /* the banner from load() already says the library is unreachable */
-      }
-    })();
+  const loadFacets = useCallback(async () => {
+    try {
+      const [lic, tg, src, ch, st] = await Promise.all([
+        libGet<{ known: string[]; present: { name: string; segments: number }[] }>("licenses"),
+        libGet<TagCount[]>("tags", { limit: 40 }),
+        libGet<SourceCount[]>("sources"),
+        libGet<Lookup[]>("channels"),
+        libGet<LibraryStats>("stats"),
+      ]);
+      setLicences(lic.present);
+      setTags(tg); setSources(src); setChannels(ch); setStats(st);
+    } catch { /* the banner from load() already says the library is unreachable */ }
   }, []);
+  useEffect(() => { void loadFacets(); }, [loadFacets]);
+
+  function toggle(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   async function patch(id: string, body: Record<string, unknown>) {
     setBusy(true);
     try {
       await libSend("PATCH", `segments/${id}`, body);
       setEditing(null);
-      await load();
+      await Promise.all([load(), loadFacets()]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "save failed");
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
-  async function remove(seg: Segment) {
-    if (!confirm(`Delete this clip permanently?\n\n${seg.caption}\n\nThe source video was deleted after tagging, so recovery means re-ingesting it.`)) return;
+  async function destroy() {
+    const ids = [...picked];
     setBusy(true);
     try {
-      await libSend("DELETE", `segments/${seg.id}`);
-      setNotice("clip deleted");
-      await load();
+      await libSend("DELETE", `segments?${ids.map((i) => `ids=${encodeURIComponent(i)}`).join("&")}`);
+      setNotice(`deleted ${ids.length} clip${ids.length === 1 ? "" : "s"}`);
+      setPicked(new Set());
+      setConfirming(false);
+      await Promise.all([load(), loadFacets()]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "delete failed");
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
+
+  const nActive = activeFilterCount(filters);
+  const searching = !!submitted.trim();
 
   return (
     <div className="page">
       <div className="pageHead">
         <div>
-          <h1 className="pageTitle">Library</h1>
+          <h1 className="pageTitle">B-roll library</h1>
           <div className="pageSub">
-            Tagged b-roll, searched by meaning. Preferred over stock, preferred over generation.
+            {stats
+              ? `${stats.approved.toLocaleString()} approved clips · ${fmtFootage(stats.duration_s)} of footage · ${stats.videos} sources`
+              : "Tagged b-roll, searched by meaning."}
           </div>
         </div>
-        {/* always a way through, even at zero: the queue being empty is
-            something you go and check, not something you wait to be told */}
-        <Link className={pending ? s.reviewCta : s.reviewCtaQuiet} href="/library/review">
-          {pending ? `${pending} awaiting review →` : "Review →"}
-        </Link>
+        <div className={s.headActions}>
+          <Link className={s.outlineBtn} href="/library/overview">Overview</Link>
+          <Link className={s.primaryBtn} href="/library/ingest">Ingest footage</Link>
+        </div>
       </div>
 
       {error && <div className={s.error}>{error}</div>}
       {notice && <div className={s.notice}>{notice}</div>}
 
-      <IngestPanel
-        licenses={licenses}
-        onQueued={(n) => setNotice(`queued ${n} ingest job${n === 1 ? "" : "s"}`)}
-        onError={setError}
-      />
+      {/* Pending clips are stored but invisible to search and to the worker,
+          so the queue depth is the most consequential number on this page. */}
+      {stats && stats.pending > 0 && (
+        <Link className={s.pendingBanner} href="/library/review">
+          <span className={s.pendingCount}>{stats.pending}</span>
+          <span className={s.pendingBody}>
+            <strong>{stats.pending} clip{stats.pending === 1 ? "" : "s"} waiting for review</strong>
+            <span>Pending clips are stored but invisible to search and to the pipeline.</span>
+          </span>
+          <span className={s.primaryBtn}>Open review queue</span>
+        </Link>
+      )}
 
-      <div className={s.filters}>
-        <input
-          className={s.search}
-          placeholder="scout-style search: 'aerial view of a 1940s harbour, cranes in fog…'"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <select className={s.filter} value={license} onChange={(e) => setLicense(e.target.value)}>
-          <option value="">any licence</option>
-          {licenses.map((l) => <option key={l} value={l}>{l}</option>)}
-        </select>
-        <select className={s.filter} value={sourceName} onChange={(e) => setSourceName(e.target.value)}>
-          <option value="">any origin</option>
-          {sources.map((o) => (
-            <option key={o.name} value={o.name}>{o.name} ({o.segments})</option>
-          ))}
-        </select>
+      <form className={s.searchRow} onSubmit={(e) => { e.preventDefault(); setSubmitted(query); }}>
+        <div className={s.searchField}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+               strokeWidth="1.6" strokeLinecap="round">
+            <circle cx="6.5" cy="6.5" r="4.5" /><line x1="9.8" y1="9.8" x2="14" y2="14" />
+          </svg>
+          <input value={query} onChange={(e) => setQuery(e.target.value)}
+                 placeholder="aerial view of a 1940s harbour, cranes in fog" />
+          {searching && (
+            <button type="button" className={s.clearBtn}
+                    onClick={() => { setQuery(""); setSubmitted(""); }}>clear</button>
+          )}
+        </div>
+        <button className={s.primaryBtn} type="submit">Search</button>
+      </form>
+      <div className={s.searchHint}>
+        <span className={s.hintLead}>Semantic search.</span> Describe the shot in a
+        sentence — subject, setting, camera, mood. Keywords like “harbour fog”
+        return worse results.
       </div>
 
-      {rows === null ? (
-        <div className={s.empty}>loading…</div>
-      ) : rows.length === 0 ? (
-        <div className={s.empty}>
-          {query.trim() ? "nothing close enough" : "the library is empty — queue an ingest above"}
-        </div>
-      ) : (
-        <div className={s.grid}>
-          {rows.map((seg) => (
-            <div key={seg.id}>
-              <ClipCard seg={seg}>
-                <button className={s.cardBtn} onClick={() => setEditing(editing === seg.id ? null : seg.id)}>
-                  {editing === seg.id ? "Close" : "Edit"}
-                </button>
-                <button className={s.cardDanger} onClick={() => remove(seg)} disabled={busy}>
-                  Delete
-                </button>
-              </ClipCard>
-              {editing === seg.id && (
-                <ClipEditor
-                  seg={seg}
-                  licenses={licenses}
-                  busy={busy}
-                  onCancel={() => setEditing(null)}
-                  onSave={(body) => patch(seg.id, body)}
-                />
+      <div className={s.layout}>
+        <FilterRail filters={filters} onChange={setFilters}
+                    licences={licences} tags={tags} sources={sources} channels={channels} />
+
+        <div className={s.results}>
+          <div className={s.resultsBar}>
+            <div className={s.resultsCount}>
+              {searching ? (
+                <>{total} result{total === 1 ? "" : "s"} for <strong>“{submitted}”</strong></>
+              ) : (
+                <>Showing <strong>{rows?.length ?? 0}</strong> of {total.toLocaleString()}
+                  {nActive > 0 && ` · ${nActive} filter${nActive === 1 ? "" : "s"} active`}</>
               )}
             </div>
-          ))}
+            {dupes && (
+              <button className={s.link} onClick={() => {
+                setDupes(false); router.replace("/library");
+              }}>
+                showing duplicates — back to the library
+              </button>
+            )}
+            {!searching && (
+              <select className={s.sortSelect} value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="duration">Longest first</option>
+                <option value="usage">Most reused first</option>
+                <option value="confidence">Lowest confidence first</option>
+              </select>
+            )}
+          </div>
+
+          {rows === null ? (
+            <SkeletonGrid />
+          ) : rows.length === 0 && searching ? (
+            <NoResults query={submitted} activeFilters={nActive} pending={stats?.pending ?? 0}
+                       onClear={() => setFilters({ include_global: true })} />
+          ) : rows.length === 0 && nActive === 0 ? (
+            <EmptyLibrary onIngest={() => router.push("/library/ingest")} />
+          ) : rows.length === 0 ? (
+            <NoResults query="these filters" activeFilters={nActive} pending={stats?.pending ?? 0}
+                       onClear={() => setFilters({ include_global: true })} />
+          ) : (
+            <div className={s.grid}>
+              {rows.map((seg, i) => (
+                <div key={seg.id}>
+                  <ClipCard
+                    seg={seg}
+                    rank={searching ? i + 1 : undefined}
+                    selected={picked.has(seg.id)}
+                    onSelect={(e) => toggle(seg.id, e)}
+                  >
+                    <button className={s.cardBtn}
+                            onClick={() => setEditing(editing === seg.id ? null : seg.id)}>
+                      {editing === seg.id ? "Close" : "Edit"}
+                    </button>
+                    {seg.duplicate_of && (
+                      <span className={s.cardHint} title={seg.duplicate_of}>points at canonical</span>
+                    )}
+                  </ClipCard>
+                  {editing === seg.id && (
+                    <ClipEditor
+                      caption={seg.caption} tags={seg.tags} license={seg.license}
+                      sourceName={seg.source_name} licenses={licences.map((l) => l.name)}
+                      busy={busy} autoFocus
+                      onCancel={() => setEditing(null)}
+                      onSave={(body) => patch(seg.id, body)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  );
-}
+      </div>
 
-/** Queue a link, and watch the serial queue chew through it. */
-function IngestPanel({
-  licenses,
-  onQueued,
-  onError,
-}: {
-  licenses: string[];
-  onQueued: (n: number) => void;
-  onError: (e: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [urls, setUrls] = useState("");
-  const [channel, setChannel] = useState("");
-  const [niches, setNiches] = useState("");
-  const [sourceName, setSourceName] = useState("");
-  const [license, setLicense] = useState("unknown");
-  const [busy, setBusy] = useState(false);
-  const [jobs, setJobs] = useState<Job[]>([]);
-
-  // The queue is serial by design — one download at a time through the proxy,
-  // because parallel yt-dlp traffic is the classic bot signature. So a job list
-  // is not a nicety: a link queued behind a 40-minute documentary looks broken
-  // without it.
-  useEffect(() => {
-    let stop = false;
-    const tick = async () => {
-      try {
-        const rows = await libGet<Job[]>("jobs", { limit: 8 });
-        if (!stop) setJobs(rows);
-      } catch { /* unreachable library is reported by the page */ }
-    };
-    void tick();
-    const t = setInterval(tick, 4000);
-    return () => { stop = true; clearInterval(t); };
-  }, []);
-
-  async function queue() {
-    const list = urls.split(/[\s,]+/).map((u) => u.trim()).filter(Boolean);
-    if (!list.length) return;
-    setBusy(true);
-    try {
-      await libSend("POST", "jobs", {
-        urls: list,
-        channel: channel.trim() || null,
-        niches: niches.split(",").map((n) => n.trim()).filter(Boolean),
-        source_name: sourceName.trim() || null,
-        license,
-      });
-      setUrls("");
-      onQueued(list.length);
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "ingest failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const active = jobs.filter((j) => ACTIVE_JOBS.has(j.status));
-
-  return (
-    <div className={s.ingest}>
-      <button className={s.ingestHead} onClick={() => setOpen(!open)}>
-        <span>{open ? "▾" : "▸"} Ingest</span>
-        {active.length > 0 && <span className={s.jobCount}>{active.length} running</span>}
-      </button>
-
-      {open && (
-        <div className={s.ingestBody}>
-          <textarea
-            className={s.urlBox}
-            rows={2}
-            placeholder="YouTube / archive.org links, one per line"
-            value={urls}
-            onChange={(e) => setUrls(e.target.value)}
-          />
-          <div className={s.ingestRow}>
-            <input
-              className={s.filter}
-              placeholder="channel (creates it if new)"
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-            />
-            <input
-              className={s.filter}
-              placeholder="niches, comma separated"
-              value={niches}
-              onChange={(e) => setNiches(e.target.value)}
-            />
-            <input
-              className={s.filter}
-              placeholder="origin (uploader, client…)"
-              value={sourceName}
-              onChange={(e) => setSourceName(e.target.value)}
-            />
-            <select className={s.filter} value={license} onChange={(e) => setLicense(e.target.value)}>
-              {licenses.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-            <button className={s.primaryBtn} onClick={queue} disabled={busy || !urls.trim()}>
-              Queue
+      {picked.size > 0 && (
+        <div className={s.bulkBar}>
+          <span className={s.bulkCount}>{picked.size} clip{picked.size === 1 ? "" : "s"} selected</span>
+          <button className={s.link} onClick={() => setPicked(new Set())}>Clear</button>
+          <div className={s.bulkActions}>
+            <button className={s.dangerBtn} disabled={busy} onClick={() => setConfirming(true)}>
+              Delete permanently
             </button>
           </div>
-          <div className={s.hint}>
-            The channel name is what scopes a clip to a channel. A lusora channel with
-            no library channel of its own searches the global pool only.
-          </div>
         </div>
       )}
 
-      {jobs.length > 0 && (
-        <div className={s.jobs}>
-          {jobs.slice(0, 5).map((j) => (
-            <div key={j.id} className={s.job}>
-              <span className={`${s.jobDot} ${s[j.status] ?? ""}`} />
-              <span className={s.jobStatus}>
-                {j.status}
-                {ACTIVE_JOBS.has(j.status) && j.progress > 0 && ` ${Math.round(j.progress * 100)}%`}
-              </span>
-              <span className={s.jobUrl} title={j.url ?? j.kind}>{j.url ?? j.kind}</span>
-              {j.status === "done" && j.segments_created !== null && (
-                <span className={s.jobDone}>{j.segments_created} clips</span>
-              )}
-              {j.error && <span className={s.jobErr} title={j.error}>{j.error}</span>}
-            </div>
-          ))}
-        </div>
+      {confirming && (
+        <ConfirmDelete count={picked.size} busy={busy}
+                       onConfirm={destroy} onCancel={() => setConfirming(false)} />
       )}
     </div>
   );

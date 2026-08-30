@@ -193,6 +193,18 @@ The authoring/ops screens the design does not draw (queue, pipeline, themes,
 style packs, prompts, overlays, sounds, library, panel, monitoring, admin,
 editor) are unchanged and reachable from the sidebar's collapsible STUDIO group.
 
+**The b-roll library is four screens now** (Slice 8): `/library` (browse +
+search, one screen), `/library/review` (the approval gate, with the trim
+workbench), `/library/ingest` (link / video file / image batch, plus the live
+queue) and `/library/overview` (totals, distributions, purge). They sit in the
+STUDIO group with the rest of the authoring surfaces, but the pending-review
+count is a badge on the STUDIO header itself — that group is collapsed by
+default, and an unreviewed clip is invisible to search AND to the worker, so
+that number cannot be something you only see after opening a section. Polled
+every 15s off the library's `/stats`; silent when the library is down, because
+zeroing it would read as "nothing to review". Shared card/editor/rail/trim
+components live in `platform/src/components/library/`.
+
 ## How to run (this machine's dev setup)
 
 No docker, no sudo used. Everything runs as the user. **First time on a fresh
@@ -214,9 +226,9 @@ pnpm --filter @lusora/platform run dev            # http://localhost:3000
 
 # 3. library service (broll-engine, a submodule — own venv, own DB)
 cd library/broll-engine && ./.venv/bin/python -m uvicorn api:app --host 127.0.0.1 --port 8321
-# Library UI is now the PLATFORM's /library and /library/review (Slice 5) —
-# broll_ui.py still works but do not run it while this is up: it starts a
-# second ingest worker on the same serial queue.
+# Library UI is now the PLATFORM's /library, /library/review, /library/ingest
+# and /library/overview — broll_ui.py still works but do not run it while this
+# is up: it starts a second ingest worker on the same serial queue.
 
 # 4. worker (MUST run from worker/ — uv resolves the project by cwd)
 cd worker && uv run python -m lusora_worker
@@ -364,7 +376,14 @@ Two real bugs surfaced finishing `vid_bf49becb0547`:
   (Core Principle 7). Named files live in `contracts/style-packs/` and
   `contracts/themes/`.
 - The library API gained `licenses` filters and
-  `POST /segments/{id}/mark_used` (documented library changes, OQ-13).
+  `POST /segments/{id}/mark_used` (documented library changes, OQ-13), then
+  the browse surface the screens needed: `video_id`/`sort`/`offset` on
+  `/segments` with the total in an `X-Total-Count` header,
+  `include_duplicates` (default off, so the duplicate count on Overview has
+  somewhere to lead), `GET /tags` `/videos` `/stats`,
+  `POST /segments/unapprove`, and `DELETE|POST /jobs/{id}[/retry]`.
+  `segments.caption_edited` is a real column because the Review warning
+  ("still the model's original caption") has to survive a reload.
 - Platform API gained `GET /api/videos/{id}/files/{...path}` (video
   folder artifacts for the editor's Player preview) and the `set_lock`
   plan op.
