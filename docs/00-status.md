@@ -269,7 +269,7 @@ already local — but still needs the GLM key to tag. A **link** needs both.
 `LIBRARY_API_URL=http://127.0.0.1:8321`, `DEEPSEEK_API_KEY`,
 `AI33_API_KEY` + `AI33_BASE_URL=https://api.ai33.pro`, `PEXELS_API_KEY`.
 The library keeps its own `library/broll-engine/.env` (`ZAI_API_KEY`
-for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
+for GLM tagging, `YTDLP_PROXY`, `BROLL_CLIP_ROOT` — see gotchas).
 
 ## Providers wired
 
@@ -283,7 +283,8 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_STORAGE_ROOT` — see gotchas).
 
 ## Gotchas / environment quirks
 
-- **Library clip bytes were lost once**: `BROLL_STORAGE_ROOT` defaulted
+- **Library clip bytes were lost once**: the clip root (then named
+  `BROLL_STORAGE_ROOT`, renamed `BROLL_CLIP_ROOT` in broll-engine) defaulted
   to `/tmp/broll_clips`, wiped on reboot. 64 pre-existing segments have
   rows but no bytes (their `/clips/{id}` 500s; the lusora adapter treats
   that as fall-through). It now points at `data/broll-store/`. To make

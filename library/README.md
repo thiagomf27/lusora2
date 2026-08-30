@@ -36,7 +36,7 @@ python -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
 It reads its own `.env` (`ZAI_API_KEY` for GLM tagging, `YTDLP_PROXY`,
-`BROLL_STORAGE_ROOT`); the deployment values lusora needs are documented in
+`BROLL_CLIP_ROOT`); the deployment values lusora needs are documented in
 the repo root's `.env.example`. See `broll-engine/CLAUDE.md` for its design
 and `docs/05-roadmap/broll-integration.md` for how the two fit together.
 

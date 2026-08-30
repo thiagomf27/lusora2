@@ -16,7 +16,7 @@ COPY library/broll-engine .
 # Clip bytes and staged uploads must NOT land in /tmp: sources are deleted
 # after tagging, so anything cleared on restart is footage lost with rows left
 # pointing at nothing. Both are volumes in docker-compose.yml.
-ENV BROLL_STORAGE_ROOT=/broll-data/clips \
+ENV BROLL_CLIP_ROOT=/broll-data/clips \
     BROLL_UPLOAD_ROOT=/broll-data/uploads
 
 EXPOSE 8321
