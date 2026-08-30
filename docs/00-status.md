@@ -195,7 +195,8 @@ editor) are unchanged and reachable from the sidebar's collapsible STUDIO group.
 
 ## How to run (this machine's dev setup)
 
-No docker, no sudo used. Everything runs as the user:
+No docker, no sudo used. Everything runs as the user. **First time on a fresh
+clone, do the one-time setup below first.**
 
 ```sh
 # 0. one-time PATH (corepack pnpm + uv live in ~/.local/bin)
@@ -212,8 +213,10 @@ pnpm --filter @lusora/platform run dev            # http://localhost:3000
 # login: admin@example.com / admin  (from .env; db:seed creates it once)
 
 # 3. library service (broll-engine, a submodule — own venv, own DB)
-#    git submodule update --init --recursive   (once, if the dir is empty)
 cd library/broll-engine && ./.venv/bin/python -m uvicorn api:app --host 127.0.0.1 --port 8321
+# Library UI is now the PLATFORM's /library and /library/review (Slice 5) —
+# broll_ui.py still works but do not run it while this is up: it starts a
+# second ingest worker on the same serial queue.
 
 # 4. worker (MUST run from worker/ — uv resolves the project by cwd)
 cd worker && uv run python -m lusora_worker
@@ -224,6 +227,42 @@ cd worker && uv run pytest                        # 28 tests
 cd library/broll-engine && BROLL_DATABASE_URL=postgresql://broll:broll@localhost:5432/broll_test \
   BROLL_EMBED_DIM=8 .venv/bin/python test_flows.py   # also: test_engine_api.py
 ```
+
+### One-time setup on a fresh clone
+
+```sh
+git submodule update --init --recursive          # library/ is a submodule (D71)
+pnpm install
+
+# two databases, both in the same cluster. The library creates its own
+# `vector` extension and tables on first connect; it only needs the database
+# to exist and its role to be allowed CREATE EXTENSION.
+createdb -h 127.0.0.1 -U broll lusora
+createdb -h 127.0.0.1 -U broll broll
+
+# the library's own venv. sentence-transformers pulls torch — this is a
+# multi-minute, ~2 GB install, and it is the slowest step by far.
+cd library/broll-engine && python3 -m venv .venv \
+  && .venv/bin/pip install -r requirements.txt && cd -
+
+cp .env.example .env                             # then fill it in (below)
+cp library/broll-engine/.env.example library/broll-engine/.env
+pnpm --filter @lusora/platform run db:migrate
+pnpm --filter @lusora/platform run db:seed       # creates the admin login
+```
+
+**The two things that stop a first ingest dead**, both in the library's
+`.env` and neither with a usable default:
+
+- `YTDLP_PROXY` — every network touchpoint passes it explicitly and **raises
+  when it is unset**; there is deliberately no silent direct fallback.
+  `YTDLP_PROXY=direct` is the explicit opt-out for local testing.
+- `ZAI_API_KEY` — GLM does the tagging. `GLMClient` constructs fine without
+  it and fails on the first CALL, so a keyless ingest fails partway rather
+  than at startup.
+
+An **upload** (`video_file` / `image`) never touches the proxy — the bytes are
+already local — but still needs the GLM key to tag. A **link** needs both.
 
 `.env` at the repo root is the single shared config (D26). Set:
 `DATABASE_URL` (5433 dev cluster), `SESSION_SECRET`, `VIDEOS_ROOT`,
