@@ -346,10 +346,13 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_CLIP_ROOT` — see gotchas).
 - pt-BR voices: use ai33 `edge_pt-BR-*` voices; flite is English-only.
 - ai33 charges opaque "credits" (recorded in cost_event details); the
   per-char USD in `contracts/prices.json` is an estimate (OQ-15 note).
-- The library is a **submodule** now (D71), pinned to a commit on
-  broll-engine's `claude/lusora-automation-architecture-eh0hpk` branch —
-  re-pin to `master` once that merges. An empty `library/broll-engine/`
-  means `git submodule update --init --recursive` has not been run. The
+- The library is a **submodule** now (D71), on
+  `thiagomf27/automation-broll-engine` since the 2026-08-31 repo split
+  (`broll-engine` went back to the other product that shared it), pinned to
+  a commit on that repo's `master`. An empty `library/broll-engine/` means
+  either `git submodule update --init --recursive` has not been run, or the
+  clone had no GitHub credentials — the repo is private while `lusora2` is
+  public, so an anonymous recursive clone silently leaves it empty. The
   hand-vendored copy it replaced is gone; its git history backup at
   `data/broll-lib-maker.git-history-backup` is no longer needed, since the
   real history is the submodule's.

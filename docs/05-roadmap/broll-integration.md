@@ -228,12 +228,39 @@ the `+0.08 * duration_fit` term from noise into signal.
 Ordered so that nothing depends on work that comes later. Slices 1–2 are
 **broll-engine** changes; 3–6 are **lusora**.
 
+## The repo split (2026-08-31)
+
+`thiagomf27/broll-engine` had been serving two unrelated products off two
+branches that forked at `86d191c` and never merged: `master`, this library,
+and `studio-integration`, a different tool deployed elsewhere. A dry-run
+merge of the two heads conflicts in every core module (`api.py`,
+`broll/{__init__,jobs,pipeline,schema,storage,tagging}.py`), so they cannot
+be reunited. `master` was pushed to a new private repo,
+**`thiagomf27/automation-broll-engine`**, and `broll-engine` goes back to
+the other tool. Only `.gitmodules` changed; the submodule directory is
+still `library/broll-engine` and the history is the same history.
+
+**The clone hazard.** `lusora2` is public and the library repo is private,
+so an anonymous `git clone --recurse-submodules` clones the parent fine and
+leaves `library/broll-engine/` empty — it reads as a submodule problem but
+is `remote: Repository not found` on the child. A clone needs a GitHub
+account with access to both.
+
+**CI is not yet wired for this.** `.github/workflows/ci.yml` checks out
+with `submodules: recursive` in both jobs, and the default `GITHUB_TOKEN`
+is scoped to `lusora2` alone — it cannot read a second private repo, so
+both jobs will fail at checkout. The fix is either a PAT with `repo` scope
+stored as a repository secret and passed to `actions/checkout` as `token:`,
+or making `automation-broll-engine` public (`lusora2` already is). Neither
+is done.
+
 ### Slice 0 — the swap ✅ BUILT
 
 > Done 2026-08-29. Ran last rather than first: Slices 1–4 had to settle what
-> the submodule is pinned TO. The pin is broll-engine `17cb0be`, on its
-> `claude/lusora-automation-architecture-eh0hpk` branch — **re-pin to
-> `master` once that merges**; an older commit does not serve this worker.
+> the submodule is pinned TO. That branch has since merged and the repo has
+> moved (see *The repo split*, below): the pin is now on
+> `automation-broll-engine` `master`; an older commit does not serve this
+> worker.
 
 1. `git rm -r library/broll-lib-maker`; submodule added at
    `library/broll-engine`. Note broll-engine's default branch is `master`.
@@ -571,7 +598,7 @@ collapsed.
 2. *Duplicates were unlistable.* The Overview's duplicate tile is a count,
    and `/segments` excluded duplicate rows with no override — so clicking
    through led nowhere. That is what
-   [`include_duplicates`](https://github.com/thiagomf27/broll-engine) adds
+   [`include_duplicates`](https://github.com/thiagomf27/automation-broll-engine) adds
    on the library side; the default is unchanged.
 
 **Deliberate choices inside the screens.**

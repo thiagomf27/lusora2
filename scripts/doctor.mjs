@@ -86,8 +86,12 @@ head("2. Library submodule (library/broll-engine)");
     } else if (want) {
       ok(`at the pinned commit`, want.slice(0, 8));
     }
+    // A gitlink records the child's HEAD commit, never its working tree — so
+    // an uncommitted edit in here is in neither repo's history. It survives
+    // locally and vanishes on the next clone, taking whatever it fixed.
     const dirty = run("git", ["-C", LIB, "status", "--porcelain"]).out;
-    if (dirty) warn("submodule working tree is dirty — the parent will record a dirty pin");
+    if (dirty) warn("submodule working tree is dirty — those edits are in neither repo and are lost on re-clone",
+                    "cd library/broll-engine && git checkout -b <branch> && git commit && git push   # then re-pin");
   }
 }
 
