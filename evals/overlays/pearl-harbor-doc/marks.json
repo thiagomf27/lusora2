@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "case": "pearl-harbor-doc",
+  "source": {
+    "title": "Pearl Harbor — the day and the year after (LUSORA script, video vid_4d5de5a2e04d)",
+    "level": "L1",
+    "marked_by": "Claude, from script.txt alone",
+    "marked_on": "2026-09-03"
+  },
+  "notes": "L1, and read the level before reading the numbers. There is no reference video behind this case: it is a script LUSORA itself wrote, and the marks are a judgement about where a graphic belongs in it, not a measurement of what a real channel did. They were written from script.txt WITHOUT opening the beats.json they are scored against, which is what makes the baseline honest rather than circular — but a self-marked case can only tell you whether the planner agrees with one reading of a script, and it cannot tell you whether that reading is what a professional editor would do. Replace it with an L2/L3 teardown case as soon as one exists (docs/10-overlay-marks.md).\n\nThe budget is the whole point here. doc-slow is density 'normal' = 2.5/min, and the narration runs about a minute, so roughly four overlays are legal in total — against thirteen spans that carry a real anchor. Nine of the marks below are therefore negatives on legal anchors: the question this case asks is not 'can the planner find a number' but 'can it spend four graphics on the right four'.",
+  "marks": [
+    {
+      "id": "m1",
+      "source_words": "December 7th, 1941",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "a real date anchor in the first six words, and the reflex is a DateStamp on it. With four overlays for the whole video, spending one on the premise rather than on the toll, the quote or the vote is the wrong trade — the date is what the viewer is told, not what they are asked to hold."
+    },
+    {
+      "id": "m2",
+      "source_words": "at 7:48 in the morning",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "precision the script never uses again. Nothing later in the narration refers back to the minute, so a graphic here buys nothing and costs one of four."
+    },
+    {
+      "id": "m3",
+      "source_words": "The attack lasted 110 minutes",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "the strongest of the negatives, and the closest call in the case. It is a genuinely good figure — and it sits one sentence before three more, and the one that lands is the last of them. A counter here means a second counter within about eight seconds, which is the stacking the density budget exists to prevent."
+    },
+    {
+      "id": "m4",
+      "source_words": "eight battleships had been sunk or damaged",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "first of three figures in a single breath. Putting a card on each turns one sentence into a slideshow, and none of the three is read."
+    },
+    {
+      "id": "m5",
+      "source_words": "188 aircraft were destroyed",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "second of the same three. Same reason as m4."
+    },
+    {
+      "id": "m6",
+      "source_words": "2,403 Americans were dead",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter"],
+      "ideal": "AnimatedCounter",
+      "why": "the third of the three, and the one the sentence is built to land on. The other two are scale; this one is the cost. If the video carries exactly one number, it is this one."
+    },
+    {
+      "id": "m7",
+      "source_words": "Franklin Roosevelt spent that evening",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "a name anchor, and a NamePlate on it is decoration: the audience for this script does not need Roosevelt identified. A name card earns its place when the viewer would otherwise not know who is speaking."
+    },
+    {
+      "id": "m8",
+      "source_words": "he crossed out the words",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "the shape this moment wants is the draft itself, with the struck phrase visibly replaced by the new one. DocumentCard shows a document and HighlightedPassage marks a passage in set type; neither strikes text out and neither animates an edit. No field carries it, so the moment is excluded rather than scored as a miss the planner had no way to avoid."
+    },
+    {
+      "id": "m9",
+      "source_words": "a date which will live in infamy",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["QuoteBlock"],
+      "ideal": "QuoteBlock",
+      "why": "a quote anchor, and the most quoted sentence of the century. The script spends four sentences setting up an edit to one phrase; the phrase has to be on screen or the setup was spent on nothing. HighlightedPassage would be the other reading, but this channel's pack does not allow it."
+    },
+    {
+      "id": "m10",
+      "source_words": "82 votes to nothing",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["ComparisonSplit"],
+      "ideal": "ComparisonSplit",
+      "why": "two quantities set against each other, and the asymmetry IS the fact — a split reads it instantly in a way the spoken number does not."
+    },
+    {
+      "id": "m11",
+      "source_words": "The House agreed, 388 to 1",
+      "verdict": "no_graphic",
+      "near_miss": "comparison",
+      "why": "the discriminating negative of the pair. It is exactly as legal as m10 and it is the second vote in two sentences: a viewer who has just read one lopsided split reads the next as a repeat, and two cards for one point halve each other. Choose one; the Senate's is first and rounder."
+    },
+    {
+      "id": "m12",
+      "source_words": "fewer than 100 merchant vessels",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "the setup half of a comparison whose payoff is the next clause. Graphing the two halves separately breaks one comparison into two weak counters — the ratio is the fact, not either number."
+    },
+    {
+      "id": "m13",
+      "source_words": "more than 1,900 a year",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["ComparisonSplit", "AnimatedCounter"],
+      "ideal": "ComparisonSplit",
+      "why": "the payoff, and the closing image of the script. A split carrying both years is the better read because the point is the multiple; a counter on 1,900 alone is defensible and loses the comparison."
+    }
+  ]
+}

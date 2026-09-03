@@ -1,0 +1,48 @@
+{
+  "_comment": "The config half of the case, frozen from the run that produced the baseline beats.json (video vid_4d5de5a2e04d). A case is only reproducible if the style pack and channel rules it was scored under are pinned beside the script: overlays.density and overlays.emphasis decide how many graphics are even legal, so a case re-run under a different pack is a different question.",
+  "from_video": "vid_4d5de5a2e04d",
+  "language": "en-US",
+  "video_type": "doc",
+  "style_pack": "doc-slow",
+  "theme": "history-dark",
+  "component_pack": null,
+  "planner": {
+    "llm": "deepseek"
+  },
+  "style_pack_doc": {
+    "name": "doc-slow",
+    "pacing": {
+      "avg_hold_seconds": 4,
+      "min_hold": 2.5,
+      "max_hold": 8,
+      "arc": "three_act"
+    },
+    "overlays": {
+      "density": "normal",
+      "allowed_components": [
+        "ChapterCard",
+        "NamePlate",
+        "DateStamp",
+        "SatelliteLocate",
+        "QuoteBlock",
+        "DocumentCard",
+        "FramedExhibit",
+        "ArchivalFrame",
+        "AnimatedCounter",
+        "ComparisonSplit",
+        "FactCard",
+        "Timeline"
+      ]
+    },
+    "transitions": {
+      "allowed": [
+        "cut",
+        "crossfade",
+        "fade_to_black"
+      ],
+      "default": "cut"
+    },
+    "script_persona": "Grave, precise documentary narrator. Short sentences. No exclamations.",
+    "visual_language": "Archival, desaturated, wide establishing shots; avoid modern footage."
+  }
+}

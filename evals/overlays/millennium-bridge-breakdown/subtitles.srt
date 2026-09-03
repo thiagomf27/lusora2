@@ -1,0 +1,52 @@
+1
+00:00:00,000 --> 00:00:04,467
+On 10 June 2000, London opened the Millennium Bridge.
+
+2
+00:00:04,467 --> 00:00:06,583
+It closed two days later.
+
+3
+00:00:06,583 --> 00:00:09,143
+Two thousand people crossed at once.
+
+4
+00:00:09,143 --> 00:00:13,453
+The deck began to sway sideways, up to 70 millimetres.
+
+5
+00:00:13,453 --> 00:00:16,405
+The engineers had checked vertical loads.
+
+6
+00:00:16,405 --> 00:00:20,793
+Nobody had checked what a walking crowd does to a deck sideways.
+
+7
+00:00:20,793 --> 00:00:24,712
+The effect is called synchronous lateral excitation.
+
+8
+00:00:24,712 --> 00:00:32,705
+When a bridge sways, people widen their stance to match it, and every corrected step pushes the deck further.
+
+9
+00:00:32,705 --> 00:00:39,784
+The fix took two years and 5 million pounds: 91 dampers bolted underneath the deck.
+
+10
+00:00:39,784 --> 00:00:43,546
+Design sway allowed: 5 millimetres.
+
+11
+00:00:43,546 --> 00:00:47,700
+Sway measured on opening day: 70 millimetres.
+
+12
+00:00:47,700 --> 00:00:49,946
+The bridge was never unsafe.
+
+13
+00:00:49,946 --> 00:00:53,342
+It was just honest about the physics nobody had modelled.
+

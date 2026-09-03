@@ -37,20 +37,19 @@ for (const file of readdirSync(schemasDir)) {
   }
 }
 
-// 2. fixtures validate
-const fixtureToSchema = {
-  "beat_sheet.json": "beat_sheet",
-  "edit_plan.json": "edit_plan",
-  "theme.json": "theme",
-  "style_pack.json": "style_pack",
-  "channel_config.json": "channel_config",
-  "cost_event.json": "cost_event",
-  "prompt.json": "prompt",
-};
-for (const [fixture, schemaName] of Object.entries(fixtureToSchema)) {
+// 2. fixtures validate. Fixtures are DISCOVERED, by filename: contracts/
+//    fixtures/<name>.json is checked against contracts/schemas/<name>.schema.json.
+//    Adding a schema and a fixture beside it therefore puts the pair in CI with
+//    no edit here — which is the only version of the rule "every new contract
+//    file needs a fixture" that cannot be forgotten. A fixture naming no schema
+//    is a failure rather than a skip, so a typo cannot hide a file from CI.
+const fixtureFiles = readdirSync(fixturesDir).filter((f) => f.endsWith(".json"));
+if (fixtureFiles.length === 0) fail("contracts/fixtures is empty");
+for (const fixture of fixtureFiles) {
+  const schemaName = fixture.replace(/\.json$/, "");
   const validate = validators[schemaName];
   if (!validate) {
-    fail(`no validator for ${schemaName}`);
+    fail(`fixture ${fixture} has no schema: expected contracts/schemas/${schemaName}.schema.json`);
     continue;
   }
   const data = JSON.parse(readFileSync(join(fixturesDir, fixture), "utf8"));

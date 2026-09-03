@@ -1,0 +1,435 @@
+"""The overlay eval scorer (slice 1).
+
+The scorer is the instrument every later slice is judged with, so these tests
+are mostly about it being HONEST rather than about it working: that the metric
+the work is trying to move actually moves, that the two axes are independent,
+that a bug in a case is reported as a bug rather than absorbed as a bad score,
+and that it cannot drift from the verbatim rule the validator enforces.
+"""
+
+import json
+from pathlib import Path
+
+import pytest
+from lusora_contracts import load_schema
+
+from lusora_worker import textsplit
+from lusora_worker.evals.overlays import (
+    EvalCaseError,
+    load_case,
+    score,
+    score_case,
+)
+
+EVALS = Path(__file__).resolve().parents[2] / "evals" / "overlays"
+
+SCRIPT = (
+    "The Soviet Union built twenty-nine thousand tanks. "
+    "Germany built twelve thousand. "
+    "The gap was not a matter of courage. "
+    "It was a matter of factories."
+)
+
+
+def _beat(bid, text, overlay=None):
+    beat = {"id": bid, "kind": "narration", "script_text": text, "visual_intent": "a factory floor"}
+    if overlay:
+        beat["overlay"] = overlay
+    return beat
+
+
+def _sheet(*beats):
+    return {"version": "1.1", "video_id": "vid_e", "beats": list(beats)}
+
+
+def _marks(*marks):
+    return {"version": "1.0", "case": "unit", "marks": list(marks)}
+
+
+def _graphic(mid, words, acceptable, ideal=None, cls="anchor"):
+    return {
+        "id": mid,
+        "source_words": words,
+        "verdict": "graphic",
+        "class": cls,
+        "acceptable": list(acceptable),
+        "ideal": ideal or acceptable[0],
+    }
+
+
+def _no_graphic(mid, words, near_miss=None):
+    mark = {"id": mid, "source_words": words, "verdict": "no_graphic"}
+    if near_miss:
+        mark["near_miss"] = near_miss
+    return mark
+
+
+# ---------------- the happy path ----------------
+
+
+def test_a_perfect_sheet_scores_one_on_every_axis():
+    marks = _marks(
+        _graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter", "StatTag"]),
+        _no_graphic("m2", "a matter of courage"),
+    )
+    sheet = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks.",
+              {"component": "AnimatedCounter", "anchor_ref": 0}),
+        _beat("b2", "Germany built twelve thousand."),
+        _beat("b3", "The gap was not a matter of courage."),
+        _beat("b4", "It was a matter of factories."),
+    )
+    scores = score(marks, sheet, SCRIPT)
+    assert (scores.recall, scores.precision, scores.restraint, scores.component_accuracy) == (
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    )
+
+
+# ---------------- each axis moves for its own reason ----------------
+
+
+def test_an_overlay_on_a_no_graphic_mark_costs_restraint():
+    """The metric the whole line of work exists to move."""
+    marks = _marks(_no_graphic("m1", "a matter of courage", near_miss="number"))
+    clean = _sheet(_beat("b1", SCRIPT))
+    noisy = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks. Germany built twelve thousand."),
+        _beat("b2", "The gap was not a matter of courage.", {"component": "StatTag"}),
+        _beat("b3", "It was a matter of factories."),
+    )
+    assert score(marks, clean, SCRIPT).restraint == 1.0
+    after = score(marks, noisy, SCRIPT)
+    assert after.restraint == 0.0
+    assert after.restraint_failures == ("m1",)
+
+
+def test_a_missed_graphic_mark_costs_recall():
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]))
+    sheet = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks."),
+        _beat("b2", "Germany built twelve thousand. The gap was not a matter of courage. It was a matter of factories."),
+    )
+    scores = score(marks, sheet, SCRIPT)
+    assert scores.recall == 0.0
+    assert scores.misses == ("m1",)
+    # nothing was placed, so there is no component decision to grade
+    assert scores.component_accuracy is None
+
+
+def test_a_right_moment_with_a_wrong_component_keeps_recall_and_loses_accuracy():
+    """The two axes are independent: WHERE and WHICH are separate questions,
+    and a scorer that collapsed them could not tell a restraint problem from a
+    catalog-comprehension one."""
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter", "StatTag"]))
+    sheet = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks.",
+              {"component": "QuoteBlock"}),
+        _beat("b2", "Germany built twelve thousand. The gap was not a matter of courage. It was a matter of factories."),
+    )
+    scores = score(marks, sheet, SCRIPT)
+    assert scores.recall == 1.0
+    assert scores.precision == 1.0
+    assert scores.component_accuracy == 0.0
+    assert scores.wrong_components == (("m1", "QuoteBlock"),)
+
+
+def test_an_overlay_nowhere_near_a_mark_costs_precision_but_not_restraint():
+    """A beat nobody marked is not evidence either way — the marker looked at
+    the reference, not at every beat our planner might invent. Only a beat
+    carrying a verdict counts."""
+    marks = _marks(
+        _graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]),
+        _no_graphic("m2", "a matter of courage"),
+    )
+    sheet = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks.", {"component": "AnimatedCounter"}),
+        _beat("b2", "Germany built twelve thousand.", {"component": "StatTag"}),
+        _beat("b3", "The gap was not a matter of courage."),
+        _beat("b4", "It was a matter of factories."),
+    )
+    scores = score(marks, sheet, SCRIPT)
+    assert scores.restraint == 1.0, "b2 carries no verdict; it cannot cost restraint"
+    assert scores.precision == 1.0, "and it is not counted against precision either"
+    assert scores.overlays_placed == 1
+
+
+# ---------------- exclusions ----------------
+
+
+def test_an_unmappable_mark_is_excluded_from_every_score():
+    """You are not punished for capabilities you never claimed."""
+    unmappable = {
+        "id": "m9",
+        "source_words": "a matter of factories",
+        "verdict": "unmappable",
+        "excluded_from_scoring": True,
+    }
+    base = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]))
+    with_it = _marks(base["marks"][0], unmappable)
+    sheet = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks.", {"component": "AnimatedCounter"}),
+        _beat("b2", "Germany built twelve thousand. The gap was not a matter of courage."),
+        _beat("b3", "It was a matter of factories.", {"component": "DocumentCard"}),
+    )
+    without, within = score(base, sheet, SCRIPT), score(with_it, sheet, SCRIPT)
+    axes = lambda s: (s.recall, s.precision, s.restraint, s.component_accuracy)  # noqa: E731
+    assert axes(within) == axes(without)
+    assert within.unmappable_marks == 1
+    # and the overlay sitting on it is excluded rather than counted as a miss
+    assert within.unscorable_overlays == 1
+
+
+def test_a_negative_sharing_a_beat_with_a_positive_is_unscorable_not_free():
+    """Beat granularity's one honest limit, reported rather than absorbed: an
+    overlay on that beat is attributable to the positive, so counting the
+    negative either way would be inventing a result."""
+    marks = _marks(
+        _graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]),
+        _no_graphic("m2", "The Soviet Union", near_miss="name"),
+    )
+    sheet = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks.", {"component": "AnimatedCounter"}),
+        _beat("b2", "Germany built twelve thousand. The gap was not a matter of courage. It was a matter of factories."),
+    )
+    scores = score(marks, sheet, SCRIPT)
+    assert scores.restraint is None, "there is no scorable negative left"
+    assert scores.unscorable_negatives == 1
+    assert scores.recall == 1.0
+
+
+# ---------------- it cannot drift from the validator ----------------
+
+
+def test_source_words_match_uses_the_same_normalisation_as_the_validator():
+    """Asserted against textsplit.normalize directly, so the scorer cannot
+    drift from the verbatim check validate_beat_sheet runs. A span the
+    validator considers present must never be a span the scorer calls missing.
+    """
+    assert textsplit.normalize("  The   SOVIET\nUnion ") == "the soviet union"
+    marks = _marks(
+        # differs from the script in case and in whitespace only
+        _graphic("m1", "TWENTY-NINE    thousand\n tanks", ["AnimatedCounter"])
+    )
+    sheet = _sheet(
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks.", {"component": "AnimatedCounter"}),
+        _beat("b2", "Germany built twelve thousand. The gap was not a matter of courage. It was a matter of factories."),
+    )
+    assert score(marks, sheet, SCRIPT).recall == 1.0
+
+
+# ---------------- a broken case is reported, never scored ----------------
+
+
+def test_a_mark_whose_words_are_not_in_the_script_is_a_hard_error():
+    marks = _marks(_graphic("m1", "forty thousand submarines", ["AnimatedCounter"]))
+    sheet = _sheet(_beat("b1", SCRIPT))
+    with pytest.raises(EvalCaseError, match="does not appear in the script"):
+        score(marks, sheet, SCRIPT)
+
+
+def test_a_mark_whose_words_appear_twice_is_a_hard_error():
+    script = "Germany built twelve thousand. Later, Germany built twelve thousand more."
+    marks = _marks(_graphic("m1", "Germany built twelve thousand", ["AnimatedCounter"]))
+    sheet = _sheet(_beat("b1", script))
+    with pytest.raises(EvalCaseError, match="appears more than once"):
+        score(marks, sheet, script)
+
+
+def test_an_ideal_outside_acceptable_is_a_hard_error():
+    """JSON Schema cannot express membership, so it is checked here: a best
+    choice that is not an allowed choice means the mark says two things."""
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["StatTag"], ideal="AnimatedCounter"))
+    sheet = _sheet(_beat("b1", SCRIPT))
+    with pytest.raises(EvalCaseError, match="is not one of acceptable"):
+        score(marks, sheet, SCRIPT)
+
+
+# ---------------- span-based, not index-based ----------------
+
+
+def test_scores_are_stable_under_beat_reordering():
+    marks = _marks(
+        _graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]),
+        _no_graphic("m2", "a matter of courage", near_miss="number"),
+    )
+    beats = [
+        _beat("b1", "The Soviet Union built twenty-nine thousand tanks.", {"component": "AnimatedCounter"}),
+        _beat("b2", "Germany built twelve thousand."),
+        _beat("b3", "The gap was not a matter of courage."),
+        _beat("b4", "It was a matter of factories."),
+    ]
+    forward = score(marks, _sheet(*beats), SCRIPT)
+    backward = score(marks, _sheet(*reversed(beats)), SCRIPT)
+    assert forward == backward
+
+
+def test_a_score_with_no_marks_of_its_kind_reads_as_unanswered():
+    """None, not 1.0: a case with no negatives has no restraint to report, and
+    a perfect score for a question nobody asked would be read as evidence."""
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]))
+    sheet = _sheet(_beat("b1", SCRIPT, {"component": "AnimatedCounter"}))
+    assert score(marks, sheet, SCRIPT).restraint is None
+
+
+# ---------------- the committed case ----------------
+
+
+def test_the_synthetic_case_loads_and_every_mark_finds_its_words():
+    marks, script = load_case(EVALS / "_synthetic")
+    # a sheet of one beat covering the whole script: every mark must locate,
+    # which is the only claim this makes — the scores are meaningless here
+    sheet = _sheet(_beat("b1", script))
+    scores = score(marks, sheet, script)
+    assert scores.graphic_marks == 4
+    assert scores.unmappable_marks == 1
+
+
+def test_the_synthetic_case_validates_against_its_schema():
+    import jsonschema
+
+    marks = json.loads((EVALS / "_synthetic" / "marks.json").read_text(encoding="utf-8"))
+    jsonschema.validate(marks, load_schema("overlay_marks"))
+
+
+def test_the_synthetic_case_carries_a_discriminating_negative():
+    """A restraint metric built only on spans with no anchor in them measures
+    nothing: the gate already refuses those. At least one negative must sit on
+    a span a graphic would have been LEGAL on."""
+    marks, _ = load_case(EVALS / "_synthetic")
+    negatives = [m for m in marks["marks"] if m["verdict"] == "no_graphic"]
+    assert negatives, "a case with no negatives cannot measure restraint"
+    assert any(m.get("near_miss") for m in negatives)
+
+
+def test_every_component_a_case_names_exists_in_the_catalog():
+    """The schema cannot check component names, and a case naming a component
+    that does not exist reports a wrong number rather than an error."""
+    from lusora_contracts import load_catalog
+
+    known = {c["name"] for c in load_catalog()["components"]}
+    for case_dir in sorted(p for p in EVALS.iterdir() if p.is_dir()):
+        marks, _ = load_case(case_dir)
+        for mark in marks["marks"]:
+            for name in mark.get("acceptable") or []:
+                assert name in known, f"{case_dir.name}/{mark['id']}: unknown component {name!r}"
+
+
+def test_no_case_marks_a_component_its_own_channel_forbids():
+    """A case's cfg pins the style pack the run was scored under, and that pack
+    may set overlays.allowed_components. Marking a component outside it makes a
+    graphic the planner is FORBIDDEN to place, which scores as a miss it had no
+    way to avoid — the same unfairness `unmappable` exists to prevent."""
+    for case_dir in sorted(p for p in EVALS.iterdir() if p.is_dir()):
+        cfg = json.loads((case_dir / "cfg.json").read_text(encoding="utf-8"))
+        allowed = ((cfg.get("style_pack_doc") or {}).get("overlays") or {}).get(
+            "allowed_components"
+        )
+        if not allowed:
+            continue
+        marks, _ = load_case(case_dir)
+        for mark in marks["marks"]:
+            for name in mark.get("acceptable") or []:
+                assert name in allowed, (
+                    f"{case_dir.name}/{mark['id']}: {name!r} is not in this case's "
+                    f"allowed_components, so no run could ever place it"
+                )
+
+
+def test_no_case_marks_an_emphasis_graphic_its_pack_disables():
+    """The emphasis class is off unless the style pack turns it on (D59), so an
+    emphasis mark on a pack that does not is a graphic the planner is forbidden
+    to place — the same unfairness `unmappable` exists to prevent."""
+    for case_dir in sorted(p for p in EVALS.iterdir() if p.is_dir()):
+        cfg = json.loads((case_dir / "cfg.json").read_text(encoding="utf-8"))
+        overlays = ((cfg.get("style_pack_doc") or {}).get("overlays") or {})
+        enabled = bool((overlays.get("emphasis") or {}).get("enabled", False))
+        marks, _ = load_case(case_dir)
+        for mark in marks["marks"]:
+            if mark.get("class") == "emphasis":
+                assert enabled, (
+                    f"{case_dir.name}/{mark['id']}: an emphasis mark on a pack that "
+                    "does not set overlays.emphasis — mark it unmappable instead"
+                )
+
+
+def test_a_case_whose_marks_name_another_case_is_refused(tmp_path):
+    """The directory and the declared case must agree, or a number in
+    BASELINE.md cannot be traced back to what produced it."""
+    case = tmp_path / "somewhere"
+    case.mkdir()
+    (case / "script.txt").write_text(SCRIPT, encoding="utf-8")
+    (case / "marks.json").write_text(
+        json.dumps(_marks(_no_graphic("m1", "a matter of courage"))), encoding="utf-8"
+    )
+    with pytest.raises(EvalCaseError, match="must agree"):
+        load_case(case)
+
+
+# ---------------- the CLI ----------------
+
+
+def test_the_cli_scores_a_case_and_reports_a_broken_one(tmp_path, capsys):
+    from lusora_worker.evals.overlays import main
+
+    marks, script = load_case(EVALS / "_synthetic")
+    beats = tmp_path / "beats.json"
+    beats.write_text(json.dumps(_sheet(_beat("b1", script))), encoding="utf-8")
+
+    assert main(["score", str(EVALS / "_synthetic"), str(beats)]) == 0
+    assert "recall" in capsys.readouterr().out
+
+    assert main(["score", str(EVALS / "_synthetic"), str(beats), "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["case"] == "_synthetic"
+    assert set(payload) >= {"recall", "precision", "restraint", "component_accuracy"}
+
+    broken = tmp_path / "broken"
+    broken.mkdir()
+    (broken / "script.txt").write_text("nothing in common", encoding="utf-8")
+    (broken / "marks.json").write_text(
+        json.dumps({**_marks(_no_graphic("m1", "a matter of courage")), "case": "broken"}),
+        encoding="utf-8",
+    )
+    assert main(["score", str(broken), str(beats)]) == 2
+    assert "eval case error" in capsys.readouterr().err
+
+
+def test_score_case_reads_the_cases_own_script_not_the_sheets(tmp_path):
+    """A mark that fits the script but not this sheet is a SHEET problem, and
+    passing the case's real script.txt is what makes the error say so."""
+    scores = score_case(
+        EVALS / "_synthetic",
+        _write(tmp_path / "beats.json", _sheet(_beat("b1", load_case(EVALS / "_synthetic")[1]))),
+    )
+    assert scores.graphic_marks == 4
+
+
+def _write(path: Path, doc) -> Path:
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    return path
+
+
+# ---------------- the authoring prompt cannot drift from the catalog ----------------
+
+
+def test_the_marking_prompts_component_menu_agrees_with_the_catalog():
+    """docs/10-overlay-marks.md tells a human which component takes which
+    anchor type. A table that drifts from the catalog produces cases whose
+    `acceptable` lists are wrong, and wrong ground truth is worse than none."""
+    from lusora_contracts import load_catalog
+
+    doc = (Path(__file__).resolve().parents[2] / "docs" / "10-overlay-marks.md").read_text(
+        encoding="utf-8"
+    )
+    # the CORE catalog only: the doc says a pack's entries are added per case,
+    # because which pack is installed is a property of the channel a case was
+    # torn down from, not of the prompt
+    catalog = [c for c in load_catalog()["components"] if c.get("pack") == "core"]
+    for anchor_type in ("number", "percentage", "comparison", "place", "date", "name", "quote"):
+        expected = sorted(c["name"] for c in catalog if anchor_type in (c.get("anchor_types") or []))
+        assert f"| `{anchor_type}` | {', '.join(expected)} |" in doc, anchor_type
+    unanchored = sorted(c["name"] for c in catalog if not (c.get("anchor_types") or []))
+    assert ", ".join(unanchored) in doc

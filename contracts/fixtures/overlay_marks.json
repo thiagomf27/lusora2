@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "case": "fixture-all-three-verdicts",
+  "source": {
+    "url": "https://example.invalid/watch?v=NOT_A_REAL_VIDEO",
+    "title": "Fixture — one instance of every verdict",
+    "level": "L2",
+    "marked_by": "contracts fixture",
+    "marked_on": "2026-09-03"
+  },
+  "notes": "A CI fixture, not a case anyone scores: it exists so the schema is exercised by pnpm run validate:schemas on every commit. The runnable case with a script beside it is evals/overlays/_synthetic/.",
+  "marks": [
+    {
+      "id": "m1",
+      "at": "00:00:31",
+      "source_words": "twenty-nine thousand tanks",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter", "StatTag"],
+      "ideal": "AnimatedCounter",
+      "why": "the figure is the sentence; the reference holds it on screen while the narration lands it"
+    },
+    {
+      "id": "m2",
+      "at": "00:00:44",
+      "source_words": "the factories were still standing",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": ["HammerStatement", "KineticTitle"],
+      "ideal": "HammerStatement",
+      "why": "pure text lifting the turn of the argument — no fact to carry, so it is the emphasis class and its own budget"
+    },
+    {
+      "id": "m3",
+      "at": "00:01:02",
+      "source_words": "in 1943",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "a real date anchor, so the gate would allow a DateStamp — and the reference puts nothing there, because the year is scene-setting the viewer will not be asked to remember"
+    },
+    {
+      "id": "m4",
+      "at": "00:01:17",
+      "source_words": "nobody wrote any of it down",
+      "verdict": "no_graphic",
+      "why": "nothing in the span is an anchor at all; a trivial negative, kept so the file shows both kinds"
+    },
+    {
+      "id": "m5",
+      "at": "00:01:40",
+      "source_words": "the map redraws itself",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "the reference animates borders moving over a held map. RouteMap draws a route and RegionHighlight highlights a fixed region; neither animates a change, and no field carries one. Excluded rather than scored as a miss — this pipeline never claimed the capability."
+    }
+  ]
+}

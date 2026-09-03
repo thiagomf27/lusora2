@@ -1,0 +1,107 @@
+{
+  "version": "1.0",
+  "case": "millennium-bridge-breakdown",
+  "source": {
+    "title": "The Millennium Bridge wobble (LUSORA script, video vid_5f9497eed63a)",
+    "level": "L1",
+    "marked_by": "Claude, from script.txt alone",
+    "marked_on": "2026-09-03"
+  },
+  "notes": "L1, self-marked from script.txt without opening the beats.json it is scored against — see the same caveat on pearl-harbor-doc. It is the deliberate counterweight to that case: breakdown-blitz is 9 overlays per minute against doc-slow's 2.5, so here most legal anchors SHOULD carry a graphic and restraint is only asked for in three places. A harness that reported the same verdicts under both packs would be measuring the script rather than the channel, and having both cases is what makes that visible.",
+  "marks": [
+    {
+      "id": "m1",
+      "source_words": "On 10 June 2000",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["DateStamp"],
+      "ideal": "DateStamp",
+      "why": "a breakdown opens on the fact. At 9 per minute the date is affordable, and this script's whole structure is a two-day span — the opening date is half of it. The same mark reads no_graphic under doc-slow, which is the point of having both cases."
+    },
+    {
+      "id": "m2",
+      "source_words": "London opened the Millennium Bridge",
+      "verdict": "no_graphic",
+      "near_miss": "place",
+      "why": "London is a place anchor and SatelliteLocate is allowed, so a map pin here passes every gate. It is also the reflex this eval exists to price: nobody watching needs to be shown where London is, and the pin would land in the same breath as the date card that IS worth having."
+    },
+    {
+      "id": "m3",
+      "source_words": "It closed two days later",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "'two days' is rhetoric, not a measurement — the sentence works because it is short. A counter on it competes with the date stamp one clause away and slows the only fast line in the script."
+    },
+    {
+      "id": "m4",
+      "source_words": "Two thousand people crossed at once",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter", "StatTag"],
+      "ideal": "AnimatedCounter",
+      "why": "the load that caused the effect, and the first of the two numbers the whole explanation runs on."
+    },
+    {
+      "id": "m5",
+      "source_words": "up to 70 millimetres",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter", "StatTag"],
+      "ideal": "StatTag",
+      "why": "the measurement the video is about. StatTag is the better read here because the shot underneath is presumably the deck moving and should keep the frame; a full counter takes it."
+    },
+    {
+      "id": "m6",
+      "source_words": "The engineers had checked vertical loads",
+      "verdict": "no_graphic",
+      "why": "nothing here is an anchor at all — the trivial kind of negative, which the anchor gate already refuses. Kept so the case carries both kinds and the difference stays visible."
+    },
+    {
+      "id": "m7",
+      "source_words": "synchronous lateral excitation",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "the moment wants a definition card: a term named and defined on screen as the narration explains it. DefinitionCard is in this pack's allowed list, but it carries no anchor, which makes any overlay on it the EMPHASIS class (D59) — and breakdown-blitz does not set overlays.emphasis, so the class is off and no pure-text overlay is reachable on this channel at all. Excluded rather than marked as a graphic the planner is structurally forbidden to place. Enabling emphasis on the pack would turn this into a graphic mark, which is a channel decision, not a planner one."
+    },
+    {
+      "id": "m8",
+      "source_words": "two years and 5 million pounds",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter", "StatTag"],
+      "ideal": "AnimatedCounter",
+      "why": "the cost of the fix, and the first half of the sentence the video has been building toward."
+    },
+    {
+      "id": "m9",
+      "source_words": "91 dampers bolted underneath the deck",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter", "StatTag"],
+      "ideal": "StatTag",
+      "why": "the fix itself. A tag rather than a counter because the shot is the answer and should hold the frame; the number is a caption on it."
+    },
+    {
+      "id": "m10",
+      "source_words": "Design sway allowed: 5 millimetres",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["ComparisonSplit", "BarChart"],
+      "ideal": "ComparisonSplit",
+      "why": "the money graphic. The script writes the comparison out as a comparison — two labelled quantities of the same kind — and fourteen-to-one is a thing you see rather than hear."
+    },
+    {
+      "id": "m11",
+      "source_words": "Sway measured on opening day",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "the payoff half of the comparison m10 already carries. One split holds both quantities; a second card for the second half breaks the comparison apart and halves it. The discriminating negative of this case."
+    },
+    {
+      "id": "m12",
+      "source_words": "It was just honest about the physics nobody had modelled",
+      "verdict": "no_graphic",
+      "why": "the closing line, and the one moment a pure-text card would be tempting. There is no anchor in it, and the emphasis class is off on this pack — so it is a negative twice over, and the right answer is the shot and the voice alone."
+    }
+  ]
+}

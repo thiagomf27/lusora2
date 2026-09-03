@@ -1,0 +1,13 @@
+On 10 June 2000, London opened the Millennium Bridge. It closed two days later.
+
+Two thousand people crossed at once. The deck began to sway sideways, up to 70 millimetres.
+
+The engineers had checked vertical loads. Nobody had checked what a walking crowd does to a deck sideways.
+
+The effect is called synchronous lateral excitation. When a bridge sways, people widen their stance to match it, and every corrected step pushes the deck further.
+
+The fix took two years and 5 million pounds: 91 dampers bolted underneath the deck.
+
+Design sway allowed: 5 millimetres. Sway measured on opening day: 70 millimetres.
+
+The bridge was never unsafe. It was just honest about the physics nobody had modelled.

@@ -73,6 +73,12 @@ docker-compose.
   YouTube video into a style pack, a theme and a script prompt pack, and
   names what the pipeline cannot imitate ★ use when copying a channel's style
 
+### 10 — Evaluation
+- [Overlay Marks](10-overlay-marks.md) — the prompt that turns a reference
+  video into an overlay eval case, and the ground-truth contract behind it.
+  The cases live in `evals/overlays/`, the numbers in `evals/BASELINE.md`
+  ★ read before claiming a prompt change helped
+
 ## Conventions
 
 - **Decided** — settled in the Decision Log; changing it requires a new entry.

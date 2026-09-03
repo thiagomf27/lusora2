@@ -1,0 +1,19 @@
+{
+  "_comment": "The config half of the case, frozen. A case is only reproducible if the style pack it was scored under is pinned beside the script: overlays.density and overlays.emphasis decide how many graphics are even legal, and allowed_components decides which ones exist, so a case re-run under a different pack is a different question. This one is hand-written rather than lifted from a run — it enables the emphasis class deliberately, because the case carries an emphasis mark and a mark the pack forbids would score as a miss the planner could never avoid.",
+  "from_video": null,
+  "language": "en",
+  "video_type": "doc",
+  "style_pack": "_synthetic",
+  "theme": "standard",
+  "component_pack": null,
+  "planner": { "llm": "mock" },
+  "style_pack_doc": {
+    "name": "_synthetic",
+    "video_type": "doc",
+    "pacing": { "avg_hold_seconds": 4.0, "min_hold": 2.5, "max_hold": 8.0, "arc": "three_act" },
+    "overlays": {
+      "density": "normal",
+      "emphasis": { "enabled": true, "per_minute": 1.0 }
+    }
+  }
+}

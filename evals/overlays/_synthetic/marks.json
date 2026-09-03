@@ -1,0 +1,70 @@
+{
+  "version": "1.0",
+  "case": "_synthetic",
+  "notes": "Hand-written, no reference video, no provider. It exists so the scorer has a case to be tested against and so the case LAYOUT is exercised by something committed rather than by whatever happens to be on one machine. Its script is deliberately dense in anchors and deliberately says no to most of them — which is the judgement the whole eval is built to measure.",
+  "marks": [
+    {
+      "id": "m1",
+      "source_words": "twenty-nine thousand tanks",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter", "StatTag"],
+      "ideal": "AnimatedCounter",
+      "why": "the figure IS the sentence, and the next sentence sets a second one against it — the viewer is about to be asked to hold this number"
+    },
+    {
+      "id": "m2",
+      "source_words": "Germany built twelve thousand",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["ComparisonSplit", "BarChart", "AnimatedCounter", "StatTag"],
+      "ideal": "ComparisonSplit",
+      "why": "two quantities of the same kind, one against the other; the split is what the sentence is doing"
+    },
+    {
+      "id": "m3",
+      "source_words": "In 1943",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "a real date anchor, so a DateStamp would pass every gate — and it would compete with the figure in the same breath, which is the one thing on screen the viewer must actually read"
+    },
+    {
+      "id": "m4",
+      "source_words": "the factories were still standing",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": ["HammerStatement", "KineticTitle"],
+      "ideal": "HammerStatement",
+      "why": "pure text lifting the turn of the argument — no fact to carry, so it is the emphasis class, on its own budget, and invisible unless the pack enables it"
+    },
+    {
+      "id": "m5",
+      "source_words": "a state secret",
+      "verdict": "no_graphic",
+      "why": "nothing here is an anchor at all. A trivial negative: the gate already refuses it, so a restraint score built on marks like this one would measure nothing. Kept as one of two so the file shows both kinds"
+    },
+    {
+      "id": "m6",
+      "source_words": "a ledger in Chelyabinsk, four hundred pages long",
+      "verdict": "no_graphic",
+      "near_miss": "place",
+      "why": "the discriminating negative. Chelyabinsk is a place anchor and four hundred is a number, so two components would be legal here — and the shot is the ledger itself. A graphic over footage that already carries the fact is the exact habit this eval is trying to price"
+    },
+    {
+      "id": "m7",
+      "source_words": "Seventy percent of the Soviet tank fleet",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": ["AnimatedCounter", "PieChart", "StatTag"],
+      "ideal": "AnimatedCounter",
+      "why": "the closing figure, and the one the script has been building toward"
+    },
+    {
+      "id": "m8",
+      "source_words": "in one clerk's handwriting",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "the shape this wants is the handwriting itself filling the frame and being read as it is written. DocumentCard shows a document and HighlightedPassage marks a passage in set type; neither writes. No field carries it, so the moment is excluded rather than scored as a miss the planner never had a way to avoid"
+    }
+  ]
+}

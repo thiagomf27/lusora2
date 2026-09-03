@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/overlay_marks.schema.json",
+  "title": "OverlayMarks",
+  "description": "Ground truth for one overlay eval case: the moments in a reference video's narration where a graphic SHOULD appear, where one should NOT, and where the reference did something this pipeline cannot express. Authored by a human from a reference video using docs/10-overlay-marks.md; consumed only by the scorer in worker/lusora_worker/evals/overlays.py. It is a judgement, never an artifact — nothing in the production pipeline reads it.",
+  "type": "object",
+  "required": ["version", "case", "marks"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "enum": ["1.0"] },
+    "case": {
+      "type": "string",
+      "pattern": "^_?[a-z0-9][a-z0-9_-]*$",
+      "description": "Matches the case directory name under evals/overlays/. A leading underscore marks a case that is not a reference video — _synthetic is the scorer's own fixture."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string" },
+        "title": { "type": "string" },
+        "level": {
+          "enum": ["L1", "L2", "L3"],
+          "description": "How much of the reference the author actually saw, on docs/09-video-teardown.md's scale. L1 (transcript only) cannot honestly mark component choice; L2+ can."
+        },
+        "marked_by": { "type": "string" },
+        "marked_on": { "type": "string", "format": "date" }
+      },
+      "description": "Provenance. Absent on a synthetic case, which has no reference."
+    },
+    "notes": { "type": "string" },
+    "marks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/mark" }
+    }
+  },
+  "$defs": {
+    "mark": {
+      "type": "object",
+      "required": ["id", "source_words", "verdict"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^m[0-9]+$" },
+        "source_words": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A verbatim, contiguous span of the case's script.txt — how a mark finds its beat. Never a timestamp: the case's script is narrated by OUR TTS, so the reference video's timings do not transfer. The span must occur EXACTLY ONCE in the script; the scorer treats zero or two occurrences as a fixture bug and refuses to score."
+        },
+        "at": {
+          "type": "string",
+          "description": "Reference-video timestamp the mark was taken from. For a human re-checking the mark against the source; the scorer ignores it."
+        },
+        "verdict": {
+          "enum": ["graphic", "no_graphic", "unmappable"],
+          "description": "graphic = a graphic belongs here. no_graphic = it does not, and placing one costs restraint. unmappable = the reference did something this pipeline has no field for, so the moment is excluded from every score rather than counted as a miss."
+        },
+        "class": {
+          "enum": ["anchor", "emphasis"],
+          "description": "graphic only. The two reasons an overlay may exist (the Overlay Rule): it carries a fact the narration says, or it is pure text lifting a moment. They are separately budgeted (D59), so the ground truth has to say which."
+        },
+        "acceptable": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "graphic only. Every catalog component that would be a defensible choice here. More than one is normal and is the point: component_accuracy asks whether the planner chose defensibly, not whether it read the author's mind."
+        },
+        "ideal": {
+          "type": "string",
+          "minLength": 1,
+          "description": "graphic only. The best of `acceptable`, and MUST be a member of it — the scorer rejects a case where it is not. Recorded for reading results, not scored on its own."
+        },
+        "near_miss": {
+          "enum": ["percentage", "number", "comparison", "place", "date", "name", "quote"],
+          "description": "no_graphic only. This span DOES contain an anchor of this type — a legal, gate-passing place to put a graphic — and the answer is still no. The field that separates a discriminating negative from a trivial one: a restraint score built only on spans with no anchor in them measures nothing, because the anchor gate already refuses those."
+        },
+        "excluded_from_scoring": {
+          "const": true,
+          "description": "unmappable only, and required there. Written out rather than inferred so that reading the file tells you a moment was dropped on purpose."
+        },
+        "why": {
+          "type": "string",
+          "description": "The reason, in the author's words. Unscored, and the most useful field in the file when a score moves and nobody can remember why the mark says what it says."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "verdict": { "const": "graphic" } }, "required": ["verdict"] },
+          "then": {
+            "required": ["class", "acceptable", "ideal"],
+            "allOf": [
+              { "not": { "required": ["near_miss"] } },
+              { "not": { "required": ["excluded_from_scoring"] } }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "verdict": { "const": "no_graphic" } }, "required": ["verdict"] },
+          "then": {
+            "allOf": [
+              { "not": { "required": ["class"] } },
+              { "not": { "required": ["acceptable"] } },
+              { "not": { "required": ["ideal"] } },
+              { "not": { "required": ["excluded_from_scoring"] } }
+            ]
+          }
+        },
+        {
+          "if": { "properties": { "verdict": { "const": "unmappable" } }, "required": ["verdict"] },
+          "then": {
+            "required": ["excluded_from_scoring"],
+            "allOf": [
+              { "not": { "required": ["class"] } },
+              { "not": { "required": ["acceptable"] } },
+              { "not": { "required": ["ideal"] } },
+              { "not": { "required": ["near_miss"] } }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
