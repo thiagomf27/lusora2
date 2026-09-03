@@ -121,8 +121,11 @@ export function plateColor(theme: Theme): string {
   }
 }
 
+/** How far a bare-type overlay's plate reaches: both lines, the sub only, or neither. */
+export type TextPlating = "all" | "sub" | "none";
+
 /**
- * Whether bare-type overlays plate themselves when nothing else has decided.
+ * How far a bare-type overlay's plate reaches when nothing else has decided.
  *
  * The `basic` pack draws type straight onto the shot; `background` is its
  * per-overlay prop and this is the theme's answer when that prop is absent. A
@@ -137,8 +140,19 @@ export function plateColor(theme: Theme): string {
  * chips. Whether a component paints a panel and whether bare type gets a plate
  * are two questions, and only the second one is this.
  */
-export function textPlate(theme: Theme): boolean {
-  return (theme.surface?.text_plate ?? "off") === "on";
+export function textPlate(theme: Theme): TextPlating {
+  switch (theme.surface?.text_plate ?? "off") {
+    case "on":
+      return "all";
+    // The caption idiom: the lead is written ON the shot and only the quiet
+    // line under it becomes a tag. It is a third answer rather than a second
+    // colour, because "is there a box" and "how far does it go" are the same
+    // question asked once — a lockup has exactly two lines to plate.
+    case "sub":
+      return "sub";
+    default:
+      return "none";
+  }
 }
 
 /** WCAG relative luminance of a #rrggbb colour. */

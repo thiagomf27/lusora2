@@ -16,7 +16,7 @@
  * Usage: node contracts/sound-packs/build.mjs [pack-name ...]
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -81,99 +81,57 @@ function bedExpr(mood, duration, { detune = 0.6, bright = false } = {}) {
 
 // ---------- pack definitions ----------
 
+/**
+ * Both shipped packs now carry RECORDED cues and SYNTHESIZED beds, so neither
+ * half of the old "cc0 placeholders" line is still true of the whole pack. The
+ * licence is pack-wide by D33/D72 precisely so a channel's anti-copyright rule
+ * is checkable, which means it has to describe the weakest thing in the pack —
+ * and the provenance of operator-supplied audio is not ours to assert. Set it
+ * to the real licence once that is known; `unknown` is recorded into asset
+ * provenance rather than gating a render.
+ */
+const RECORDED_LICENSE = "unknown";
+const RECORDED_ATTRIBUTION =
+  "Recorded SFX supplied by the operator; beds are synthesized placeholders — see contracts/sound-packs/README.md";
+
 const PACKS = {
   "doc-restrained": {
-    license: "cc0",
+    license: RECORDED_LICENSE,
+    attribution: RECORDED_ATTRIBUTION,
     bedFilter: "lowpass=f=1400,highpass=f=55",
     bedOptions: { detune: 0.6, bright: false },
     bedGain: 0.9,
     cues: {
-      "swoosh-soft": {
-        kind: "one_shot",
-        seconds: 0.35,
-        lead_s: 0.06,
-        priority: 1,
-        expr: "(random(0)-0.5)*2*pow(t/0.35,1.2)*exp(-4*t/0.35)",
-        filter: "highpass=f=280,lowpass=f=5200",
-      },
-      "thud-low": {
-        kind: "one_shot",
-        seconds: 0.45,
-        lead_s: 0.02,
-        priority: 2,
-        expr: "0.9*sin(2*PI*(92-42*t/0.45)*t)*exp(-8.5*t)",
-        filter: "lowpass=f=900",
-      },
-      "chime-soft": {
-        kind: "one_shot",
-        seconds: 1.1,
-        lead_s: 0.0,
-        priority: 2,
-        expr:
-          "(0.55*sin(2*PI*784*t)+0.28*sin(2*PI*1174.7*t)+0.12*sin(2*PI*2093*t))*exp(-3.4*t)",
-        filter: "highpass=f=300",
-      },
-      "tick-typing": {
-        kind: "loop",
-        seconds: 1.6,
-        lead_s: 0.0,
-        priority: 0,
-        fade_out_s: 0.08,
-        // one click every 70 ms, each an 8 ms burst — a keyboard, not a rattle
-        expr: "(random(0)-0.5)*2*exp(-130*mod(t,0.07))*0.55",
-        filter: "highpass=f=1400,lowpass=f=6500",
-      },
+      "swoosh-soft": { kind: "one_shot", lead_s: 0.06, priority: 1, recorded: true },
+      "chime-soft": { kind: "one_shot", priority: 2, recorded: true },
+      "page-flip": { kind: "one_shot", lead_s: 0.06, priority: 2, recorded: true },
+      "highlighter": { kind: "one_shot", lead_s: 0.05, priority: 1, recorded: true },
+      // Trimmed under the rest of the pack: every cue is peak-normalized to
+      // the same ceiling, which is right for a transient you hear once and
+      // wrong for a bed that runs under the narration for a whole entrance.
+      // -4.4 dB, in the cue rather than in the file, so the pack keeps one
+      // ceiling and the theme's `gain.sfx` keeps meaning what it says.
+      "tick-typing": { kind: "loop", gain: 0.6, fade_out_s: 0.08, recorded: true },
     },
   },
 
   punchy: {
-    license: "cc0",
+    license: RECORDED_LICENSE,
+    attribution: RECORDED_ATTRIBUTION,
     bedFilter: "lowpass=f=2600,highpass=f=70",
     bedOptions: { detune: 1.1, bright: true },
     bedGain: 1.0,
     cues: {
-      "swoosh-bright": {
-        kind: "one_shot",
-        seconds: 0.3,
-        lead_s: 0.08,
-        priority: 1,
-        expr: "(random(0)-0.5)*2*pow(t/0.3,0.8)*exp(-5*t/0.3)",
-        filter: "highpass=f=600,lowpass=f=9000",
-      },
-      "pop-tight": {
-        kind: "one_shot",
-        seconds: 0.22,
-        lead_s: 0.01,
-        priority: 3,
-        expr: "0.85*sin(2*PI*(420-260*t/0.22)*t)*exp(-16*t)",
-        filter: "highpass=f=120,lowpass=f=3800",
-      },
-      "riser-short": {
-        kind: "one_shot",
-        seconds: 0.8,
-        lead_s: 0.55,
-        priority: 1,
-        expr:
-          "((random(0)-0.5)*1.2+0.5*sin(2*PI*(320+2100*t/0.8)*t))*pow(t/0.8,2.2)*0.8",
-        filter: "highpass=f=400,lowpass=f=8000",
-      },
-      "thud-low": {
-        kind: "one_shot",
-        seconds: 0.4,
-        lead_s: 0.02,
-        priority: 2,
-        expr: "0.95*sin(2*PI*(105-50*t/0.4)*t)*exp(-9*t)",
-        filter: "lowpass=f=1000",
-      },
-      "tick-typing": {
-        kind: "loop",
-        seconds: 1.6,
-        lead_s: 0.0,
-        priority: 0,
-        fade_out_s: 0.08,
-        expr: "(random(0)-0.5)*2*exp(-110*mod(t,0.055))*0.6",
-        filter: "highpass=f=1600,lowpass=f=7500",
-      },
+      "swoosh-bright": { kind: "one_shot", lead_s: 0.08, priority: 1, recorded: true },
+      "pop-tight": { kind: "one_shot", lead_s: 0.01, priority: 3, recorded: true },
+      "page-flip": { kind: "one_shot", lead_s: 0.06, priority: 2, recorded: true },
+      "highlighter": { kind: "one_shot", lead_s: 0.05, priority: 1, recorded: true },
+      // Trimmed under the rest of the pack: every cue is peak-normalized to
+      // the same ceiling, which is right for a transient you hear once and
+      // wrong for a bed that runs under the narration for a whole entrance.
+      // -4.4 dB, in the cue rather than in the file, so the pack keeps one
+      // ceiling and the theme's `gain.sfx` keeps meaning what it says.
+      "tick-typing": { kind: "loop", gain: 0.6, fade_out_s: 0.08, recorded: true },
     },
   },
 };
@@ -220,6 +178,19 @@ function renderCue(packDir, name, spec) {
   const rel = join("sfx", `${name}.mp3`);
   const out = join(packDir, rel);
   mkdirSync(dirname(out), { recursive: true });
+  // A RECORDED cue is not ours to generate: the mp3 committed under sfx/ is the
+  // source, and this only reads its real duration back for the manifest. The
+  // alternative — dropping these cues out of PACKS — would silently delete them
+  // from the manifest the next time anyone rebuilt the beds.
+  if (spec.recorded) {
+    if (!existsSync(out)) {
+      throw new Error(
+        `cue ${name} is marked recorded but ${rel} is missing from ${packDir}. ` +
+          `Recorded cues are committed audio, not generated — restore the file or drop the cue.`
+      );
+    }
+    return { rel, duration_s: Number(probeDuration(out).toFixed(3)) };
+  }
   const source = `aevalsrc='${spec.expr}':s=${SR}:d=${spec.seconds}`;
   // measure the shaped signal, then apply the one gain that lands the peak
   const measured = probePeak(spec.filter ? `${source},${spec.filter}` : source);
@@ -276,6 +247,7 @@ for (const name of names) {
       kind: spec.kind,
       duration_s,
       ...(spec.lead_s ? { lead_s: spec.lead_s } : {}),
+      ...(spec.gain ? { gain: spec.gain } : {}),
       ...(spec.priority ? { priority: spec.priority } : {}),
       ...(spec.fade_out_s ? { fade_out_s: spec.fade_out_s } : {}),
     };
@@ -292,7 +264,7 @@ for (const name of names) {
   const manifest = {
     name,
     license: pack.license,
-    attribution: "Synthesized placeholders — see contracts/sound-packs/README.md",
+    attribution: pack.attribution,
     cues,
     beds,
   };

@@ -262,7 +262,11 @@ export interface Theme {
      *  `invert` is the theme's ink (a panel stamps on top of it). Omitted keeps
      *  `page`, which is what every component drew before D78. */
     plate?: "page" | "invert" | "accent";
-    text_plate?: "on" | "off";
+    /** Whether bare-type overlays plate themselves by default, and how far
+     *  that plate reaches: `on` chips both lines of a lockup, `sub` leaves the
+     *  lead bare and chips only the quiet line under it, `off` is bare type.
+     *  Omitted keeps `off`. */
+    text_plate?: "on" | "sub" | "off";
     /** Omitted keeps each component's own placement. */
     accent_rule?: "top" | "left" | "none";
     /** D66 — multiplier on padding, gaps, margins and panel insets. */

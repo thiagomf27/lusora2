@@ -29,6 +29,7 @@ export function TextPlace({ props, theme }: { props: TextPlaceProps; theme: Them
       size={props.size}
       plated={props.background}
       theme={theme}
+      drift={false}
       seconds={0.7}
     />
   );

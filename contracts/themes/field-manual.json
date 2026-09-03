@@ -30,7 +30,15 @@
   },
   "motion": {
     "entrance": "slide",
-    "easing": "smooth"
+    "easing": "smooth",
+    "per_component": {
+      "TextTitle": "typewriter",
+      "TextPlace": "typewriter",
+      "TextName": "typewriter",
+      "TextHighlight": "typewriter",
+      "TextTag": "typewriter",
+      "TextBanner": "typewriter"
+    }
   },
   "chart": {
     "grid": "horizontal",

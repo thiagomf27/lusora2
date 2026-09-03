@@ -1,32 +1,40 @@
 {
   "name": "doc-restrained",
-  "license": "cc0",
-  "attribution": "Synthesized placeholders — see contracts/sound-packs/README.md",
+  "license": "unknown",
+  "attribution": "Recorded SFX supplied by the operator; beds are synthesized placeholders — see contracts/sound-packs/README.md",
   "cues": {
     "swoosh-soft": {
       "file": "sfx/swoosh-soft.mp3",
       "kind": "one_shot",
-      "duration_s": 0.392,
+      "duration_s": 0.967,
       "lead_s": 0.06,
       "priority": 1
-    },
-    "thud-low": {
-      "file": "sfx/thud-low.mp3",
-      "kind": "one_shot",
-      "duration_s": 0.496,
-      "lead_s": 0.02,
-      "priority": 2
     },
     "chime-soft": {
       "file": "sfx/chime-soft.mp3",
       "kind": "one_shot",
-      "duration_s": 1.149,
+      "duration_s": 0.731,
       "priority": 2
+    },
+    "page-flip": {
+      "file": "sfx/page-flip.mp3",
+      "kind": "one_shot",
+      "duration_s": 1.254,
+      "lead_s": 0.06,
+      "priority": 2
+    },
+    "highlighter": {
+      "file": "sfx/highlighter.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.601,
+      "lead_s": 0.05,
+      "priority": 1
     },
     "tick-typing": {
       "file": "sfx/tick-typing.mp3",
       "kind": "loop",
-      "duration_s": 1.646,
+      "duration_s": 2.821,
+      "gain": 0.6,
       "fade_out_s": 0.08
     }
   },

@@ -205,8 +205,8 @@
     {
       "name": "TextTag",
       "pack": "basic",
-      "when_to_use": "a line of text that none of the role entries fit — a duration, a rank, a count, a caption — with an optional label under it. The general-purpose entry: it does not know what it is saying, so YOU choose where it sits",
-      "when_not_to_use": "the line is one of the four things that carry their own placement: a title or a figure written as words (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight). Reach for a role entry whenever one fits — it puts the text where that kind of text belongs without being asked",
+      "when_to_use": "a line of text that none of the role entries fit — a duration, a rank, a count, a caption — with an optional label under it, set as bare type. One of the pack's two general-purpose entries: it does not know what it is saying, so YOU choose where it sits",
+      "when_not_to_use": "the line is one of the five things that carry their own placement: a title or a figure written as words (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight), a figure worth counting up (TextCounter). Reach for a role entry whenever one fits — it puts the text where that kind of text belongs without being asked. The same line stated in a bar across the frame rather than written into a corner (TextBanner)",
       "anchor_types": [],
       "props": {
         "text": {
@@ -248,6 +248,38 @@
         "default": 3.5
       },
       "entrance_seconds": 0.9,
+      "entrance_support": "text",
+      "renderer": "remotion"
+    },
+    {
+      "name": "TextBanner",
+      "pack": "basic",
+      "when_to_use": "any line worth stating flat across the shot while the footage keeps running — what we are looking at, when it happened, what it cost, who did it. The strip is the channel's idiom: one bar, one claim, no plate to read as a graphic. It wipes open left to right and the line types into it",
+      "when_not_to_use": "one of the five entries that carry their own meaning and their own placement — a title (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight), a figure worth counting up (TextCounter). Text that should sit quietly in a corner as bare type rather than in a bar (TextTag)",
+      "anchor_types": [],
+      "props": {
+        "text": {
+          "type": "string",
+          "required": true,
+          "maxWords": 14,
+          "description": "the whole claim, in one line. There is no second line: a qualifier belongs inside the sentence, not under the bar"
+        },
+        "position": {
+          "enum": [
+            "bottom_left",
+            "bottom_center",
+            "top_left",
+            "top_center"
+          ],
+          "default": "bottom_left",
+          "description": "the band the bar sits in and which end of it the bar hugs. `bottom_left` is the idiom — the bar reads as a caption on the shot rather than as a title over it; centre it, or move it to the top, only when the corner is the subject"
+        }
+      },
+      "duration_hint_s": {
+        "min": 2.5,
+        "default": 4
+      },
+      "entrance_seconds": 1.0,
       "entrance_support": "text",
       "renderer": "remotion"
     },

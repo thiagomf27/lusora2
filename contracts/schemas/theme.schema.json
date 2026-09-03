@@ -150,9 +150,10 @@
         "text_plate": {
           "enum": [
             "on",
+            "sub",
             "off"
           ],
-          "description": "whether an overlay that draws BARE TYPE on the shot puts a plate behind it by default — the `basic` pack's `background` prop, answered by the theme when the overlay itself says nothing. WHICH colour that plate is remains `plate`. An overlay that sets `background` explicitly still wins, and a role may opt out of the default entirely: a title is the subject of the frame rather than a label on it, so it stays bare unless asked. No default (choice token): omitted keeps `off`, which is bare type on the shot — what the pack is for."
+          "description": "whether an overlay that draws BARE TYPE on the shot puts a plate behind it by default, and HOW FAR that plate reaches \u2014 the `basic` pack's `background` prop answers whether, this answers whether-by-default and always answers how far. `on` chips both lines of a lockup; `sub` leaves the lead bare on the shot and chips only the quiet line under it, which is the caption idiom (a figure written on the footage with its label on a tag beneath); `off` is bare type. WHICH colour that plate is remains `plate`, and under `sub` the one remaining chip takes it, since there is no louder plate above it to be quiet against. An overlay that sets `background` explicitly still wins on WHETHER, and takes the theme's extent when it does; a role may opt out of the default entirely: a title is the subject of the frame rather than a label on it, so it stays bare unless asked. No default (choice token): omitted keeps `off`, which is bare type on the shot \u2014 what the pack is for."
         },
         "accent_rule": {
           "enum": [

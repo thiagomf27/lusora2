@@ -42,7 +42,11 @@
     "easing": "snap",
     "per_component": {
       "TextTitle": "typewriter",
-      "TextName": "typewriter"
+      "TextName": "typewriter",
+      "TextPlace": "typewriter",
+      "TextHighlight": "typewriter",
+      "TextTag": "typewriter",
+      "TextBanner": "typewriter"
     }
   },
   "sound": {

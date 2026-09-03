@@ -155,8 +155,8 @@ Anything with its own geometry or data drawing (maps, charts, mark-ups,
 annotations) needs a React component written by hand. Say which, per graphic.
 
 THE SOUND MENU
-- pack doc-restrained — cues: swoosh-soft, thud-low, chime-soft, tick-typing
-- pack punchy — cues: swoosh-bright, pop-tight, riser-short, thud-low, tick-typing
+- pack doc-restrained — cues: swoosh-soft, chime-soft, page-flip, highlighter, tick-typing
+- pack punchy — cues: swoosh-bright, pop-tight, page-flip, highlighter, tick-typing
 - both ship one bed per mood: neutral-01, tense-01, somber-01, hopeful-01,
   urgent-01, triumphant-01, reflective-01, playful-01
 A sound outside these lists means a new sound pack (files, licensing) — Part H.

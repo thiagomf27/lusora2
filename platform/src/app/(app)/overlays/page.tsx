@@ -1,7 +1,13 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import type { AnchorType, CatalogEntry, CatalogPropSpec, Theme } from "@lusora/contracts";
+import type {
+  AnchorType,
+  CatalogEntry,
+  CatalogPropSpec,
+  SoundPack,
+  Theme,
+} from "@lusora/contracts";
 import CatalogEntryFields, {
   COMPONENT_NAME_RE,
   PACK_NAME_RE,
@@ -11,6 +17,7 @@ import type { TemplateChoice } from "@/components/CatalogEntryFields";
 import PackImport from "@/components/PackImport";
 import { hasHandWrittenSample, previewDuration, sampleProps } from "@/lib/overlaySamples";
 import { fileToBackdrop, useBackdrop } from "@/lib/backdrop";
+import { resolveOverlayCue } from "@/lib/overlaySound";
 import s from "./overlays.module.css";
 
 const OverlayPreview = dynamic(() => import("@/components/OverlayPreview"), { ssr: false });
@@ -105,6 +112,10 @@ export default function OverlaysPage() {
   // The still every preview on this screen stands on, shared with the Look grid.
   const { image: backdrop, setImage: setBackdrop } = useBackdrop();
   const [backdropError, setBackdropError] = useState<string | null>(null);
+  // The manifest of whatever pack the previewed theme names, so the player can
+  // fire the same cue the compiler would. Themes without a `sound.pack` never
+  // fetch, and their previews are silent.
+  const [soundPack, setSoundPack] = useState<SoundPack | null>(null);
 
   async function load(select?: string) {
     const res = await fetch("/api/catalog");
@@ -133,6 +144,22 @@ export default function OverlaysPage() {
     [data, selected]
   );
   const theme = themes.find((t) => t.name === themeName)?.doc ?? null;
+  const packName = theme?.sound?.pack ?? null;
+
+  useEffect(() => {
+    if (!packName) return setSoundPack(null);
+    let live = true;
+    fetch(`/api/sounds/${packName}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((doc: SoundPack | null) => live && setSoundPack(doc))
+      // A missing pack is silence and a note beside the player, not an error
+      // banner: the theme is what is wrong, and this screen is not where it is
+      // fixed.
+      .catch(() => live && setSoundPack(null));
+    return () => {
+      live = false;
+    };
+  }, [packName]);
 
   // Sample props recomputed with the selection, so the props handed to the
   // player always belong to the component being rendered.
@@ -315,6 +342,10 @@ export default function OverlaysPage() {
   }
 
   const entryForPreview = editing ?? current?.entry ?? null;
+  const cue = useMemo(
+    () => (theme && entryForPreview ? resolveOverlayCue(theme, entryForPreview, soundPack) : null),
+    [theme, entryForPreview, soundPack]
+  );
 
   return (
     <div className="page">
@@ -521,6 +552,7 @@ export default function OverlaysPage() {
                       template={entryForPreview.template ?? null}
                       durationSeconds={previewDuration(entryForPreview)}
                       backdropImage={backdrop}
+                      sound={cue?.sound ?? null}
                     />
                   ) : (
                     <div className={s.empty}>No theme to preview with.</div>
@@ -590,6 +622,23 @@ export default function OverlaysPage() {
                         ))}
                     </select>
                   </label>
+                  <div className={s.sideField}>
+                    <span className={s.sideLabel}>SOUND</span>
+                    <span className={s.sideHint}>
+                      {cue?.sound ? (
+                        <>
+                          <code>{cue.cue}</code> from <code>{packName}</code>
+                          {cue.sound.loop ? " — a loop over the entrance" : ""}, at the theme&apos;s
+                          sfx gain. Browsers block sound until you have clicked the page, so use
+                          the player&apos;s volume control if the first loop is quiet.
+                        </>
+                      ) : cue?.reason ? (
+                        cue.reason
+                      ) : (
+                        `${themeName} attaches no cue to this overlay — it is silent in the video too`
+                      )}
+                    </span>
+                  </div>
                   <div className={s.sideField}>
                     <span className={s.sideLabel}>
                       PROPS

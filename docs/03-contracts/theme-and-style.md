@@ -27,7 +27,7 @@ surface:                          # D46 — the SHAPE of an overlay
   radius: square                  # square | soft | rounded
   fill: translucent               # solid | translucent | none
   plate: page                     # D78/D81 page | invert | accent — WHICH colour a panel is
-  text_plate: off                 # D82 on | off — do BARE-TYPE overlays get a plate by default
+  text_plate: off                 # D82 on | sub | off — do BARE-TYPE overlays get a plate by default, and how far it reaches
   accent_rule: top                # top | left | none
   density: airy                   # D66 tight | normal | airy
   rule: hairline                  # D66 hairline | normal | heavy
@@ -262,6 +262,11 @@ decides what it is painted with, and the two are genuinely independent:
   A role may opt out of the theme default — `TextTitle` does, because a title
   is the subject of the frame rather than a label on it — while an explicit
   `background` still wins for every role.
+  `text_plate` also decides HOW FAR the chip reaches, which the prop never
+  does: `on` chips both lines of the lockup, `sub` writes the lead bare on the
+  shot and chips only the label under it — the caption idiom, a figure on the
+  footage with its label on a tag beneath. Under `sub` that one remaining chip
+  takes `plate`, since there is no louder plate above it to be quiet against.
 
 The idiom is older than the token. `captionStyle`'s `boxed` preset has always
 paired `colors.bg` ink with a `colors.text` plate — a burned caption is a stamp,

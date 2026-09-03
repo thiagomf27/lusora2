@@ -43,6 +43,7 @@ export {
   type ChartStyle,
   type Composition,
   type SurfaceStyle,
+  type TextPlating,
   type TypeRole,
 } from "../themes/runtime.ts";
 export {

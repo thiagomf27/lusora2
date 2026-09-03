@@ -41,5 +41,16 @@
     "markers": "none",
     "stroke": "heavy",
     "number_format": "compact"
+  },
+  "sound": {
+    "pack": "punchy",
+    "per_component": {
+      "TextTitle": "tick-typing",
+      "TextPlace": "tick-typing",
+      "TextName": "tick-typing",
+      "TextHighlight": "tick-typing",
+      "TextTag": "tick-typing",
+      "TextBanner": "tick-typing"
+    }
   }
 }

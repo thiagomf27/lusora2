@@ -364,19 +364,20 @@ test("every shipped theme is unchanged by the plate token", () => {
   }
 });
 
-test("text_plate: omitted leaves bare type, `on` plates it", () => {
+test("text_plate: omitted leaves bare type, `on` plates it, `sub` plates the label alone", () => {
   // The identity: the pack drew bare type before the token, and a theme that
   // does not mention it still does.
-  assert.equal(textPlate(DEFAULT_THEME), false);
-  assert.equal(textPlate(MONO), false);
-  assert.equal(textPlate({ ...MONO, surface: { text_plate: "on" as const } }), true);
-  assert.equal(textPlate({ ...MONO, surface: { text_plate: "off" as const } }), false);
+  assert.equal(textPlate(DEFAULT_THEME), "none");
+  assert.equal(textPlate(MONO), "none");
+  assert.equal(textPlate({ ...MONO, surface: { text_plate: "on" as const } }), "all");
+  assert.equal(textPlate({ ...MONO, surface: { text_plate: "sub" as const } }), "sub");
+  assert.equal(textPlate({ ...MONO, surface: { text_plate: "off" as const } }), "none");
 
   // It is NOT `fill` wearing a different name: `paper-print` paints no panels
   // and still wants its labels chipped, which is the pair that ruled `fill` out.
   const paperish = { ...MONO, surface: { fill: "none" as const, text_plate: "on" as const } };
   assert.equal(surfaceStyle(paperish).background, "transparent");
-  assert.equal(textPlate(paperish), true);
+  assert.equal(textPlate(paperish), "all");
 });
 
 test("every shipped theme that does not ask for text_plate keeps bare type", () => {
@@ -384,7 +385,7 @@ test("every shipped theme that does not ask for text_plate keeps bare type", () 
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
     const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
     if (theme.surface?.text_plate !== undefined) continue;
-    assert.equal(textPlate(theme), false, `${file}: text plated without being asked`);
+    assert.equal(textPlate(theme), "none", `${file}: text plated without being asked`);
   }
 });
 

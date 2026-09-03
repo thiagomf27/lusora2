@@ -20,6 +20,7 @@
   "surface": {
     "radius": "soft",
     "fill": "solid",
+    "text_plate": "sub",
     "accent_rule": "top",
     "density": "tight",
     "rule": "heavy",
@@ -30,7 +31,15 @@
   },
   "motion": {
     "entrance": "pop",
-    "easing": "snap"
+    "easing": "snap",
+    "per_component": {
+      "TextBanner": "typewriter",
+      "TextTitle": "typewriter",
+      "TextPlace": "typewriter",
+      "TextName": "typewriter",
+      "TextHighlight": "typewriter",
+      "TextTag": "typewriter"
+    }
   },
   "chart": {
     "grid": "none",

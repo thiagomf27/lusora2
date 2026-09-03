@@ -25,7 +25,13 @@
     "entrance": "fade",
     "easing": "smooth",
     "per_component": {
-      "SatelliteLocate": "typewriter"
+      "SatelliteLocate": "typewriter",
+      "TextTitle": "typewriter",
+      "TextPlace": "typewriter",
+      "TextName": "typewriter",
+      "TextHighlight": "typewriter",
+      "TextTag": "typewriter",
+      "TextBanner": "typewriter"
     }
   },
   "sound": {

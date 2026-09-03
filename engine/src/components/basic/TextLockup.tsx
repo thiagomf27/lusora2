@@ -17,7 +17,10 @@
  * Whether there is a box at all is the `background` PROP, for the same reason
  * `emphasis` is a prop: it is a per-overlay decision the planner makes about
  * one line ("this one is a chip"). When the overlay says nothing, the theme's
- * `surface.text_plate` answers, and omitting both leaves the type bare. WHICH colour the chip is, once asked for, is the
+ * `surface.text_plate` answers, and omitting both leaves the type bare. How FAR
+ * the box reaches is the theme's alone: `on` chips both lines, `sub` writes the
+ * lead on the shot and chips only the label under it. WHICH colour the chip is,
+ * once asked for, is the
  * theme's `surface.plate` — `accent` is the tag idiom, a coloured chip with the
  * label on a quieter chip of page colour beneath it. Type, density, case,
  * tracking and motion come from the theme either way, so a `basic` overlay in a
@@ -31,6 +34,7 @@ import {
   contrastRatio,
   densityScale,
   plateColor,
+  type TextPlating,
   fontStack,
   TEXT_ENTRANCES,
   typeCase,
@@ -64,8 +68,9 @@ export interface TextLockupProps {
   position: Position;
   size: Size;
   /**
-   * The `background` prop. `undefined` means the overlay did not say, and the
-   * theme's `surface.text_plate` answers instead.
+   * The `background` prop, which answers WHETHER only. `undefined` means the
+   * overlay did not say, and the theme's `surface.text_plate` answers instead;
+   * how far the plate reaches is that token's either way.
    */
   plated?: boolean;
   /**
@@ -93,6 +98,14 @@ export interface TextLockupProps {
    * RankLabel all set numerals in the body face too.
    */
   numeric?: boolean;
+  /**
+   * The slow scale drift across the hold. On for the roles that OWN the frame
+   * while they are up — a title, a marked passage, a figure counting — where a
+   * still lockup on moving footage reads as a stuck graphic. Off for the label
+   * roles, which sit in a corner beside a shot that is already moving and only
+   * have to stay put while it does.
+   */
+  drift?: boolean;
 }
 
 export function TextLockup({
@@ -108,6 +121,7 @@ export function TextLockup({
   seconds = 0.9,
   supported = TEXT_ENTRANCES,
   numeric = false,
+  drift = true,
 }: TextLockupProps) {
   const frame = useCurrentFrame();
   const { width, height, durationInFrames } = useVideoConfig();
@@ -131,20 +145,39 @@ export function TextLockup({
   // "Slow growing": a drift across the whole hold, not an arrival. It has to
   // still be moving while the narration is on the line, so it runs on the
   // sequence clock rather than on the entrance's.
-  const grow = interpolate(frame, [0, durationInFrames], [1, 1.035], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  const grow = drift
+    ? interpolate(frame, [0, durationInFrames], [1, 1.035], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
 
   const leadFont = height * SIZE_SCALE[size] * typeScale(theme, size === "big" ? "title" : "kicker");
   const subFont = leadFont * (size === "big" ? 0.34 : 0.62);
 
-  const plated = platedProp ?? (followsThemePlate && textPlate(theme));
+  // The prop says WHETHER there is a box; the theme says HOW FAR it reaches.
+  // `background: true` under a `sub` theme therefore gets that theme's caption
+  // idiom rather than a second look nobody asked for — the overlay is opting
+  // in to plating, not overriding the shape of it.
+  const themePlating = followsThemePlate ? textPlate(theme) : "none";
+  const plating: TextPlating =
+    platedProp === undefined
+      ? themePlating
+      : platedProp === false
+        ? "none"
+        : themePlating === "sub"
+          ? "sub"
+          : "all";
+  const leadPlated = plating === "all";
+  const subPlated = plating !== "none";
+
   const leadPlate = plateColor(theme);
-  // The sub sits on the quieter chip: the page, under the loud plate above it.
-  const subPlate = surfaceColor(theme);
-  const leadInk = plated ? contrastInk(theme, leadPlate) : theme.colors.text;
-  const subInk = plated ? contrastInk(theme, subPlate) : theme.colors.text;
+  // Under `all` the sub sits on the quieter chip — the page, under the loud
+  // plate above it. Under `sub` there is no plate above it to be quiet
+  // against, so the one remaining chip is the loud one.
+  const subPlate = plating === "sub" ? leadPlate : surfaceColor(theme);
+  const leadInk = leadPlated ? contrastInk(theme, leadPlate) : theme.colors.text;
+  const subInk = subPlated ? contrastInk(theme, subPlate) : theme.colors.text;
 
   // Bare over unknown footage, the only thing keeping type legible is its own
   // shadow; which way it falls depends on the ink, since a light theme setting
@@ -152,9 +185,11 @@ export function TextLockup({
   // is already doing that job and a halo only smears the edge.
   const lightInk = contrastRatio(theme.colors.text, "#000000") > contrastRatio(theme.colors.text, "#ffffff");
   const halo = lightInk ? "0,0,0" : "255,255,255";
-  const textShadow = plated
-    ? undefined
-    : `0 ${height * 0.0015}px ${height * 0.016}px rgba(${halo},0.55), 0 ${height * 0.0008}px ${height * 0.003}px rgba(${halo},0.38)`;
+  const shadow = `0 ${height * 0.0015}px ${height * 0.016}px rgba(${halo},0.55), 0 ${height * 0.0008}px ${height * 0.003}px rgba(${halo},0.38)`;
+  // Asked per line rather than per lockup, because `sub` plates one and not
+  // the other: the bare lead still needs its halo while the chip below it does not.
+  const leadShadow = leadPlated ? undefined : shadow;
+  const subShadow = subPlated ? undefined : shadow;
 
   // A tag is padded off its own type, so one chip hugs a word and another a
   // sentence without either being measured in pixels.
@@ -195,7 +230,7 @@ export function TextLockup({
           alignItems: centred ? "center" : left ? "flex-start" : "flex-end",
           textAlign: centred ? "center" : left ? "left" : "right",
           maxWidth: centred ? width * 0.78 : width * 0.42,
-          gap: (plated ? subFont * 0.16 : subFont * 0.42) * density,
+          gap: (subPlated ? subFont * 0.16 : subFont * 0.42) * density,
         }}
       >
         <div
@@ -210,8 +245,8 @@ export function TextLockup({
             textTransform: casing,
             lineHeight: 1.14,
             color: leadInk,
-            textShadow,
-            ...(plated
+            textShadow: leadShadow,
+            ...(leadPlated
               ? { background: leadPlate, padding: pad(leadFont), borderRadius: radius }
               : null),
           }}
@@ -231,9 +266,9 @@ export function TextLockup({
               // Bare, the hierarchy is opacity, because there is no ground to
               // pick a muted ink against. On a plate the two chips already
               // separate them, so the sub keeps its full contrast.
-              opacity: (plated ? 1 : 0.78) * entrance.after(entrance.inDur * 0.15),
-              textShadow,
-              ...(plated
+              opacity: (subPlated ? 1 : 0.78) * entrance.after(entrance.inDur * 0.15),
+              textShadow: subShadow,
+              ...(subPlated
                 ? { background: subPlate, padding: pad(subFont), borderRadius: radius }
                 : null),
             }}

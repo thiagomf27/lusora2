@@ -14,7 +14,9 @@
  *
  * ./basic is the text-only pack (D80): four role entries plus the general
  * TextTag, all over one renderer in basic/TextLockup.tsx, which is itself
- * unregistered because it is drawing rather than a catalog name.
+ * unregistered because it is drawing rather than a catalog name. TextBanner is
+ * the exception — a strip across the frame is not a corner lockup, so it draws
+ * itself off the same theme tokens.
  *
  * ./example_lib keeps the original six as reference copies and is deliberately
  * NOT registered.
@@ -23,6 +25,7 @@ import type { ComponentType } from "react";
 import type { Theme } from "@lusora/contracts";
 
 
+import { TextBanner } from "./basic/TextBanner.tsx";
 import { TextCounter } from "./basic/TextCounter.tsx";
 import { TextHighlight } from "./basic/TextHighlight.tsx";
 import { TextName } from "./basic/TextName.tsx";
@@ -107,6 +110,7 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
   SocialPost,
   StatTag,
   StepFlow,
+  TextBanner,
   TextCounter,
   TextHighlight,
   TextName,
@@ -151,6 +155,7 @@ export {
   SocialPost,
   StatTag,
   StepFlow,
+  TextBanner,
   TextCounter,
   TextHighlight,
   TextName,

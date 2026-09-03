@@ -29,6 +29,7 @@ export function TextName({ props, theme }: { props: TextNameProps; theme: Theme 
       size={props.size}
       plated={props.background}
       theme={theme}
+      drift={false}
       seconds={0.7}
     />
   );

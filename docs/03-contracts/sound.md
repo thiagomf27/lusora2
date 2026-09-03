@@ -186,7 +186,7 @@ By hand:
    `mood_beds` naming its cues.
 3. `node scripts/validate-schemas.mjs`.
 
-Either way, no deploy and no code. The shipped packs are synthesized placeholders —
-`contracts/sound-packs/README.md` explains how to replace them with real
-CC0 recordings, and why cues are peak-normalized while beds are
-loudness-normalized.
+Either way, no deploy and no code. The shipped packs carry RECORDED cues and
+synthesized beds — `contracts/sound-packs/README.md` explains how the two halves
+differ, why cues are peak-normalized while beds are loudness-normalized, and
+what the pack-wide `license` has to say once real material is in.

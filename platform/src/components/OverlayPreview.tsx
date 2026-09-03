@@ -7,7 +7,10 @@
 import { useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import type { Theme } from "@lusora/contracts";
-import { OverlaySolo } from "@lusora/engine/src/renderers/remotion/OverlaySolo.tsx";
+import {
+  OverlaySolo,
+  type OverlaySoloSound,
+} from "@lusora/engine/src/renderers/remotion/OverlaySolo.tsx";
 
 const FPS = 30;
 const WIDTH = 1280;
@@ -21,6 +24,7 @@ export default function OverlayPreview({
   durationSeconds,
   background = "gradient",
   backdropImage = null,
+  sound = null,
 }: {
   component: string;
   props: Record<string, unknown>;
@@ -31,11 +35,13 @@ export default function OverlayPreview({
   background?: "gradient" | "flat";
   /** A real frame to stand the overlay on; wins over `background`. */
   backdropImage?: string | null;
+  /** The entrance cue this overlay fires on this theme, or null for silence. */
+  sound?: OverlaySoloSound | null;
 }) {
   const ref = useRef<PlayerRef>(null);
   const inputProps = useMemo(
-    () => ({ component, props, theme, template, background, backdropImage }),
-    [component, props, theme, template, background, backdropImage]
+    () => ({ component, props, theme, template, background, backdropImage, sound }),
+    [component, props, theme, template, background, backdropImage, sound]
   );
   const durationInFrames = Math.max(Math.round(durationSeconds * FPS), 2);
   return (

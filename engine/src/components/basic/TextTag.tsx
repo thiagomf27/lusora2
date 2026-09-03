@@ -36,6 +36,7 @@ export function TextTag({ props, theme }: { props: TextTagProps; theme: Theme })
       size={props.size}
       plated={props.background}
       theme={theme}
+      drift={false}
       seconds={0.9}
     />
   );

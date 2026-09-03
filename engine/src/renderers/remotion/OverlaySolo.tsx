@@ -9,7 +9,7 @@
  * which is the one place we want that failure to be visible.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { AbsoluteFill, Img, Sequence, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Img, Sequence, interpolate, useVideoConfig } from "remotion";
 import type { Theme } from "@lusora/contracts";
 import { COMPONENTS } from "../../components/index.ts";
 import { TemplateOverlay } from "../../components/templates/TemplateOverlay.tsx";
@@ -32,6 +32,33 @@ export interface OverlaySoloInput {
    * look like over actual footage", which a synthesized gradient cannot.
    */
   backdropImage?: string | null;
+  /**
+   * The entrance cue this overlay would fire in a real video, already resolved
+   * against the theme and its sound pack — see the platform's
+   * `lib/overlaySound.ts`, which mirrors the compiler that does it for real.
+   *
+   * Resolved OUTSIDE this composition on purpose: picking the cue needs the
+   * pack manifest (a file on disk) and the catalog entry, neither of which a
+   * Remotion composition can reach. Absent means the overlay has no cue on this
+   * theme, which is most of them — silence is the default in D48, and a preview
+   * that invented a swoosh would be lying about the video.
+   */
+  sound?: OverlaySoloSound | null;
+}
+
+export interface OverlaySoloSound {
+  /** URL the browser can fetch — `/api/sounds/<pack>/audio/<file>` today. */
+  src: string;
+  /** When the cue starts, in seconds from the overlay's own start. */
+  startSeconds: number;
+  /** How long it plays: the cue's own length, or the window a loop fills. */
+  durationSeconds: number;
+  /** The theme's sfx gain times the cue's own. */
+  gain: number;
+  /** A loop cue (a typing bed) rather than a one-shot transient. */
+  loop?: boolean;
+  /** Tail on a loop, so it stops rather than being cut off. */
+  fadeOutSeconds?: number;
 }
 
 /** Mix a hex colour towards another by `amount` (0..1). */
@@ -71,6 +98,37 @@ class PreviewBoundary extends Component<
   }
 }
 
+/**
+ * The cue, on the timeline rather than on an <audio> tag beside the player, so
+ * it scrubs, loops and pauses with the frame the way it will in the render.
+ */
+const CueTrack: React.FC<{ sound: OverlaySoloSound }> = ({ sound }) => {
+  const { fps } = useVideoConfig();
+  const from = Math.round(sound.startSeconds * fps);
+  const frames = Math.max(1, Math.round(sound.durationSeconds * fps));
+  const fade = Math.round((sound.fadeOutSeconds ?? 0) * fps);
+  return (
+    <Sequence from={from} durationInFrames={frames}>
+      <Audio
+        src={sound.src}
+        loop={sound.loop}
+        // A loop is cut off at the end of its window, so it needs the pack's
+        // own tail; a one-shot already ends on its own and takes the flat gain.
+        volume={
+          fade > 0
+            ? (f) =>
+                sound.gain *
+                interpolate(f, [frames - fade, frames], [1, 0], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                })
+            : sound.gain
+        }
+      />
+    </Sequence>
+  );
+};
+
 export const OverlaySolo: React.FC<OverlaySoloInput> = ({
   component,
   props,
@@ -78,6 +136,7 @@ export const OverlaySolo: React.FC<OverlaySoloInput> = ({
   template,
   background = "gradient",
   backdropImage = null,
+  sound = null,
 }) => {
   const { durationInFrames, height } = useVideoConfig();
   const registered = COMPONENTS[component];
@@ -124,6 +183,7 @@ export const OverlaySolo: React.FC<OverlaySoloInput> = ({
       {backdropImage ? (
         <Img src={backdropImage} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : null}
+      {sound ? <CueTrack sound={sound} /> : null}
       {Overlay ? (
         <PreviewBoundary
           key={JSON.stringify(props)}
