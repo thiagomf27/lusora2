@@ -47,6 +47,79 @@ def test_faceless_is_the_pre_refactor_stage_list():
     assert [(s.name, s.artifact, s.is_done) for s in stages] == PRE_REFACTOR
 
 
+def test_faceless_v3_starts_as_faceless_plus_nothing():
+    """D84: v3 is v1's stage list, verbatim, so the first eval taken on it is
+    taken on a manifest that provably does nothing new. Every later slice that
+    adds a stage edits THIS test deliberately — which is the point: a stage
+    list that drifts by accident is a baseline that silently stopped being one.
+    """
+    v1, v3 = load_pipeline("faceless"), load_pipeline("faceless_v3")
+    assert stage_names(v3) == stage_names(v1)
+    # not only the names: the requires/produces/gates are the same list too,
+    # or "identical stage list" would mean less than it says
+    assert v3["stages"] == v1["stages"]
+    # and what the worker BUILDS from it is the pre-refactor list, done-checks
+    # included — the manifest is inert, not merely similar
+    assert [(s.name, s.artifact, s.is_done) for s in build_stages(v3)] == PRE_REFACTOR
+
+
+def test_the_same_video_beats_identically_on_v1_and_v3(tmp_path, monkeypatch):
+    """D84's exit criterion, run offline: the stage BODY must not be able to
+    see which manifest called it. Same folder, same deterministic planner, two
+    pipeline snapshots — the bytes have to match, or v3 is not a baseline."""
+    from lusora_worker.context import StageContext
+    from lusora_worker.pipeline import steps
+
+    from test_agents import FakeDb
+
+    script = (
+        "Every year the desert takes back a little more of the road. "
+        "The crews come out in March and lay fresh asphalt over the drifts. "
+        "By August the sand has won and the line on the map is a suggestion."
+    )
+    srt = (
+        "1\n00:00:00,000 --> 00:00:04,000\n"
+        "Every year the desert takes back a little more of the road.\n\n"
+        "2\n00:00:04,000 --> 00:00:09,000\n"
+        "The crews come out in March and lay fresh asphalt over the drifts.\n\n"
+        "3\n00:00:09,000 --> 00:00:14,000\n"
+        "By August the sand has won and the line on the map is a suggestion.\n"
+    )
+    # the mp3 is only ever probed for its length here, so probe rather than encode
+    monkeypatch.setattr(steps, "probe_duration", lambda stage, path: 14.0)
+
+    def beats_on(pipeline: str) -> bytes:
+        folder = tmp_path / pipeline
+        folder.mkdir()
+        (folder / "script.txt").write_text(script, encoding="utf-8")
+        (folder / "subtitles.srt").write_text(srt, encoding="utf-8")
+        (folder / "audio.mp3").write_bytes(b"")
+        ctx = StageContext(
+            video={"id": "vid_ab", "channel_id": "CH", "title": "The unfinished road"},
+            folder=folder,
+            cfg={
+                "pipeline": pipeline,
+                "pipeline_doc": load_pipeline(pipeline),
+                "planner": {"llm": "mock"},
+            },
+            db=FakeDb(),
+            config=None,
+        )
+        steps.run_plan_beats(ctx)
+        return (folder / "beats.json").read_bytes()
+
+    assert beats_on("faceless_v3") == beats_on("faceless")
+
+
+def test_faceless_v3_is_a_test_pipeline_kept_out_of_batches():
+    """It is an A/B partner, not a second production pipeline. Promotion is a
+    deliberate act with criteria written into D84."""
+    v3 = load_pipeline("faceless_v3")
+    assert v3["stability"] == "test"
+    assert v3["bulk_production_accepted"] is False
+    assert load_pipeline("faceless")["stability"] == "production"
+
+
 def test_default_pipeline_exists_and_is_production():
     manifest = load_pipeline(DEFAULT_PIPELINE)
     assert DEFAULT_PIPELINE in list_pipelines()

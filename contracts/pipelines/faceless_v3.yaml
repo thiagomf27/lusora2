@@ -1,0 +1,102 @@
+name: faceless_v3
+version: "1.0"
+description: >
+  The overlay-quality pipeline. Its stage list is faceless v1's, copied
+  verbatim — and at v1.0 that is the whole of it: v3 and v1 walk the same
+  stages, so a video enqueued against either produces the same beats.json.
+  That is deliberate. It makes v3 an A/B partner for v1 before anything new
+  exists, and every stage added here later is measured against a baseline
+  taken on a manifest that was provably inert.
+
+  It is NOT built on faceless_v2. v2 is the only home of the `research`
+  stage, and putting the overlay work there would move two independent
+  variables at once — the eval could then never say which one moved the
+  numbers. Manifests are cheap; that is the point of D60 (D84).
+
+  Ships as `stability: test`: promotion is a separate, deliberate act with
+  criteria written into D84, and it is two lines — stability: production
+  here, and removing faceless.yaml so this wins `production_style: faceless`
+  on name order.
+category: faceless
+stability: test
+
+# auto = run straight through, no human gates. The per-stage
+# human_approval_on_review_mode flags below take effect only when a video is
+# enqueued with the "guided" checkpoint policy — REVIEW mode in the UI (D62).
+# A video's own cfg.checkpoint_policy overrides this default, which is what
+# lets one channel run the same manifest both ways.
+default_checkpoint_policy: auto
+bulk_production_accepted: false
+
+orchestration:
+  mode: mainly_code
+  budget_default_usd: 2.00
+  max_revisions_per_stage: 3
+  max_send_backs: 3
+
+compatible_themes:
+  recommended:
+    - standard
+    - paper-print
+  also_works:
+    - field-manual
+    - bold-editorial
+  custom_allowed: true
+
+# NOTE: bootstrap (claim + materialize cfg.json) runs before this list and is
+# NOT a stage — it is the precondition for the loop, not a step it can skip.
+# Done-checks (artifact-presence vs. freshness) live in the worker step
+# registry, keyed by these names — deliberately not encoded here.
+stages:
+  - name: script
+    produces: [script.txt]
+    receivable_on_upload: true            # bring your own narration text
+    human_approval_on_review_mode: true   # gate after the script in review mode
+
+  - name: narration
+    requires: [script.txt]
+    produces: [audio.mp3]
+    receivable_on_upload: true            # bring your own voiceover
+
+  - name: transcript
+    requires: [audio.mp3]
+    produces: [subtitles.srt]
+    receivable_on_upload: true            # bring your own subtitles
+
+  - name: plan_beats
+    requires: [script.txt, subtitles.srt]
+    produces: [beats.json]
+    receivable_on_upload: true            # hand-written beat sheet (schema-checked)
+    human_approval_on_review_mode: true   # gate after the beat sheet in review mode
+    # Everything below runs only once this gate is passed, which is what makes
+    # "nothing renders before the beats are approved" true rather than a habit.
+
+  - name: compile_plan
+    requires: [beats.json]
+    produces: [edit_plan.json]
+    receivable_on_upload: true            # hand-written edit plan (schema-checked)
+
+  - name: resolve_assets
+    requires: [edit_plan.json]
+    produces: [clips/]
+
+  - name: resolve_audio
+    requires: [edit_plan.json]
+    produces: [audio/]
+
+  - name: validate
+    # judges the compiled plan; produces no artifact, so it always runs
+    requires: [edit_plan.json]
+
+  - name: render
+    requires: [edit_plan.json]
+    produces: [final.mp4]
+
+  - name: qa
+    # judges the rendered FILE (black/silent/duration); produces no artifact,
+    # so it always runs — the gate that keeps a broken render off the review queue
+    requires: [final.mp4]
+
+  - name: finalize
+    requires: [final.mp4]
+    produces: [thumb.jpg, metadata.txt]
