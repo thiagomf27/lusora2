@@ -114,7 +114,8 @@ async function variablesFor(role: PromptRole, videoId?: string): Promise<Record<
     };
   }
   return {
-    component_menu: componentMenu(),
+    // the chat role's menu is the authoring one — preview what it really sends
+    component_menu: componentMenu(null, { props: true }),
     beats,
     plan_tracks: planTracks,
     message: "make the middle faster and add a map when he mentions the route",

@@ -178,8 +178,9 @@ def validate_beat_sheet(
             if not (1 <= len(words) <= 5):
                 violations.append(
                     f"beat {b.get('id')}: queries[{i}] {str(query)[:50]!r} is {len(words)} words — "
-                    "a keyword query is 2-4 words, subject first ('bombed factory 1943'), "
-                    "not a sentence; the scout description belongs in visual_intent"
+                    "a keyword query is 2-4 words and never more than 5, subject first "
+                    "('bombed factory 1943'), not a sentence; the scout description belongs "
+                    "in visual_intent"
                 )
 
     # overlays: catalog existence + allowed_components + anchor types

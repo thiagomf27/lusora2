@@ -569,3 +569,152 @@ def test_emphasis_overlays_are_invisible_until_a_pack_enables_them(tmp_path):
     assert on[0] == baseline[0], "the system half is untouched either way"
     assert '"emphasis": true' in on[1]
     assert "1.5 per minute" in on[1], "the budget is a number from the pack, not prose"
+
+
+# ---------------- the menu diet and prompt hygiene (slice 2) ----------------
+
+
+def _one_beat_for(chunk_text: str) -> dict:
+    """A minimal, valid one-beat sheet covering exactly the chunk it was given."""
+    return {
+        "version": "1.0",
+        "video_id": "vid_t",
+        "beats": [{"id": "b1", "kind": "narration", "script_text": chunk_text,
+                   "visual_intent": "a port at work", "mood": "neutral"}],
+    }
+
+
+def _composed(ctx, script=SCRIPT, duration=8.0, chat_fn=None):
+    """The system and user prompts one planner call actually sends."""
+    seen: dict[str, str] = {}
+
+    def spy(provider, model, system, user, max_tokens):
+        seen.setdefault("system", system)
+        seen.setdefault("user", user)
+        return reply(good_beats())
+
+    planner.plan_beats(ctx, script, duration, chat_fn=chat_fn or spy)
+    return seen["system"], seen["user"]
+
+
+def test_the_selection_menu_carries_rules_not_prop_schemas(tmp_path):
+    """The planner's job is WHICH component; the compiler fills props from the
+    anchor and the theme. A schema the model reads is a schema it then feels
+    obliged to fill."""
+    system, _ = _composed(make_ctx(tmp_path))
+    assert "props you may hint" not in system
+    assert "when NOT to use" in system, "the judgement half must survive the diet"
+
+
+def test_the_menu_never_offers_the_emphasis_prop(tmp_path):
+    """The catalog's `emphasis` is a visual weight; the beat sheet's is an
+    overlay class (D59). One word, two meanings, one prompt."""
+    for menu in (planner._catalog_menu(None), planner._catalog_menu(None, props=True)):
+        assert '"emphasis"' not in menu
+    assert "emphasis" not in planner._catalog_menu(None)
+
+
+def test_the_menu_carries_the_prop_description_where_props_appear():
+    """The authoring craft the entry already carries, and that the old menu
+    deleted at the door."""
+    menu = planner._catalog_menu(["AnimatedCounter"], props=True)
+    assert "a label that only repeats the voice-over is noise" in menu
+
+
+def test_the_menu_names_how_long_a_component_holds():
+    """A budget the model can see the prices for."""
+    assert "holds ~4s" in planner._catalog_menu(["AnimatedCounter"])
+    assert "holds ~4s" in planner._catalog_menu(["AnimatedCounter"], props=True)
+
+
+def test_the_menu_fits_its_budget():
+    """A pinned ceiling, so a new component cannot silently put the planner's
+    prompt back where it was. Raise it deliberately, with a reason."""
+    assert len(planner._catalog_menu(None)) < 20_000
+
+
+def test_the_python_and_typescript_menus_agree():
+    """Both languages assert against contracts/fixtures/component_menu.txt.
+    Two implementations of one prompt is the drift that gets discovered in a
+    model's output rather than in CI, unless something like this exists."""
+    selection, authoring = planner.split_menu_fixture(
+        planner.MENU_FIXTURE.read_text(encoding="utf-8")
+    )
+    assert planner._catalog_menu(None) == selection
+    assert planner._catalog_menu(None, props=True) == authoring
+
+
+def test_the_menu_is_ordered_by_name_whatever_the_catalog_loader_did():
+    """Python appends data packs after core and the platform interleaves them,
+    so the menu sorts explicitly on both sides — otherwise the order of a
+    prompt depends on which language composed it."""
+    names = [line[2:].split(" (")[0] for line in planner._catalog_menu(None).splitlines()
+             if line.startswith("- ")]
+    assert names == sorted(names)
+
+
+def test_a_chunk_with_a_spine_does_not_carry_the_full_script(tmp_path):
+    """The spine and the full script answer the same question, and the spine
+    answers it in a paragraph — once per chunk, this is the biggest single item
+    in the prompt."""
+    ctx = chunking_ctx(tmp_path, spine=True)
+    calls: list[tuple[str, str]] = []
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_spine_chat_fn(calls, GOOD_SPINE))
+    for _system, user in calls[1:]:
+        assert "FULL SCRIPT" not in user
+        assert "THE SPINE OF THE WHOLE VIDEO" in user
+
+
+def test_a_chunk_without_a_spine_still_carries_the_full_script(tmp_path):
+    """The fallback path is unchanged: with no spine the script is the only
+    context there is, so dropping it would leave the chunk blind."""
+    ctx = chunking_ctx(tmp_path, spine=False)
+    calls: list[tuple[str, str]] = []
+
+    def chat_fn(provider, model, system, user, max_tokens):
+        calls.append((system, user))
+        return reply(_one_beat_for(_chunk_text_from_prompt(user)))
+
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=chat_fn)
+    assert calls, "the fixture must have chunked"
+    for _system, user in calls:
+        assert "FULL SCRIPT" in user
+
+
+def test_the_style_pack_shape_and_the_spine_arc_have_different_labels(tmp_path):
+    """`ARC:` used to name two different things in one prompt — the style
+    pack's structural arc (three_act) and the spine's narrative one (a
+    sentence about the story). The pack's is now SHAPE."""
+    ctx = chunking_ctx(tmp_path, spine=True)
+    ctx.cfg["style_pack_doc"]["pacing"]["arc"] = "three_act"
+    calls: list[tuple[str, str]] = []
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=_spine_chat_fn(calls, GOOD_SPINE))
+    user = calls[1][1]
+    assert "SHAPE: three_act" in user
+    assert user.count("ARC:") == 1, "only the spine's narrative arc may be called ARC"
+
+
+def test_hard_rule_one_is_one_sentence_when_scoped_to_a_section(tmp_path):
+    """The scope used to be pasted mid-sentence, so `with no overlap and no
+    gaps` attached to the parenthetical about context rather than to the rule."""
+    ctx = chunking_ctx(tmp_path, spine=False)
+    calls: list[tuple[str, str]] = []
+
+    def chat_fn(provider, model, system, user, max_tokens):
+        calls.append((system, user))
+        return reply(_one_beat_for(_chunk_text_from_prompt(user)))
+
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=chat_fn)
+    rule = [ln for ln in calls[0][0].splitlines() if ln.startswith("1. ")][0]
+    assert rule.rstrip().endswith("in order, with no overlap and no gaps.")
+
+
+def test_the_queries_violation_names_the_limit_the_validator_enforces(tmp_path):
+    """A repair message that states a rule the validator does not have sends
+    the model chasing a violation it cannot fix."""
+    doc = good_beats()
+    doc["version"] = "1.1"
+    doc["beats"][0]["queries"] = ["one two three four five six seven"]
+    violations = validators.validate_beat_sheet(doc, SCRIPT, CFG, 8.0)
+    message = next(v for v in violations if "queries[0]" in v)
+    assert "never more than 5" in message

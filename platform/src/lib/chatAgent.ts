@@ -44,7 +44,10 @@ export async function propose(
   if (!doc) throw new ApiError(500, "contracts/prompts/chat/default.json is missing");
 
   const { system, user } = compose("chat", doc, {
-    component_menu: componentMenu(),
+    // the AUTHORING menu: unlike the planner, the chat agent really does write
+    // props_hint, so it is the caller that pays for the prop schemas and gets
+    // the prop descriptions in exchange
+    component_menu: componentMenu(null, { props: true }),
     beats: JSON.stringify(beats),
     plan_tracks: JSON.stringify(plan.tracks),
     message,

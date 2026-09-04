@@ -125,11 +125,126 @@ these two channels, and record the full-catalog figure separately.
 
 ---
 
+## Re-baselined 2026-09-03 — the July numbers were taken on a model that no longer exists
+
+The section above is kept for the record and **must not be compared against**.
+`llm.py` now defaults deepseek to `deepseek-v4-pro`, a REASONING model; the July
+sheets were planned by the old default. That alone accounts for output tokens
+roughly doubling, and it means those scores cannot answer "did this change
+help?" for anything.
+
+Everything below was measured on one day, on one model, through one replay
+harness, with the only difference being the code under test. Each arm ran each
+case **twice**, deliberately: the plan puts the variance check in slice 3, and
+it turned out to be the thing that had to be known first.
+
+| arm | case | run | recall | precision | restraint | accuracy | in/call | out/call |
+|---|---|---|---|---|---|---|---|---|
+| pre (slice 1) | pearl-harbor-doc | 1 | 75.0 | 75.0 | 83.3 | 100 | 3,593 | 14,828 |
+| pre (slice 1) | pearl-harbor-doc | 2 | 25.0 | 25.0 | 62.5 | 100 | 3,593 | 14,514 |
+| pre (slice 1) | millennium-bridge | 1 | 83.3 | 100 | 100 | 100 | 4,301 | 18,041 |
+| pre (slice 1) | millennium-bridge | 2 | 100 | 85.7 | 66.7 | 100 | 4,301 | 17,675 |
+| post (slice 2) | pearl-harbor-doc | 1 | 50.0 | 50.0 | 60.0 | 100 | **2,483** | 11,351 |
+| post (slice 2) | pearl-harbor-doc | 2 | — | — | — | — | — | *failed after 3 attempts* |
+| post (slice 2) | pearl-harbor-doc | 3 | 75.0 | 75.0 | 83.3 | 100 | **2,536** | 17,262 |
+| post (slice 2) | millennium-bridge | 1 | 100 | 100 | 100 | 100 | **2,866** | 15,847 |
+| post (slice 2) | millennium-bridge | 2 | 100 | 100 | 100 | 100 | **2,885** | 19,496 |
+
+### The finding that matters more than the slice
+
+**Two runs of IDENTICAL code, on the same case, scored 75% and 25% recall.**
+Restraint moved 83.3 → 62.5 on the doc case and 100 → 66.7 on the breakdown
+case, with nothing changed between them but the sampler. The planner runs at
+the house default temperature of 0.7.
+
+That spread is larger than any effect slice 2 could plausibly have, which means
+**slice 2's exit criterion cannot be evaluated at this sample size, and neither
+can any later slice's.** Two runs per arm is not a measurement of quality; it is
+a measurement of the noise floor, and the noise floor is most of the range.
+
+The plan sequenced temperature as slice 3 and the eval's variance check inside
+it. That ordering assumed the variance was small enough for slice 2 to be judged
+first. It is not. Nothing downstream can be judged until the temperature comes
+down and the spread is re-measured.
+
+### What slice 2 can be said to have done
+
+**Tokens — measured, unambiguous, and larger than the estimate.** Input per call
+fell 31% on the doc case (3,593 → 2,483) and 33% on the breakdown case (4,301 →
+2,866). Output fell too where it could be compared. The estimate in the section
+above warned the saving might look small because both channels filter
+`allowed_components`; the opposite happened, because the diet removed prop
+schemas from a menu whose per-entry cost had also grown.
+
+**The planner stopped overriding the theme.** This was not a goal of the slice
+and is the most interesting thing it did:
+
+| arm | overlays per sheet | carrying `props_hint` |
+|---|---|---|
+| pre | 4–9 | **every one**, and every sheet set `emphasis` |
+| post | 4–8 | 0–2 |
+
+`emphasis` in the CATALOG is a visual weight (accent / neutral) that the theme
+owns. The planner was setting it on every overlay it wrote, on every run, in
+both cases — a model with a schema in front of it fills the schema. Removing
+the schemas removed the whole class. This is the same collision D86 renames
+away, caught doing damage in production rather than argued about.
+
+**Quality — not established, in either direction.** The two scorable post runs
+on the doc case (50/50/60 and 75/75/83.3) sit inside the pre spread (75/75/83.3
+and 25/25/62.5) — same top, higher bottom, on three runs against two. Both
+post runs on the breakdown case scored 100 on all four axes where pre scored
+83.3–100, 85.7–100 and 66.7–100 — better and steadier, on two runs. That is
+suggestive and it is not evidence.
+
+One thing the eval deliberately does **not** measure: `props_hint` going away
+means the compiler now fills labels, captions and units from the anchor and the
+theme's defaults instead of from the model. The scorer grades WHERE an overlay
+went and WHICH component it was, never what it said. Whether the labels got
+better or worse is an eyeball question, and it belongs in the promotion check.
+
+### The failed run, and what it was failing on
+
+One post run on the doc case exhausted its three repair attempts. It is not new:
+`data/videos/vid_4d5de5a2e04d/production.log` records **two** identical hard
+failures on this same case in July, on pre-slice-2 code and the old model.
+
+The violation is worth writing down, because it is the whole plan in one line:
+
+```
+6 overlays exceed density 'normal' (max 4 for 57s)
+```
+
+The model is not failing to find graphics. It is failing to stop finding them —
+placing six where the channel's budget allows four, again and again until the
+video stops. That is a RESTRAINT failure severe enough to kill a render, and it
+is the exact disease `select_overlays` (D87) exists to treat. A third run of the
+same case, re-run with the violations logged, hit the same violation on its
+first attempt, recovered on its second, and scored 75/75/83.3/100 — the same as
+the best pre run.
+
+So the doc case's post range is 50–75 on recall against a pre range of 25–75.
+Overlapping, and the overlap is the point.
+
+### Verdict on slice 2
+
+Its exit criterion is "scores must not regress". No regression is demonstrated:
+every post score falls inside or above the pre spread. Nor is an improvement
+demonstrated, and at this noise level none could be. The slice lands on the
+strength of what IS measured — a third off the input tokens, and the planner no
+longer overriding the theme on every overlay it writes — and the quality
+question is deferred to the first eval taken after the temperature comes down.
+
+**Slice order changes here.** Slice 3 (temperature) must land before any further
+slice is judged, and the variance re-measurement it carries is now the gate for
+re-reading this whole table rather than a sanity check inside it.
+
 ## Log
 
 | date | slice | what changed | cases | note |
 |---|---|---|---|---|
 | 2026-09-03 | 1 | — | 2 | baseline taken from runs of 2026-07-25/26. No new provider spend: the sheets already existed |
+| 2026-09-03 | 2 | menu diet + prompt hygiene | 2 × 2 runs × 2 arms | July baseline invalidated (model changed) and re-taken. Input tokens −31%/−33%. `props_hint` all but disappeared, taking the planner's `emphasis` override with it. Quality NOT established: identical code scored 75% and 25% recall on one case, so the noise floor is wider than the effect |
 
 Append one row per slice. A slice that does not move a score is a result and
 belongs here too.

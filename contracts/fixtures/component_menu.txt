@@ -1,0 +1,309 @@
+# Golden file: the component menu, rendered for the shipped catalog.
+#
+# Two implementations render this text — _catalog_menu() in
+# worker/lusora_worker/agents/planner.py and componentMenu() in
+# platform/src/lib/catalog.ts — and both assert against this file. It is the
+# only robust way to keep two languages in one voice: a menu that drifts is
+# discovered here, in CI, rather than in a prompt six weeks later.
+#
+# Regenerate with:
+#   cd worker && uv run python -m lusora_worker.agents.planner --write-menu-fixture
+#
+# A diff here means the menu every planner call carries has changed. That is
+# allowed; it is not allowed to happen by accident.
+=== selection ===
+- AnimatedCounter (anchor types: number/percentage; holds ~4s)
+  when to use: the narration lands a single figure worth dwelling on — a count, a total, a percentage ('29,000 tanks', '70% of factories')
+  when NOT to use: two or more values being compared (ComparisonSplit for two, BarChart for three or more); a figure that should sit in the corner while the shot continues (StatTag); a position in a ranking (RankLabel)
+- ArchivalFrame (anchor types: none — pure text allowed; holds ~5s)
+  when to use: presenting the shot itself as archival footage — grain, gate flicker and an optional slate line over a period clip
+  when NOT to use: a still photograph that should read as an exhibit with a caption (FramedExhibit); a paper document (DocumentCard); any shot where the underlying footage should stay clean
+- BarChart (anchor types: comparison; holds ~5.5s)
+  when to use: the narration compares three to seven named quantities of the same kind ('Germany 12,000; the Soviets 29,000; the Americans 49,000')
+  when NOT to use: exactly two values, where the split reads better (ComparisonSplit); one value (AnimatedCounter); a quantity changing over time (LineChart); dated events (Timeline)
+- BulletList (anchor types: none — pure text allowed; holds ~6s)
+  when to use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence
+  when NOT to use: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)
+- CalloutArrow (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: pointing at something already visible in the footage and naming it ('this is the breach in the hull')
+  when NOT to use: the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)
+- Candlestick (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: a price or index moving over an ordered sequence where the RANGE within each period matters — how far it swung, not just where it closed
+  when NOT to use: a quantity where only the level matters at each point (LineChart); values at one moment (BarChart); how a single total was built up or eroded (WaterfallChart); one figure and its change (MetricGrid)
+- ChapterCard (anchor types: none — pure text allowed; holds ~4s)
+  when to use: a full-screen act break between sections of the video — numbered chapter, title, optional subtitle
+  when NOT to use: the opening title of the video or a stylised statement (KineticTitle); a heading that should not stop the narration; a person's name (NamePlate)
+- ComparisonSplit (anchor types: comparison; holds ~5s)
+  when to use: the narration sets exactly two quantities of the same kind against each other and the contrast is the point ('eleven ships lost against two')
+  when NOT to use: three or more values (BarChart); one value (AnimatedCounter); two things compared qualitatively rather than numerically (FactSheet)
+- DataTable (anchor types: none — pure text allowed; holds ~6s)
+  when to use: several subjects compared across several attributes — three tanks by weight, gun and crew; four countries by year. Two to four columns, two to six rows, with a header
+  when NOT to use: label/value rows about ONE subject, or a ranking of one kind of thing (FactSheet, with `numbered` for the ranking); values whose SIZES are the comparison rather than their exact figures (BarChart); two subjects on one attribute (ComparisonSplit); dated events (Timeline)
+- DateStamp (anchor types: date; holds ~3.5s)
+  when to use: establishing when (and optionally where) a shot happens, as a corner slug the narration runs underneath
+  when NOT to use: several dates in sequence (Timeline); a date that is itself the subject of the beat (AnimatedCounter for a year figure); locating a place (SatelliteLocate)
+- DefinitionCard (anchor types: none — pure text allowed; holds ~5s)
+  when to use: the narration introduces a technical term or piece of jargon the viewer is unlikely to know, and defines it
+  when NOT to use: a claim or statistic rather than a term (FactCard); a person's name and role (NamePlate); a quoted line (QuoteBlock)
+- DocumentCard (anchor types: none — pure text allowed; holds ~6s)
+  when to use: reproducing a written source as paper — an order, a telegram, a signed note — while the narration reads or discusses it
+  when NOT to use: a spoken line (QuoteBlock); marking phrases inside a passage (HighlightedPassage); a photograph (FramedExhibit); a list of the video's own claims (BulletList)
+- FactCard (anchor types: none — pure text allowed; holds ~5.5s)
+  when to use: one claim that needs a sentence of explanation and, ideally, a source — the workhorse side panel
+  when NOT to use: a bare number (AnimatedCounter or StatTag); a defined term (DefinitionCard); several parallel claims (BulletList); a blunt one-line statement (HammerStatement)
+- FactSheet (anchor types: none — pure text allowed; holds ~6s)
+  when to use: two to six label/value rows in one panel: a dossier on one subject (ship, aircraft, person, place), or with `numbered` a RANKING of the same kind of thing (the five deadliest, the ten biggest)
+  when NOT to use: values compared across subjects, where the SIZES are the point (BarChart, or ComparisonSplit for two); one position in a ranking rather than the list of them (RankLabel); prose claims with no values (BulletList); dated events (Timeline)
+- FramedExhibit (anchor types: none — pure text allowed; holds ~5s)
+  when to use: presenting a photograph or artefact as an exhibit, with a caption and optional credit
+  when NOT to use: treating the whole shot as archival footage (ArchivalFrame); a written document (DocumentCard); a caption over live footage with nothing to frame (FactCard)
+- HammerStatement (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: one blunt line that is the point of the section, filling the frame — a turn, a verdict, a reveal
+  when NOT to use: a claim that needs explaining (FactCard); a section heading (ChapterCard); the video's title (KineticTitle); anything someone actually said (QuoteBlock)
+- HeadlineStack (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: two to five press headlines land in sequence to show that everyone reported it at once — the montage IS the argument
+  when NOT to use: the video's own claims in its own voice (BulletList); one headline worth reading in full (FactCard, or DocumentCard for the page itself); something an individual posted (SocialPost); dated events on a rail (Timeline)
+- HighlightedPassage (anchor types: quote; holds ~6s)
+  when to use: a passage of quoted text where specific phrases are being picked apart — the marks land on the words as the narration reaches them
+  when NOT to use: a quote presented whole with no phrase singled out (QuoteBlock); paper documents (DocumentCard); pointing at the footage (CalloutArrow)
+- KineticTitle (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: the video's opening title or a cold-open line, assembling word by word
+  when NOT to use: a mid-video section break (ChapterCard); a claim being argued (HammerStatement); a name (NamePlate)
+- LineChart (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: a quantity changing across an ordered sequence — production by year, losses by month — for up to three series
+  when NOT to use: values at one moment (BarChart); a single figure (AnimatedCounter); events rather than measurements (Timeline)
+- MetricGrid (anchor types: none — pure text allowed; holds ~5s)
+  when to use: two to six headline figures shown together as peers, each with how it moved — a results block, a quarter at a glance
+  when NOT to use: label/value rows about one subject read top to bottom, where no figure dominates (FactSheet); ONE figure worth dwelling on (AnimatedCounter); several subjects across several attributes (DataTable); figures compared by size (BarChart)
+- NamePlate (anchor types: name; holds ~4s)
+  when to use: introducing a person by name while the narration continues — role and lifespan optional
+  when NOT to use: a place (SatelliteLocate); a term (DefinitionCard); a section heading (ChapterCard); quoting what the person said (QuoteBlock)
+- PieChart (anchor types: percentage/comparison; holds ~5s)
+  when to use: the narration splits ONE total into its parts — 'a third of the budget went to the navy', 'two in five never returned'. Values are absolute; the component takes the share
+  when NOT to use: quantities that are not parts of the same whole, where the sizes are what is compared (BarChart); two values set against each other (ComparisonSplit); one share on its own, with no remainder worth drawing (AnimatedCounter with a '%' suffix, or StatTag); a share changing over time (LineChart)
+- PortraitPlates (anchor types: name; holds ~5s)
+  when to use: presenting one or two people or places as framed pictures — a portrait on a mat with the name set beside it, or a pair of plates side by side under one kicker
+  when NOT to use: one photograph the words are ABOUT, with a sentence of caption under it (FramedExhibit); naming somebody while their footage keeps running, with no picture of your own (NamePlate); treating the running shot itself as archival (ArchivalFrame)
+- QuoteBlock (anchor types: quote; holds ~6s)
+  when to use: a line someone actually said or wrote, presented whole with attribution
+  when NOT to use: specific phrases inside the quote are being dissected (HighlightedPassage); the source is a document being shown as paper (DocumentCard); the video's own assertion (HammerStatement)
+- RankLabel (anchor types: number; holds ~4s)
+  when to use: a countdown or ranked list, marking which entry this is ('#3 of 20')
+  when NOT to use: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)
+- RegionHighlight (anchor types: none — pure text allowed; holds ~6s)
+  when to use: a territory whose EXTENT matters — occupied ground, an empire, a front — outlined and filled on a map
+  when NOT to use: a single point on the map (SatelliteLocate); a journey between points (RouteMap); a place mentioned in passing. Requires a border polygon supplied by hand — nothing derives one, so this is placed in the editor, never chosen by the planner
+- RouteMap (anchor types: place; holds ~6.5s)
+  when to use: a journey or advance between two to six named places, drawn stop by stop
+  when NOT to use: one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know
+- SatelliteLocate (anchor types: place; holds ~5s)
+  when to use: the narration names a specific place and the viewer needs to know where it is — a crosshair lands on the coordinate
+  when NOT to use: a territory's extent (RegionHighlight); a route between places (RouteMap); places mentioned in passing that need no locating; a place already established in the same section
+- SocialPost (anchor types: quote; holds ~5.5s)
+  when to use: the video quotes something somebody posted online and the SOURCE is part of the claim — a YouTube comment, a tweet, a Reddit card. `platform` picks the chrome
+  when NOT to use: a quotation from a book, a speech or an interview, where the words matter and the medium does not (QuoteBlock); a page rather than a post (WebPageFrame); a press headline (HeadlineStack); naming the person without showing what they wrote (NamePlate)
+- StatTag (anchor types: number/percentage; holds ~4s)
+  when to use: a figure that should sit quietly in a corner while the footage carries the shot — a rate, a total, a share
+  when NOT to use: the number is the point of the beat and deserves the frame (AnimatedCounter); several numbers (BarChart or FactSheet); a rank (RankLabel)
+- StepFlow (anchor types: none — pure text allowed; holds ~6s)
+  when to use: two to five stages of a process in order, where each step leads to the next — how a thing was built, decided or executed
+  when NOT to use: unordered parallel claims (BulletList); events fixed to dates (Timeline); a comparison (BarChart)
+- TextBanner (anchor types: none — pure text allowed; holds ~4s)
+  when to use: any line worth stating flat across the shot while the footage keeps running — what we are looking at, when it happened, what it cost, who did it. The strip is the channel's idiom: one bar, one claim, no plate to read as a graphic. It wipes open left to right and the line types into it
+  when NOT to use: one of the five entries that carry their own meaning and their own placement — a title (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight), a figure worth counting up (TextCounter). Text that should sit quietly in a corner as bare type rather than in a bar (TextTag)
+- TextCounter (anchor types: number/percentage; holds ~4s)
+  when to use: the narration lands a single figure worth dwelling on and it should be written onto the shot rather than shown on a card — '$7.9 trillion', '29,000 tanks', '70%'. The number counts up to its value
+  when NOT to use: the figure belongs on a graphic with a plate and a rule (AnimatedCounter); two figures being compared (ComparisonSplit) or three and more (BarChart); a number already written out as words, which is just text (TextTitle)
+- TextHighlight (anchor types: none — pure text allowed; holds ~5s)
+  when to use: a sentence or passage on screen where ONE phrase is the point — `mark` names that phrase and the rest of the line drops back behind it
+  when NOT to use: the whole line matters equally (TextTitle); several phrases need marking, or the marks should land one after another (HighlightedPassage); the words are a quotation being attributed (QuoteBlock)
+- TextName (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: introducing a person by name while the narration continues; `role` is who they were
+  when NOT to use: a person's words rather than their name (TextHighlight); the name IS the title card (TextTitle); a lower third with a plate and a rule is wanted (NamePlate)
+- TextPlace (anchor types: none — pure text allowed; holds ~3s)
+  when to use: the footage already shows a location and the viewer only needs it named — a corner label that does not interrupt the shot
+  when NOT to use: the viewer needs to know WHERE the place is rather than what it is called (SatelliteLocate); the place is the subject of the whole shot and deserves the frame (TextTitle)
+- TextTag (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: a line of text that none of the role entries fit — a duration, a rank, a count, a caption — with an optional label under it, set as bare type. One of the pack's two general-purpose entries: it does not know what it is saying, so YOU choose where it sits
+  when NOT to use: the line is one of the five things that carry their own placement: a title or a figure written as words (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight), a figure worth counting up (TextCounter). Reach for a role entry whenever one fits — it puts the text where that kind of text belongs without being asked. The same line stated in a bar across the frame rather than written into a corner (TextBanner)
+- TextTitle (anchor types: none — pure text allowed; holds ~4s)
+  when to use: the one line the shot is about — an opening title, the subject being named, or a figure written out as words ('14,2 MILHOES km2'). `sub` is the quiet line under it: a pronunciation, a translation, a date
+  when NOT to use: a passage where one phrase matters more than the rest (TextHighlight); labelling where we are while the shot continues (TextPlace); naming a person (TextName)
+- Timeline (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: two to six dated events strung in order, where the dates themselves matter — a campaign, an escalation
+  when NOT to use: one date (DateStamp); stages with no dates (StepFlow); measurements over time (LineChart); unordered claims (BulletList)
+- WaterfallChart (anchor types: comparison; holds ~6.5s)
+  when to use: how ONE total was built up or eaten away — an opening figure, the things that moved it, the closing figure. Each column starts where the last one stopped
+  when NOT to use: separate quantities compared against each other rather than adding up to something (BarChart); parts of a whole with no sequence (PieChart); a level moving over time (LineChart); stages of a process with no arithmetic (StepFlow)
+- WebPageFrame (anchor types: none — pure text allowed; holds ~6s)
+  when to use: a web page is the evidence — a filing, an article, a product listing — and the shot has to show both that it is a real page and which part of it matters. `highlight_region` pushes in on that part
+  when NOT to use: a post rather than a page, where who said it is the point (SocialPost); a photograph or a document image with no browser around it (FramedExhibit, DocumentCard); a press headline (HeadlineStack)
+=== authoring ===
+- AnimatedCounter (anchor types: number/percentage; holds ~4s)
+  when to use: the narration lands a single figure worth dwelling on — a count, a total, a percentage ('29,000 tanks', '70% of factories')
+  when NOT to use: two or more values being compared (ComparisonSplit for two, BarChart for three or more); a figure that should sit in the corner while the shot continues (StatTag); a position in a ranking (RankLabel)
+  props you may hint: {"label":{"type":"string","maxWords":8,"description":"what the figure counts. Omit it when the narration names the figure in the same breath — a bare number is a legitimate overlay, and a label that only repeats the voice-over is noise"},"prefix":{"type":"string","maxWords":2,"description":"e.g. a currency symbol"},"suffix":{"type":"string","maxWords":3,"description":"e.g. '%', 'tons'"},"decimals":{"type":"number","min":0,"max":2},"approximate":{"type":"boolean","description":"prefixes the settled value with '~'"},"caption":{"type":"string","maxWords":12,"description":"a qualifying second line under the figure ('at the 13 September count')"},"position":{"enum":["center","left","right"]}}
+- ArchivalFrame (anchor types: none — pure text allowed; holds ~5s)
+  when to use: presenting the shot itself as archival footage — grain, gate flicker and an optional slate line over a period clip
+  when NOT to use: a still photograph that should read as an exhibit with a caption (FramedExhibit); a paper document (DocumentCard); any shot where the underlying footage should stay clean
+  props you may hint: {"image":{"type":"string","description":"path to a still under the video dir; leave unset unless a real file exists — the component draws a procedural plate when absent"},"slate":{"type":"string","maxWords":6},"date":{"type":"string","maxWords":4},"treatment":{"enum":["auto","archival","film","none"],"description":"'auto' follows the theme's grain"},"flicker":{"type":"boolean"},"sprocket":{"type":"boolean"}}
+- BarChart (anchor types: comparison; holds ~5.5s)
+  when to use: the narration compares three to seven named quantities of the same kind ('Germany 12,000; the Soviets 29,000; the Americans 49,000')
+  when NOT to use: exactly two values, where the split reads better (ComparisonSplit); one value (AnimatedCounter); a quantity changing over time (LineChart); dated events (Timeline)
+  props you may hint: {"title":{"type":"string","maxWords":8},"unit":{"type":"string","maxWords":3},"orientation":{"enum":["vertical","horizontal"]},"highlight_index":{"type":"number","min":0,"max":6,"description":"index of the one bar that takes the accent"},"source":{"type":"string","maxWords":8,"description":"credit line along the bottom"}}
+- BulletList (anchor types: none — pure text allowed; holds ~6s)
+  when to use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence
+  when NOT to use: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)
+  props you may hint: {"title":{"type":"string","maxWords":8},"items":{"type":"array","required":true,"min":2,"max":5},"marker":{"enum":["dot","rule","number","none"]},"align":{"enum":["left","center"]}}
+- CalloutArrow (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: pointing at something already visible in the footage and naming it ('this is the breach in the hull')
+  when NOT to use: the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":10},"target":{"enum":["top_left","top_center","top_right","center_left","center","center_right","bottom_left","bottom_center","bottom_right"],"description":"which ninth of the frame the arrow points at"},"from":{"enum":["left","right","above","below"]},"style":{"enum":["curved","straight","elbow"]}}
+- Candlestick (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: a price or index moving over an ordered sequence where the RANGE within each period matters — how far it swung, not just where it closed
+  when NOT to use: a quantity where only the level matters at each point (LineChart); values at one moment (BarChart); how a single total was built up or eroded (WaterfallChart); one figure and its change (MetricGrid)
+  props you may hint: {"title":{"type":"string","maxWords":8},"bars":{"type":"array","required":true,"min":3,"max":24,"description":"one period each, in time order"},"annotations":{"type":"array","max":2,"description":"a note pinned above one period — what happened that week"},"y_label":{"type":"string","maxWords":3},"source":{"type":"string","maxWords":8}}
+- ChapterCard (anchor types: none — pure text allowed; holds ~4s)
+  when to use: a full-screen act break between sections of the video — numbered chapter, title, optional subtitle
+  when NOT to use: the opening title of the video or a stylised statement (KineticTitle); a heading that should not stop the narration; a person's name (NamePlate)
+  props you may hint: {"chapter_label":{"type":"string","maxWords":4,"description":"e.g. 'Part', 'Chapter'"},"chapter_number":{"type":"number","min":1,"max":99},"title":{"type":"string","required":true,"maxWords":10},"subtitle":{"type":"string","maxWords":7},"rule":{"enum":["over","under","both","none"]},"align":{"enum":["center","left"]}}
+- ComparisonSplit (anchor types: comparison; holds ~5s)
+  when to use: the narration sets exactly two quantities of the same kind against each other and the contrast is the point ('eleven ships lost against two')
+  when NOT to use: three or more values (BarChart); one value (AnimatedCounter); two things compared qualitatively rather than numerically (FactSheet)
+  props you may hint: {"unit":{"type":"string","maxWords":3},"caption":{"type":"string","maxWords":10}}
+- DataTable (anchor types: none — pure text allowed; holds ~6s)
+  when to use: several subjects compared across several attributes — three tanks by weight, gun and crew; four countries by year. Two to four columns, two to six rows, with a header
+  when NOT to use: label/value rows about ONE subject, or a ranking of one kind of thing (FactSheet, with `numbered` for the ranking); values whose SIZES are the comparison rather than their exact figures (BarChart); two subjects on one attribute (ComparisonSplit); dated events (Timeline)
+  props you may hint: {"title":{"type":"string","maxWords":8},"columns":{"type":"array","required":true,"min":2,"max":4,"description":"header cells; the first column is the row's SUBJECT"},"rows":{"type":"array","required":true,"min":2,"max":6,"description":"one array of cells per row, in the same order as `columns`"},"highlight_row":{"type":"number","min":0,"max":5,"description":"index of the one row the narration is about; the rest go quiet around it"},"source":{"type":"string","maxWords":8,"description":"credit line under the table"}}
+- DateStamp (anchor types: date; holds ~3.5s)
+  when to use: establishing when (and optionally where) a shot happens, as a corner slug the narration runs underneath
+  when NOT to use: several dates in sequence (Timeline); a date that is itself the subject of the beat (AnimatedCounter for a year figure); locating a place (SatelliteLocate)
+  props you may hint: {"place":{"type":"string","maxWords":4},"position":{"enum":["top_left","top_right","bottom_left","bottom_right"]},"variant":{"enum":["stamped","typed"]}}
+- DefinitionCard (anchor types: none — pure text allowed; holds ~5s)
+  when to use: the narration introduces a technical term or piece of jargon the viewer is unlikely to know, and defines it
+  when NOT to use: a claim or statistic rather than a term (FactCard); a person's name and role (NamePlate); a quoted line (QuoteBlock)
+  props you may hint: {"term":{"type":"string","required":true,"maxWords":5},"pronunciation":{"type":"string","maxWords":4},"part_of_speech":{"type":"string","maxWords":2},"definition":{"type":"string","required":true,"maxWords":28},"origin":{"type":"string","maxWords":10}}
+- DocumentCard (anchor types: none — pure text allowed; holds ~6s)
+  when to use: reproducing a written source as paper — an order, a telegram, a signed note — while the narration reads or discusses it
+  when NOT to use: a spoken line (QuoteBlock); marking phrases inside a passage (HighlightedPassage); a photograph (FramedExhibit); a list of the video's own claims (BulletList)
+  props you may hint: {"title":{"type":"string","maxWords":6},"lines":{"type":"array","required":true,"min":1,"max":6},"stamp":{"type":"string","maxWords":2,"description":"e.g. 'SECRET'"},"signature":{"type":"string","maxWords":5},"variant":{"enum":["typed","telegram","handwritten"]}}
+- FactCard (anchor types: none — pure text allowed; holds ~5.5s)
+  when to use: one claim that needs a sentence of explanation and, ideally, a source — the workhorse side panel
+  when NOT to use: a bare number (AnimatedCounter or StatTag); a defined term (DefinitionCard); several parallel claims (BulletList); a blunt one-line statement (HammerStatement)
+  props you may hint: {"headline":{"type":"string","required":true,"maxWords":10},"body":{"type":"string","required":true,"maxWords":35},"source":{"type":"string","maxWords":8},"position":{"enum":["left","right","center"]}}
+- FactSheet (anchor types: none — pure text allowed; holds ~6s)
+  when to use: two to six label/value rows in one panel: a dossier on one subject (ship, aircraft, person, place), or with `numbered` a RANKING of the same kind of thing (the five deadliest, the ten biggest)
+  when NOT to use: values compared across subjects, where the SIZES are the point (BarChart, or ComparisonSplit for two); one position in a ranking rather than the list of them (RankLabel); prose claims with no values (BulletList); dated events (Timeline)
+  props you may hint: {"title":{"type":"string","required":true,"maxWords":8},"rows":{"type":"array","required":true,"min":2,"max":6},"numbered":{"type":"boolean","description":"number the rows 1..n — the same panel as a RANKING (the ten biggest, the five deadliest)"},"highlight_index":{"type":"number","min":0,"max":5,"description":"index of the one row the narration is about; the rest go quiet around it"},"footnote":{"type":"string","maxWords":13},"position":{"enum":["left","right"]}}
+- FramedExhibit (anchor types: none — pure text allowed; holds ~5s)
+  when to use: presenting a photograph or artefact as an exhibit, with a caption and optional credit
+  when NOT to use: treating the whole shot as archival footage (ArchivalFrame); a written document (DocumentCard); a caption over live footage with nothing to frame (FactCard)
+  props you may hint: {"image":{"type":"string","description":"path to a still under the video dir; leave unset unless a real file exists — the component draws a procedural plate when absent"},"caption":{"type":"string","required":true,"maxWords":20},"credit":{"type":"string","maxWords":8},"frame_style":{"enum":["museum","polaroid","hairline"]},"orientation":{"enum":["landscape","portrait","square"]}}
+- HammerStatement (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: one blunt line that is the point of the section, filling the frame — a turn, a verdict, a reveal
+  when NOT to use: a claim that needs explaining (FactCard); a section heading (ChapterCard); the video's title (KineticTitle); anything someone actually said (QuoteBlock)
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":15},"kicker":{"type":"string","maxWords":6},"align":{"enum":["left","center"]}}
+- HeadlineStack (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: two to five press headlines land in sequence to show that everyone reported it at once — the montage IS the argument
+  when NOT to use: the video's own claims in its own voice (BulletList); one headline worth reading in full (FactCard, or DocumentCard for the page itself); something an individual posted (SocialPost); dated events on a rail (Timeline)
+  props you may hint: {"items":{"type":"array","required":true,"min":2,"max":5,"description":"in the order they should land"},"kicker":{"type":"string","maxWords":6}}
+- HighlightedPassage (anchor types: quote; holds ~6s)
+  when to use: a passage of quoted text where specific phrases are being picked apart — the marks land on the words as the narration reaches them
+  when NOT to use: a quote presented whole with no phrase singled out (QuoteBlock); paper documents (DocumentCard); pointing at the footage (CalloutArrow)
+  props you may hint: {"marks":{"type":"array","max":3,"description":"phrases must appear verbatim in `text`; unmatched ones are skipped"}}
+- KineticTitle (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: the video's opening title or a cold-open line, assembling word by word
+  when NOT to use: a mid-video section break (ChapterCard); a claim being argued (HammerStatement); a name (NamePlate)
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":11},"unit":{"enum":["word","char"]},"entrance":{"enum":["rise","mask","scale"]},"align":{"enum":["left","center"]},"emphasize_last":{"type":"boolean"}}
+- LineChart (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: a quantity changing across an ordered sequence — production by year, losses by month — for up to three series
+  when NOT to use: values at one moment (BarChart); a single figure (AnimatedCounter); events rather than measurements (Timeline)
+  props you may hint: {"title":{"type":"string","maxWords":8},"series":{"type":"array","required":true,"min":1,"max":3},"y_label":{"type":"string","maxWords":3},"x_label":{"type":"string","maxWords":3},"source":{"type":"string","maxWords":8,"description":"credit line along the bottom"}}
+- MetricGrid (anchor types: none — pure text allowed; holds ~5s)
+  when to use: two to six headline figures shown together as peers, each with how it moved — a results block, a quarter at a glance
+  when NOT to use: label/value rows about one subject read top to bottom, where no figure dominates (FactSheet); ONE figure worth dwelling on (AnimatedCounter); several subjects across several attributes (DataTable); figures compared by size (BarChart)
+  props you may hint: {"title":{"type":"string","maxWords":8},"metrics":{"type":"array","required":true,"min":2,"max":6}}
+- NamePlate (anchor types: name; holds ~4s)
+  when to use: introducing a person by name while the narration continues — role and lifespan optional
+  when NOT to use: a place (SatelliteLocate); a term (DefinitionCard); a section heading (ChapterCard); quoting what the person said (QuoteBlock)
+  props you may hint: {"role":{"type":"string","maxWords":9},"lifespan":{"type":"string","maxWords":2,"description":"e.g. '1896–1974'"},"side":{"enum":["left","right","center"]},"variant":{"enum":["bar","boxed","underline"]}}
+- PieChart (anchor types: percentage/comparison; holds ~5s)
+  when to use: the narration splits ONE total into its parts — 'a third of the budget went to the navy', 'two in five never returned'. Values are absolute; the component takes the share
+  when NOT to use: quantities that are not parts of the same whole, where the sizes are what is compared (BarChart); two values set against each other (ComparisonSplit); one share on its own, with no remainder worth drawing (AnimatedCounter with a '%' suffix, or StatTag); a share changing over time (LineChart)
+  props you may hint: {"title":{"type":"string","maxWords":8},"highlight_index":{"type":"number","min":0,"max":5,"description":"index of the one slice the narration is about; it pulls out of the ring and its share fills the hole"},"source":{"type":"string","maxWords":8,"description":"credit line along the bottom"}}
+- PortraitPlates (anchor types: name; holds ~5s)
+  when to use: presenting one or two people or places as framed pictures — a portrait on a mat with the name set beside it, or a pair of plates side by side under one kicker
+  when NOT to use: one photograph the words are ABOUT, with a sentence of caption under it (FramedExhibit); naming somebody while their footage keeps running, with no picture of your own (NamePlate); treating the running shot itself as archival (ArchivalFrame)
+  props you may hint: {"kicker":{"type":"string","maxWords":6},"label_position":{"enum":["beside","below"]},"label_style":{"enum":["plate","bare"]}}
+- QuoteBlock (anchor types: quote; holds ~6s)
+  when to use: a line someone actually said or wrote, presented whole with attribution
+  when NOT to use: specific phrases inside the quote are being dissected (HighlightedPassage); the source is a document being shown as paper (DocumentCard); the video's own assertion (HammerStatement)
+  props you may hint: {"attribution":{"type":"string","maxWords":6},"context":{"type":"string","maxWords":8,"description":"where or when it was said"},"variant":{"enum":["mark","rule","boxed"]},"size":{"enum":["standard","large"]},"align":{"enum":["left","center"]}}
+- RankLabel (anchor types: number; holds ~4s)
+  when to use: a countdown or ranked list, marking which entry this is ('#3 of 20')
+  when NOT to use: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)
+  props you may hint: {"title":{"type":"string","required":true,"maxWords":7},"subtitle":{"type":"string","maxWords":6},"total":{"type":"number","min":1,"description":"renders 'of N'"}}
+- RegionHighlight (anchor types: none — pure text allowed; holds ~6s)
+  when to use: a territory whose EXTENT matters — occupied ground, an empire, a front — outlined and filled on a map
+  when NOT to use: a single point on the map (SatelliteLocate); a journey between points (RouteMap); a place mentioned in passing. Requires a border polygon supplied by hand — nothing derives one, so this is placed in the editor, never chosen by the planner
+  props you may hint: {"region_name":{"type":"string","required":true,"maxWords":6},"polygon":{"type":"array","min":3,"max":64,"description":"border vertices for ONE region; must be supplied — there is no gazetteer of polygons. Use `regions` for more than one"},"regions":{"type":"array","min":1,"max":6,"description":"several outlines in one shot (the Axis powers, the states that seceded); each may name itself. Use INSTEAD of `polygon`, not alongside it"},"label":{"type":"string","maxWords":6},"annotation":{"type":"string","maxWords":6,"description":"record the source and effective date of a contested border here"},"plate":{"type":"object","description":"equirectangular map image and its bbox; omitted draws a schematic plate"}}
+- RouteMap (anchor types: place; holds ~6.5s)
+  when to use: a journey or advance between two to six named places, drawn stop by stop
+  when NOT to use: one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know
+  props you may hint: {"title":{"type":"string","maxWords":6},"mode":{"enum":["march","flight","sea"]},"plate":{"type":"object","description":"equirectangular map image and its bbox; omitted draws a schematic plate"}}
+- SatelliteLocate (anchor types: place; holds ~5s)
+  when to use: the narration names a specific place and the viewer needs to know where it is — a crosshair lands on the coordinate
+  when NOT to use: a territory's extent (RegionHighlight); a route between places (RouteMap); places mentioned in passing that need no locating; a place already established in the same section
+  props you may hint: {"label":{"type":"string","maxWords":6},"country":{"type":"string","maxWords":4},"zoom":{"enum":["neighbourhood","city","region","country","continent","world"],"description":"altitude: a few blocks, a city, a region, a country, a continent, the globe"},"framing":{"enum":["full","panel"]},"plate":{"type":"object","description":"equirectangular satellite image and its bbox; omitted draws a schematic plate"}}
+- SocialPost (anchor types: quote; holds ~5.5s)
+  when to use: the video quotes something somebody posted online and the SOURCE is part of the claim — a YouTube comment, a tweet, a Reddit card. `platform` picks the chrome
+  when NOT to use: a quotation from a book, a speech or an interview, where the words matter and the medium does not (QuoteBlock); a page rather than a post (WebPageFrame); a press headline (HeadlineStack); naming the person without showing what they wrote (NamePlate)
+  props you may hint: {"platform":{"enum":["youtube","twitter","reddit"],"description":"which chrome to draw; the shape is the same for all three"},"author":{"type":"string","required":true,"maxWords":5},"handle":{"type":"string","maxWords":2,"description":"without the @ or u/ prefix; the component adds the right one"},"timestamp":{"type":"string","maxWords":4,"description":"as the platform would show it: '3 years ago', 'Mar 14'"},"metrics":{"type":"object"},"avatar":{"type":"string","description":"path to a still under the video dir; omitted draws a monogram disc"}}
+- StatTag (anchor types: number/percentage; holds ~4s)
+  when to use: a figure that should sit quietly in a corner while the footage carries the shot — a rate, a total, a share
+  when NOT to use: the number is the point of the beat and deserves the frame (AnimatedCounter); several numbers (BarChart or FactSheet); a rank (RankLabel)
+  props you may hint: {"unit":{"type":"string","maxWords":3},"label":{"type":"string","required":true,"maxWords":8},"position":{"enum":["top_left","top_right","bottom_left","bottom_right"]}}
+- StepFlow (anchor types: none — pure text allowed; holds ~6s)
+  when to use: two to five stages of a process in order, where each step leads to the next — how a thing was built, decided or executed
+  when NOT to use: unordered parallel claims (BulletList); events fixed to dates (Timeline); a comparison (BarChart)
+  props you may hint: {"title":{"type":"string","maxWords":6},"steps":{"type":"array","required":true,"min":2,"max":5},"direction":{"enum":["horizontal","vertical"]},"numbered":{"type":"boolean"}}
+- TextBanner (anchor types: none — pure text allowed; holds ~4s)
+  when to use: any line worth stating flat across the shot while the footage keeps running — what we are looking at, when it happened, what it cost, who did it. The strip is the channel's idiom: one bar, one claim, no plate to read as a graphic. It wipes open left to right and the line types into it
+  when NOT to use: one of the five entries that carry their own meaning and their own placement — a title (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight), a figure worth counting up (TextCounter). Text that should sit quietly in a corner as bare type rather than in a bar (TextTag)
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":14,"description":"the whole claim, in one line. There is no second line: a qualifier belongs inside the sentence, not under the bar"},"position":{"enum":["bottom_left","bottom_center","top_left","top_center"],"description":"the band the bar sits in and which end of it the bar hugs. `bottom_left` is the idiom — the bar reads as a caption on the shot rather than as a title over it; centre it, or move it to the top, only when the corner is the subject"}}
+- TextCounter (anchor types: number/percentage; holds ~4s)
+  when to use: the narration lands a single figure worth dwelling on and it should be written onto the shot rather than shown on a card — '$7.9 trillion', '29,000 tanks', '70%'. The number counts up to its value
+  when NOT to use: the figure belongs on a graphic with a plate and a rule (AnimatedCounter); two figures being compared (ComparisonSplit) or three and more (BarChart); a number already written out as words, which is just text (TextTitle)
+  props you may hint: {"prefix":{"type":"string","maxWords":1,"description":"sits tight against the figure, e.g. a currency symbol"},"suffix":{"type":"string","maxWords":3,"description":"follows the figure — spaced when it is a word ('Trillion'), tight when it is a sign ('%')"},"decimals":{"type":"number","min":0,"max":2,"description":"authored precision, which outranks the theme's number format"},"label":{"type":"string","maxWords":8,"description":"what the figure counts, set small under it. Omit it when the narration names the figure in the same breath"},"position":{"enum":["center","top_left","top_right","bottom_left","bottom_right"]},"size":{"enum":["medium","big"],"description":"`big` is a figure filling the frame; `medium` is a corner readout"},"background":{"type":"boolean","description":"paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"}}
+- TextHighlight (anchor types: none — pure text allowed; holds ~5s)
+  when to use: a sentence or passage on screen where ONE phrase is the point — `mark` names that phrase and the rest of the line drops back behind it
+  when NOT to use: the whole line matters equally (TextTitle); several phrases need marking, or the marks should land one after another (HighlightedPassage); the words are a quotation being attributed (QuoteBlock)
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":26},"mark":{"type":"string","maxWords":8,"description":"must be an exact substring of `text`; everything outside it dims"},"label":{"type":"string","maxWords":8,"description":"a quiet second line under the passage — a source, a date, a qualifier"},"position":{"enum":["center","top_left","top_right","bottom_left","bottom_right"],"description":"leave it centred unless the shot needs the middle kept clear"},"size":{"enum":["medium","big"],"description":"`big` is a title filling the frame; `medium` is a label that lets the shot carry on"},"background":{"type":"boolean","description":"paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"}}
+- TextName (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: introducing a person by name while the narration continues; `role` is who they were
+  when NOT to use: a person's words rather than their name (TextHighlight); the name IS the title card (TextTitle); a lower third with a plate and a rule is wanted (NamePlate)
+  props you may hint: {"name":{"type":"string","required":true,"maxWords":6},"role":{"type":"string","maxWords":7,"description":"what they did or were, set small under the name"},"position":{"enum":["center","top_left","top_right","bottom_left","bottom_right"],"description":"the lower-third corner; move it only to dodge something in the shot"},"size":{"enum":["medium","big"],"description":"`big` is a title filling the frame; `medium` is a label that lets the shot carry on"},"background":{"type":"boolean","description":"paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"}}
+- TextPlace (anchor types: none — pure text allowed; holds ~3s)
+  when to use: the footage already shows a location and the viewer only needs it named — a corner label that does not interrupt the shot
+  when NOT to use: the viewer needs to know WHERE the place is rather than what it is called (SatelliteLocate); the place is the subject of the whole shot and deserves the frame (TextTitle)
+  props you may hint: {"place":{"type":"string","required":true,"maxWords":6},"country":{"type":"string","maxWords":5,"description":"the wider region, set small under the place"},"position":{"enum":["center","top_left","top_right","bottom_left","bottom_right"],"description":"the default keeps it clear of captions; move it only to dodge something in the shot"},"size":{"enum":["medium","big"],"description":"`big` is a title filling the frame; `medium` is a label that lets the shot carry on"},"background":{"type":"boolean","description":"paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"}}
+- TextTag (anchor types: none — pure text allowed; holds ~3.5s)
+  when to use: a line of text that none of the role entries fit — a duration, a rank, a count, a caption — with an optional label under it, set as bare type. One of the pack's two general-purpose entries: it does not know what it is saying, so YOU choose where it sits
+  when NOT to use: the line is one of the five things that carry their own placement: a title or a figure written as words (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight), a figure worth counting up (TextCounter). Reach for a role entry whenever one fits — it puts the text where that kind of text belongs without being asked. The same line stated in a bar across the frame rather than written into a corner (TextBanner)
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":12},"label":{"type":"string","maxWords":8,"description":"a quiet second line under it"},"position":{"enum":["center","top_left","top_right","bottom_left","bottom_right"],"description":"no role means no default worth trusting — say where it goes"},"size":{"enum":["medium","big"],"description":"`big` is a title filling the frame; `medium` is a label that lets the shot carry on"},"background":{"type":"boolean","description":"paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"}}
+- TextTitle (anchor types: none — pure text allowed; holds ~4s)
+  when to use: the one line the shot is about — an opening title, the subject being named, or a figure written out as words ('14,2 MILHOES km2'). `sub` is the quiet line under it: a pronunciation, a translation, a date
+  when NOT to use: a passage where one phrase matters more than the rest (TextHighlight); labelling where we are while the shot continues (TextPlace); naming a person (TextName)
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":12},"sub":{"type":"string","maxWords":8,"description":"a pronunciation, translation or date, set small under the title"},"position":{"enum":["center","top_left","top_right","bottom_left","bottom_right"],"description":"leave it centred unless the shot needs the middle kept clear"},"size":{"enum":["medium","big"],"description":"`big` is a title filling the frame; `medium` is a label that lets the shot carry on"},"background":{"type":"boolean","description":"paint the lockup as chips instead of bare type — a coloured tag whose colour the theme decides. Say nothing and the theme decides whether there is one at all; most themes leave it off, because bare type on the shot is what this pack is for"}}
+- Timeline (anchor types: none — pure text allowed; holds ~6.5s)
+  when to use: two to six dated events strung in order, where the dates themselves matter — a campaign, an escalation
+  when NOT to use: one date (DateStamp); stages with no dates (StepFlow); measurements over time (LineChart); unordered claims (BulletList)
+  props you may hint: {"title":{"type":"string","maxWords":5},"events":{"type":"array","required":true,"min":2,"max":6},"orientation":{"enum":["horizontal","vertical"]},"highlight_index":{"type":"number","min":0,"max":5}}
+- WaterfallChart (anchor types: comparison; holds ~6.5s)
+  when to use: how ONE total was built up or eaten away — an opening figure, the things that moved it, the closing figure. Each column starts where the last one stopped
+  when NOT to use: separate quantities compared against each other rather than adding up to something (BarChart); parts of a whole with no sequence (PieChart); a level moving over time (LineChart); stages of a process with no arithmetic (StepFlow)
+  props you may hint: {"title":{"type":"string","maxWords":8},"start":{"type":"object","required":true},"end":{"type":"object","description":"the closing total; omitted, the component adds up the steps itself"},"source":{"type":"string","maxWords":8}}
+- WebPageFrame (anchor types: none — pure text allowed; holds ~6s)
+  when to use: a web page is the evidence — a filing, an article, a product listing — and the shot has to show both that it is a real page and which part of it matters. `highlight_region` pushes in on that part
+  when NOT to use: a post rather than a page, where who said it is the point (SocialPost); a photograph or a document image with no browser around it (FramedExhibit, DocumentCard); a press headline (HeadlineStack)
+  props you may hint: {"image":{"type":"string","description":"path to a screenshot under the video dir; omitted draws a wireframe placeholder"},"url":{"type":"string","maxWords":6,"description":"shown in the address bar"},"highlight_region":{"type":"object","description":"the part worth reading, as fractions of the image; the shot ends here"},"caption":{"type":"string","maxWords":14}}

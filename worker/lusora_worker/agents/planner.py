@@ -70,22 +70,74 @@ LEDGER_ENTRIES = 12
 SPINE_MAX_TOKENS = 4000
 
 
-def _catalog_menu(allowed: list[str] | None) -> str:
+# The prop keys worth showing a model, in the order they are rendered.
+# `description` is last because it is the long one, and it is included at all
+# because it is the authoring craft the entry already carries: "omit the label
+# when the narration names the figure in the same breath" is exactly the
+# judgement the menu exists to transfer, and deleting it at the door left the
+# model a type signature to guess against.
+_PROP_KEYS = ("type", "enum", "required", "min", "max", "maxWords", "description")
+
+# Never shown, in any mode. The catalog's `emphasis` prop is a VISUAL weight
+# (accent / neutral) and the beat sheet's `emphasis` is an overlay CLASS (D59);
+# putting both words in one prompt asks the model to hold two meanings for one
+# key. It is a theme's decision either way, so the planner never needed it.
+_HIDDEN_PROPS = frozenset({"emphasis"})
+
+
+def _catalog_menu(allowed: list[str] | None, *, props: bool = False) -> str:
+    """The component menu, in one of two sizes.
+
+    SELECTION (`props=False`, the planner's) answers only "which component,
+    and when not". It carries no prop schemas at all: choosing the component is
+    the judgement, and the compiler fills props from the anchor and the theme's
+    defaults, so a schema the model reads is a schema the model then feels
+    obliged to fill. On the full catalog this is the difference between roughly
+    7k tokens and 2k, on every call.
+
+    AUTHORING (`props=True`) is for the surfaces that really do write props —
+    the editor chat, the prompt preview — and it pays for the schemas with the
+    prop DESCRIPTIONS beside them, which is the half worth having.
+
+    Both are rendered from one function so the two cannot drift; the platform
+    mirrors it, and `contracts/fixtures/component_menu.txt` is the golden file
+    that makes drift a CI failure rather than a discovery in a prompt.
+    """
     lines = []
-    for entry in lusora_contracts.load_catalog()["components"]:
+    # Sorted by name, explicitly, in BOTH languages. The two catalog loaders
+    # order the merge differently — Python appends the data packs after core,
+    # the platform interleaves them — and an order that depends on which loader
+    # composed the prompt is an order that cannot be pinned. Caught by the
+    # golden file the first time it existed, which is the whole argument for it.
+    for entry in sorted(lusora_contracts.load_catalog()["components"], key=lambda e: e["name"]):
         if allowed and entry["name"] not in allowed:
             continue
-        props = {
-            name: {k: v for k, v in spec.items() if k in ("type", "enum", "maxWords", "min", "max", "required")}
-            for name, spec in entry["props"].items()
-            if not spec.get("from_anchor") and not spec.get("computed")
-        }
-        lines.append(
-            f"- {entry['name']} (anchor types: {entry['anchor_types'] or 'none — pure text allowed'})\n"
-            f"  when to use: {entry['when_to_use']}\n"
-            f"  when NOT to use: {entry['when_not_to_use']}\n"
-            f"  props you may hint: {json.dumps(props)}"
-        )
+        anchors = "/".join(entry["anchor_types"]) or "none — pure text allowed"
+        # what a choice costs in screen time. The model is being asked to spend
+        # a budget it could not previously see the prices for.
+        hold = (entry.get("duration_hint_s") or {}).get("default")
+        head = f"- {entry['name']} (anchor types: {anchors}"
+        head += f"; holds ~{hold:g}s)" if hold else ")"
+        block = [
+            head,
+            f"  when to use: {entry['when_to_use']}",
+            f"  when NOT to use: {entry['when_not_to_use']}",
+        ]
+        if props:
+            hints = {
+                name: {k: spec[k] for k in _PROP_KEYS if k in spec}
+                for name, spec in entry["props"].items()
+                if not spec.get("from_anchor")
+                and not spec.get("computed")
+                and name not in _HIDDEN_PROPS
+            }
+            # compact separators and ensure_ascii=False so this is byte-identical to
+            # the platform's JSON.stringify — the golden file compares the two
+            block.append(
+                "  props you may hint: "
+                + json.dumps(hints, ensure_ascii=False, separators=(",", ":"))
+            )
+        lines.append("\n".join(block))
     return "\n".join(lines)
 
 
@@ -450,18 +502,24 @@ def plan_beats(
         if chunked:
             per_minute = validators.overlays_per_minute(ctx.cfg.get("style_pack_doc") or {})
             chunk_overlays = max(1, math.floor(per_minute * chunk_duration / 60))
+        # The spine and the full script answer the SAME question — "what is the
+        # rest of this video doing" — and the spine answers it in a paragraph
+        # where the script answers it in the whole script, once per chunk. Where
+        # a spine exists it wins and the script is dropped; where the spine call
+        # failed or was skipped, the script is still the only context there is.
+        spine_text = _format_spine(summaries, arc, i) if chunked and summaries else ""
         doc = _plan_chunk(
             ctx, chunk, chunk_duration, chat_fn,
-            full_script=script if chunked else "",
+            full_script=script if chunked and not spine_text else "",
             carry_forward=_format_carry_forward(merged_beats) if chunked else "",
             chunk_position=f"part {i + 1} of {len(chunks)}" if chunked else "",
             coverage_scope=(
-                "YOUR SECTION only (marked SCRIPT below) — not the full script, shown only for context"
+                "YOUR SECTION only, which is the SCRIPT section below"
                 if chunked else "the ENTIRE script"
             ),
             section_label=f"section {i + 1}/{len(chunks)}" if chunked else "",
             max_overlays=chunk_overlays,
-            spine=_format_spine(summaries, arc, i) if chunked and summaries else "",
+            spine=spine_text,
             visual_ledger=_format_ledger(merged_beats) if chunked else "",
             # unchunked: the one call IS the whole video, so judge it fully here
             validate_duration_s=None if chunked else audio_duration_s,
@@ -483,3 +541,50 @@ def plan_beats(
                 "merged beat sheet failed final validation: " + "; ".join(violations[:8]),
             )
     return merged
+
+
+# ---------------- the golden file ----------------
+
+MENU_FIXTURE = lusora_contracts.CONTRACTS_ROOT / "fixtures" / "component_menu.txt"
+
+MENU_FIXTURE_HEADER = """# Golden file: the component menu, rendered for the shipped catalog.
+#
+# Two implementations render this text — _catalog_menu() in
+# worker/lusora_worker/agents/planner.py and componentMenu() in
+# platform/src/lib/catalog.ts — and both assert against this file. It is the
+# only robust way to keep two languages in one voice: a menu that drifts is
+# discovered here, in CI, rather than in a prompt six weeks later.
+#
+# Regenerate with:
+#   cd worker && uv run python -m lusora_worker.agents.planner --write-menu-fixture
+#
+# A diff here means the menu every planner call carries has changed. That is
+# allowed; it is not allowed to happen by accident.
+"""
+
+
+def render_menu_fixture() -> str:
+    """The golden file's exact contents, from the catalog as it stands."""
+    return (
+        MENU_FIXTURE_HEADER
+        + "=== selection ===\n"
+        + _catalog_menu(None)
+        + "\n=== authoring ===\n"
+        + _catalog_menu(None, props=True)
+        + "\n"
+    )
+
+
+def split_menu_fixture(text: str) -> tuple[str, str]:
+    """(selection, authoring) from the golden file, header discarded."""
+    selection, authoring = text.split("=== authoring ===\n")
+    return selection.split("=== selection ===\n", 1)[1].rstrip("\n"), authoring.rstrip("\n")
+
+
+if __name__ == "__main__":  # pragma: no cover - a maintenance command
+    import sys
+
+    if "--write-menu-fixture" not in sys.argv:
+        raise SystemExit("usage: python -m lusora_worker.agents.planner --write-menu-fixture")
+    MENU_FIXTURE.write_text(render_menu_fixture(), encoding="utf-8")
+    print(f"wrote {MENU_FIXTURE}")

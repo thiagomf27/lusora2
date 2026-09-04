@@ -244,28 +244,75 @@ export function componentsInPacks(packs?: string[] | null): string[] | null {
     .map(({ entry }) => entry.name);
 }
 
-export function componentMenu(allowed?: string[] | null): string {
+/**
+ * The prop keys worth showing a model, in the order they are rendered.
+ * `description` is last because it is the long one, and it is included at all
+ * because it is the authoring craft the entry already carries.
+ *
+ * Mirrors _PROP_KEYS in the worker's planner agent.
+ */
+const PROP_KEYS = ["type", "enum", "required", "min", "max", "maxWords", "description"] as const;
+
+/**
+ * Never shown, in any mode. The catalog's `emphasis` prop is a VISUAL weight
+ * and the beat sheet's `emphasis` is an overlay CLASS (D59); putting both words
+ * in one prompt asks the model to hold two meanings for one key.
+ */
+const HIDDEN_PROPS = new Set(["emphasis"]);
+
+/**
+ * The component menu, in one of two sizes.
+ *
+ * SELECTION (the default, and what the planner gets) answers only "which
+ * component, and when not" — no prop schemas at all, because choosing the
+ * component is the judgement and the compiler fills props from the anchor and
+ * the theme's defaults.
+ *
+ * AUTHORING (`{ props: true }`) is for the surfaces that really do write props,
+ * and pays for the schemas with the prop DESCRIPTIONS beside them.
+ *
+ * Mirrors _catalog_menu() in the worker's planner agent, and
+ * contracts/fixtures/component_menu.txt is the golden file both assert on, so
+ * drift fails CI instead of being discovered in a prompt.
+ */
+export function componentMenu(
+  allowed?: string[] | null,
+  opts: { props?: boolean } = {}
+): string {
   return loadMergedCatalog()
     .items.filter(({ entry }) => !allowed || allowed.includes(entry.name))
+    // sorted by name, explicitly, in BOTH languages: the two catalog loaders
+    // order the merge differently, and an order that depends on which one
+    // composed the prompt is an order that cannot be pinned
+    .sort((a, b) => (a.entry.name < b.entry.name ? -1 : a.entry.name > b.entry.name ? 1 : 0))
     .map(({ entry }) => {
-      const props = Object.fromEntries(
-        Object.entries(entry.props ?? {})
-          .filter(([, spec]) => !spec.from_anchor && !spec.computed)
-          .map(([name, spec]) => [
-            name,
-            Object.fromEntries(
-              (["type", "enum", "maxWords", "min", "max", "required"] as const)
-                .filter((k) => spec[k] !== undefined)
-                .map((k) => [k, spec[k]])
-            ),
-          ])
-      );
-      return [
-        `- ${entry.name} (anchor types: ${entry.anchor_types.join("/") || "none — pure text allowed"})`,
+      const anchors = entry.anchor_types.join("/") || "none — pure text allowed";
+      // what a choice costs in screen time: the model is being asked to spend a
+      // budget it could not previously see the prices for
+      const hold = entry.duration_hint_s?.default;
+      const head =
+        `- ${entry.name} (anchor types: ${anchors}` + (hold ? `; holds ~${hold}s)` : ")");
+      const block = [
+        head,
         `  when to use: ${entry.when_to_use}`,
         `  when NOT to use: ${entry.when_not_to_use}`,
-        `  props you may hint: ${JSON.stringify(props)}`,
-      ].join("\n");
+      ];
+      if (opts.props) {
+        const hints = Object.fromEntries(
+          Object.entries(entry.props ?? {})
+            .filter(
+              ([name, spec]) => !spec.from_anchor && !spec.computed && !HIDDEN_PROPS.has(name)
+            )
+            .map(([name, spec]) => [
+              name,
+              Object.fromEntries(
+                PROP_KEYS.filter((k) => spec[k] !== undefined).map((k) => [k, spec[k]])
+              ),
+            ])
+        );
+        block.push(`  props you may hint: ${JSON.stringify(hints)}`);
+      }
+      return block.join("\n");
     })
     .join("\n");
 }
