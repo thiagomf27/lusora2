@@ -15,6 +15,20 @@ evals/overlays/<case>/
 `marks.json` declares its own `case`, and it must equal the directory name —
 otherwise a number in `BASELINE.md` cannot be traced back to what produced it.
 
+## Checking one
+
+Before a case is worth running a video against, and before it is committed:
+
+```bash
+cd worker
+uv run python -m lusora_worker.evals.overlays check ../evals/overlays/<case>
+```
+
+It reports every fault at once — unknown components, words that are not in the
+script or appear twice, an `ideal` outside `acceptable`, a component the
+channel forbids, an emphasis mark on a pack that disables the class — plus
+advisories where the case is simply too small to measure anything.
+
 ## Scoring one
 
 ```bash

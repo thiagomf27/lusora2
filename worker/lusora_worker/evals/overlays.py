@@ -323,6 +323,133 @@ def load_case(case_dir: Path) -> tuple[dict[str, Any], str]:
     return marks, script_path.read_text(encoding="utf-8")
 
 
+def check_case(case_dir: Path) -> list[str]:
+    """Everything wrong with a case, before a single provider call is made.
+
+    The same rules `docs/10-overlay-marks.md` asks its author to self-check, run
+    where the author actually is rather than only in CI: a case is usually
+    pasted out of a model's answer, and finding out it names a component that
+    does not exist AFTER paying for six planner runs is the expensive order to
+    discover it in.
+
+    Returns the problems, empty when the case is sound. Never raises for a case
+    fault — the point is to report all of them at once, not the first.
+    """
+    import jsonschema
+    from lusora_contracts import load_catalog, load_schema
+
+    problems: list[str] = []
+    marks_path = case_dir / "marks.json"
+    script_path = case_dir / "script.txt"
+    cfg_path = case_dir / "cfg.json"
+
+    for path in (marks_path, script_path):
+        if not path.exists():
+            return [f"{case_dir.name}: missing {path.name}"]
+    if not cfg_path.exists():
+        problems.append(
+            f"{case_dir.name}: no cfg.json — the case cannot say what overlay "
+            "budget it was scored under, and the budget is what makes a mark a "
+            "fair question"
+        )
+
+    try:
+        marks = json.loads(marks_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"{case_dir.name}/marks.json is not valid JSON: {exc}"]
+    script_norm = normalize(script_path.read_text(encoding="utf-8"))
+
+    try:
+        jsonschema.validate(marks, load_schema("overlay_marks"))
+    except jsonschema.ValidationError as exc:
+        problems.append(f"marks.json fails its schema at {list(exc.path)}: {exc.message}")
+
+    if marks.get("case") != case_dir.name:
+        problems.append(
+            f"marks.json declares case {marks.get('case')!r} but the directory is "
+            f"{case_dir.name!r} — they must agree, or a result cannot be traced back"
+        )
+
+    cfg = {}
+    if cfg_path.exists():
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            problems.append(f"cfg.json is not valid JSON: {exc}")
+    overlays_cfg = ((cfg.get("style_pack_doc") or {}).get("overlays") or {})
+    allowed = overlays_cfg.get("allowed_components")
+    emphasis_on = bool((overlays_cfg.get("emphasis") or {}).get("enabled", False))
+
+    catalog = {c["name"]: c for c in load_catalog()["components"]}
+
+    graphic = negative = near_miss = 0
+    for mark in marks.get("marks") or []:
+        mid = mark.get("id", "?")
+        words = normalize(str(mark.get("source_words", "")))
+        first = script_norm.find(words) if words else -1
+        if not words:
+            problems.append(f"{mid}: no source_words")
+        elif first < 0:
+            problems.append(f"{mid}: source_words {mark['source_words']!r} is not in script.txt")
+        elif script_norm.find(words, first + 1) >= 0:
+            problems.append(
+                f"{mid}: source_words {mark['source_words']!r} appears more than once — "
+                "lengthen it until the span is unique"
+            )
+
+        verdict = mark.get("verdict")
+        if verdict == "no_graphic":
+            negative += 1
+            if mark.get("near_miss"):
+                near_miss += 1
+            continue
+        if verdict != "graphic":
+            continue
+
+        graphic += 1
+        acceptable = mark.get("acceptable") or []
+        if mark.get("ideal") is not None and mark["ideal"] not in acceptable:
+            problems.append(f"{mid}: ideal {mark['ideal']!r} is not one of acceptable {acceptable}")
+        for name in acceptable:
+            entry = catalog.get(name)
+            if entry is None:
+                problems.append(f"{mid}: {name!r} is not a component in the catalog")
+                continue
+            if allowed and name not in allowed:
+                problems.append(
+                    f"{mid}: {name!r} is not in this case's allowed_components, so no run "
+                    "could ever place it"
+                )
+            if mark.get("class") == "anchor" and not entry["anchor_types"]:
+                problems.append(
+                    f"{mid}: {name!r} carries no anchor type, so it can never be "
+                    "class 'anchor' — it is an emphasis component (D86)"
+                )
+        if mark.get("class") == "emphasis" and not emphasis_on:
+            problems.append(
+                f"{mid}: an emphasis mark, but this case's pack does not set "
+                "overlays.emphasis.enabled — the planner is forbidden to place one, "
+                "so scoring it would be unfair. Enable the class or mark it unmappable"
+            )
+
+    # advisory: a case can be valid and still too small to measure anything
+    total = graphic + negative
+    if total and total < 20:
+        problems.append(
+            f"ADVISORY: {total} scorable marks. With {graphic} graphic marks, recall "
+            f"moves in steps of {100 / graphic:.0f} points if one changes — write 25-40 "
+            "marks so run-to-run noise does not swamp the effect being measured"
+            if graphic else f"ADVISORY: only {total} scorable marks"
+        )
+    if negative and near_miss * 2 < negative:
+        problems.append(
+            f"ADVISORY: {near_miss} of {negative} negatives carry near_miss. A negative "
+            "on a span with no anchor is free — the gate already refuses it — so a case "
+            "weighted this way can barely measure restraint"
+        )
+    return problems
+
+
 def score_case(case_dir: Path, beats_path: Path) -> Scores:
     marks, script = load_case(case_dir)
     beats = json.loads(beats_path.read_text(encoding="utf-8"))
@@ -372,7 +499,22 @@ def main(argv: list[str] | None = None) -> int:
     scorer.add_argument("beats", type=Path, help="the beats.json a run produced")
     scorer.add_argument("--json", action="store_true", help="machine-readable output")
 
+    checker = sub.add_parser(
+        "check", help="validate a case before spending anything on it"
+    )
+    checker.add_argument("case_dir", type=Path, help="evals/overlays/<case>")
+
     args = parser.parse_args(argv)
+    if args.command == "check":
+        problems = check_case(args.case_dir)
+        hard = [p for p in problems if not p.startswith("ADVISORY")]
+        for problem in problems:
+            print(("  ! " if not problem.startswith("ADVISORY") else "  ~ ") + problem)
+        if not problems:
+            print(f"{args.case_dir.name}: sound")
+        elif not hard:
+            print(f"{args.case_dir.name}: valid, with {len(problems)} advisory note(s)")
+        return 1 if hard else 0
     try:
         scores = score_case(args.case_dir, args.beats)
     except EvalCaseError as exc:

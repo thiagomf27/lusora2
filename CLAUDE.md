@@ -74,10 +74,10 @@ docker-compose.
   names what the pipeline cannot imitate ★ use when copying a channel's style
 
 ### 10 — Evaluation
-- [Overlay Marks](10-overlay-marks.md) — the prompt that turns a reference
-  video into an overlay eval case, and the ground-truth contract behind it.
-  The cases live in `evals/overlays/`, the numbers in `evals/BASELINE.md`
-  ★ read before claiming a prompt change helped
+- [Overlay Eval Cases](10-overlay-marks.md) — the prompt that turns a reference
+  video into a complete eval case: the script, the frozen style pack that sets
+  the overlay budget, and the ground truth. Cases live in `evals/overlays/`,
+  numbers in `evals/BASELINE.md` ★ read before claiming a prompt change helped
 
 ## Conventions
 

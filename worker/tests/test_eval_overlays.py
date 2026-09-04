@@ -433,3 +433,123 @@ def test_the_marking_prompts_component_menu_agrees_with_the_catalog():
         assert f"| `{anchor_type}` | {', '.join(expected)} |" in doc, anchor_type
     unanchored = sorted(c["name"] for c in catalog if not (c.get("anchor_types") or []))
     assert ", ".join(unanchored) in doc
+
+
+# ---------------- checking a case before paying for it ----------------
+
+
+def _case(tmp_path, name, marks, script=SCRIPT, cfg=None):
+    d = tmp_path / name
+    d.mkdir()
+    (d / "script.txt").write_text(script, encoding="utf-8")
+    (d / "marks.json").write_text(json.dumps({**marks, "case": name}), encoding="utf-8")
+    (d / "cfg.json").write_text(json.dumps(cfg or {"style_pack_doc": {"overlays": {}}}),
+                                encoding="utf-8")
+    return d
+
+
+def test_check_passes_a_sound_case(tmp_path):
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]),
+                   _no_graphic("m2", "a matter of courage", near_miss="number"))
+    hard = [p for p in check_case(_case(tmp_path, "sound", marks)) if not p.startswith("ADVISORY")]
+    assert hard == []
+
+
+def test_check_catches_a_component_that_does_not_exist(tmp_path):
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["HoloProjector"]))
+    problems = check_case(_case(tmp_path, "unknown-component", marks))
+    assert any("not a component in the catalog" in p for p in problems), problems
+
+
+def test_check_catches_an_anchor_mark_on_a_component_that_carries_no_fact(tmp_path):
+    """D86's rule, enforced at authoring time: a bottom-row component can never
+    be class 'anchor', and a case that says so would score an impossibility."""
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["HammerStatement"]))
+    problems = check_case(_case(tmp_path, "wrong-class", marks))
+    assert any("can never be class 'anchor'" in p for p in problems), problems
+
+
+def test_check_catches_an_emphasis_mark_the_pack_forbids(tmp_path):
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["HammerStatement"],
+                            cls="emphasis"))
+    problems = check_case(_case(tmp_path, "no-emphasis", marks))
+    assert any("does not set" in p and "emphasis" in p for p in problems), problems
+    # ...and passes once the pack enables the class
+    ok = check_case(_case(tmp_path, "with-emphasis", marks,
+                          cfg={"style_pack_doc": {"overlays": {"emphasis": {"enabled": True}}}}))
+    assert not any("emphasis.enabled" in p for p in ok), ok
+
+
+def test_check_catches_a_component_outside_the_channels_allowed_list(tmp_path):
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["StatTag"]))
+    cfg = {"style_pack_doc": {"overlays": {"allowed_components": ["AnimatedCounter"]}}}
+    problems = check_case(_case(tmp_path, "not-allowed", marks, cfg=cfg))
+    assert any("allowed_components" in p for p in problems), problems
+
+
+def test_check_catches_words_that_are_not_in_the_script_or_appear_twice(tmp_path):
+    from lusora_worker.evals.overlays import check_case
+
+    missing = _marks(_graphic("m1", "forty thousand submarines", ["AnimatedCounter"]))
+    assert any("is not in script.txt" in p for p in check_case(_case(tmp_path, "missing", missing)))
+
+    twice = _marks(_graphic("m1", "Germany built twelve thousand", ["AnimatedCounter"]))
+    script = "Germany built twelve thousand. Later, Germany built twelve thousand more."
+    problems = check_case(_case(tmp_path, "twice", twice, script=script))
+    assert any("appears more than once" in p for p in problems), problems
+
+
+def test_check_reports_every_problem_rather_than_the_first(tmp_path):
+    """A case is usually pasted out of a model's answer; finding one fault per
+    round trip is the expensive way to fix five."""
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(
+        _graphic("m1", "forty thousand submarines", ["HoloProjector"]),
+        _graphic("m2", "twenty-nine thousand tanks", ["StatTag"], ideal="AnimatedCounter"),
+    )
+    problems = check_case(_case(tmp_path, "many-faults", marks))
+    assert len(problems) >= 3, problems
+
+
+def test_check_advises_when_a_case_is_too_small_to_measure_anything(tmp_path):
+    """The lesson the real cases taught: 4 graphic marks means recall moves in
+    25-point steps, and the noise swamps the effect."""
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]))
+    problems = check_case(_case(tmp_path, "tiny", marks))
+    assert any(p.startswith("ADVISORY") and "steps of" in p for p in problems), problems
+
+
+def test_the_cli_check_exits_nonzero_only_on_a_hard_fault(tmp_path, capsys):
+    """An advisory must not fail a script: a small case is worth less, not
+    invalid."""
+    from lusora_worker.evals.overlays import main
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]))
+    assert main(["check", str(_case(tmp_path, "small", marks))]) == 0
+    assert "advisory" in capsys.readouterr().out
+
+    bad = _marks(_graphic("m1", "twenty-nine thousand tanks", ["HoloProjector"]))
+    assert main(["check", str(_case(tmp_path, "broken", bad))]) == 1
+
+
+def test_every_committed_case_passes_its_own_checker(tmp_path):
+    """The checker and the committed cases must not disagree — one of them
+    would be wrong, and the cases are what every number rests on."""
+    from lusora_worker.evals.overlays import check_case
+
+    for case_dir in sorted(p for p in EVALS.iterdir() if p.is_dir()):
+        hard = [p for p in check_case(case_dir) if not p.startswith("ADVISORY")]
+        assert hard == [], f"{case_dir.name}: {hard}"
