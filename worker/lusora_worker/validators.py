@@ -83,6 +83,44 @@ def overlays_per_minute(style: dict[str, Any]) -> float:
     return {"low": 1.0, "normal": 2.5, "high": 5.0}.get(str(density), 2.5)
 
 
+def _declared_role(overlay: dict[str, Any]) -> str | None:
+    """What the SHEET said, ignoring the catalog. None when it said nothing."""
+    role = overlay.get("role")
+    if role in ("anchor", "emphasis"):
+        return str(role)
+    if "emphasis" in overlay:
+        return "emphasis" if overlay["emphasis"] else "anchor"
+    return None
+
+
+def overlay_role(overlay: dict[str, Any], entry: dict[str, Any] | None = None) -> str:
+    """Which class an overlay belongs to (D86): "anchor" or "emphasis".
+
+    Three sources, in order of authority:
+
+    1. The CATALOG. A component whose `anchor_types` are empty carries no fact
+       by construction, so an overlay naming one is an emphasis overlay no
+       matter what the sheet says. This is the half that closes D59's hole: the
+       old code ran its emphasis checks only `if overlay.get("emphasis")` and
+       its anchor_ref requirement only `if entry["anchor_types"]`, so a
+       no-anchor component with the flag unset met NEITHER — billed against the
+       anchor budget and never tested against a class the pack had switched
+       off. Two real overlays did exactly that in a shipped run.
+    2. `role`, the field that replaced the boolean.
+    3. `emphasis`, the deprecated boolean, so that sheets already on disk and
+       hand-written uploads keep working unchanged.
+
+    Pass `entry` to get rule 1; omit it to read only what the sheet declared,
+    which is what the "role and the boolean say the same thing" check needs.
+    """
+    if entry is not None and not entry.get("anchor_types"):
+        return "emphasis"
+    role = overlay.get("role")
+    if role in ("anchor", "emphasis"):
+        return str(role)
+    return "emphasis" if overlay.get("emphasis") else "anchor"
+
+
 def emphasis_policy(style: dict[str, Any]) -> tuple[bool, float]:
     """(enabled, per_minute) for the emphasis overlay class (D59). Off unless
     the style pack says otherwise, so a pack written before it existed behaves
@@ -192,31 +230,62 @@ def validate_beat_sheet(
         overlay = b.get("overlay")
         if not overlay:
             continue
-        if overlay.get("emphasis"):
-            emphasis_count += 1
-        else:
-            overlay_count += 1
         name = str(overlay.get("component", ""))
         entry = lusora_contracts.catalog_component(name)
         if entry is None:
             violations.append(f"beat {b.get('id')}: overlay component '{name}' not in catalog")
+            # an unknown component has no anchor_types to derive a class from,
+            # so bill it as an anchor overlay and let the catalog error stand
+            overlay_count += 1
             continue
+        # A TIMED beat's overlay is outside the class system entirely (D86).
+        # It carries no script_text, so it can carry no anchor, so every
+        # overlay on one is pure text by construction — and it competes with no
+        # narration graphic, because there is no narration under it. Applying
+        # the emphasis gate here would silently un-make D58's cold open on six
+        # of the seven shipped packs, which is a regression rather than a fix.
+        # It is billed where it was billed before, so density accounting is
+        # unchanged.
+        structural = b.get("kind") == "timed"
+        # DERIVED, not declared (D86): the catalog decides whether a component
+        # can carry a fact, so the budget it is billed to cannot be chosen by
+        # the sheet. This is what closes the hole a no-anchor component with no
+        # flag used to fall through.
+        role = "anchor" if structural else overlay_role(overlay, entry)
+        if role == "emphasis":
+            emphasis_count += 1
+        else:
+            overlay_count += 1
         if allowed and name not in allowed:
             violations.append(
                 f"beat {b.get('id')}: component '{name}' not in style pack allowed_components {allowed}"
             )
-        if overlay.get("emphasis"):
+        if role == "emphasis":
             if not emphasis_enabled:
                 violations.append(
-                    f"beat {b.get('id')}: overlay is marked emphasis, which this style pack does not "
-                    "use — drop the flag and attach the overlay to an anchor in this beat, or leave "
-                    "the beat without an overlay"
+                    f"beat {b.get('id')}: overlay role is 'emphasis', which this style pack does not "
+                    f"use — '{name}' carries no anchor type, so it can only ever be an emphasis "
+                    "overlay. Use a component that attaches to an anchor in this beat, or leave the "
+                    "beat without an overlay"
+                    if not entry["anchor_types"] else
+                    f"beat {b.get('id')}: overlay role is 'emphasis', which this style pack does not "
+                    "use — set role 'anchor' and attach the overlay to an anchor in this beat, or "
+                    "leave the beat without an overlay"
                 )
-            elif entry["anchor_types"]:
+            elif entry["anchor_types"] and _declared_role(overlay) == "emphasis":
                 violations.append(
                     f"beat {b.get('id')}: '{name}' carries a fact (anchor types {entry['anchor_types']}) "
-                    "and cannot be an emphasis overlay — emphasis lifts a moment, so use a pure-text "
-                    "component, or drop the emphasis flag and reference an anchor"
+                    "and cannot take role 'emphasis' — emphasis lifts a moment, so use a pure-text "
+                    "component, or set role 'anchor' and reference an anchor"
+                )
+            elif _declared_role(overlay) == "anchor":
+                # said one thing, is another. Named rather than reclassified in
+                # silence: the sheet's author believed something false, and the
+                # derived class is not a correction they can see otherwise.
+                violations.append(
+                    f"beat {b.get('id')}: '{name}' carries no anchor type, so it cannot take role "
+                    "'anchor' — it is an emphasis overlay, counted against that budget, and the "
+                    "style pack decides whether the class is available at all"
                 )
         # props_hint must contain VALUES (the spec-echo failure is common)
         for pname, pvalue in (overlay.get("props_hint") or {}).items():

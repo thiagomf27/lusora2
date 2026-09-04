@@ -26,8 +26,17 @@ export interface BeatOverlay {
   component: string;
   anchor_ref?: number;
   props_hint?: Record<string, unknown>;
-  /** v1.1 (D59): lifts a moment rather than carrying a fact; counted under its
-   *  own density budget, and only allowed when the style pack enables it. */
+  /**
+   * D86 — which of the two reasons this overlay exists. `anchor` carries a fact
+   * the narration says; `emphasis` lifts a moment with pure text, on its own
+   * separately rate-limited budget (D59) and only when the style pack enables
+   * the class. A component whose catalog anchor_types are EMPTY is treated as
+   * emphasis whatever this says, because it carries no fact by construction.
+   */
+  role?: "anchor" | "emphasis";
+  /** @deprecated D86 — superseded by `role`, which does not collide with the
+   *  catalog's `emphasis` PROP. Still read when `role` is absent, so sheets on
+   *  disk keep working; `role` wins when both are present. */
   emphasis?: boolean;
 }
 

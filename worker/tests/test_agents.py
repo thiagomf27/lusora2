@@ -568,7 +568,11 @@ def test_emphasis_overlays_are_invisible_until_a_pack_enables_them(tmp_path):
     cfg["style_pack_doc"]["overlays"]["emphasis"] = {"enabled": True, "per_minute": 1.5}
     on = planner._build_prompt(make_ctx(tmp_path, cfg), SCRIPT, 60.0)
     assert on[0] == baseline[0], "the system half is untouched either way"
-    assert '"emphasis": true' in on[1]
+    # D86 renamed the key the paragraph teaches; the promise this test makes is
+    # about VISIBILITY, and that is unchanged — off means absent, on means the
+    # model is told the class exists and what it costs.
+    assert 'role' in on[1] and "emphasis" in on[1]
+    assert '"emphasis": true' not in on[1], "the colliding key is gone (D86)"
     assert "1.5 per minute" in on[1], "the budget is a number from the pack, not prose"
 
 
@@ -809,3 +813,35 @@ def test_every_chat_fn_caller_matches_the_seam():
         for line in inspect.getsource(module).splitlines():
             if "chat_fn(provider, model, system, user" in line:
                 assert line.rstrip().endswith("max_tokens, temperature)"), line
+
+
+# ---------------- the prompt names role, not the boolean (slice 4, D86) ----------------
+
+
+def _emphasis_ctx(tmp_path):
+    cfg = json.loads(json.dumps(CFG))
+    cfg["style_pack_doc"]["overlays"]["emphasis"] = {"enabled": True, "per_minute": 1.0}
+    return make_ctx(tmp_path, cfg)
+
+
+def test_the_shape_example_names_role_when_the_pack_enables_the_class(tmp_path):
+    _system, user = _composed(_emphasis_ctx(tmp_path))
+    assert '"role":"anchor"' in user, "the JSON shape must show the field it wants"
+    assert 'role' in user
+
+
+def test_the_prompt_no_longer_contains_a_colliding_emphasis_key(tmp_path):
+    """The composed prompt must not put one word in front of the model for two
+    meanings — the overlay CLASS and the catalog's visual-weight PROP."""
+    system, user = _composed(_emphasis_ctx(tmp_path))
+    composed = system + user
+    assert '"emphasis": true' not in composed
+    assert '"emphasis":' not in composed
+    assert "role" in composed
+
+
+def test_the_emphasis_paragraph_is_absent_when_the_pack_disables_the_class(tmp_path):
+    """Unchanged from D59: emphasis overlays are invisible until a pack enables
+    them, which is what keeps the prompt byte-identical for packs that do not."""
+    _system, user = _composed(make_ctx(tmp_path))
+    assert "emphasis" not in user

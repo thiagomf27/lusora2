@@ -223,7 +223,14 @@ def test_with_the_flag_off_an_emphasis_overlay_is_repairably_rejected():
     violations = validate_beat_sheet(sheet_with_emphasis(), SCRIPT, off, 10.0)
     assert len(violations) == 1
     assert "this style pack does not use" in violations[0]
-    assert "drop the flag" in violations[0], "the repair prompt must say what to do"
+    # D86: "drop the flag" is no longer advice that works. The class is DERIVED
+    # from the catalog, so a component with no anchor type is an emphasis
+    # overlay whatever the sheet says — the only repairs are a different
+    # component or no overlay, and the message has to say that instead.
+    assert "carries no anchor type" in violations[0]
+    assert "leave the beat without an overlay" in violations[0], (
+        "the repair prompt must say what to do"
+    )
 
 
 def test_with_the_flag_on_it_passes():
@@ -262,3 +269,123 @@ def test_the_flag_off_is_byte_identical_to_before():
     """Nothing about a sheet that never mentions emphasis changes."""
     assert validate_beat_sheet(good_sheet(), SCRIPT, CFG, 10.0) == []
     assert validate_beat_sheet(good_sheet(), SCRIPT, EMPHASIS_CFG, 10.0) == []
+
+
+# ---------------- overlay.role replaces the boolean (slice 4, D86) ----------------
+
+
+def sheet_with_role(role="emphasis", component="HammerStatement", **extra):
+    sheet = good_sheet()
+    sheet["version"] = "1.1"
+    sheet["beats"][1]["overlay"] = {
+        "component": component,
+        "props_hint": {"text": "They came from everywhere"},
+        "role": role,
+        **extra,
+    }
+    return sheet
+
+
+def test_a_sheet_using_the_old_emphasis_boolean_still_validates():
+    """Nothing on disk breaks. Hand-written sheets are an artifact a human may
+    upload (D62), and `additionalProperties: false` makes a removed field a
+    hard rejection rather than a shrug."""
+    assert validate_beat_sheet(sheet_with_emphasis(), SCRIPT, EMPHASIS_CFG, 10.0) == []
+
+
+def test_role_and_the_boolean_are_read_identically():
+    """Both paths, one behaviour — on the pack that allows the class and on the
+    pack that does not."""
+    off = {"style_pack_doc": {**EMPHASIS_CFG["style_pack_doc"],
+                              "overlays": {**EMPHASIS_CFG["style_pack_doc"]["overlays"],
+                                           "emphasis": {"enabled": False}}}}
+    for cfg in (EMPHASIS_CFG, off):
+        by_flag = validate_beat_sheet(sheet_with_emphasis(), SCRIPT, cfg, 10.0)
+        by_role = validate_beat_sheet(sheet_with_role(), SCRIPT, cfg, 10.0)
+        assert by_flag == by_role, cfg
+
+
+def test_role_wins_when_both_are_present():
+    """Precedence is pinned in both directions, so a sheet carrying a stale
+    boletin alongside a fresh role is not read by whichever branch ran first."""
+    from lusora_worker.validators import overlay_role
+
+    assert overlay_role({"role": "emphasis", "emphasis": False}) == "emphasis"
+    assert overlay_role({"role": "anchor", "emphasis": True}) == "anchor"
+    assert overlay_role({"emphasis": True}) == "emphasis"
+    assert overlay_role({}) == "anchor"
+
+
+def test_a_fact_carrying_component_cannot_take_role_emphasis():
+    """D59's rule survives the rename: emphasis lifts a moment, so a component
+    that fills itself from an anchor is the wrong instrument for it."""
+    sheet = sheet_with_role(role="emphasis", component="AnimatedCounter")
+    sheet["beats"][1]["overlay"]["anchor_ref"] = 0
+    violations = validate_beat_sheet(sheet, SCRIPT, EMPHASIS_CFG, 10.0)
+    assert any("cannot take role 'emphasis'" in v for v in violations), violations
+
+
+def test_a_component_with_no_anchor_type_is_emphasis_whatever_the_sheet_says():
+    """The hole the baseline found, closed by construction. `validators.py` used
+    to run its emphasis checks only when the flag was set and its anchor_ref
+    check only when the component had anchor types — so a no-anchor component
+    with no flag met NEITHER and was billed to the anchor budget."""
+    from lusora_worker.validators import overlay_role
+
+    import lusora_contracts
+
+    hammer = lusora_contracts.catalog_component("HammerStatement")
+    assert hammer["anchor_types"] == []
+    # says anchor, is emphasis: the catalog decides
+    assert overlay_role({"component": "HammerStatement", "role": "anchor"}, hammer) == "emphasis"
+    # and says nothing at all: still emphasis
+    assert overlay_role({"component": "HammerStatement"}, hammer) == "emphasis"
+
+
+def test_an_undeclared_no_anchor_overlay_is_refused_when_the_pack_disables_the_class():
+    """The regression the shipped run actually had: a DefinitionCard and a
+    FactCard reached beats.json on a pack with the class off."""
+    off = {"style_pack_doc": {**EMPHASIS_CFG["style_pack_doc"],
+                              "overlays": {**EMPHASIS_CFG["style_pack_doc"]["overlays"],
+                                           "emphasis": {"enabled": False}}}}
+    sheet = good_sheet()
+    sheet["version"] = "1.1"
+    # no role, no flag — exactly the shape that used to slip through
+    sheet["beats"][1]["overlay"] = {"component": "HammerStatement",
+                                    "props_hint": {"text": "They came from everywhere"}}
+    violations = validate_beat_sheet(sheet, SCRIPT, off, 10.0)
+    assert any("this style pack does not use" in v for v in violations), violations
+
+
+def test_saying_anchor_on_a_component_that_cannot_carry_one_names_both():
+    """Reclassifying in silence would leave the sheet's author believing
+    something false, so the violation says what it is instead."""
+    sheet = sheet_with_role(role="anchor", component="HammerStatement")
+    violations = validate_beat_sheet(sheet, SCRIPT, EMPHASIS_CFG, 10.0)
+    assert any("cannot take role 'anchor'" in v for v in violations), violations
+
+
+def test_a_timed_beats_overlay_is_outside_the_class_system():
+    """D58's cold open. A timed beat carries no script_text, so it can carry no
+    anchor and every overlay on one is pure text — and only ONE of the seven
+    shipped packs enables the emphasis class, so gating it there would un-make
+    a documented feature almost everywhere."""
+    sheet = good_sheet()
+    sheet["version"] = "1.1"
+    sheet["beats"].insert(0, {
+        "id": "b0", "kind": "timed", "timing": {"start_s": 0, "end_s": 4.5},
+        "visual_intent": "slow push-in on a bombed cathedral at dawn",
+        "overlay": {"component": "KineticTitle", "props_hint": {"text": "February 1945"}},
+    })
+    off = {"style_pack_doc": {**EMPHASIS_CFG["style_pack_doc"],
+                              "overlays": {**EMPHASIS_CFG["style_pack_doc"]["overlays"],
+                                           "emphasis": {"enabled": False}}}}
+    assert validate_beat_sheet(sheet, SCRIPT, off, 10.0) == []
+
+
+def test_the_two_budgets_stay_separate_under_role():
+    """D59's accounting survives the rename: an emphasis overlay must not eat
+    the anchor budget, and the derived class is what it is billed to."""
+    sheet = sheet_with_role()
+    violations = validate_beat_sheet(sheet, SCRIPT, EMPHASIS_CFG, 10.0)
+    assert violations == [], violations
