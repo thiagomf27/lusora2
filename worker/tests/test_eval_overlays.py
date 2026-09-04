@@ -553,3 +553,36 @@ def test_every_committed_case_passes_its_own_checker(tmp_path):
     for case_dir in sorted(p for p in EVALS.iterdir() if p.is_dir()):
         hard = [p for p in check_case(case_dir) if not p.startswith("ADVISORY")]
         assert hard == [], f"{case_dir.name}: {hard}"
+
+
+def test_check_catches_a_case_that_marks_more_graphics_than_its_budget_allows(tmp_path):
+    """A case whose ground truth exceeds its own density ceiling has capped its
+    own recall: the validator refuses a sheet over the budget, so the planner
+    cannot reach 100% however well it judges."""
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(*[
+        _graphic(f"m{i}", w, ["AnimatedCounter"])
+        for i, w in enumerate(
+            ["twenty-nine thousand tanks", "Germany built twelve thousand",
+             "a matter of courage", "a matter of factories"], start=1)
+    ])
+    case = _case(tmp_path, "over-budget", marks,
+                 cfg={"style_pack_doc": {"overlays": {"density": "low"}}})
+    # 60s of narration at low density = ceil(1.0 * 60/60) + 1 = 2 overlays
+    (case / "subtitles.srt").write_text(
+        "1\n00:00:00,000 --> 00:01:00,000\n" + SCRIPT + "\n", encoding="utf-8")
+    problems = check_case(case)
+    assert any("recall is capped" in p for p in problems), problems
+    assert any("Raise overlays.density" in p for p in problems), problems
+
+
+def test_check_says_nothing_about_budget_when_the_case_has_no_timings(tmp_path):
+    """Narration length comes from subtitles.srt, and we generate that after the
+    marks exist — a case mid-assembly must not be told it is over budget."""
+    from lusora_worker.evals.overlays import check_case
+
+    marks = _marks(_graphic("m1", "twenty-nine thousand tanks", ["AnimatedCounter"]))
+    problems = check_case(_case(tmp_path, "no-timings", marks,
+                                cfg={"style_pack_doc": {"overlays": {"density": "low"}}}))
+    assert not any("budget" in p for p in problems), problems

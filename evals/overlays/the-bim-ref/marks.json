@@ -1,0 +1,404 @@
+{
+  "version": "1.0",
+  "case": "the-bim-ref",
+  "source": {
+    "url": "https://www.youtube.com/watch?v=sample",
+    "title": "Dubai is Building a $35BN Mega Airport",
+    "level": "L3",
+    "marked_by": "assistant",
+    "marked_on": "2026-09-04"
+  },
+  "notes": "(originally filed as case 'b1m_dubai_al_maktoum_intro') Full visual teardown of the opening 3-minute comparison sequence (00:02 to 03:15). Measured shot holds and overlay timestamps directly from high-resolution video frames.",
+  "marks": [
+    {
+      "id": "m1",
+      "at": "00:00:02",
+      "source_words": "How big can an airport be?",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "HammerStatement",
+        "KineticTitle"
+      ],
+      "ideal": "KineticTitle",
+      "why": "Opening hook statement overlaid large in kinetic typography over opening cinematic shot."
+    },
+    {
+      "id": "m2",
+      "at": "00:00:07",
+      "source_words": "London Heathrow in comparison to Manhattan",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "ComparisonSplit",
+        "SatelliteLocate"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Satellite map comparison highlighting Heathrow footprint overlaid against Manhattan outline."
+    },
+    {
+      "id": "m3",
+      "at": "00:00:12",
+      "source_words": "Dubai's current international airport",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "ComparisonSplit",
+        "SatelliteLocate"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Map graphic swaps to Dubai International DXB footprint for immediate scale comparison."
+    },
+    {
+      "id": "m4",
+      "at": "00:00:20",
+      "source_words": "Al Maktoum International",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "ComparisonSplit",
+        "SatelliteLocate",
+        "StatTag"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Satellite overlay scales up showing Al Maktoum airport engulfing Manhattan map."
+    },
+    {
+      "id": "m5",
+      "at": "00:00:26",
+      "source_words": "less an airport and more a city with some planes",
+      "verdict": "no_graphic",
+      "near_miss": "comparison",
+      "why": "Metaphorical comparison; editor cuts to render architectural footage without visual text."
+    },
+    {
+      "id": "m6",
+      "at": "00:00:34",
+      "source_words": "more than 260 million passengers a year",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Key metric displayed as prominent yellow stat overlay over terminal render."
+    },
+    {
+      "id": "m7",
+      "at": "00:00:38",
+      "source_words": "five parallel runways",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Rapid-fire spec callout overlaid on aerial layout render."
+    },
+    {
+      "id": "m8",
+      "at": "00:00:40",
+      "source_words": "400 aircraft gates",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Rapid-fire spec callout continued over roof detail shot."
+    },
+    {
+      "id": "m9",
+      "at": "00:00:44",
+      "source_words": "12 million tons of cargo",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Freight spec callout overlaid over ground-level entrance shot."
+    },
+    {
+      "id": "m10",
+      "at": "00:00:48",
+      "source_words": "35 billion US dollars",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Project cost climax shown as centered bold monetary stat tag."
+    },
+    {
+      "id": "m11",
+      "at": "00:00:52",
+      "source_words": "most ambitious piece of transport infrastructure",
+      "verdict": "no_graphic",
+      "why": "Superlative commentary allowing the cinematic render montage to breathe."
+    },
+    {
+      "id": "m12",
+      "at": "00:00:58",
+      "source_words": "change this entire region forever",
+      "verdict": "no_graphic",
+      "why": "High-level thematic statement accompanied by wide regional satellite view."
+    },
+    {
+      "id": "m13",
+      "at": "00:01:05",
+      "source_words": "Or at least that's the plan",
+      "verdict": "no_graphic",
+      "why": "Presenter direct-to-camera intro transition; intentionally clean of graphics."
+    },
+    {
+      "id": "m14",
+      "at": "00:01:12",
+      "source_words": "just how big it really is",
+      "verdict": "no_graphic",
+      "why": "Conversational presenter delivery setting up the comparative analysis."
+    },
+    {
+      "id": "m15",
+      "at": "00:01:21",
+      "source_words": "King Fahd and Denver airport",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "ComparisonSplit",
+        "SatelliteLocate"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Dual split-screen satellite comparison illustrating total land boundaries."
+    },
+    {
+      "id": "m16",
+      "at": "00:01:27",
+      "source_words": "space actually used",
+      "verdict": "no_graphic",
+      "near_miss": "comparison",
+      "why": "Qualitative distinction expanding on the satellite visual without adding clutter."
+    },
+    {
+      "id": "m17",
+      "at": "00:01:31",
+      "source_words": "island of Manhattan",
+      "verdict": "no_graphic",
+      "near_miss": "place",
+      "why": "Re-reference to Manhattan; map graphic is already established on screen."
+    },
+    {
+      "id": "m18",
+      "at": "00:01:41",
+      "source_words": "around 84 million passengers a year",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "ComparisonSplit",
+        "StatTag"
+      ],
+      "ideal": "ComparisonSplit",
+      "why": "First column in an expanding 4-way comparative split showing LHR passenger statistics."
+    },
+    {
+      "id": "m19",
+      "at": "00:01:48",
+      "source_words": "Hartsfield-Jackson in Atlanta",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "Airport name is integrated directly into the split column header alongside the metric mark."
+    },
+    {
+      "id": "m20",
+      "at": "00:01:50",
+      "source_words": "more than 100 million passengers a year",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "ComparisonSplit",
+        "StatTag"
+      ],
+      "ideal": "ComparisonSplit",
+      "why": "Second comparative column added to the live comparison split for ATL."
+    },
+    {
+      "id": "m21",
+      "at": "00:01:59",
+      "source_words": "passenger capacity of 110 million",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "ComparisonSplit",
+        "StatTag"
+      ],
+      "ideal": "ComparisonSplit",
+      "why": "Third comparative column added to the split screen for Ethiopia's BIA."
+    },
+    {
+      "id": "m22",
+      "at": "00:02:04",
+      "source_words": "designed for 260 million",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "ComparisonSplit",
+        "StatTag"
+      ],
+      "ideal": "ComparisonSplit",
+      "why": "Final fourth column revealing Al Maktoum towering over the prior benchmarks."
+    },
+    {
+      "id": "m23",
+      "at": "00:02:09",
+      "source_words": "more than double the passenger volume",
+      "verdict": "no_graphic",
+      "near_miss": "comparison",
+      "why": "Mathematical summary of the 4-way split that is already fully visible on screen."
+    },
+    {
+      "id": "m24",
+      "at": "00:02:18",
+      "source_words": "three out of every four Americans",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "ComparisonSplit",
+        "PieChart",
+        "StatTag"
+      ],
+      "ideal": "PieChart",
+      "why": "Infographic showing a 75% demographic ratio fill over the US map."
+    },
+    {
+      "id": "m25",
+      "at": "00:02:26",
+      "source_words": "That's a hell of a lot of people",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "HammerStatement",
+        "KineticTitle"
+      ],
+      "ideal": "HammerStatement",
+      "why": "Punchy on-screen text emphasis capping off the population comparison."
+    },
+    {
+      "id": "m26",
+      "at": "00:02:30",
+      "source_words": "cargo capacity and that is absolutely enormous",
+      "verdict": "no_graphic",
+      "near_miss": "comparison",
+      "why": "Introductory transition to freight topic; b-roll of Emirates A380 shown without text."
+    },
+    {
+      "id": "m27",
+      "at": "00:02:38",
+      "source_words": "Some 12 million tons by 2032",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Yellow metric tag stating target cargo capacity."
+    },
+    {
+      "id": "m28",
+      "at": "00:02:42",
+      "source_words": "Hong Kong International Airport currently handles the most cargo",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "ComparisonSplit",
+        "SatelliteLocate",
+        "StatTag"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Satellite map overlay isolating HKG cargo hub."
+    },
+    {
+      "id": "m29",
+      "at": "00:02:49",
+      "source_words": "sits at around 5 million tons annually",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Metric callout displaying current world #1 cargo tonnage."
+    },
+    {
+      "id": "m30",
+      "at": "00:02:56",
+      "source_words": "largest airport by passenger capacity",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "HammerStatement",
+        "KineticTitle"
+      ],
+      "ideal": "HammerStatement",
+      "why": "Rapid-fire bullet text popping up on presenter's lower third."
+    },
+    {
+      "id": "m31",
+      "at": "00:03:00",
+      "source_words": "by cargo and by runway capacity",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "HammerStatement",
+        "KineticTitle"
+      ],
+      "ideal": "HammerStatement",
+      "why": "Sequential lower-third statement update listing the next record."
+    },
+    {
+      "id": "m32",
+      "at": "00:03:04",
+      "source_words": "largest terminal development",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "HammerStatement",
+        "KineticTitle"
+      ],
+      "ideal": "HammerStatement",
+      "why": "Sequential lower-third statement update for terminal record."
+    },
+    {
+      "id": "m33",
+      "at": "00:03:07",
+      "source_words": "largest footprint of any airport on the planet",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "HammerStatement",
+        "KineticTitle"
+      ],
+      "ideal": "HammerStatement",
+      "why": "Final sequential lower-third statement in the record list."
+    },
+    {
+      "id": "m34",
+      "at": "00:03:11",
+      "source_words": "Someone better call Guinness",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "Humorous punchline delivered directly to camera by the host; deliberately uncluttered."
+    }
+  ]
+}

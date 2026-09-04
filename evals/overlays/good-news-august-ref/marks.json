@@ -1,0 +1,351 @@
+{
+  "version": "1.0",
+  "case": "good-news-august-ref",
+  "source": {
+    "url": "https://www.youtube.com/watch?v=XaHRd7rhGKo",
+    "title": "Your Monthly Dose of Good News | August",
+    "level": "L2",
+    "marked_by": "lusora_eval_team",
+    "marked_on": "2026-09-04"
+  },
+  "notes": "(originally filed as case 'good_news_august_ref') Marked from reference video footage and spoken narration across the 4 primary news segments. Visual restraint is high during scenic animal and landscape photography, with graphic anchors reserved for quantifiable progress metrics, dates, and geographic locations.",
+  "marks": [
+    {
+      "id": "m1",
+      "at": "00:00:08",
+      "source_words": "monthly dose of good news",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ChapterCard",
+        "KineticTitle",
+        "HammerStatement"
+      ],
+      "ideal": "KineticTitle",
+      "why": "Title header card establishing the digest episode at the opening intro"
+    },
+    {
+      "id": "m2",
+      "at": "00:00:16",
+      "source_words": "better place",
+      "verdict": "no_graphic",
+      "why": "Narrative transition sentence with no factual anchor; decorative graphic would clutter intro"
+    },
+    {
+      "id": "m3",
+      "at": "00:00:24",
+      "source_words": "central Kazakhstan",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "SatelliteLocate",
+        "RouteMap"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Geographic anchor establishing the location of the first conservation story"
+    },
+    {
+      "id": "m4",
+      "at": "00:00:32",
+      "source_words": "August 22",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "DateStamp"
+      ],
+      "ideal": "DateStamp",
+      "why": "Exact historic date of the wild birth event"
+    },
+    {
+      "id": "m5",
+      "at": "00:00:37",
+      "source_words": "two hundred years",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Time span anchor, but editor chose to keep visual focus on the foal footage rather than stacking a counter"
+    },
+    {
+      "id": "m6",
+      "at": "00:00:43",
+      "source_words": "Altyn Dala Reserve",
+      "verdict": "no_graphic",
+      "near_miss": "place",
+      "why": "Secondary reserve name mentioned immediately after Kazakhstan location card; avoid clutter"
+    },
+    {
+      "id": "m7",
+      "at": "00:00:49",
+      "source_words": "Tessa",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "NamePlate",
+        "PortraitPlates"
+      ],
+      "ideal": "NamePlate",
+      "why": "Subject identification plate for the mother horse"
+    },
+    {
+      "id": "m8",
+      "at": "00:00:54",
+      "source_words": "Berlin's Tierpark Zoo in 2024",
+      "verdict": "no_graphic",
+      "near_miss": "place",
+      "why": "Background origin detail; footage already shows transport archival footage"
+    },
+    {
+      "id": "m9",
+      "at": "00:01:03",
+      "source_words": "forty additional wild horses",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Key target metric for the conservation relocation quota"
+    },
+    {
+      "id": "m10",
+      "at": "00:01:09",
+      "source_words": "by 2029",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Target year is subordinate to the target count of 40 horses on screen"
+    },
+    {
+      "id": "m11",
+      "at": "00:01:17",
+      "source_words": "nine hundred wild horses",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "AnimatedCounter",
+      "why": "Major headline figure summarizing global population across Central Asia"
+    },
+    {
+      "id": "m12",
+      "at": "00:01:28",
+      "source_words": "Central Asia",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "Reference used an animated territory border morph across 3 countries which has no static component mapping"
+    },
+    {
+      "id": "m13",
+      "at": "00:01:36",
+      "source_words": "Mission 300",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ChapterCard",
+        "FactCard",
+        "HammerStatement"
+      ],
+      "ideal": "ChapterCard",
+      "why": "Chapter title card introducing the second major news block"
+    },
+    {
+      "id": "m14",
+      "at": "00:01:44",
+      "source_words": "World Bank and the African Development Bank",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "Institutional names spoken during transition; putting logos/plates here would overload the title card"
+    },
+    {
+      "id": "m15",
+      "at": "00:01:52",
+      "source_words": "three hundred million people",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "AnimatedCounter",
+      "why": "Primary banner target of the initiative (300M population goal)"
+    },
+    {
+      "id": "m16",
+      "at": "00:01:58",
+      "source_words": "by 2030",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Date anchor immediately following the 300M metric; integrated into same vocal breath"
+    },
+    {
+      "id": "m17",
+      "at": "00:02:06",
+      "source_words": "twenty-four months",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Timeframe context for the achievements; footage displays solar panel installation"
+    },
+    {
+      "id": "m18",
+      "at": "00:02:14",
+      "source_words": "fifty million people",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Current achieved milestone metric contrast against total goal"
+    },
+    {
+      "id": "m19",
+      "at": "00:02:20",
+      "source_words": "forty countries",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "Secondary metric paired with the 50M figure; visual card only carries primary 50M figure"
+    },
+    {
+      "id": "m20",
+      "at": "00:02:28",
+      "source_words": "two hundred thirty-eight billion dollars",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "AnimatedCounter",
+      "why": "Massive economic capital figure mobilized for renewable energy"
+    },
+    {
+      "id": "m21",
+      "at": "00:02:37",
+      "source_words": "energy access deficit in half",
+      "verdict": "no_graphic",
+      "near_miss": "percentage",
+      "why": "Qualitative summary sentence; pacing holds on the capital figure"
+    },
+    {
+      "id": "m22",
+      "at": "00:02:46",
+      "source_words": "South Australia",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "SatelliteLocate",
+        "RouteMap"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Geographical anchor for the third story on indigenous land management"
+    },
+    {
+      "id": "m23",
+      "at": "00:02:54",
+      "source_words": "three years",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Minor duration detail; video keeps focus on ranger fieldwork footage"
+    },
+    {
+      "id": "m24",
+      "at": "00:03:02",
+      "source_words": "two million hectares",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Land area measurement under cultural burn restoration"
+    },
+    {
+      "id": "m25",
+      "at": "00:03:11",
+      "source_words": "sixty thousand years",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "Cultural context figure expressing deep history; editor left shot uncaptioned for emotional weight"
+    },
+    {
+      "id": "m26",
+      "at": "00:03:20",
+      "source_words": "forty-five percent rebound",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "PieChart",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Verified percentage anchor measuring ecological plant recovery"
+    },
+    {
+      "id": "m27",
+      "at": "00:03:30",
+      "source_words": "Greece",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "SatelliteLocate",
+        "RouteMap"
+      ],
+      "ideal": "SatelliteLocate",
+      "why": "Country location anchor establishing fourth story setting"
+    },
+    {
+      "id": "m28",
+      "at": "00:03:39",
+      "source_words": "2023 mega-fires",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Historical contrast reference; shot displays satellite telemetry graphic instead of date card"
+    },
+    {
+      "id": "m29",
+      "at": "00:03:47",
+      "source_words": "seven thermal micro-satellites",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "StatTag",
+      "why": "Hardware constellation size fact anchor"
+    },
+    {
+      "id": "m30",
+      "at": "00:03:55",
+      "source_words": "fifteen minutes",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "AnimatedCounter",
+      "why": "Critical response speed metric for early fire warnings"
+    },
+    {
+      "id": "m31",
+      "at": "00:04:03",
+      "source_words": "twenty-eight ignition hotspots",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "Operational statistic mentioned while holding on satellite detection animation"
+    },
+    {
+      "id": "m32",
+      "at": "00:04:14",
+      "source_words": "bright spots in our changing world",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "Outro animated end-screen with dynamic subscriber links and video tiles not in the overlay component schema"
+    }
+  ]
+}

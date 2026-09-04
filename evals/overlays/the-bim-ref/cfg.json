@@ -1,0 +1,35 @@
+{
+  "_comment": "reference: The B1M - Dubai is Building a $35BN Mega Airport; section used: 00:02-03:15; ~446 words, ~193s spoken; density counted as 14 fact-graphics over 3.2 minutes (~4.4/min) | density raised 4.4 -> 6.0/min: the marks name 17 anchor graphics in 161s (6.3/min), and the 4.4 budget capped recall at 76% before the planner started",
+  "language": "en",
+  "video_type": "explainer",
+  "style_pack": "the_b1m_explainer",
+  "style_pack_doc": {
+    "name": "the_b1m_explainer",
+    "video_type": "explainer",
+    "pacing": {
+      "avg_hold_seconds": 3.8,
+      "min_hold": 1.5,
+      "max_hold": 7.0,
+      "arc": "three_act"
+    },
+    "overlays": {
+      "density": {
+        "per_minute": 6.0
+      },
+      "allowed_components": [
+        "AnimatedCounter",
+        "ComparisonSplit",
+        "HammerStatement",
+        "KineticTitle",
+        "PieChart",
+        "SatelliteLocate",
+        "StatTag"
+      ],
+      "emphasis": {
+        "enabled": true,
+        "per_minute": 1.5
+      }
+    }
+  },
+  "content_rules": "High-density technical explainer using clean metric callouts, satellite comparison overlays, and rapid kinetic statements over presenter/b-roll footage."
+}

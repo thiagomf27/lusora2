@@ -1,0 +1,24 @@
+{
+  "_comment": "reference: CNBC - Why 40% Of America's Salad Comes From One Company; section used: 00:00-03:15; ~448 words, ~195s spoken; density counted as 7 fact-graphics over 3.25 minutes | emphasis.per_minute raised 0.6 -> 2.0: the marks name 6 emphasis graphics in 168s (2.1/min), and a budget of 3 would have capped recall on that class at 50% before the planner started",
+  "language": "en",
+  "video_type": "explainer",
+  "style_pack": "cnbc_documentary",
+  "style_pack_doc": {
+    "name": "cnbc_documentary",
+    "video_type": "explainer",
+    "pacing": {
+      "avg_hold_seconds": 4.5,
+      "min_hold": 2.0,
+      "max_hold": 8.0,
+      "arc": "three_act"
+    },
+    "overlays": {
+      "density": "normal",
+      "emphasis": {
+        "enabled": true,
+        "per_minute": 2.0
+      }
+    }
+  },
+  "content_rules": "Corporate investigation explainer; prefer stat cards, document excerpts, and clean business metrics."
+}

@@ -1,0 +1,331 @@
+{
+  "version": "1.0",
+  "case": "neu-ref",
+  "source": {
+    "url": "local:video_1.mp4",
+    "title": "Cruise Industry Orderbook Breakdown",
+    "level": "L3",
+    "marked_by": "video_eval_teardown",
+    "marked_on": "2026-09-04"
+  },
+  "notes": "(originally filed as case 'cruise_industry_megabuild_2026') Full visual teardown of the opening 3 minutes 32 seconds. High-contrast yellow stat tag callouts, line and donut charts, document cutouts, and debt balance sheet exhibits were mapped against corresponding narration beats.",
+  "marks": [
+    {
+      "id": "m1",
+      "at": "00:00:00",
+      "source_words": "In 2019",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "opening temporal anchor establishing baseline year; the upcoming passenger figure takes visual priority"
+    },
+    {
+      "id": "m2",
+      "at": "00:00:02",
+      "source_words": "nearly 30 million people",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "StatTag",
+        "AnimatedCounter"
+      ],
+      "ideal": "StatTag",
+      "why": "headline volume callout rendered as a prominent yellow stat tag over the ship overhead shot"
+    },
+    {
+      "id": "m3",
+      "at": "00:00:05",
+      "source_words": "collapsed to under 6 million",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "StatTag",
+        "AnimatedCounter"
+      ],
+      "ideal": "AnimatedCounter",
+      "why": "the sharp collapse in passenger numbers is highlighted as a core narrative turning point"
+    },
+    {
+      "id": "m4",
+      "at": "00:00:09",
+      "source_words": "Carnival, the largest cruise company on the planet",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "Carnival is introduced but the base footage already shows a Carnival vessel with clear branding"
+    },
+    {
+      "id": "m5",
+      "at": "00:00:12",
+      "source_words": "lost more than $10 billion",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "StatTag",
+        "AnimatedCounter"
+      ],
+      "ideal": "StatTag",
+      "why": "bold stat tag placed across the ship hull highlighting annual financial losses"
+    },
+    {
+      "id": "m6",
+      "at": "00:00:16",
+      "source_words": "debt explode from roughly $10 billion to almost $35 billion",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "DataTable",
+        "DocumentCard",
+        "FramedExhibit"
+      ],
+      "ideal": "DataTable",
+      "why": "displays Carnival Corporation total debt balance sheet table highlighting the explosive debt jump"
+    },
+    {
+      "id": "m7",
+      "at": "00:00:23",
+      "source_words": "spring of 2020",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "conversational framing anchor; base article overlay already occupies the visual field"
+    },
+    {
+      "id": "m8",
+      "at": "00:00:32",
+      "source_words": "middle of 2026",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "temporal anchor leading directly into the headline 80 ships and $90B orderbook stat"
+    },
+    {
+      "id": "m9",
+      "at": "00:00:34",
+      "source_words": "orders for 80 new ships",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "co-occurs in the same clause as the $90B total figure which receives the primary graphic callout"
+    },
+    {
+      "id": "m10",
+      "at": "00:00:40",
+      "source_words": "roughly $90 billion",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "StatTag",
+        "AnimatedCounter"
+      ],
+      "ideal": "StatTag",
+      "why": "total construction cost callout overlaid directly onto shipyard aerial footage"
+    },
+    {
+      "id": "m11",
+      "at": "00:00:44",
+      "source_words": "from about 70 billion at the end of 2025 to over 90 billion today",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "PieChart",
+        "BarChart",
+        "ComparisonSplit"
+      ],
+      "ideal": "PieChart",
+      "why": "donut chart exhibit illustrating the year-over-year climb in cruise orderbook valuation"
+    },
+    {
+      "id": "m12",
+      "at": "00:00:58",
+      "source_words": "In 2021",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "date anchor preceding the single ship order fact; editor reserves graphic for the line chart sequence"
+    },
+    {
+      "id": "m13",
+      "at": "00:01:03",
+      "source_words": "exactly one new ship order",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "spoken while shipyard B-roll plays; visual focus is saved for the comparative historical peak chart"
+    },
+    {
+      "id": "m14",
+      "at": "00:01:08",
+      "source_words": "2017 and 2018, the two busiest ordering years",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "LineChart",
+        "Timeline",
+        "FactSheet"
+      ],
+      "ideal": "LineChart",
+      "why": "animated line chart tracking annual order trajectory peaking at 2017 and 2018"
+    },
+    {
+      "id": "m15",
+      "at": "00:01:19",
+      "source_words": "eight ships in 2022 and 11 in 2023",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "LineChart",
+        "Timeline",
+        "DataTable"
+      ],
+      "ideal": "LineChart",
+      "why": "continuation line chart animating order recovery points through 2022 and 2023"
+    },
+    {
+      "id": "m16",
+      "at": "00:01:34",
+      "source_words": "In 2025, a record 37.2 million people took a cruise",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "DocumentCard",
+        "FramedExhibit",
+        "FactSheet"
+      ],
+      "ideal": "DocumentCard",
+      "why": "trade publication news article cutout displaying the record passenger volume headline"
+    },
+    {
+      "id": "m17",
+      "at": "00:01:40",
+      "source_words": "up from 34.6 million the year before",
+      "verdict": "no_graphic",
+      "near_miss": "comparison",
+      "why": "secondary comparative figure already contained in the visible document card exhibit"
+    },
+    {
+      "id": "m18",
+      "at": "00:01:47",
+      "source_words": "reach 42 million by 2028",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "HighlightedPassage",
+        "QuoteBlock"
+      ],
+      "ideal": "HighlightedPassage",
+      "why": "highlighted document quote card displaying the CLIA trade group forecast"
+    },
+    {
+      "id": "m19",
+      "at": "00:01:54",
+      "source_words": "Almost 90%",
+      "verdict": "no_graphic",
+      "near_miss": "percentage",
+      "why": "spoken over scenic resort and pool deck B-roll; editor allows the footage to breathe"
+    },
+    {
+      "id": "m20",
+      "at": "00:01:59",
+      "source_words": "Nearly a third",
+      "verdict": "no_graphic",
+      "near_miss": "percentage",
+      "why": "rapid follow-up survey statistic in the same breath without dedicated card decoration"
+    },
+    {
+      "id": "m21",
+      "at": "00:02:28",
+      "source_words": "four biggest companies in the industry",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "thematic section introduction; specific brand cards follow immediately after"
+    },
+    {
+      "id": "m22",
+      "at": "00:02:37",
+      "source_words": "Norwegian Cruise Line",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "NamePlate",
+        "PortraitPlates"
+      ],
+      "ideal": "NamePlate",
+      "why": "brand nameplate identifying the first cruise conglomerate being analyzed"
+    },
+    {
+      "id": "m23",
+      "at": "00:02:40",
+      "source_words": "17 new ships",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "clause stat subordinate to total berth capacity which receives the dedicated hull graphic"
+    },
+    {
+      "id": "m24",
+      "at": "00:02:44",
+      "source_words": "roughly 47,000 berths",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "StatTag",
+        "AnimatedCounter"
+      ],
+      "ideal": "StatTag",
+      "why": "bold stat tag placed directly above the segmented cruise vessel silhouette"
+    },
+    {
+      "id": "m25",
+      "at": "00:02:49",
+      "source_words": "mainstream Norwegian, midrange Oceania, and ultra luxury Regent Seven Seas",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "FactSheet",
+        "StepFlow",
+        "DataTable"
+      ],
+      "ideal": "FactSheet",
+      "why": "corporate hierarchy graphic displaying the parent holding entity and three brand logos"
+    },
+    {
+      "id": "m26",
+      "at": "00:02:57",
+      "source_words": "MSC Cruises",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "drone footage clearly shows the MSC World Asia vessel with prominent hull branding"
+    },
+    {
+      "id": "m27",
+      "at": "00:03:00",
+      "source_words": "In December 2025",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "date header preceding the multi-billion shipyard contract document card"
+    },
+    {
+      "id": "m28",
+      "at": "00:03:06",
+      "source_words": "worth about $11.7 billion US",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "DocumentCard",
+        "FactCard",
+        "FramedExhibit"
+      ],
+      "ideal": "DocumentCard",
+      "why": "official press release document exhibit detailing MSC's Meyer Werft mega-order"
+    },
+    {
+      "id": "m29",
+      "at": "00:03:13",
+      "source_words": "230-year-old shipyard",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "historical shipyard context delivered over shipyard facility B-roll"
+    },
+    {
+      "id": "m30",
+      "at": "00:03:19",
+      "source_words": "80% ownership stake",
+      "verdict": "no_graphic",
+      "near_miss": "percentage",
+      "why": "government bailout figure narrated over working shipyard footage without visual clutter"
+    }
+  ]
+}

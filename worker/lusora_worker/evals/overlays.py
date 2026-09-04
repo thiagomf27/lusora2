@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -323,6 +324,28 @@ def load_case(case_dir: Path) -> tuple[dict[str, Any], str]:
     return marks, script_path.read_text(encoding="utf-8")
 
 
+def _narration_seconds(srt: Path) -> float:
+    """The end of the last cue — how long this case's script actually runs."""
+    ends = [
+        line.split("-->")[1].strip()
+        for line in srt.read_text(encoding="utf-8").splitlines()
+        if "-->" in line
+    ]
+    if not ends:
+        return 0.0
+    hours, minutes, seconds = ends[-1].split(":")
+    return int(hours) * 3600 + int(minutes) * 60 + float(seconds.replace(",", "."))
+
+
+def _density_per_minute(overlays: dict[str, Any]) -> float:
+    """Mirrors validators.overlays_per_minute — the ceiling a case is judged by
+    has to be the one the validator will actually apply."""
+    density = overlays.get("density", "normal")
+    if isinstance(density, dict):
+        return float(density.get("per_minute", 2.5))
+    return {"low": 1.0, "normal": 2.5, "high": 5.0}.get(str(density), 2.5)
+
+
 def check_case(case_dir: Path) -> list[str]:
     """Everything wrong with a case, before a single provider call is made.
 
@@ -383,6 +406,7 @@ def check_case(case_dir: Path) -> list[str]:
     catalog = {c["name"]: c for c in load_catalog()["components"]}
 
     graphic = negative = near_miss = 0
+    anchor_marks = emphasis_marks = 0
     for mark in marks.get("marks") or []:
         mid = mark.get("id", "?")
         words = normalize(str(mark.get("source_words", "")))
@@ -407,6 +431,10 @@ def check_case(case_dir: Path) -> list[str]:
             continue
 
         graphic += 1
+        if mark.get("class") == "emphasis":
+            emphasis_marks += 1
+        else:
+            anchor_marks += 1
         acceptable = mark.get("acceptable") or []
         if mark.get("ideal") is not None and mark["ideal"] not in acceptable:
             problems.append(f"{mid}: ideal {mark['ideal']!r} is not one of acceptable {acceptable}")
@@ -431,6 +459,38 @@ def check_case(case_dir: Path) -> list[str]:
                 "overlays.emphasis.enabled — the planner is forbidden to place one, "
                 "so scoring it would be unfair. Enable the class or mark it unmappable"
             )
+
+    # The budget must permit what the ground truth says belongs there. The
+    # validator refuses a sheet that exceeds the density ceiling, so a case
+    # marking more graphics than its own pack allows has capped its own recall
+    # at budget/marks — the planner cannot reach 100% however well it judges.
+    # Needs the narration length, which is what subtitles.srt is for.
+    srt = case_dir / "subtitles.srt"
+    if srt.exists() and (anchor_marks or emphasis_marks):
+        seconds = _narration_seconds(srt)
+        if seconds:
+            per_minute = _density_per_minute(overlays_cfg)
+            ceiling = math.ceil(per_minute * seconds / 60) + 1
+            if anchor_marks > ceiling:
+                problems.append(
+                    f"{anchor_marks} anchor marks but the density budget allows only "
+                    f"{ceiling} for {seconds:.0f}s ({per_minute:g}/min) — recall is capped "
+                    f"at {100 * ceiling / anchor_marks:.0f}% before the planner starts. "
+                    f"Raise overlays.density to at least {(anchor_marks - 1) * 60 / seconds:.1f}"
+                    "/min, or mark fewer graphics"
+                )
+            emphasis = overlays_cfg.get("emphasis") or {}
+            if emphasis_marks:
+                emax = (
+                    math.ceil(float(emphasis.get("per_minute", 1.0)) * seconds / 60) + 1
+                    if emphasis.get("enabled") else 0
+                )
+                if emphasis_marks > emax:
+                    problems.append(
+                        f"{emphasis_marks} emphasis marks but that class's budget allows only "
+                        f"{emax} for {seconds:.0f}s — raise overlays.emphasis.per_minute to at "
+                        f"least {(emphasis_marks - 1) * 60 / seconds:.1f}, or mark fewer"
+                    )
 
     # advisory: a case can be valid and still too small to measure anything
     total = graphic + negative

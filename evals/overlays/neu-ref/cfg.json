@@ -1,0 +1,24 @@
+{
+  "_comment": "reference: Cruise Industry Mega Order Boom Teardown; section used: 00:00-03:32; ~530 words, ~212s spoken; density counted as 12 fact-graphics and text exhibits over 3.53 minutes",
+  "language": "en",
+  "video_type": "breakdown",
+  "style_pack": "business_video_breakdown",
+  "style_pack_doc": {
+    "name": "business_video_breakdown",
+    "video_type": "breakdown",
+    "pacing": {
+      "avg_hold_seconds": 5.4,
+      "min_hold": 2.0,
+      "max_hold": 10.0,
+      "arc": "linear"
+    },
+    "overlays": {
+      "density": "normal",
+      "emphasis": {
+        "enabled": true,
+        "per_minute": 2.0
+      }
+    }
+  },
+  "content_rules": "High-contrast stat tags over B-roll and editorial financial exhibits; avoid stacking graphics across adjacent clauses."
+}

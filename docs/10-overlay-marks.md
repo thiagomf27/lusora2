@@ -256,6 +256,14 @@ case that fails one is rejected rather than scored:
    verdict carries it.
 8. `graphic` marks carry no `near_miss`; `no_graphic` marks carry no `class`,
    `acceptable` or `ideal`.
+9. **The budget permits the ground truth.** Count your `graphic` marks of each
+   class and check them against the ceiling your own `cfg.json` sets:
+   `ceil(per_minute × seconds / 60) + 1`, and the same for
+   `emphasis.per_minute`. Marking 14 anchor graphics into a budget of 8 caps
+   recall at 57% before the planner starts — the validator refuses a sheet over
+   the ceiling, so those six can never be placed. If your marks exceed the
+   budget, your density estimate was too low: the marks ARE fact-carrying
+   graphics you saw, so raise the density to match them.
 
 **RULES**
 

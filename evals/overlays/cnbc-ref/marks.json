@@ -1,0 +1,298 @@
+{
+  "version": "1.0",
+  "case": "cnbc-ref",
+  "source": {
+    "url": "https://www.youtube.com/watch?v=video_1",
+    "title": "Why 40% Of America's Salad Comes From One Company",
+    "level": "L3",
+    "marked_by": "assistant",
+    "marked_on": "2026-09-04"
+  },
+  "notes": "(originally filed as case 'cnbc_taylor_farms') Full visual inspection of the opening segment (00:00-03:15). CNBC uses StatTag/AnimatedCounter overlays on headline financial figures, PieChart for market breakdown, ChapterCard for segment transitions, and DocumentCard/ArchivalFrame for news clippings and FDA notices, while leaving narrative commentary and fast B-roll undecorated.",
+  "marks": [
+    {
+      "id": "m1",
+      "at": "00:00:02",
+      "source_words": "having Chipotle",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "Casual opening mention; the visual is fast food kitchen B-roll and decorating the brand name here would clutter the cold open."
+    },
+    {
+      "id": "m2",
+      "at": "00:00:08",
+      "source_words": "come from Taylor Farms",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "The company name is already visible on the physical plant exterior in the base shot."
+    },
+    {
+      "id": "m3",
+      "at": "00:00:12",
+      "source_words": "7.3 billion dollars",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "StatTag"
+      ],
+      "ideal": "AnimatedCounter",
+      "why": "Key corporate revenue statistic featured prominently with full animated number counter callout."
+    },
+    {
+      "id": "m4",
+      "at": "00:00:17",
+      "source_words": "supply chain",
+      "verdict": "no_graphic",
+      "why": "General framing statement supported by B-roll of trucking logistics."
+    },
+    {
+      "id": "m5",
+      "at": "00:00:26",
+      "source_words": "good prices",
+      "verdict": "no_graphic",
+      "why": "Interview soundbite emphasizing consumer benefit; no quantitative anchor to render."
+    },
+    {
+      "id": "m6",
+      "at": "00:00:34",
+      "source_words": "downstream logistics food chain",
+      "verdict": "no_graphic",
+      "why": "Conceptual explanation over aerial footage of vegetable crates."
+    },
+    {
+      "id": "m7",
+      "at": "00:00:41",
+      "source_words": "facilities in Mexico",
+      "verdict": "no_graphic",
+      "near_miss": "place",
+      "why": "Geographic context given in narration while screen displays breaking news articles."
+    },
+    {
+      "id": "m8",
+      "at": "00:00:43",
+      "source_words": "cyclosporiasis and salmonella outbreaks",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ArchivalFrame",
+        "DocumentCard",
+        "FactCard"
+      ],
+      "ideal": "DocumentCard",
+      "why": "Visual cut to stacked torn-paper news headlines reporting multi-state product recalls."
+    },
+    {
+      "id": "m9",
+      "at": "00:00:52",
+      "source_words": "multi-state recalls",
+      "verdict": "no_graphic",
+      "why": "News headlines are already established on screen; stacking additional overlays would overload the viewer."
+    },
+    {
+      "id": "m10",
+      "at": "00:00:58",
+      "source_words": "FDA updated food safety guidelines",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ArchivalFrame",
+        "DocumentCard",
+        "FactCard"
+      ],
+      "ideal": "DocumentCard",
+      "why": "Official regulatory notice shown on screen via highlighted web publication header."
+    },
+    {
+      "id": "m11",
+      "at": "00:01:05",
+      "source_words": "same time as cyclospora",
+      "verdict": "no_graphic",
+      "why": "Rhetorical question from a broadcast clip; editorial restraint keeps focus on the speaker."
+    },
+    {
+      "id": "m12",
+      "at": "00:01:15",
+      "source_words": "dozens of foodborne illness outbreaks",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "Vague non-specific count used colloquially; precise data overlay is inappropriate."
+    },
+    {
+      "id": "m13",
+      "at": "00:01:23",
+      "source_words": "Nobody's tested and found anything on our farm",
+      "verdict": "no_graphic",
+      "near_miss": "quote",
+      "why": "Paraphrased company stance delivered directly in dialogue; no quote card needed."
+    },
+    {
+      "id": "m14",
+      "at": "00:01:38",
+      "source_words": "full market share",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ChapterCard",
+        "KineticTitle"
+      ],
+      "ideal": "ChapterCard",
+      "why": "Acts as chapter break title card introducing the market structure breakdown."
+    },
+    {
+      "id": "m15",
+      "at": "00:01:45",
+      "source_words": "three different segments",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "Complex custom animated multi-tier infographic with brand logo badges and custom cartoon assets."
+    },
+    {
+      "id": "m16",
+      "at": "00:01:52",
+      "source_words": "Taco Bell",
+      "verdict": "no_graphic",
+      "near_miss": "name",
+      "why": "Fast list of client restaurants inside an ongoing animated sequence."
+    },
+    {
+      "id": "m17",
+      "at": "00:01:58",
+      "source_words": "competitive advantage is its infrastructure",
+      "verdict": "no_graphic",
+      "why": "High-level thesis statement delivered by the on-camera presenter."
+    },
+    {
+      "id": "m18",
+      "at": "00:02:02",
+      "source_words": "hundreds of family farms",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "PieChart",
+        "StatTag"
+      ],
+      "ideal": "PieChart",
+      "why": "Screen presents pie chart breaking down vegetable supply between family-owned farms (75%) and Taylor Farms (25%)."
+    },
+    {
+      "id": "m19",
+      "at": "00:02:07",
+      "source_words": "Taylor does the rest",
+      "verdict": "no_graphic",
+      "why": "Conversational transition moving into operational pipeline animation."
+    },
+    {
+      "id": "m20",
+      "at": "00:02:11",
+      "source_words": "refrigerating, washing, chopping, packaging, labeling, shipping, and distributing",
+      "verdict": "unmappable",
+      "excluded_from_scoring": true,
+      "why": "Full-screen custom animated motion graphic showing produce moving through refrigeration, washing, and trucking."
+    },
+    {
+      "id": "m21",
+      "at": "00:02:18",
+      "source_words": "40% of all salad kits",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "AnimatedCounter",
+        "PieChart",
+        "StatTag"
+      ],
+      "ideal": "PieChart",
+      "why": "The centerpiece market share statistic of the video, displayed via pie chart graphic."
+    },
+    {
+      "id": "m22",
+      "at": "00:02:24",
+      "source_words": "founded in 1995",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Passing background date anchor in a compound sentence that culminates in later M&A milestones."
+    },
+    {
+      "id": "m23",
+      "at": "00:02:27",
+      "source_words": "by 2010",
+      "verdict": "no_graphic",
+      "near_miss": "date",
+      "why": "Chronological marker leading into the acquisition spree; not independently highlighted."
+    },
+    {
+      "id": "m24",
+      "at": "00:02:33",
+      "source_words": "next 15 years",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "Time duration framing the subsequent deal list."
+    },
+    {
+      "id": "m25",
+      "at": "00:02:36",
+      "source_words": "at least a dozen companies",
+      "verdict": "no_graphic",
+      "near_miss": "number",
+      "why": "Introductory summary number preceding the specific company press releases."
+    },
+    {
+      "id": "m26",
+      "at": "00:02:40",
+      "source_words": "Earthbound Farm in 2019",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ArchivalFrame",
+        "DocumentCard",
+        "FactCard"
+      ],
+      "ideal": "DocumentCard",
+      "why": "Official corporate acquisition press release displayed as a document graphic."
+    },
+    {
+      "id": "m27",
+      "at": "00:02:44",
+      "source_words": "Club Chef",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ArchivalFrame",
+        "DocumentCard",
+        "FactCard"
+      ],
+      "ideal": "DocumentCard",
+      "why": "Second corporate acquisition announcement document flipped onto screen."
+    },
+    {
+      "id": "m28",
+      "at": "00:02:47",
+      "source_words": "FarmWise in 2025",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "ArchivalFrame",
+        "DocumentCard",
+        "FactCard"
+      ],
+      "ideal": "DocumentCard",
+      "why": "Third press release card showcasing Taylor Farms' agtech robotics acquisition."
+    },
+    {
+      "id": "m29",
+      "at": "00:02:53",
+      "source_words": "multiple locations all over the country",
+      "verdict": "no_graphic",
+      "why": "General business argument illustrated with storefront exterior B-roll."
+    },
+    {
+      "id": "m30",
+      "at": "00:03:08",
+      "source_words": "major multinational company",
+      "verdict": "no_graphic",
+      "near_miss": "comparison",
+      "why": "Concluding contrast between multinational suppliers and local farmers in expert commentary."
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "_comment": "reference: https://www.youtube.com/watch?v=XaHRd7rhGKo; section used: 00:10-04:20; ~420 words, ~245s spoken; density counted as 12 fact-graphics over 4.1 minutes (2.9/min) | density raised 'normal' (2.5/min) -> 5.0/min: the marks name 14 anchor graphics in 164s (5.1/min), and the 2.5 budget capped recall at 57% before the planner started",
+  "language": "en",
+  "video_type": "breakdown",
+  "style_pack": "good_news_digest",
+  "style_pack_doc": {
+    "name": "good_news_digest",
+    "video_type": "breakdown",
+    "pacing": {
+      "avg_hold_seconds": 4.2,
+      "min_hold": 2,
+      "max_hold": 8,
+      "arc": "three_act"
+    },
+    "overlays": {
+      "density": {
+        "per_minute": 5.0
+      },
+      "allowed_components": [
+        "AnimatedCounter",
+        "RankLabel",
+        "StatTag",
+        "PieChart",
+        "BarChart",
+        "ComparisonSplit",
+        "RouteMap",
+        "SatelliteLocate",
+        "DateStamp",
+        "NamePlate",
+        "PortraitPlates",
+        "HighlightedPassage",
+        "QuoteBlock",
+        "ChapterCard",
+        "FactCard",
+        "HammerStatement",
+        "KineticTitle",
+        "LineChart",
+        "Timeline"
+      ],
+      "emphasis": {
+        "enabled": true,
+        "per_minute": 0.8
+      }
+    }
+  },
+  "content_rules": "Show verified fact anchors cleanly on key metrics; avoid decorative clutter during scenic wildlife or landscape footage."
+}
