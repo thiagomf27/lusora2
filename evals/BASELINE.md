@@ -298,11 +298,81 @@ topped up**, or until the planner is pointed at another provider. `ANTHROPIC_API
 is present and would work, but it is a different model and every number above
 would have to be retaken against it.
 
+## The confound, separated — and what the noise actually is (2026-09-04)
+
+Three arms, all on slice-2 code. B and C differ **only** in temperature, so the
+pair isolates it:
+
+| arm | temperature | JSON mode |
+|---|---|---|
+| A | 0.7 | off |
+| B | 0.2 | on |
+| C | 0.7 | on |
+
+| case | axis | B (0.2) | C (0.7) |
+|---|---|---|---|
+| pearl-harbor-doc | recall | 75, 50, 25 — spread **50.0** | 75, 50 — spread 25.0 |
+| pearl-harbor-doc | restraint | 87.5, 75, 57.1 — spread **30.4** | 80, 71.4 — spread 8.6 |
+| millennium-bridge | recall | 66.7, 100, 66.7 | 83.3, 100 — spread 16.7 |
+| millennium-bridge | restraint | 100, 80, 100 | 100, 100 — spread **0.0** |
+
+**Temperature is confirmed dead on this model.** Holding JSON mode on, dropping
+0.7 to 0.2 did not reduce the spread on either case, and on both the LOWER
+temperature was the noisier arm. The reasoning trace is where the variance
+lives and `temperature` does not govern it.
+
+(One bookkeeping note: a refill run reused a filename and overwrote an earlier
+`millennium-bridge.3` sheet that had scored 100 recall. Three observations were
+taken on that cell — 66.7, 100, 66.7 — and only two survive as files.)
+
+### Most of the "variance" is granularity, not randomness
+
+`pearl-harbor-doc` has **4** graphic marks, so recall can only ever be 0, 25,
+50, 75 or 100. A 25-point "swing" is ONE mark changing. The scores look violent
+because the denominators are tiny.
+
+### The signal is at the mark, not at the run
+
+Failure rate per mark, across all nine sheets from every arm:
+
+```
+pearl-harbor-doc (5 sheets)
+  m1   no_graphic  overdone 4/5   "December 7th, 1941"          <- reliable bias
+  m11  no_graphic  overdone 3/5   "The House agreed, 388 to 1"
+  m13  graphic     missed   4/5   "more than 1,900 a year"      <- reliable miss
+  m10  graphic     missed   3/5   "82 votes to nothing"
+  m9   graphic     missed   0/5   "a date which will live in infamy"
+  m2 m4 m5 m7 m12  overdone 0/5   (five negatives, never violated)
+
+millennium-bridge-breakdown (4 sheets)
+  every mark 0/4 or 1/4 — the model is simply right on this case
+```
+
+The run-level score bounces; the **mark-level behaviour is stable and legible**.
+The planner reliably puts a date card on the opening sentence and reliably
+misses the 1943 payoff. Those are findings. "Recall was 50% that time" is not.
+
+### What this means for the instrument
+
+The eval should aggregate **per mark across N runs**, not compare single runs:
+
+- a mark's failure rate over 5 runs moves in 20-point steps instead of a
+  4-mark recall moving in 25-point steps, and it averages out the sampling
+- it names WHICH judgement changed, which is what a prompt fix needs
+- it costs no extra provider calls beyond the runs already being made
+
+Denser cases (20-30 marks rather than 12) are the other half, and that is
+authoring rather than compute.
+
+**Do this before slice 5.** Slice 5 exists to move restraint; measuring it with
+an instrument whose noise floor is 50 points would answer nothing.
+
 ## Log
 
 | date | slice | what changed | cases | note |
 |---|---|---|---|---|
 | 2026-09-03 | 1 | — | 2 | baseline taken from runs of 2026-07-25/26. No new provider spend: the sheets already existed |
+| 2026-09-04 | 3b | confound separated | 3 arms | Temperature CONFIRMED inert on deepseek-v4-pro: with JSON mode held constant, 0.2 was noisier than 0.7 on both cases. Most run-level spread is mark-count granularity; per-mark failure rates are stable. Scorer should aggregate across runs before slice 5 |
 | 2026-09-04 | 3 | per-role temperature + JSON mode | 2 × 2 runs | FAILED its exit criterion: 0.2 did not reduce the spread, and the breakdown case went from perfectly stable to unstable. Confounded with JSON mode. Measurement then blocked on provider balance |
 | 2026-09-03 | 2 | menu diet + prompt hygiene | 2 × 2 runs × 2 arms | July baseline invalidated (model changed) and re-taken. Input tokens −31%/−33%. `props_hint` all but disappeared, taking the planner's `emphasis` override with it. Quality NOT established: identical code scored 75% and 25% recall on one case, so the noise floor is wider than the effect |
 
