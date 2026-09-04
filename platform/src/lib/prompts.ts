@@ -33,6 +33,7 @@ export interface PromptDoc {
   user?: string;
   model_hint?: string | null;
   max_tokens?: number | null;
+  temperature?: number | null;
 }
 
 export interface RoleVariable {
@@ -54,6 +55,7 @@ export interface ResolvedPrompt {
   user?: string;
   model_hint?: string | null;
   max_tokens?: number | null;
+  temperature?: number | null;
 }
 
 export function isPromptRole(value: unknown): value is PromptRole {
@@ -171,6 +173,29 @@ export function compose(
  * silently renders as nothing), and a required variable that survives in
  * neither half means the model would never see the thing it is working on.
  */
+/**
+ * What a prompt pack that names no `temperature` gets (D85).
+ * Mirrors HOUSE_TEMPERATURE in the contracts package's Python half.
+ */
+export const HOUSE_TEMPERATURE = 0.7;
+
+/**
+ * The sampling temperature for one call, resolved the way `compose` resolves
+ * the prompt itself: snapshot first, built-in default second. Absent or null
+ * means the house default — a pack states a temperature only where it has an
+ * opinion.
+ */
+export function promptTemperature(
+  role: PromptRole,
+  // either half of the pair: the file on disk, or the cfg.json snapshot that
+  // was made from it — both carry the field on the same terms
+  doc?: Pick<PromptDoc, "temperature"> | null
+): number {
+  const resolved = doc ?? readPrompt(role, "default");
+  const value = resolved?.temperature;
+  return value == null ? HOUSE_TEMPERATURE : value;
+}
+
 export function validatePrompt(doc: PromptDoc): string[] {
   const errors: string[] = [];
   if (!isPromptRole(doc?.role)) return [`role must be one of ${PROMPT_ROLES.join(", ")}`];
@@ -255,6 +280,9 @@ export function resolvePrompt(
         ...(doc.user ? { user: doc.user } : {}),
         ...(doc.model_hint ? { model_hint: doc.model_hint } : {}),
         ...(doc.max_tokens ? { max_tokens: doc.max_tokens } : {}),
+        // `?? undefined` rather than a truthiness test: 0 is a legal
+        // temperature and the most deliberate one anybody could write
+        ...(doc.temperature != null ? { temperature: doc.temperature } : {}),
       },
     };
   }

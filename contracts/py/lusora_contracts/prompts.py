@@ -117,6 +117,26 @@ def render(template: str, variables: dict[str, Any]) -> str:
     return _VAR_RE.sub(var, text)
 
 
+# What a prompt pack that names no `temperature` gets (D85). It lives here, with
+# the pack format, because it is a fact about prompt packs rather than about any
+# one backend — the worker's llm adapter imports it, and the platform mirrors it.
+HOUSE_TEMPERATURE = 0.7
+
+
+def temperature(role: str, prompt: dict[str, Any] | None) -> float:
+    """The sampling temperature for one call.
+
+    Resolved exactly the way `compose` resolves the prompt itself — snapshot
+    first, built-in default second — so a video enqueued before this field
+    existed reads its pack's temperature rather than silently taking the house
+    number. ABSENT (or null) means the house default: a pack states a
+    temperature only where it has an opinion, and three of them do.
+    """
+    doc = prompt if prompt is not None else load_prompt(role, "default")
+    value = doc.get("temperature")
+    return HOUSE_TEMPERATURE if value is None else float(value)
+
+
 def compose(
     role: str,
     prompt: dict[str, Any] | None,

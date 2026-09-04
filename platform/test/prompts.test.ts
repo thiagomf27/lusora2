@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  HOUSE_TEMPERATURE,
   compose,
   listPrompts,
   loadRoles,
+  promptTemperature,
+  readPrompt,
   render,
   resolvePrompt,
   usedVariables,
@@ -164,4 +167,34 @@ test("the snapshot carries text, not a name, and never the welded half", () => {
   assert.ok("resolved" in out);
   assert.ok(out.resolved.system.length > 0);
   assert.ok(!out.resolved.system.includes("Output ONLY the narration text"));
+});
+
+/**
+ * Per-role temperature (D85). Mirrors test_agents.py's temperature tests —
+ * the platform's chat agent resolves the field the same way the worker's
+ * agents do, or the same pack would mean two things.
+ */
+test("a pack that names a temperature gets it; one that does not gets the house default", () => {
+  assert.equal(HOUSE_TEMPERATURE, 0.7);
+  assert.equal(promptTemperature("planner", { temperature: 0.2 } as PromptDoc), 0.2);
+  assert.equal(promptTemperature("planner", { temperature: null } as PromptDoc), 0.7);
+  assert.equal(promptTemperature("planner", {} as PromptDoc), 0.7);
+  // 0 is a legal temperature and the most deliberate one anybody could write,
+  // so it must survive the null check rather than being read as absent
+  assert.equal(promptTemperature("planner", { temperature: 0 } as PromptDoc), 0);
+});
+
+test("the shipped packs agree with the worker on which roles have an opinion", () => {
+  for (const role of ["planner", "spine", "chat"] as const) {
+    assert.equal(promptTemperature(role, readPrompt(role, "default")), 0.2, role);
+  }
+  for (const role of ["script", "research"] as const) {
+    assert.equal(promptTemperature(role, readPrompt(role, "default")), HOUSE_TEMPERATURE, role);
+  }
+});
+
+test("the snapshot carries temperature so an in-flight video is not re-tuned", () => {
+  const outcome = resolvePrompt({ planner: {} }, "planner");
+  assert.ok("resolved" in outcome, "the default planner pack must resolve");
+  assert.equal(outcome.resolved.temperature, 0.2);
 });

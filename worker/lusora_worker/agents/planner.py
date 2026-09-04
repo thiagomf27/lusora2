@@ -239,7 +239,11 @@ def _spine_sections(
             ctx, stage=STAGE, provider=provider, operation="llm.plan_spine",
             estimated_units=2000, details={"sections": section_count},
         ) as cost:
-            result = chat_fn(provider, model, system, user, int((prompt or {}).get("max_tokens") or SPINE_MAX_TOKENS))
+            result = chat_fn(
+                provider, model, system, user,
+                int((prompt or {}).get("max_tokens") or SPINE_MAX_TOKENS),
+                prompt_packs.temperature(SPINE_ROLE, prompt),
+            )
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens})
         doc = llm.extract_json(result.text)
@@ -402,6 +406,10 @@ def _plan_chunk(
     # (billing is on actual tokens), so buy headroom rather than track the
     # spread. Verified: the API accepts max_tokens=64000 for deepseek-v4-*.
     max_tokens = int((prompt or {}).get("max_tokens") or 64000)
+    # 0.2, from the pack (D85). This call emits strict JSON against a schema a
+    # validator is about to reject, so variance is pure loss and a repair loop
+    # pays for it twice.
+    temperature = prompt_packs.temperature(ROLE, prompt)
     system, base_user = _build_prompt(
         ctx, script, audio_duration_s,
         full_script=full_script, carry_forward=carry_forward,
@@ -423,7 +431,7 @@ def _plan_chunk(
             },
         ) as cost:
             # reasoning models spend 4-16k tokens thinking before the JSON starts
-            result = chat_fn(provider, model, system, user, max_tokens)
+            result = chat_fn(provider, model, system, user, max_tokens, temperature)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens,
                                               "attempt": attempt})

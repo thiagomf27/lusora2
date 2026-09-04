@@ -239,11 +239,71 @@ question is deferred to the first eval taken after the temperature comes down.
 slice is judged, and the variance re-measurement it carries is now the gate for
 re-reading this whole table rather than a sanity check inside it.
 
+## Slice 3 — temperature 0.2 did NOT reduce the spread
+
+The exit criterion was "lower variance at 0.2 is the expected result". It did
+not appear. Two runs per case at 0.2 (JSON mode on), against the 0.7 arm above:
+
+| case | axis | spread at 0.7 | spread at 0.2 |
+|---|---|---|---|
+| pearl-harbor-doc | recall | 25.0 (50.0, 75.0) | 25.0 (75.0, 50.0) |
+| pearl-harbor-doc | restraint | 23.3 (60.0, 83.3) | **12.5** (87.5, 75.0) |
+| millennium-bridge | recall | **0.0** (100, 100) | 33.3 (66.7, 100) |
+| millennium-bridge | restraint | **0.0** (100, 100) | 20.0 (100, 80.0) |
+| millennium-bridge | accuracy | 0.0 (100, 100) | 16.7 (100, 83.3) |
+
+The doc case's restraint spread halved. The breakdown case went from **perfectly
+stable** at 0.7 to visibly unstable at 0.2, on three of four axes. Net: no
+evidence that the temperature did anything, and one case pointing the wrong way.
+
+**The likely reason, stated as a hypothesis rather than a finding:**
+`deepseek-v4-pro` is a REASONING model. Its output variance comes largely from
+the reasoning trace, which `temperature` does not govern the way it governs a
+plain completion — so the knob may simply not be connected to the thing that
+moves. The wire test confirms only that the parameter is SENT and accepted, not
+that it is honoured.
+
+**A confound this arm cannot separate.** Slice 3 changed two things at once:
+temperature 0.7 -> 0.2, and `response_format: {"type": "json_object"}` from off
+to on for deepseek. The 0.2 arm therefore differs from the 0.7 arm in two ways,
+and no run in this table isolates either. Separating them needs a third arm
+(JSON mode on, temperature 0.7), which is one more run per case.
+
+**n = 2 per cell.** This is not enough to call either way, and saying so is the
+point: the spread is being estimated from two samples, which is exactly the
+weakness that made slice 2 unjudgeable. It is recorded because the expected
+result failed to appear, not because the opposite was proved.
+
+### What this means for the plan
+
+The plan assumed the variance was a knob, and that turning it down would make
+every later slice measurable. On this model it is not. Three ways forward, none
+of them "carry on as written":
+
+1. **Average instead of pinning.** Accept the spread and raise runs per arm
+   (5+), comparing means rather than single runs. Honest, and roughly triples
+   the provider cost of every exit criterion.
+2. **Change the planner's model** to a non-reasoning one for the eval, where
+   temperature does what it is documented to do. Changes what is being measured.
+3. **Separate the confound first** — one more arm at JSON-mode-on/0.7 — before
+   deciding anything. Cheapest, and answers a question that will otherwise sit
+   under every later number.
+
+### Measurement is blocked
+
+The deepseek account returned `402 Insufficient Balance` partway through this
+arm, which is why two of the six planned runs are missing and why the third run
+of each case was never taken. **No further eval can run until the balance is
+topped up**, or until the planner is pointed at another provider. `ANTHROPIC_API_KEY`
+is present and would work, but it is a different model and every number above
+would have to be retaken against it.
+
 ## Log
 
 | date | slice | what changed | cases | note |
 |---|---|---|---|---|
 | 2026-09-03 | 1 | — | 2 | baseline taken from runs of 2026-07-25/26. No new provider spend: the sheets already existed |
+| 2026-09-04 | 3 | per-role temperature + JSON mode | 2 × 2 runs | FAILED its exit criterion: 0.2 did not reduce the spread, and the breakdown case went from perfectly stable to unstable. Confounded with JSON mode. Measurement then blocked on provider balance |
 | 2026-09-03 | 2 | menu diet + prompt hygiene | 2 × 2 runs × 2 arms | July baseline invalidated (model changed) and re-taken. Input tokens −31%/−33%. `props_hint` all but disappeared, taking the planner's `emphasis` override with it. Quality NOT established: identical code scored 75% and 25% recall on one case, so the noise floor is wider than the effect |
 
 Append one row per slice. A slice that does not move a score is a result and

@@ -15,13 +15,51 @@ from typing import Callable
 
 import httpx
 
+from lusora_contracts.prompts import HOUSE_TEMPERATURE
+
 from ..errors import StageError
 
-# provider -> (kind, base_url, default_model, env var)
-PROVIDERS: dict[str, tuple[str, str, str, str]] = {
-    "deepseek": ("openai", "https://api.deepseek.com/v1", "deepseek-v4-pro", "DEEPSEEK_API_KEY"),
-    "openai": ("openai", "https://api.openai.com/v1", "gpt-4o-mini", "OPENAI_API_KEY"),
-    "anthropic": ("anthropic", "https://api.anthropic.com/v1", "claude-haiku-4-5-20251001", "ANTHROPIC_API_KEY"),
+
+@dataclass(frozen=True)
+class Provider:
+    """What a backend is and what it can actually do.
+
+    The last two fields are CAPABILITIES, and they are declared here for the
+    reason D13 put prices in a table: a capability that is assumed cannot be
+    told apart from one that was silently ignored. `json_mode` is an
+    openai-KIND feature, not an openai-kind guarantee — a compatible endpoint
+    that does not have it answers a `response_format` key with a 400 that reads
+    like a prompt bug. `max_temperature` is the same mistake in the other
+    direction: the prompt schema's 0-2 is OpenAI's range and Anthropic's is 1,
+    so a pack that legally asks for 1.5 must be clamped by the provider that
+    cannot take it rather than rejected by a schema that cannot know which
+    provider a channel picked (D85).
+    """
+
+    kind: str
+    base_url: str
+    default_model: str
+    env_var: str
+    json_mode: bool
+    max_temperature: float
+
+
+PROVIDERS: dict[str, Provider] = {
+    "deepseek": Provider(
+        "openai", "https://api.deepseek.com/v1", "deepseek-v4-pro", "DEEPSEEK_API_KEY",
+        json_mode=True, max_temperature=2.0,
+    ),
+    "openai": Provider(
+        "openai", "https://api.openai.com/v1", "gpt-4o-mini", "OPENAI_API_KEY",
+        json_mode=True, max_temperature=2.0,
+    ),
+    "anthropic": Provider(
+        "anthropic", "https://api.anthropic.com/v1", "claude-haiku-4-5-20251001",
+        "ANTHROPIC_API_KEY",
+        # the Messages API has no response_format; asking for JSON is a prompt
+        # instruction there, which is what the welded half already does
+        json_mode=False, max_temperature=1.0,
+    ),
 }
 
 
@@ -36,17 +74,28 @@ class LLMResult:
         return self.input_tokens + self.output_tokens
 
 
-# test seam: chat(provider, model, system, user, max_tokens) -> LLMResult
-ChatFn = Callable[[str, str | None, str, str, int], LLMResult]
+# test seam: chat(provider, model, system, user, max_tokens, temperature) -> LLMResult
+#
+# Temperature is at the SEAM rather than inside the adapter so that a test can
+# assert what a role called at without touching the network (D85).
+ChatFn = Callable[..., LLMResult]
 
 
-def chat(provider: str, model: str | None, system: str, user: str, max_tokens: int = 4000) -> LLMResult:
+def chat(
+    provider: str,
+    model: str | None,
+    system: str,
+    user: str,
+    max_tokens: int = 4000,
+    temperature: float = HOUSE_TEMPERATURE,
+) -> LLMResult:
     if provider not in PROVIDERS:
         raise StageError(
             "llm",
             f"unknown llm provider '{provider}' — known: {sorted(PROVIDERS)} (or 'mock' for the deterministic fallback)",
         )
-    kind, base_url, default_model, env_var = PROVIDERS[provider]
+    spec = PROVIDERS[provider]
+    kind, base_url, default_model, env_var = spec.kind, spec.base_url, spec.default_model, spec.env_var
     api_key = os.environ.get(env_var)
     if not api_key:
         raise StageError(
@@ -54,21 +103,28 @@ def chat(provider: str, model: str | None, system: str, user: str, max_tokens: i
             f"provider '{provider}' needs {env_var} in .env — set it, or switch the channel to llm 'mock'",
         )
     model = model or default_model
+    # clamped by the backend that cannot take it, never rejected by the schema
+    temperature = max(0.0, min(float(temperature), spec.max_temperature))
 
     try:
         if kind == "openai":
+            body: dict = {
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+            # only where the provider DECLARES it: a backend that does not have
+            # JSON mode answers the key with a 400 that reads like a prompt bug
+            if spec.json_mode:
+                body["response_format"] = {"type": "json_object"}
             resp = httpx.post(
                 f"{base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "max_tokens": max_tokens,
-                    "temperature": 0.7,
-                },
+                json=body,
                 timeout=180,
             )
             resp.raise_for_status()
@@ -103,6 +159,10 @@ def chat(provider: str, model: str | None, system: str, user: str, max_tokens: i
                     "system": system,
                     "messages": [{"role": "user", "content": user}],
                     "max_tokens": max_tokens,
+                    # this path used to send nothing, so it ran at the API's own
+                    # default of 1.0 — the loudest setting in the system, on the
+                    # provider nobody had checked (D85)
+                    "temperature": temperature,
                 },
                 timeout=180,
             )

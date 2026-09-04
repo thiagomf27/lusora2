@@ -14,7 +14,7 @@ import { loadEnv } from "./env";
 import { ApiError } from "./auth";
 import type { BeatOp } from "./beatEdit";
 import type { PlanOp } from "./planEdit";
-import { compose, readPrompt, type ResolvedPrompt } from "./prompts";
+import { compose, promptTemperature, readPrompt, type ResolvedPrompt } from "./prompts";
 
 export interface ChatProposal {
   explanation: string;
@@ -54,6 +54,9 @@ export async function propose(
   });
 
   const maxTokens = doc.max_tokens ?? 12000;
+  // 0.2, from the pack (D85). The chat agent emits strict edit ops against a
+  // vocabulary the route is about to reject, so variance is pure loss here too.
+  const temperature = promptTemperature("chat", doc);
   let text: string;
   if (deepseekKey) {
     const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -66,6 +69,8 @@ export async function propose(
           { role: "user", content: user },
         ],
         max_tokens: maxTokens,
+        temperature,
+        response_format: { type: "json_object" },
       }),
     });
     if (!res.ok) throw new ApiError(502, `deepseek error ${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -83,6 +88,9 @@ export async function propose(
         system,
         messages: [{ role: "user", content: user }],
         max_tokens: maxTokens,
+        // the Messages API has no response_format, and its ceiling is 1 rather
+        // than 2 — both declared per provider in the worker's table (D85)
+        temperature: Math.min(temperature, 1),
       }),
     });
     if (!res.ok) throw new ApiError(502, `anthropic error ${res.status}: ${(await res.text()).slice(0, 200)}`);

@@ -81,6 +81,10 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
 
     max_tokens = int((prompt or {}).get("max_tokens") or 8000)
     model = cfg_script.get("model") or (prompt or {}).get("model_hint")
+    # the one task in the pipeline where a second sample being different is the
+    # point, so the script pack states no temperature and inherits the house
+    # default (D85)
+    temperature = prompt_packs.temperature(ROLE, prompt)
     est_tokens = 1200
     with budget_gate(
         ctx, stage=STAGE, provider=provider, operation="llm.generate_script",
@@ -88,7 +92,7 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         details={"title": str(ctx.video.get("title") or "")[:80],
                  "prompt": (prompt or {}).get("name", "default")},
     ) as cost:
-        result = chat_fn(provider, model, system, user, max_tokens)
+        result = chat_fn(provider, model, system, user, max_tokens, temperature)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                           "output_tokens": result.output_tokens})
     ctx.db.provider_health(f"llm.{provider}", True)
@@ -145,12 +149,13 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
 
     max_tokens = int((prompt or {}).get("max_tokens") or 4000)
     model = cfg_script.get("model") or (prompt or {}).get("model_hint")
+    temperature = prompt_packs.temperature(RESEARCH_ROLE, prompt)
     with budget_gate(
         ctx, stage=RESEARCH_STAGE, provider=provider, operation="llm.generate_research",
         estimated_units=900,
         details={"title": title[:80], "prompt": (prompt or {}).get("name", "default")},
     ) as cost:
-        result = chat_fn(provider, model, system, user, max_tokens)
+        result = chat_fn(provider, model, system, user, max_tokens, temperature)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                           "output_tokens": result.output_tokens})
     ctx.db.provider_health(f"llm.{provider}", True)

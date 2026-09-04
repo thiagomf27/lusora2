@@ -9,6 +9,7 @@ from lusora_worker import validators
 from lusora_worker.agents import planner
 from lusora_worker.context import StageContext
 from lusora_worker.errors import StageError
+from lusora_worker.providers import llm as llm_module
 from lusora_worker.providers.llm import LLMResult
 from lusora_worker.textsplit import normalize, split_sentences
 
@@ -122,7 +123,7 @@ def test_repair_loop_feeds_violations_back(tmp_path):
     bad["beats"][1]["overlay"]["component"] = "GlitterBomb"
     calls = []
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         calls.append(user)
         return reply(bad if len(calls) == 1 else good_beats())
 
@@ -186,7 +187,7 @@ def test_planner_uses_the_snapshotted_prompt_and_still_welds_the_contract(tmp_pa
     ctx = make_ctx(tmp_path, cfg)
     seen = {}
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         seen["system"], seen["user"] = system, user
         return reply(good_beats())
 
@@ -207,7 +208,7 @@ def test_repair_prompt_does_not_accumulate_across_attempts(tmp_path):
     bad["beats"][0]["script_text"] = "Never in the script."
     users = []
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         users.append(user)
         return reply(bad)
 
@@ -231,7 +232,7 @@ def test_planner_prompt_max_tokens_overrides_the_default(tmp_path):
     ctx = make_ctx(tmp_path, cfg)
     seen = {}
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         seen["max_tokens"], seen["model"] = max_tokens, model
         return reply(good_beats())
 
@@ -260,7 +261,7 @@ def test_chunk_script_splits_into_balanced_sentence_aligned_slices():
 
 
 def _long_chat_fn(calls, fail_on_position=None):
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         calls.append((system, user))
         if fail_on_position and fail_on_position in user:
             bad_doc = {"version": "1.0", "video_id": "vid_t",
@@ -343,7 +344,7 @@ def test_chunk_validation_defers_whole_video_checks(tmp_path):
     whole-video property), but the merged sheet is — one budget, judged once."""
     ctx = chunking_ctx(tmp_path)
 
-    def overlay_heavy(provider, model, system, user, max_tokens):
+    def overlay_heavy(provider, model, system, user, max_tokens, temperature=None):
         chunk_text = _chunk_text_from_prompt(user)
         beats = []
         for i, sentence in enumerate(split_sentences(chunk_text)):
@@ -365,7 +366,7 @@ def test_short_script_stays_a_single_unchunked_call(tmp_path):
     ctx = make_ctx(tmp_path)
     seen = {}
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         seen["user"] = user
         return reply(good_beats())
 
@@ -383,7 +384,7 @@ def test_short_script_stays_a_single_unchunked_call(tmp_path):
 
 def _spine_chat_fn(calls, spine_doc):
     """First call is the spine, every call after it plans one section."""
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         calls.append((system, user))
         if len(calls) == 1:
             return reply(spine_doc) if isinstance(spine_doc, dict) else LLMResult(
@@ -465,7 +466,7 @@ def test_a_short_video_never_pays_for_a_spine(tmp_path):
     ctx = make_ctx(tmp_path)
     calls: list[tuple[str, str]] = []
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         calls.append((system, user))
         return reply(good_beats())
 
@@ -501,7 +502,7 @@ def test_a_script_that_fails_as_one_call_succeeds_chunked(tmp_path):
     """The reason chunking exists: at doc length one call drops a sentence
     somewhere in the middle and full coverage fails for the WHOLE sheet, three
     times over. The same model, asked for one section at a time, covers each."""
-    def drops_a_sentence(provider, model, system, user, max_tokens):
+    def drops_a_sentence(provider, model, system, user, max_tokens, temperature=None):
         chunk_text = _chunk_text_from_prompt(user)
         sentences = split_sentences(chunk_text)
         if len(sentences) > 3:
@@ -588,7 +589,7 @@ def _composed(ctx, script=SCRIPT, duration=8.0, chat_fn=None):
     """The system and user prompts one planner call actually sends."""
     seen: dict[str, str] = {}
 
-    def spy(provider, model, system, user, max_tokens):
+    def spy(provider, model, system, user, max_tokens, temperature=None):
         seen.setdefault("system", system)
         seen.setdefault("user", user)
         return reply(good_beats())
@@ -671,7 +672,7 @@ def test_a_chunk_without_a_spine_still_carries_the_full_script(tmp_path):
     ctx = chunking_ctx(tmp_path, spine=False)
     calls: list[tuple[str, str]] = []
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         calls.append((system, user))
         return reply(_one_beat_for(_chunk_text_from_prompt(user)))
 
@@ -700,7 +701,7 @@ def test_hard_rule_one_is_one_sentence_when_scoped_to_a_section(tmp_path):
     ctx = chunking_ctx(tmp_path, spine=False)
     calls: list[tuple[str, str]] = []
 
-    def chat_fn(provider, model, system, user, max_tokens):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         calls.append((system, user))
         return reply(_one_beat_for(_chunk_text_from_prompt(user)))
 
@@ -718,3 +719,93 @@ def test_the_queries_violation_names_the_limit_the_validator_enforces(tmp_path):
     violations = validators.validate_beat_sheet(doc, SCRIPT, CFG, 8.0)
     message = next(v for v in violations if "queries[0]" in v)
     assert "never more than 5" in message
+
+
+# ---------------- per-role temperature (slice 3, D85) ----------------
+
+
+def _temperatures(ctx, script=SCRIPT, duration=8.0):
+    """Every temperature the planner's calls were made at, in order."""
+    seen: list[float] = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(temperature)
+        return reply(good_beats())
+
+    planner.plan_beats(ctx, script, duration, chat_fn=chat_fn)
+    return seen
+
+
+def test_the_planner_calls_at_its_prompt_pack_temperature(tmp_path):
+    """0.2 reaches the seam. This call emits strict JSON against a schema a
+    validator is about to reject, so variance is pure loss."""
+    assert _temperatures(make_ctx(tmp_path)) == [0.2]
+
+
+def test_the_spine_calls_at_its_own_pack_temperature(tmp_path):
+    ctx = chunking_ctx(tmp_path, spine=True)
+    seen: list[float] = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(temperature)
+        if len(seen) == 1:
+            return reply(GOOD_SPINE)
+        return reply(_one_beat_for(_chunk_text_from_prompt(user)))
+
+    planner.plan_beats(ctx, SCRIPT_LONG, 8.0, chat_fn=chat_fn)
+    assert seen and all(t == 0.2 for t in seen), seen
+
+
+def test_a_prompt_without_a_temperature_calls_at_the_house_default(tmp_path):
+    """The script pack states none on purpose: it is the one task where a
+    second sample being different is the point."""
+    from lusora_worker.agents import script as script_agent
+
+    cfg = json.loads(json.dumps(CFG))
+    cfg["script"] = {"llm": "deepseek"}
+    cfg["style_pack_doc"]["script_persona"] = "a war correspondent"
+    ctx = make_ctx(tmp_path, cfg)
+    seen: list[float] = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(temperature)
+        return LLMResult(text="Some narration.", input_tokens=10, output_tokens=10)
+
+    script_agent.generate_script(ctx, chat_fn=chat_fn)
+    assert seen == [llm_module.HOUSE_TEMPERATURE] == [0.7]
+
+
+def test_a_snapshot_that_names_a_temperature_wins_over_the_pack(tmp_path):
+    """Principle 7: the cfg snapshot is what an in-flight video runs on, so an
+    edit to the pack on disk must not reach it — in either direction."""
+    cfg = json.loads(json.dumps(CFG))
+    cfg["prompts"] = {
+        "planner": {"name": "house", "source": "channel", "system": "TERSE.",
+                    "user": "SCRIPT:\n{{script}}", "temperature": 1.4}
+    }
+    assert _temperatures(make_ctx(tmp_path, cfg)) == [1.4]
+
+
+def test_a_snapshot_silent_on_temperature_takes_the_house_default(tmp_path):
+    """Videos enqueued before the field existed carry no temperature, and must
+    behave exactly as they did — which is the house number, not the pack's."""
+    cfg = json.loads(json.dumps(CFG))
+    cfg["prompts"] = {
+        "planner": {"name": "old", "source": "channel", "system": "TERSE.",
+                    "user": "SCRIPT:\n{{script}}"}
+    }
+    assert _temperatures(make_ctx(tmp_path, cfg)) == [0.7]
+
+
+def test_every_chat_fn_caller_matches_the_seam():
+    """The signature change is complete: every call site passes six positional
+    arguments, so a caller left on five would be a TypeError in production
+    rather than a silent house-default."""
+    import inspect
+
+    from lusora_worker.agents import script as script_agent
+
+    for module in (planner, script_agent):
+        for line in inspect.getsource(module).splitlines():
+            if "chat_fn(provider, model, system, user" in line:
+                assert line.rstrip().endswith("max_tokens, temperature)"), line
