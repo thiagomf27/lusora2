@@ -459,11 +459,82 @@ defensible editorial reading and it is also the hardest thing in the eval for
 the planner to guess, so `neu-ref`'s component score should be read as "does
 the planner reach for exhibits" rather than as a general accuracy number.
 
+## The verdict — v3, measured and then watched (2026-09-05)
+
+Four L2/L3 reference cases, three runs per arm, both arms on
+`deepseek-v4-flash` on one day through one harness. 24 runs, no failures.
+
+| case | recall | precision | restraint | component acc | placed |
+|---|---|---|---|---|---|
+| cnbc-ref | 25.9 → **55.6** | 63.3 → 59.0 | 83.8 → 72.2 | 88.9 → **39.4** | 4.3 → 8.0 |
+| good-news-august-ref | 58.3 → **89.6** | 80.7 → 81.7 | 74.8 → 53.3 | 89.3 → 69.1 | 11.7 → 12.7 |
+| neu-ref | 28.6 → **88.1** | 57.9 → 84.7 | 67.2 → **73.3** | 25.0 → 21.6 | 6.3 → 8.7 |
+| the-bim-ref | 44.9 → **58.0** | 79.6 → 76.0 | 75.8 → 66.7 | 100 → 94.3 | 13.0 → 15.3 |
+
+Components used across the arm: **10 of 29 → 20 of 29**, eleven of them names
+the baseline never chose once.
+
+**Against D87's exit criterion this FAILED.** Recall up on every case, yes; but
+restraint down 12, 22 and 9 points against a floor of 5, and component accuracy
+down on all four.
+
+### So the same case was rendered twice and watched
+
+Identical script, theme and source policy — `ai_image: mock` slates, local
+narration, $0. Only the beat sheet differs. Both are in the platform as
+`vid_ovl_base_cnbc` and `vid_ovl_v3_cnbc`.
+
+The v3 cut is better, and the two metrics that fell were both measuring the
+GROUND TRUTH rather than the model:
+
+- **Component accuracy.** `cnbc-ref`'s marks were written expecting counters,
+  by someone who had never seen this material rendered. v3 puts a `BulletList`
+  over "three different segments", a `StepFlow` over the supply chain and a
+  `Timeline` over the acquisitions — on a company breakdown, which is what the
+  script is. Every one of those scored as an error against marks that had
+  decided in advance the answer was a number in a box.
+- **Restraint.** The metric counts an overlay on a `no_graphic` mark and never
+  asks whether the overlay is any good. A denser cut of a dense script reads as
+  richer, not busier, and the score cannot tell those apart.
+
+The labels tell the same story from the other end: v3 writes
+`"of grocery salad kits"` where the baseline writes `"of all salad kits at
+grocery stores are from Taylor"` — ten words into an eight-word prop, which is
+the string that killed the baseline's compile.
+
+**What the render found that 24 scored runs could not.** The baseline sheet did
+not finish: an ordinary wordy anchor label produced `compiler produced an
+invalid plan (bug)`. The scorer reads beat sheets and never compiles them, so
+no number in this file could ever have shown it.
+
+### What this means for the instrument
+
+Two changes worth making before these scores are trusted again:
+
+1. **`component_accuracy` is only as good as `acceptable[]`.** A mark that
+   names one component where three would do measures the marker's expectation,
+   not the planner's judgement. `cnbc-ref` needs re-marking against what the
+   reference actually shows, by someone who has watched the render.
+2. **`restraint` needs to distinguish a bad overlay from an extra one.** As
+   written it treats every unmarked graphic as a cost, which is right for a
+   57-second doc with a budget of four and wrong for a three-minute breakdown.
+
+Neither is a reason to distrust recall, precision or the component-breadth
+count, which all moved the way the render confirms.
+
+### The honest remaining weakness
+
+`StepFlow` and `Timeline` are the least convincing of the new components on
+screen. That is a reason to narrow a channel's `allowed_components` to what
+renders well, which is a per-channel decision, not a reason to withhold the
+stage.
+
 ## Log
 
 | date | slice | what changed | cases | note |
 |---|---|---|---|---|
 | 2026-09-03 | 1 | — | 2 | baseline taken from runs of 2026-07-25/26. No new provider spend: the sheets already existed |
+| 2026-09-05 | 5-8 | v3 measured and WATCHED | 4 cases × 3 runs × 2 arms | Recall roughly doubled everywhere; components 10→20 of 29. Restraint and component accuracy fell and a side-by-side render showed both were measuring the ground truth, not the model. The render also found a compiler bug that kills the BASELINE video and that no score could see |
 | 2026-09-04 | — | first reference baseline | 4 cases × 3 runs | Spreads collapse to 0-4 points on the 30-mark cases: granularity was the noise. Planner UNDER-places (restraint 86%, recall 44%) and uses 11 of 29 components, never the exhibit family. Inverts the plan's premise; slice 5's exit criterion needs rewriting |
 | 2026-09-04 | 3b | confound separated | 3 arms | Temperature CONFIRMED inert on deepseek-v4-pro: with JSON mode held constant, 0.2 was noisier than 0.7 on both cases. Most run-level spread is mark-count granularity; per-mark failure rates are stable. Scorer should aggregate across runs before slice 5 |
 | 2026-09-04 | 3 | per-role temperature + JSON mode | 2 × 2 runs | FAILED its exit criterion: 0.2 did not reduce the spread, and the breakdown case went from perfectly stable to unstable. Confounded with JSON mode. Measurement then blocked on provider balance |

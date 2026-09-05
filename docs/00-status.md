@@ -14,10 +14,64 @@ providers. Sample runs that exist in `data/videos/`:
 - Remotion path: DeepSeek script + planner (repair loop observed fixing
   real violations) → ai33 narration → library photos + Pexels stock +
   mock fallthrough → themed overlays (KineticTitle, AnimatedCounter) →
-  final.mp4 at ~$0.01–0.02/video
+  final.mp4. **Cost per video was long recorded as ~$0.01–0.02 and that was
+  wrong**: the price table charged one blended rate for input and output,
+  while a reasoning model spends most of its tokens on output. At the real
+  published rates a planner chain is ~$0.09 on deepseek-v4-flash and ~$0.28
+  on v4-pro (2026-09-05).
 
 All open questions are DECIDED except OQ-21 (VPS sizing — a measurement,
 not a decision). See D21–D40 in [the Decision Log](04-decisions/decided.md).
+
+## Overlay quality — `faceless_v3` (2026-09-05)
+
+The overlay line of work, built as `overlayqualityv3plan.md`'s nine slices.
+Everything is on `faceless_v3`, a `stability: test` manifest; `faceless` and
+`faceless_v2` are untouched.
+
+**Global (every pipeline):**
+
+- the planner's component menu carries no prop schemas and no colliding
+  `emphasis` prop, and names what a component costs in screen time — input
+  tokens down 31-33% per call (D85's slice)
+- `temperature` is a property of the prompt pack; JSON mode and the temperature
+  ceiling are declared per provider (D85). The anthropic path had been sending
+  no temperature at all, so it ran at that API's default of 1.0
+- `overlay.role` replaced the `emphasis` boolean, and the class is DERIVED from
+  the catalog — a component with no anchor types is an emphasis overlay
+  whatever the sheet says (D86). That closed a gate a no-anchor component used
+  to fall straight through
+- the editor route enforces the overlay rules it always claimed to, from the
+  same frozen cfg the worker reads, against a shared expectation table both
+  languages assert on
+
+**v3 only:**
+
+- `cut_beats` (D88) cuts the script in code with the real transcript timings;
+  `plan_beats` then answers by INDEX and never retypes the narration, so
+  verbatim coverage is true by construction rather than checked after the fact
+- `select_overlays` (D87) asks the graphic question in a call where it is the
+  only question, showing each beat only the components its own anchors permit —
+  ~400 tokens per decision against ~2,900 carried through every chunk call
+
+**Measured, on four L2/L3 reference cases, three runs each:**
+
+| | baseline (v1) | v3 |
+|---|---|---|
+| recall | 25.9 / 58.3 / 28.6 / 44.9 | **55.6 / 89.6 / 88.1 / 58.0** |
+| restraint | 83.8 / 74.8 / 67.2 / 75.8 | 72.2 / 53.3 / 73.3 / 66.7 |
+| components used | 10 of 29 | **20 of 29** |
+
+Recall roughly doubled on every case. Restraint fell on three of four, and
+component accuracy fell on all four — **and a side-by-side render says both of
+those metrics were measuring the wrong thing.** See `evals/BASELINE.md` for
+what the eyeball showed and why the ground truth, not the model, was wrong.
+
+**The eval harness** lives in `worker/lusora_worker/evals/`. Cases are in
+`evals/overlays/`, numbers in `evals/BASELINE.md`, the authoring prompt in
+`docs/10-overlay-marks.md`. Scoring is free and offline; only producing a
+`beats.json` costs anything, and `--reuse-beats` makes an overlay iteration one
+model call instead of four.
 
 ## Platform UI — the VidRush skin (2026-08-16)
 

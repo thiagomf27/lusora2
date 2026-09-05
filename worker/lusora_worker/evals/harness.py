@@ -41,6 +41,8 @@ class EvalDb:
         self.arm = arm
         self.events: list[tuple[str, str, str | None]] = []
         self.cost_events: list[dict[str, Any]] = []
+        self.asset_usages: list[Any] = []
+        self.statuses: list[tuple[str, str | None]] = []
         self._conn = None
         dsn = dsn or os.environ.get("DATABASE_URL")
         if dsn:
@@ -89,6 +91,22 @@ class EvalDb:
             print(f"    {message[:500]}", flush=True)
 
     def provider_health(self, provider: str, ok: bool, error: str | None = None) -> None:
+        pass
+
+    # The rest of the control-plane surface a full run touches. Recorded in
+    # memory so a case can be taken all the way to final.mp4 — which is where
+    # the compiler bug that killed cnbc-ref's baseline was found, and the
+    # scorer could never have seen it because it never compiles anything.
+    def asset_usage(self, *args: Any, **kwargs: Any) -> None:
+        self.asset_usages.append((args, kwargs))
+
+    def set_size(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def set_status(self, video_id: str, status: str, reason: str | None = None) -> None:
+        self.statuses.append((status, reason))
+
+    def heartbeat(self, worker_id: str, video_id: str) -> None:
         pass
 
 

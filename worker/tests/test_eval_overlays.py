@@ -663,3 +663,25 @@ def test_reusing_beats_skips_the_planner_entirely(tmp_path, monkeypatch):
         "--reuse-beats", "--cache", str(tmp_path),
     ]) == 0
     assert json.loads((tmp_path / "out.json").read_text())["beats"]
+
+
+def test_the_eval_db_covers_the_whole_control_plane_surface():
+    """A case has to be runnable all the way to final.mp4, because that is
+    where a compiler bug lives that the scorer cannot see — it reads beats and
+    never compiles them. A missing method fails the render three stages in,
+    after the money has been spent."""
+    import inspect
+    import re
+
+    from lusora_worker.evals.harness import EvalDb
+
+    source = "".join(
+        inspect.getsource(m)
+        for m in (
+            __import__("lusora_worker.pipeline.steps", fromlist=["x"]),
+            __import__("lusora_worker.providers.sources", fromlist=["x"]),
+        )
+    )
+    needed = set(re.findall(r"ctx\.db\.([a-z_]+)", source))
+    missing = sorted(n for n in needed if not hasattr(EvalDb("c", "a", dsn=None), n))
+    assert missing == [], f"EvalDb cannot carry a real run: missing {missing}"
