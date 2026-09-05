@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reuse-beats", action="store_true",
                         help="skip the planner when cached beats exist for this case+arm+run")
     parser.add_argument("--cache", type=Path, default=None)
+    parser.add_argument("--temperature", type=float, default=None,
+                        help="override every prompt pack's temperature, to measure what it does")
     args = parser.parse_args(argv)
 
     repo = Path(__file__).resolve().parents[3]
@@ -81,6 +83,8 @@ def main(argv: list[str] | None = None) -> int:
     calls: list[tuple[str, int, int]] = []
 
     def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        if args.temperature is not None:
+            temperature = args.temperature
         result = llm.chat(provider, model, system, user, max_tokens, temperature)
         calls.append((model or "", result.input_tokens, result.output_tokens))
         print(f"  call {len(calls)}: in {result.input_tokens:>6} out {result.output_tokens:>6}",

@@ -529,6 +529,30 @@ screen. That is a reason to narrow a channel's `allowed_components` to what
 renders well, which is a per-channel decision, not a reason to withhold the
 stage.
 
+## Temperature, settled (2026-09-05)
+
+Re-measured on `deepseek-v4-flash` with the beats held constant — only the
+overlay call moved, so this cost 12 model calls rather than 50.
+
+| case | axis | spread at 0.2 | spread at 0.7 |
+|---|---|---|---|
+| cnbc-ref | recall | 22.2 | **11.1** |
+| cnbc-ref | precision | **15.6** | 21.4 |
+| cnbc-ref | restraint | **8.3** | 16.7 |
+| the-bim-ref | recall | 17.4 | **8.7** |
+| the-bim-ref | precision | 15.4 | **1.9** |
+| the-bim-ref | restraint | 18.2 | **0.0** |
+
+0.7 is the tighter arm in five of eight comparable cells. **Temperature does
+not buy repeatability on either deepseek reasoning model** — measured on
+v4-pro in slice 3 and on v4-flash here. The variance lives in the reasoning
+trace, which the dial does not govern.
+
+Quality means are not worse at 0.2, so the packs keep it (D85 records why),
+but nothing may be planned around it. **The eval averages several runs,
+permanently.** Any criterion that assumed one run was trustworthy was
+unevaluable, which is what happened to slices 2 and 3.
+
 ## Log
 
 | date | slice | what changed | cases | note |
