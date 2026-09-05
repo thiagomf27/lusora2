@@ -852,3 +852,58 @@ def test_an_ambiguous_single_word_is_ignored():
                  "overlay": {"component": "TextName", "props_hint": {"name": "gelo"}}})
     plan = compile_plan(doc, timings((sentence, 0.0, 11.0)), NAMED_CFG, 11.0)
     assert plan["tracks"]["overlays"][0]["start_s"] == 0.4
+
+
+def test_an_anchor_label_is_trimmed_to_the_props_limit():
+    """A beat sheet that passes every check must not produce a plan that fails
+    one. `label` on AnimatedCounter allows 8 words; an anchor's own label has no
+    length rule, so a 10-word one was copied straight in and the video died at
+    compile with "compiler produced an invalid plan (bug)". Found by rendering
+    a real sheet — the scorer cannot see it, because it never compiles."""
+    from lusora_worker.compiler import compile_plan
+    from lusora_worker.validators import validate_plan
+
+    long_label = "of all salad kits at grocery stores are from Taylor"
+    assert len(long_label.split()) == 10
+
+    cfg = {
+        "style_pack_doc": {"name": "t", "pacing": {"avg_hold_seconds": 4.0, "min_hold": 2.0,
+                                                   "max_hold": 8.0},
+                           "overlays": {"density": "normal"},
+                           "transitions": {"allowed": ["cut"], "default": "cut"}},
+        "theme_doc": {}, "output": {"fps": 30}, "captions": {"enabled": False},
+    }
+    beats = {"version": "1.1", "video_id": "v", "beats": [
+        {"id": "b1", "kind": "narration",
+         "script_text": "40% of all salad kits at grocery stores are from Taylor.",
+         "visual_intent": "a supermarket shelf",
+         "anchors": [{"type": "percentage", "value": 40, "label": long_label,
+                      "source_words": "40%"}],
+         "overlay": {"component": "AnimatedCounter", "anchor_ref": 0}}]}
+    timings = [{"text": beats["beats"][0]["script_text"], "start_s": 0.0, "end_s": 8.0}]
+
+    plan = compile_plan(beats, timings, cfg, 8.0)
+    label = plan["tracks"]["overlays"][0]["props"]["label"]
+    assert len(label.split()) == 8, label
+    assert long_label.startswith(label), "it must trim, not paraphrase"
+
+
+def test_a_short_anchor_label_is_left_exactly_as_it_is():
+    from lusora_worker.compiler import compile_plan
+
+    cfg = {
+        "style_pack_doc": {"name": "t", "pacing": {"avg_hold_seconds": 4.0, "min_hold": 2.0,
+                                                   "max_hold": 8.0},
+                           "overlays": {"density": "normal"},
+                           "transitions": {"allowed": ["cut"], "default": "cut"}},
+        "theme_doc": {}, "output": {"fps": 30}, "captions": {"enabled": False},
+    }
+    beats = {"version": "1.1", "video_id": "v", "beats": [
+        {"id": "b1", "kind": "narration", "script_text": "40% came from one supplier.",
+         "visual_intent": "a shelf",
+         "anchors": [{"type": "percentage", "value": 40, "label": "of salad kits",
+                      "source_words": "40%"}],
+         "overlay": {"component": "AnimatedCounter", "anchor_ref": 0}}]}
+    timings = [{"text": beats["beats"][0]["script_text"], "start_s": 0.0, "end_s": 8.0}]
+    plan = compile_plan(beats, timings, cfg, 8.0)
+    assert plan["tracks"]["overlays"][0]["props"]["label"] == "of salad kits"

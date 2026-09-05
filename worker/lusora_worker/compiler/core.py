@@ -738,6 +738,24 @@ def _subject_start(
     return round(best, 3) if best is not None else None
 
 
+def _fit(spec: dict[str, Any], value: Any) -> Any:
+    """Trim a value the COMPILER is filling to the prop's own limit.
+
+    Only for values taken from an anchor. A `props_hint` the model wrote is
+    already judged by `validate_beat_sheet`, where an over-long one is a
+    violation it can repair; an anchor's `label` has no length rule of its own,
+    so a ten-word one used to be copied into an eight-word prop and the video
+    died at compile with "(bug)" — a beat sheet that passed every check
+    producing a plan that failed one. Found by rendering, which is the only
+    place it shows.
+    """
+    limit = spec.get("maxWords")
+    if not limit or not isinstance(value, str):
+        return value
+    words = value.split()
+    return value if len(words) <= int(limit) else " ".join(words[: int(limit)])
+
+
 def _compile_overlay(
     beat: dict[str, Any],
     start: float,
@@ -778,7 +796,7 @@ def _compile_overlay(
         if anchor is not None and spec.get("from_anchor"):
             value = _anchor_field(anchor, spec["from_anchor"])
             if value is not None:
-                props[prop_name] = value
+                props[prop_name] = _fit(spec, value)
                 continue
         if spec.get("computed") == "geocode":
             place = props.get("place_name") or (anchor.get("value") if anchor else None)
@@ -793,7 +811,7 @@ def _compile_overlay(
         if "default" in spec:
             props[prop_name] = spec["default"]
     if anchor is not None and "label" in entry["props"] and "label" not in props and anchor.get("label"):
-        props["label"] = anchor["label"]
+        props["label"] = _fit(entry["props"]["label"], anchor["label"])
 
     # geocode_stops runs AFTER the loop above, not inside it: the list itself
     # comes from the LLM (it names the places), so the prop is already present
