@@ -178,3 +178,59 @@ def test_the_seam_takes_temperature_positionally_after_max_tokens():
 
     params = list(inspect.signature(llm.chat).parameters)
     assert params == ["provider", "model", "system", "user", "max_tokens", "temperature"]
+
+
+# ---------------- what a call actually costs ----------------
+
+
+def test_llm_calls_are_billed_per_direction():
+    """A reasoning model emits 3-5x more output than input and its reasoning
+    tokens bill as OUTPUT. One blended rate under-reported real spend by about
+    an order of magnitude — the table said $0.25 where roughly $4 had been
+    billed — and a budget gate that cannot see the money cannot stop anything.
+    """
+    from lusora_worker.costs import token_rates
+
+    cheap_in, cheap_out = token_rates("deepseek", "llm.plan_beats", "deepseek-v4-flash")
+    dear_in, dear_out = token_rates("deepseek", "llm.plan_beats", "deepseek-v4-pro")
+    assert cheap_out > cheap_in, "output must cost more than input"
+    assert dear_out > cheap_out * 2, "v4-pro is materially dearer than v4-flash"
+    # the real published rates, per token
+    assert cheap_in == pytest.approx(0.44 / 1e6)
+    assert cheap_out == pytest.approx(1.32 / 1e6)
+    assert dear_out == pytest.approx(3.96 / 1e6)
+
+
+def test_a_model_with_no_price_is_a_hard_error_not_a_guess():
+    """D13's rule, extended to the model: a channel switching model changes
+    what a video costs by more than any prompt change in this repo."""
+    from lusora_worker.costs import token_rates
+
+    with pytest.raises(StageError, match="no price for model"):
+        token_rates("deepseek", "llm.plan_beats", "deepseek-v9-telepathy")
+
+
+def test_a_reasoning_heavy_call_costs_what_it_really_costs(tmp_path):
+    """The end-to-end shape of the bug: 2k in, 20k out on v4-flash."""
+    from lusora_worker.costs import token_rates
+
+    in_rate, out_rate = token_rates("deepseek", "llm.plan_beats", "deepseek-v4-flash")
+    real = 2_000 * in_rate + 20_000 * out_rate
+    blended_old = 22_000 * 2.8e-7          # what the table used to charge
+    assert real > blended_old * 4, (real, blended_old)
+
+
+def test_a_non_token_operation_still_prices_on_its_own_unit():
+    from lusora_worker.costs import unit_price
+
+    assert unit_price("local", "tts.narrate") == 0.0
+    assert unit_price("ai33", "tts.narrate") > 0
+
+
+def test_asking_for_a_flat_price_on_a_per_direction_operation_is_refused():
+    """Silently returning one of the two rates is how the under-report
+    happened; the call site has to say which direction it means."""
+    from lusora_worker.costs import unit_price
+
+    with pytest.raises(StageError, match="priced per direction"):
+        unit_price("deepseek", "llm.plan_beats")

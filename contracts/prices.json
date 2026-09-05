@@ -1,6 +1,6 @@
 {
   "version": "2026-07-17",
-  "comment": "Price table for the cost gate (OQ-15: values are placeholders until real providers are chosen; unknown provider+operation = hard error, never silent $0). unit_price_usd is per unit stated in 'unit'.",
+  "comment": "Price table for the cost gate. D13: an unknown provider+operation is a hard error, never a silent $0. LLM operations are billed per DIRECTION — `input_per_1m` and `output_per_1m` — because a reasoning model emits 3-5x more output than input and reasoning tokens bill as OUTPUT, so a single blended rate under-reports by an order of magnitude. It did: the table charged $0.28/M for everything while deepseek-v4-pro output is $3.96/M, and the recorded spend came to $0.25 against roughly $4 actually billed. Non-LLM operations keep `unit_price_usd` on their own unit (a char, a second, an image). Rates below are deepseek's PEAK prices (api-docs.deepseek.com/quick_start/pricing, read 2026-09-05); off-peak is half, and charging peak means the gate errs toward stopping a video rather than overspending.",
   "prices": {
     "mock": {
       "image.generate": {
@@ -9,31 +9,38 @@
       },
       "llm.chat_edit": {
         "unit": "token",
-        "unit_price_usd": 0
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
       },
       "llm.craft_beats": {
         "unit": "token",
-        "unit_price_usd": 0
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
       },
       "llm.generate_research": {
         "unit": "token",
-        "unit_price_usd": 0
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
       },
       "llm.generate_script": {
         "unit": "token",
-        "unit_price_usd": 0
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
       },
       "llm.plan_beats": {
         "unit": "token",
-        "unit_price_usd": 0
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
       },
       "llm.plan_spine": {
         "unit": "token",
-        "unit_price_usd": 0
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
       },
       "llm.select_overlays": {
         "unit": "token",
-        "unit_price_usd": 0
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
       },
       "tts.narrate": {
         "unit": "char",
@@ -60,61 +67,173 @@
     "deepseek": {
       "llm.chat_edit": {
         "unit": "token",
-        "unit_price_usd": 2.8e-07
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
       },
       "llm.craft_beats": {
         "unit": "token",
-        "unit_price_usd": 2.8e-07
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
       },
       "llm.generate_research": {
         "unit": "token",
-        "unit_price_usd": 2.8e-07
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
       },
       "llm.generate_script": {
         "unit": "token",
-        "unit_price_usd": 2.8e-07
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
       },
       "llm.plan_beats": {
         "unit": "token",
-        "unit_price_usd": 2.8e-07
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
       },
       "llm.plan_spine": {
         "unit": "token",
-        "unit_price_usd": 2.8e-07
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
       },
       "llm.select_overlays": {
         "unit": "token",
-        "unit_price_usd": 2.8e-07
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
       }
     },
     "anthropic": {
       "llm.chat_edit": {
         "unit": "token",
-        "unit_price_usd": 3e-06
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       },
       "llm.craft_beats": {
         "unit": "token",
-        "unit_price_usd": 3e-06
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       },
       "llm.generate_research": {
         "unit": "token",
-        "unit_price_usd": 3e-06
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       },
       "llm.generate_script": {
         "unit": "token",
-        "unit_price_usd": 3e-06
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       },
       "llm.plan_beats": {
         "unit": "token",
-        "unit_price_usd": 3e-06
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       },
       "llm.plan_spine": {
         "unit": "token",
-        "unit_price_usd": 3e-06
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       },
       "llm.select_overlays": {
         "unit": "token",
-        "unit_price_usd": 3e-06
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       }
     },
     "openai": {

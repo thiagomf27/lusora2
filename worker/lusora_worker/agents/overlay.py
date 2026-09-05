@@ -231,6 +231,7 @@ def select_overlays(
             estimated_units=6000,
             details={"attempt": attempt, "candidates": len(candidates),
                      "prompt": (prompt or {}).get("name", "default")},
+            model=model,
         ) as cost:
             result = chat_fn(provider, model, system, user, max_tokens, temperature)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,

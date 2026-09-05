@@ -238,6 +238,7 @@ def _spine_sections(
         with budget_gate(
             ctx, stage=STAGE, provider=provider, operation="llm.plan_spine",
             estimated_units=2000, details={"sections": section_count},
+            model=model,
         ) as cost:
             result = chat_fn(
                 provider, model, system, user,
@@ -441,6 +442,7 @@ def _plan_chunk(
                 "prompt": (prompt or {}).get("name", "default"),
                 **({"section": section_label} if section_label else {}),
             },
+            model=model,
         ) as cost:
             # reasoning models spend 4-16k tokens thinking before the JSON starts
             result = chat_fn(provider, model, system, user, max_tokens, temperature)

@@ -91,6 +91,7 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         estimated_units=est_tokens,
         details={"title": str(ctx.video.get("title") or "")[:80],
                  "prompt": (prompt or {}).get("name", "default")},
+        model=model,
     ) as cost:
         result = chat_fn(provider, model, system, user, max_tokens, temperature)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
@@ -154,6 +155,7 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         ctx, stage=RESEARCH_STAGE, provider=provider, operation="llm.generate_research",
         estimated_units=900,
         details={"title": title[:80], "prompt": (prompt or {}).get("name", "default")},
+        model=model,
     ) as cost:
         result = chat_fn(provider, model, system, user, max_tokens, temperature)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,

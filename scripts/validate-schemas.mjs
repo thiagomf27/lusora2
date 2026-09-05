@@ -316,13 +316,46 @@ if (existsSync(pipelinesDir)) {
   }
 }
 
-// 4. price table sanity
+// 4. price table sanity. An `llm.*` operation is priced per DIRECTION, because
+//    a reasoning model emits several times more output than input and bills its
+//    reasoning as output — one blended rate under-reported real spend by about
+//    an order of magnitude. Everything else keeps one price on its own unit.
 const prices = JSON.parse(readFileSync(join(root, "contracts/prices.json"), "utf8"));
+const rateOk = (v) => typeof v === "number" && v >= 0;
 for (const [provider, ops] of Object.entries(prices.prices)) {
   for (const [op, spec] of Object.entries(ops)) {
     if (op === "comment") continue;
-    if (typeof spec.unit_price_usd !== "number" || spec.unit_price_usd < 0)
-      fail(`prices: ${provider}.${op} has invalid unit_price_usd`);
+    if (!op.startsWith("llm.")) {
+      if (!rateOk(spec.unit_price_usd))
+        fail(`prices: ${provider}.${op} has invalid unit_price_usd`);
+      continue;
+    }
+    const shapes = spec.by_model ? Object.entries(spec.by_model) : [[op, spec]];
+    if (spec.by_model && shapes.length === 0) fail(`prices: ${provider}.${op} by_model is empty`);
+    for (const [label, rates] of shapes) {
+      if (!rateOk(rates.input_per_1m) || !rateOk(rates.output_per_1m))
+        fail(`prices: ${provider}.${op} (${label}) needs numeric input_per_1m and output_per_1m`);
+      else if (rates.output_per_1m < rates.input_per_1m)
+        fail(`prices: ${provider}.${op} (${label}) prices output BELOW input — check the source`);
+    }
+    if (spec.by_model && !spec.by_model[spec.default_model])
+      fail(`prices: ${provider}.${op} default_model '${spec.default_model}' is not in by_model`);
+  }
+}
+
+// 4b. every model the worker can reach has a price, or the gate cannot see the
+//     money. A channel switching model changes a video's cost more than any
+//     prompt change in this repo.
+const llmPy = readFileSync(join(root, "worker/lusora_worker/providers/llm.py"), "utf8");
+for (const [, provider, model] of llmPy.matchAll(
+  /"(deepseek|openai|anthropic)":\s*Provider\(\s*(?:#[^\n]*\n\s*)*"[a-z]+",\s*"[^"]+",\s*"([^"]+)"/g
+)) {
+  const ops = prices.prices[provider];
+  if (!ops) continue;
+  for (const [op, spec] of Object.entries(ops)) {
+    if (!op.startsWith("llm.") || !spec.by_model) continue;
+    if (!spec.by_model[model])
+      fail(`prices: ${provider}.${op} has no rate for its default model '${model}'`);
   }
 }
 

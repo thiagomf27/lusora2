@@ -146,6 +146,7 @@ def craft_beats(
             estimated_units=8000,
             details={"attempt": attempt, "cuts": len(cuts),
                      "prompt": (prompt or {}).get("name", "default")},
+            model=model,
         ) as cost:
             result = chat_fn(provider, model, system, user, max_tokens, temperature)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
