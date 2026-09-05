@@ -9,6 +9,7 @@ deterministic fallbacks so the pipeline runs end to end at $0.
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import subprocess
 from pathlib import Path
@@ -243,10 +244,79 @@ def cut_script(
     """
     pacing = (ctx.cfg.get("style_pack_doc") or {}).get("pacing") or {}
     min_hold = float(pacing.get("min_hold", 0) or 0)
+    max_hold = float(pacing.get("max_hold", 0) or 0)
     srt = read_srt(ctx.artifact("subtitles.srt")) if ctx.has("subtitles.srt") else []
     pieces = beatphases.script_split(script, srt, granularity=srt_granularity(ctx.cfg))
     aligned = beatphases.srt_alignment(pieces, srt, audio_duration)
-    return beatphases.beat_parts(aligned, min_hold)
+    # The floor joins and the ceiling splits, so a pack whose floor is ABOVE
+    # its ceiling would have them undo each other forever. That pack is
+    # incoherent, and the floor wins: a beat below it flashes by and reads as a
+    # mistake, while a beat above the ceiling merely sits there.
+    return _under_the_ceiling(
+        beatphases.beat_parts(aligned, min_hold), max(max_hold, min_hold) if max_hold else 0.0
+    )
+
+
+def _under_the_ceiling(parts: list["beatphases.Piece"], max_hold: float) -> list["beatphases.Piece"]:
+    """Split any span that holds longer than the pack's ceiling.
+
+    `beat_parts` deliberately handles only the FLOOR, and its docstring gives
+    the right reason: splitting a beat on time alone would either duplicate its
+    text or leave one with none, and cutting a shot is a timeline concern the
+    compiler already handles via `hold_ceiling_ratio`.
+
+    But `cut_beats` is not choosing shots, it is choosing BEATS, and the beat
+    sheet is judged on its count against the pacing window before the compiler
+    ever runs. Without this, a script of long sentences produced 15 spans where
+    the validator wanted 18-69, and the repair loop then spent three attempts
+    asking a model to fix a number it does not control — the exact futility D88
+    removed for verbatim coverage, reproduced for pacing.
+
+    So the split is by WORDS, not by time: the same punctuation-aware splitter,
+    re-run on the span's own text, with its time apportioned by character share
+    the way `srt_alignment` apportions it. The text stays verbatim and
+    contiguous, which is the property everything else rests on.
+    """
+    if not max_hold:
+        return parts
+    # Repeat until nothing is over the ceiling or nothing more can be split: one
+    # pass leaves a sub-span still over it whenever the text divides unevenly,
+    # which is most of the time.
+    for _ in range(4):
+        split = _split_once(parts, max_hold)
+        if len(split) == len(parts):
+            return split
+        parts = split
+    return parts
+
+
+def _split_once(parts: list["beatphases.Piece"], max_hold: float) -> list["beatphases.Piece"]:
+    out: list[beatphases.Piece] = []
+    for part in parts:
+        if part.duration <= max_hold or not part.text.strip():
+            out.append(part)
+            continue
+        wanted = math.ceil(part.duration / max_hold)
+        target_chars = max(8, len(part.text) // wanted + 1)
+        # min_chars has to come down with max_chars, or `_merge_undersized`
+        # puts back exactly what the split took apart — its floor is 24 by
+        # default, which silently defeats any target below that. Invisible on
+        # long spans, which is why the four real cases passed while a short one
+        # did not.
+        sub = beatphases.script_split(
+            part.text, None, min_chars=max(4, target_chars // 2), max_chars=target_chars
+        )
+        if len(sub) < 2:
+            out.append(part)  # one unbreakable run of words; better long than wrong
+            continue
+        total = sum(len(t) for t in sub) or 1
+        cursor = part.start_s
+        for i, text in enumerate(sub):
+            share = (part.end_s - part.start_s) * (len(text) / total)
+            end = part.end_s if i == len(sub) - 1 else cursor + share
+            out.append(beatphases.Piece(text, round(cursor, 3), round(end, 3)))
+            cursor = end
+    return out
 
 
 def _fallback_planner(ctx: StageContext, script: str, audio_duration: float = 0.0) -> dict:

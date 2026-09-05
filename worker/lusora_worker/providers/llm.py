@@ -46,7 +46,12 @@ class Provider:
 
 PROVIDERS: dict[str, Provider] = {
     "deepseek": Provider(
-        "openai", "https://api.deepseek.com/v1", "deepseek-v4-pro", "DEEPSEEK_API_KEY",
+        # v4-flash rather than v4-pro: the overlay eval runs the planner four
+        # times per case and the pro model spent 10-20k output tokens thinking
+        # before a ~600-token answer. Changing this INVALIDATES every recorded
+        # number — evals/BASELINE.md has the scar from the last time a default
+        # model moved under a baseline — so both arms are retaken together.
+        "openai", "https://api.deepseek.com/v1", "deepseek-v4-flash", "DEEPSEEK_API_KEY",
         json_mode=True, max_temperature=2.0,
     ),
     "openai": Provider(

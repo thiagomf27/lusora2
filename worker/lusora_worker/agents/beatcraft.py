@@ -163,6 +163,20 @@ def craft_beats(
             # message worth sending back.
             violations = validate_beat_sheet(doc, script, ctx.cfg, audio_duration_s)
             violations += _index_violations(cuts, craft)
+            # A violation about the beat COUNT is about the cuts, and the cuts
+            # are ours. Retrying it asks the model to change a number it does
+            # not control — the exact futility this stage removed for verbatim
+            # coverage, and it cost three attempts and 57k tokens per case
+            # before `_under_the_ceiling` existed. Fail loudly at the stage
+            # that owns the decision instead.
+            structural = [v for v in violations if "outside the pacing range" in v]
+            if structural:
+                raise StageError(
+                    STAGE,
+                    f"{structural[0]} — the spans come from cut_beats, so no answer from "
+                    "the model can fix this. The style pack's hold window and the script "
+                    "disagree; widen pacing.avg_hold_seconds or pacing.max_hold.",
+                )
             if not violations:
                 ctx.db.provider_health(f"llm.{provider}", True)
                 ctx.db.event(ctx.video_id, STAGE, "progress",

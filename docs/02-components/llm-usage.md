@@ -17,8 +17,10 @@ all depend on.
 | # | Prompt | Composed in | Prompt text | Provider (default) | Budget | Output must be | Validated by |
 |---|---|---|---|---|---|---|---|
 | 1 | Script agent | `worker/lusora_worker/agents/script.py` | `prompts/script/` + `welded/script.system.txt` | `channel.script.llm` → `deepseek` | 8000 tok (prompt may raise), temp 0.7 | plain narration text | **nothing** (gap) |
-| 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
+| 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts, temp 0.2 | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
 | 2b | Beat planner — spine | `worker/lusora_worker/agents/planner.py` | `prompts/spine/` + `welded/spine.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 4000 tok, one shot | `{arc, sections:[{start_sentence, summary}]}` | arithmetic: first index 0, strictly increasing, in range — anything else falls back to the word-balanced split |
+| 2c | Beat planner — beatcraft | `worker/lusora_worker/agents/beatcraft.py` | `prompts/beatcraft/` + `welded/beatcraft.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts, temp 0.2 | `{beats: {"<cut index>": {visual_intent, queries, mood, …}}}` — **never** `script_text` | `validate_beat_sheet` on the MERGED sheet, unchanged, plus an index check |
+| 2d | Overlay selector | `worker/lusora_worker/agents/overlay.py` | `prompts/overlay/` + `welded/overlay.{system,user}.txt` | `channel.overlay.llm` → the planner's → `deepseek` | 32000 tok, ≤3 attempts, temp 0.2 | `{selections[], declined[]}` | `validators.validate_overlay_selection` + `overlay_selection.schema.json` |
 | 3 | Editor chat | `platform/src/lib/chatAgent.ts` | `prompts/chat/` + `welded/chat.{system,user}.txt` | `deepseek-v4-flash`, `anthropic` fallback | 12000 tok, one shot | `{explanation, beat_ops, plan_ops}` | `beatEdit`/`planEdit` + `validateBeats` in the chat route |
 | 4 | Library coarse | `library/broll-engine/broll/tagging.py` | `_COARSE_SYSTEM` (in code) | GLM-4.6V (z.ai or local vLLM) | 500 tok | `{score, rough_ranges}` | clamping parser |
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
@@ -26,11 +28,25 @@ all depend on.
 | 7 | AI image | `worker/lusora_worker/providers/sources.py` | `f"{query}. {style}"` (in code) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
-prompts are data. 2b is not a fourth agent: it is phase 1 of the beat
-planner on a long script (D52), sharing the planner's provider and model,
-producing nothing that reaches an artifact, and unable to change control
-flow — code cuts the sections, checks the indices, and ignores the answer
-entirely when it does not describe a partition. 4–6 belong to the library service (its own boundary, its
+prompts are data. 2b, 2c and 2d are not further agents: each is a PHASE of
+the beat planner, sharing its provider and model, and none can change
+control flow.
+
+- **2b (spine, D52)** produces nothing that reaches an artifact — code cuts the
+  sections, checks the indices, and ignores the answer entirely when it does
+  not describe a partition.
+- **2c (beatcraft, D88)** answers by cut INDEX over spans `cut_beats` already
+  decided in code, and never returns `script_text`. Beats are assembled in
+  code from the cuts plus the craft, which is why verbatim coverage cannot
+  fail on that path. `faceless_v3` only.
+- **2d (overlay, D87)** is the graphic decision lifted out of the planner into
+  a call where it is the only question, with a shortlisted menu per candidate
+  rather than the whole catalog. On a pipeline that runs it, the planner
+  composes with NO component menu at all. `faceless_v3` only.
+
+Row 2's temperature is 0.2 as of D85; the script agent stays at the house
+default of 0.7, because it is the one call where a second sample being
+different is the point. 4–6 belong to the library service (its own boundary, its
 own model, its own prompts). 7 is barely a prompt — see gaps.
 
 ---

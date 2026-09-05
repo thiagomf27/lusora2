@@ -2,7 +2,7 @@
 
 **Status: Decided (D60–D62, D64).** Schema:
 `contracts/schemas/pipeline_manifest.schema.json`. Files:
-`contracts/pipelines/<name>.yaml`. Shipped: `faceless.yaml` (production), `faceless_v2.yaml` (test — adds a research stage).
+`contracts/pipelines/<name>.yaml`. Shipped: `faceless.yaml` (production), `faceless_v2.yaml` (test — adds a research stage), `faceless_v3.yaml` (test — the overlay-quality line: `cut_beats` and `select_overlays`).
 
 A manifest is the ordered list of stages a video goes through. It replaced
 the `STAGES` constant that lived in the worker, so adding a pipeline is a
@@ -149,6 +149,41 @@ the beat sheet is the editing job.
 to instead of having it produced — the manual-first rule, written down.
 Faceless marks its first five stages receivable, which is what has always
 been true; `resolve_assets` onward are machine products and are not.
+
+## The shipped manifests
+
+| manifest | stability | what it adds | why it is its own file |
+|---|---|---|---|
+| `faceless` | production | — | the stage list as it stood before pipelines were data (D60) |
+| `faceless_v2` | test | `research` before `script` (D64) | a research pass has a prompt but no track record |
+| `faceless_v3` | test | `cut_beats` before `plan_beats` (D88), `select_overlays` after it (D87) | the overlay-quality work, isolated from v2 so an eval can attribute what it measures (D84) |
+
+**v3 is not built on v2, and that is the decision rather than an oversight.**
+v2 is the only home of the `research` stage. Putting the overlay work there
+too would move two independent variables at once and no eval could say which
+one moved the numbers. Manifests are cheap — that is what D60 bought.
+
+### The two v3 stages
+
+`cut_beats` (D88) runs the deterministic cutting the fallback planner already
+did — `script_split` → `srt_alignment` → `beat_parts` — and writes
+`beat_cuts.json`: numbered spans carrying the real transcript timings. The
+`plan_beats` that follows sees `beat_cuts.json` present and takes its INDEXED
+branch, answering per cut and never returning `script_text`. Verbatim coverage
+stops being a rule the model is checked against and becomes a property of how
+the spans were made.
+
+`select_overlays` (D87) reads `beats.json` and writes `overlays.json`: which
+beats carry a graphic, which component, and — in `declined[]` — which beats
+were considered and refused, with the reason. Two things follow for any
+manifest that lists it: the planner composes with **no component menu at all**,
+and the compiler prefers `overlays.json` over the beats' own `overlay`. Both
+are keyed off the pipeline snapshot, so a manifest without the stage behaves
+exactly as it always did — pinned by a test asserting the planner prompt is
+byte-identical on v1 and v2.
+
+Adding either stage to a manifest is the whole of turning it on; removing the
+block is the whole of turning it off.
 
 ## Deferred on purpose
 
