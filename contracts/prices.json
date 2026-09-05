@@ -11,6 +11,10 @@
         "unit": "token",
         "unit_price_usd": 0
       },
+      "llm.craft_beats": {
+        "unit": "token",
+        "unit_price_usd": 0
+      },
       "llm.generate_research": {
         "unit": "token",
         "unit_price_usd": 0
@@ -58,6 +62,10 @@
         "unit": "token",
         "unit_price_usd": 2.8e-07
       },
+      "llm.craft_beats": {
+        "unit": "token",
+        "unit_price_usd": 2.8e-07
+      },
       "llm.generate_research": {
         "unit": "token",
         "unit_price_usd": 2.8e-07
@@ -81,6 +89,10 @@
     },
     "anthropic": {
       "llm.chat_edit": {
+        "unit": "token",
+        "unit_price_usd": 3e-06
+      },
+      "llm.craft_beats": {
         "unit": "token",
         "unit_price_usd": 3e-06
       },

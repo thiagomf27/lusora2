@@ -23,7 +23,8 @@
         "planner",
         "spine",
         "chat",
-        "overlay"
+        "overlay",
+        "beatcraft"
       ],
       "description": "must match the containing directory; decides the variable set and the welded block"
     },

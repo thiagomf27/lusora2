@@ -1,0 +1,4 @@
+Output JSON shape — one entry per cut index, and nothing else:
+{"version":"1.1","video_id":"{{video_id}}","beats":{"0":{"visual_intent":"…","queries":["…","…"],"mood":"neutral|tense|somber|hopeful|urgent|triumphant|reflective|playful","media_preference":"video|image|any","anchors":[{"type":"percentage","value":70,"label":"…","source_words":"…"}]}}}
+`mood` selects the background music for the SECTION a beat sits in, so use one of those eight words exactly. Keep one mood across a run of beats and change it only where the story turns.
+Omit anchors where a cut carries no fact. Respond with the JSON object only.

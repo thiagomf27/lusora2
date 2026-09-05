@@ -49,29 +49,49 @@ def test_faceless_is_the_pre_refactor_stage_list():
     assert [(s.name, s.artifact, s.is_done) for s in stages] == PRE_REFACTOR
 
 
-def test_faceless_v3_is_faceless_plus_select_overlays_and_nothing_else():
-    """Edited deliberately in slice 5, which is what this test is for.
+# The stages v3 has added to v1's list, in order. This is the A/B lock: it
+# began (D84) as an empty list, so the first baseline was taken on a manifest
+# that provably did nothing new, and it is edited DELIBERATELY by each slice
+# that adds a stage — slice 5 for select_overlays (D87), slice 6 for cut_beats
+# (D88). A stage appearing here without this list changing is the accident the
+# lock exists to catch.
+V3_ADDITIONS = ["cut_beats", "select_overlays"]
 
-    It began (D84) as "v3 == v1, exactly", so the first baseline was taken on a
-    manifest that provably did nothing new. It now pins the ONE stage D87 added
-    and the position it sits in. A second stage appearing here without this
-    test changing is the accident it exists to catch."""
+
+def test_faceless_v3_is_faceless_plus_exactly_the_stages_its_decisions_added():
     v1, v3 = load_pipeline("faceless"), load_pipeline("faceless_v3")
     added = [n for n in stage_names(v3) if n not in stage_names(v1)]
-    assert added == ["select_overlays"]
-    # between the beats and the compile, because it reads one and feeds the other
+    assert sorted(added) == sorted(V3_ADDITIONS)
+
     names = stage_names(v3)
+    # cut_beats decides the spans, so it runs BEFORE the call that decorates them
+    assert names.index("cut_beats") < names.index("plan_beats")
+    # select_overlays reads the beats and feeds the compile
     assert names.index("plan_beats") < names.index("select_overlays") < names.index("compile_plan")
-    # every OTHER stage is still v1's, declaration for declaration
-    assert [s for s in v3["stages"] if s["name"] != "select_overlays"] == v1["stages"]
+
+
+def test_every_other_v3_stage_is_still_faceless_declaration_for_declaration():
+    """Additive, not a rewrite. plan_beats is the one v1 stage whose
+    declaration moved, because it now requires the cuts."""
+    v1, v3 = load_pipeline("faceless"), load_pipeline("faceless_v3")
+    shared = [s for s in v3["stages"] if s["name"] not in V3_ADDITIONS]
+    for stage in shared:
+        original = next(s for s in v1["stages"] if s["name"] == stage["name"])
+        if stage["name"] == "plan_beats":
+            assert stage["requires"] == original["requires"] + ["beat_cuts.json"]
+            assert {k: v for k, v in stage.items() if k != "requires"} == {
+                k: v for k, v in original.items() if k != "requires"
+            }
+        else:
+            assert stage == original, stage["name"]
 
 
 def test_faceless_v3_still_binds_to_the_pre_refactor_stages_around_it():
-    """The stage added is additive: everything v1 had still builds identically,
-    done-checks included."""
+    """Everything v1 had still builds identically, done-checks included."""
     built = [(s.name, s.artifact, s.is_done) for s in build_stages(load_pipeline("faceless_v3"))]
-    assert [row for row in built if row[0] != "select_overlays"] == PRE_REFACTOR
+    assert [row for row in built if row[0] not in V3_ADDITIONS] == PRE_REFACTOR
     assert ("select_overlays", "overlays.json", None) in built
+    assert ("cut_beats", "beat_cuts.json", None) in built
 
 
 def test_the_same_video_beats_identically_on_v1_and_v3(tmp_path, monkeypatch):

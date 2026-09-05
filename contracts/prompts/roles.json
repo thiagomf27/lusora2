@@ -267,6 +267,55 @@
           "source": "cfg.overrides.instructions"
         }
       }
+    },
+    "beatcraft": {
+      "description": "D88 — NUMBERED cuts + style pack -> per-index craft. The spans and their timings are decided in code (cut_beats) and never returned by the model, so verbatim coverage is true by construction. A second role rather than an edit to `planner`, so a channel pointing at a tuned planner pack is not silently repointed.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "video_id": {
+          "required": true,
+          "source": "the video id"
+        },
+        "cuts": {
+          "required": true,
+          "source": "derived: the numbered spans from beat_cuts.json, with their durations"
+        },
+        "audio_duration_s": {
+          "required": true,
+          "source": "probed audio.mp3 duration"
+        },
+        "arc": {
+          "required": false,
+          "source": "style_pack.pacing.arc"
+        },
+        "visual_language": {
+          "required": false,
+          "source": "style_pack.visual_language"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        },
+        "component_menu": {
+          "required": false,
+          "source": "empty when select_overlays will run; the filtered catalog otherwise"
+        },
+        "max_overlays": {
+          "required": false,
+          "source": "derived: the density ceiling, empty when overlays are a separate stage"
+        },
+        "emphasis_per_minute": {
+          "required": false,
+          "source": "style_pack.overlays.emphasis.per_minute when the class is on"
+        }
+      }
     }
   }
 }

@@ -15,6 +15,7 @@ from pathlib import Path
 
 import lusora_contracts
 
+from ..agents import beatcraft as beatcraft_agent
 from ..agents import overlay as overlay_agent
 from ..agents import planner as planner_agent
 from ..agents import script as script_agent
@@ -121,6 +122,33 @@ def run_transcript(ctx: StageContext) -> None:
     ctx.log(f"subtitles transcribed by local whisper ({granularity} cues)")
 
 
+# ---------------- cut_beats (D88) ----------------
+
+
+def run_cut_beats(ctx: StageContext) -> None:
+    """Cut the script in code, with the real timings, before anything writes.
+
+    v3 only. Verbatim coverage becomes a property of how the spans were MADE
+    rather than a rule the model is asked to follow and checked against.
+    """
+    script = ctx.artifact("script.txt").read_text(encoding="utf-8").strip()
+    audio_duration = probe_duration("cut_beats", ctx.artifact("audio.mp3"))
+    parts = cut_script(ctx, script, audio_duration)
+    if not parts:
+        raise StageError("cut_beats", "script.txt produced no cuttable spans")
+    doc = {
+        "version": "1.0",
+        "video_id": ctx.video_id,
+        "cuts": [
+            {"index": i, "script_text": p.text,
+             "start_s": round(p.start_s, 3), "end_s": round(p.end_s, 3)}
+            for i, p in enumerate(parts)
+        ],
+    }
+    ctx.write_json("beat_cuts.json", doc)
+    ctx.log(f"{len(parts)} cuts, {parts[-1].end_s:.0f}s, from the real transcript timings")
+
+
 # ---------------- select_overlays (D87) ----------------
 
 
@@ -144,12 +172,39 @@ def run_select_overlays(ctx: StageContext) -> None:
 # ---------------- plan_beats ----------------
 
 
+def _planner_menu_for(ctx: StageContext) -> str:
+    """The component menu the craft call should carry — empty when a later
+    stage owns the overlay question (D87), so the two decisions never both pay
+    for it."""
+    stages = [st.get("name") for st in ((ctx.cfg.get("pipeline_doc") or {}).get("stages") or [])]
+    if "select_overlays" in stages:
+        return ""
+    allowed = ((ctx.cfg.get("style_pack_doc") or {}).get("overlays") or {}).get("allowed_components")
+    return planner_agent._catalog_menu(allowed)
+
+
 def run_plan_beats(ctx: StageContext) -> None:
     llm = str(((ctx.cfg.get("planner") or {}).get("llm")) or "mock")
     script = ctx.artifact("script.txt").read_text(encoding="utf-8").strip()
     audio_duration = probe_duration("plan_beats", ctx.artifact("audio.mp3"))
 
     if llm != "mock":
+        # D88: where cut_beats ran, the spans are already decided and the model
+        # answers by index instead of retyping the narration. The presence of
+        # the artifact is the switch, so a pipeline without the stage takes the
+        # single-call path exactly as before.
+        if ctx.has("beat_cuts.json"):
+            cuts = ctx.read_json("beat_cuts.json")["cuts"]
+            beats_doc = beatcraft_agent.craft_beats(
+                ctx, cuts, script, audio_duration,
+                menu=_planner_menu_for(ctx),
+            )
+            ctx.write_json("beats.json", beats_doc)
+            ctx.log(
+                f"beat sheet crafted by llm '{llm}' over {len(cuts)} code-cut spans "
+                f"({len(beats_doc['beats'])} beats)"
+            )
+            return
         beats_doc = planner_agent.plan_beats(ctx, script, audio_duration)
         ctx.write_json("beats.json", beats_doc)
         ctx.log(f"beat sheet planned by llm '{llm}' ({len(beats_doc['beats'])} beats)")
@@ -171,6 +226,29 @@ _STOPWORDS = set(
 )
 
 
+def cut_script(
+    ctx: StageContext, script: str, audio_duration: float = 0.0
+) -> list["beatphases.Piece"]:
+    """Where the narration is cut, and when each piece is spoken.
+
+    ONE implementation, called by both the deterministic planner below and the
+    `cut_beats` stage (D88). It was extracted rather than copied because these
+    phases already read the style pack's hold floor and the real transcript
+    timings, and a second copy would drift the moment either changed — which is
+    the failure the extraction exists to prevent, not a tidy-up after it.
+
+    split at punctuation -> align to the real transcript -> join anything under
+    the pack's hold floor, because a 0.4s shot flashes by and reads as a
+    mistake.
+    """
+    pacing = (ctx.cfg.get("style_pack_doc") or {}).get("pacing") or {}
+    min_hold = float(pacing.get("min_hold", 0) or 0)
+    srt = read_srt(ctx.artifact("subtitles.srt")) if ctx.has("subtitles.srt") else []
+    pieces = beatphases.script_split(script, srt, granularity=srt_granularity(ctx.cfg))
+    aligned = beatphases.srt_alignment(pieces, srt, audio_duration)
+    return beatphases.beat_parts(aligned, min_hold)
+
+
 def _fallback_planner(ctx: StageContext, script: str, audio_duration: float = 0.0) -> dict:
     """Deterministic no-LLM planner. The manual fallback for every AI failure
     (D2) — and the M3 default.
@@ -186,16 +264,8 @@ def _fallback_planner(ctx: StageContext, script: str, audio_duration: float = 0.
     heuristic, because choosing visuals well needs the catalog's `type_name`
     vocabulary and the pack's overlay priority numbers, and neither is settled.
     """
+    parts = cut_script(ctx, script, audio_duration)
     style = ctx.cfg.get("style_pack_doc") or {}
-    pacing = style.get("pacing") or {}
-    min_hold = float(pacing.get("min_hold", 0) or 0)
-
-    srt = read_srt(ctx.artifact("subtitles.srt")) if ctx.has("subtitles.srt") else []
-    pieces = beatphases.script_split(
-        script, srt, granularity=srt_granularity(ctx.cfg)
-    )
-    aligned = beatphases.srt_alignment(pieces, srt, audio_duration)
-    parts = beatphases.beat_parts(aligned, min_hold)
 
     beats = []
     for i, part in enumerate(parts, start=1):

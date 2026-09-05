@@ -1,9 +1,15 @@
 name: faceless_v3
-version: "1.1"
+version: "1.2"
 description: >
   The overlay-quality pipeline. v1.0 was faceless v1's stage list copied
   verbatim, so that the first baseline was taken on a manifest provably
   identical to production.
+
+  v1.2 adds `cut_beats` (D88): the deterministic cutting the fallback planner
+  already did becomes its own stage writing beat_cuts.json, and plan_beats then
+  answers by INDEX rather than retyping the narration. Verbatim coverage stops
+  being a rule the model is checked against and becomes a property of how the
+  spans were made.
 
   v1.1 adds `select_overlays` (D87): the overlay decision moves out of
   plan_beats into a call where it is the only question, reading beats.json and
@@ -67,8 +73,16 @@ stages:
     produces: [subtitles.srt]
     receivable_on_upload: true            # bring your own subtitles
 
-  - name: plan_beats
+  # D88 — code cuts the script, with the real transcript timings, before the
+  # model is asked anything. plan_beats below then answers by INDEX and never
+  # retypes the narration, so verbatim coverage is true by construction.
+  - name: cut_beats
     requires: [script.txt, subtitles.srt]
+    produces: [beat_cuts.json]
+    receivable_on_upload: true            # hand-cut spans (schema-checked)
+
+  - name: plan_beats
+    requires: [script.txt, subtitles.srt, beat_cuts.json]
     produces: [beats.json]
     receivable_on_upload: true            # hand-written beat sheet (schema-checked)
     human_approval_on_review_mode: true   # gate after the beat sheet in review mode

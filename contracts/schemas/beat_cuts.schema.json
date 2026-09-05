@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/beat_cuts.schema.json",
+  "title": "BeatCuts",
+  "description": "D88 — where the narration is cut and when each piece is spoken, decided by code. Produced by the cut_beats stage (faceless_v3 only) from script.txt plus subtitles.srt, using the same beatphases the deterministic planner uses. The beatcraft prompt then answers by INDEX and never returns script_text, so verbatim coverage is true by construction rather than checked after the fact.",
+  "type": "object",
+  "required": ["version", "video_id", "cuts"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "enum": ["1.0"] },
+    "video_id": { "type": "string", "minLength": 1 },
+    "cuts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/cut" },
+      "description": "In order. Concatenated, their script_text is the script — that is the guarantee the whole stage exists for, and it is a property of how they were made rather than a rule anyone has to follow."
+    }
+  },
+  "$defs": {
+    "cut": {
+      "type": "object",
+      "required": ["index", "script_text", "start_s", "end_s"],
+      "additionalProperties": false,
+      "properties": {
+        "index": { "type": "integer", "minimum": 0, "description": "0-based, and the key the model answers by" },
+        "script_text": { "type": "string", "minLength": 1, "description": "a verbatim contiguous span of script.txt, cut by code and never retyped" },
+        "start_s": { "type": "number", "minimum": 0, "description": "from the real transcript, not estimated from a word count" },
+        "end_s": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}

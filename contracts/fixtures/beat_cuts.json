@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "video_id": "vid_fixture",
+  "cuts": [
+    { "index": 0, "script_text": "The port fed the capital.", "start_s": 0.0, "end_s": 3.2 },
+    { "index": 1, "script_text": "Nearly 70% of all grain passed through it.", "start_s": 3.2, "end_s": 7.9 }
+  ]
+}
