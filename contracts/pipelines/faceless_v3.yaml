@@ -23,12 +23,16 @@ description: >
   variables at once — the eval could then never say which one moved the
   numbers. Manifests are cheap; that is the point of D60 (D84).
 
-  Ships as `stability: test`: promotion is a separate, deliberate act with
-  criteria written into D84, and it is two lines — stability: production
-  here, and removing faceless.yaml so this wins `production_style: faceless`
-  on name order.
+  PROMOTED 2026-09-05 (D84). The gate that settled it was not a score: the same
+  case was rendered on both pipelines and watched, and the v3 cut was better.
+  Three of the four numeric criteria failed, and two of those turned out to be
+  measuring the ground truth rather than the model — see evals/BASELINE.md.
+
+  Reverting is two lines in the other direction: `stability: test` here and
+  `production` on faceless.yaml. Nothing in flight is disturbed, because a
+  video carries its own pipeline snapshot (Principle 7).
 category: faceless
-stability: test
+stability: production
 
 # auto = run straight through, no human gates. The per-stage
 # human_approval_on_review_mode flags below take effect only when a video is
@@ -36,7 +40,7 @@ stability: test
 # A video's own cfg.checkpoint_policy overrides this default, which is what
 # lets one channel run the same manifest both ways.
 default_checkpoint_policy: auto
-bulk_production_accepted: false
+bulk_production_accepted: true
 
 orchestration:
   mode: mainly_code

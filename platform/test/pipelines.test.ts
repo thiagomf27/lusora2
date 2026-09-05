@@ -56,9 +56,14 @@ test("a cfg naming a pipeline gets that one", () => {
 /* ---- D61: production style resolves to a manifest by category ---- */
 
 test("a production style resolves to the shipped manifest of that category", () => {
+  // faceless_v3 as of D84's promotion: it is the only `production` manifest in
+  // the faceless family, and `faceless` was stood down to `test` rather than
+  // deleted. Note this does NOT rely on the exact-name tie-break — that rule
+  // would have kept `faceless` winning forever had it stayed production, which
+  // is why promotion is two stability flags and not a rename.
   const sel = selectPipeline({ production_style: "faceless" });
   assert.ok(sel.ok, sel.ok ? "" : sel.problem);
-  assert.equal(sel.name, "faceless");
+  assert.equal(sel.name, "faceless_v3");
   assert.match(sel.reason, /production style 'faceless'/);
 });
 
@@ -86,13 +91,26 @@ test("custom demands an explicit pipeline", () => {
 });
 
 test("summaries carry what a picker and the resolver need", () => {
-  const faceless = listPipelineSummaries().find((p) => p.name === "faceless");
+  const faceless = listPipelineSummaries().find((p) => p.name === "faceless_v3");
   assert.ok(faceless);
   assert.equal(faceless.category, "faceless");
   assert.equal(faceless.stability, "production");
   assert.equal(faceless.bulk_production_accepted, true);
   assert.ok(faceless.stage_count > 0);
   assert.equal(faceless.problem, undefined);
+});
+
+test("the stood-down faceless is still loadable and still pinnable", () => {
+  // Kept, not deleted (D84): it is the pre-refactor stage list, the A/B
+  // partner every eval number was measured against, and the thing a revert
+  // flips back to.
+  const v1 = listPipelineSummaries().find((p) => p.name === "faceless");
+  assert.ok(v1);
+  assert.equal(v1.stability, "test");
+  assert.equal(v1.problem, undefined);
+  const sel = selectPipeline({ pipeline: "faceless", production_style: "faceless" });
+  assert.ok(sel.ok);
+  assert.equal(sel.name, "faceless");
 });
 
 test("every shipped manifest declares a category, so a style can find it", () => {
@@ -156,8 +174,8 @@ test("faceless_v2 is a test pipeline, so bulk enqueue refuses it", () => {
   const res = loadPipeline("faceless_v2");
   assert.ok(res.ok, res.ok ? "" : res.problem);
   assert.match(bulkProductionProblem(res.manifest)!, /one video at a time/);
-  // ...and it must not steal the production style from the shipped faceless
+  // ...and it must not steal the production style from the shipped one
   const sel = selectPipeline({ production_style: "faceless" });
   assert.ok(sel.ok);
-  assert.equal(sel.name, "faceless");
+  assert.equal(sel.name, "faceless_v3");
 });

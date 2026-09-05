@@ -26,8 +26,14 @@ not a decision). See D21–D40 in [the Decision Log](04-decisions/decided.md).
 ## Overlay quality — `faceless_v3` (2026-09-05)
 
 The overlay line of work, built as `overlayqualityv3plan.md`'s nine slices.
-Everything is on `faceless_v3`, a `stability: test` manifest; `faceless` and
-`faceless_v2` are untouched.
+
+**`faceless_v3` is PRODUCTION as of 2026-09-05** (D84) — what
+`production_style: faceless` resolves to, and what a video naming no pipeline
+runs. `faceless.yaml` is kept and stood down to `stability: test`: it is the
+pre-refactor stage list, the A/B partner every eval number was measured
+against, and still runnable by pinning `pipeline: faceless`. Reverting the
+promotion is those two `stability` flags in the other direction; nothing in
+flight is disturbed, because a video carries its own snapshot.
 
 **Global (every pipeline):**
 

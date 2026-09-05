@@ -23,7 +23,7 @@ PIPELINES_DIR = CONTRACTS_ROOT / "pipelines"
 # The pipeline a cfg.json that names none is run with. Manual-first: a
 # hand-written cfg (or one snapshotted before D60) still runs the faceless
 # stage list, which is exactly what it ran before pipelines became data.
-DEFAULT_PIPELINE = "faceless"
+DEFAULT_PIPELINE = "faceless_v3"
 
 
 class PipelineError(ValueError):

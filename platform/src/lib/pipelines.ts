@@ -20,10 +20,12 @@ import { validateAgainst } from "./validate.ts";
 export const PIPELINE_NAME_RE = /^[a-z][a-z0-9_-]*$/;
 
 /**
- * What a video with no pipeline named anywhere runs: the stage list every
- * video ran before manifests existed.
+ * What a video with no pipeline named anywhere runs. It follows PRODUCTION, or
+ * "the default" and "what a video actually runs" drift apart — as of D84's
+ * promotion that is `faceless_v3`, which is v1's stage list plus `cut_beats`
+ * and `select_overlays`. Mirrors DEFAULT_PIPELINE in the contracts package.
  */
-export const DEFAULT_PIPELINE = "faceless";
+export const DEFAULT_PIPELINE = "faceless_v3";
 
 export function pipelinesDir(): string {
   return join(repoRoot(), "contracts", "pipelines");

@@ -11,7 +11,12 @@ description: >
   DECLARE what manual-first already allowed, so a v1.0 snapshot and a v1.1 run
   walk the same list.
 category: faceless
-stability: production
+# Stood down from production 2026-09-05 when faceless_v3 was promoted (D84).
+# KEPT rather than deleted: it is the documented pre-refactor stage list, the
+# A/B partner every eval number in evals/BASELINE.md was measured against, and
+# still runnable by pinning `pipeline: faceless` on a channel or one video.
+# Restoring it is `stability: production` here and `test` on faceless_v3.
+stability: test
 
 # auto = run straight through, no human gates. The per-stage
 # human_approval_on_review_mode flags below take effect only when a video is
@@ -19,7 +24,7 @@ stability: production
 # A video's own cfg.checkpoint_policy overrides this default, which is what
 # lets one channel run the same manifest both ways.
 default_checkpoint_policy: auto
-bulk_production_accepted: true
+bulk_production_accepted: false
 
 orchestration:
   mode: mainly_code

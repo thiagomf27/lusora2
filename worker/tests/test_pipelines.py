@@ -147,19 +147,52 @@ def test_the_same_video_beats_identically_on_v1_and_v3(tmp_path, monkeypatch):
     assert beats_on("faceless_v3") == beats_on("faceless")
 
 
-def test_faceless_v3_is_a_test_pipeline_kept_out_of_batches():
-    """It is an A/B partner, not a second production pipeline. Promotion is a
-    deliberate act with criteria written into D84."""
-    v3 = load_pipeline("faceless_v3")
-    assert v3["stability"] == "test"
-    assert v3["bulk_production_accepted"] is False
-    assert load_pipeline("faceless")["stability"] == "production"
+def test_faceless_v3_is_the_production_faceless_pipeline():
+    """Promoted 2026-09-05 (D84), and this test is the inverse of the one that
+    stood here before — edited deliberately, like the stage-list lock.
+
+    `faceless` is KEPT, stood down to `test`: it is the documented pre-refactor
+    stage list, the A/B partner every number in evals/BASELINE.md was measured
+    against, and still runnable by pinning `pipeline: faceless`. Reverting the
+    promotion is these two fields in the other direction."""
+    v3, v1 = load_pipeline("faceless_v3"), load_pipeline("faceless")
+    assert v3["stability"] == "production"
+    assert v3["bulk_production_accepted"] is True
+    assert v1["stability"] == "test", "faceless must not also be production"
+    assert v1["bulk_production_accepted"] is False
+
+
+def test_exactly_one_faceless_pipeline_is_production():
+    """The platform resolves `production_style` by EXACT NAME first and only
+    then alphabetically, so two production manifests in one family would make
+    selection depend on which is named after the style — a silent tie-break
+    rather than a decision."""
+    production = [
+        n for n in list_pipelines()
+        if load_pipeline(n).get("category") == "faceless"
+        and load_pipeline(n)["stability"] == "production"
+    ]
+    assert production == ["faceless_v3"], production
 
 
 def test_default_pipeline_exists_and_is_production():
+    """The fallback for a cfg naming no pipeline has to BE what production
+    runs, or "the default" and "what a video actually runs" drift apart."""
     manifest = load_pipeline(DEFAULT_PIPELINE)
     assert DEFAULT_PIPELINE in list_pipelines()
     assert manifest["stability"] == "production"
+
+
+def test_both_languages_agree_on_the_default():
+    """A platform that enqueues against one default while the worker falls back
+    to another is the kind of drift nobody notices until a video runs the wrong
+    stage list."""
+    from pathlib import Path
+
+    ts = Path(__file__).resolve().parents[2] / "platform/src/lib/pipelines.ts"
+    assert f'export const DEFAULT_PIPELINE = "{DEFAULT_PIPELINE}"' in ts.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_every_shipped_manifest_binds_to_the_registry():
