@@ -15,6 +15,7 @@ from pathlib import Path
 
 import lusora_contracts
 
+from ..agents import overlay as overlay_agent
 from ..agents import planner as planner_agent
 from ..agents import script as script_agent
 from ..compiler import compile_plan
@@ -118,6 +119,26 @@ def run_transcript(ctx: StageContext) -> None:
 
     whisper.transcribe(ctx, ctx.artifact("audio.mp3"), words=granularity == "word")
     ctx.log(f"subtitles transcribed by local whisper ({granularity} cues)")
+
+
+# ---------------- select_overlays (D87) ----------------
+
+
+def run_select_overlays(ctx: StageContext) -> None:
+    """Choose the graphics, in a call where that is the only question.
+
+    v3 only. The compiler prefers overlays.json when it is present and reads
+    beat.overlay exactly as before when it is not, so adding this stage to a
+    manifest is the whole of turning it on.
+    """
+    beats_doc = ctx.read_json("beats.json")
+    audio_duration = probe_duration(overlay_agent.STAGE, ctx.artifact("audio.mp3"))
+    doc = overlay_agent.select_overlays(ctx, beats_doc, audio_duration)
+    ctx.write_json("overlays.json", doc)
+    ctx.log(
+        f"{len(doc.get('selections') or [])} overlays selected, "
+        f"{len(doc.get('declined') or [])} beats declined"
+    )
 
 
 # ---------------- plan_beats ----------------
@@ -232,7 +253,13 @@ def run_compile_plan(ctx: StageContext) -> None:
         if violations:
             raise StageError("compile_plan", "beats.json invalid: " + "; ".join(violations[:8]))
 
-    plan = compile_plan(beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration)
+    # D87: overlays.json wins where the select_overlays stage produced one.
+    # Absent on every pipeline that does not run that stage, and the compiler
+    # then reads beat.overlay exactly as before.
+    selection = ctx.read_json("overlays.json") if ctx.has("overlays.json") else None
+    plan = compile_plan(
+        beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration, selection
+    )
 
     # per-beat recompile (D14): locked items and still-valid resolutions survive
     if ctx.has("edit_plan.json"):

@@ -332,6 +332,15 @@ def _build_prompt(
     pacing = style.get("pacing") or {}
     overlays = style.get("overlays") or {}
     allowed = overlays.get("allowed_components")
+    # D87: on a pipeline that runs select_overlays, the overlay question is
+    # asked in its own call and the planner does not pay for the menu at all —
+    # the biggest single item in its prompt, on every chunk. Read from the
+    # pipeline SNAPSHOT rather than the file on disk (Principle 7), so a video
+    # enqueued before the stage existed composes exactly as it did.
+    overlays_are_a_separate_stage = "select_overlays" in [
+        stage.get("name")
+        for stage in ((ctx.cfg.get("pipeline_doc") or {}).get("stages") or [])
+    ]
     avg_hold = float(pacing.get("avg_hold_seconds", 4.0))
     density = overlays.get("density", "normal")
     emphasis_enabled, emphasis_per_minute = validators.emphasis_policy(style)
@@ -351,7 +360,7 @@ def _build_prompt(
             "visual_language": str(style.get("visual_language") or ""),
             "content_rules": str(ctx.cfg.get("content_rules") or ""),
             "instructions": str((ctx.cfg.get("overrides") or {}).get("instructions") or ""),
-            "component_menu": _catalog_menu(allowed),
+            "component_menu": "" if overlays_are_a_separate_stage else _catalog_menu(allowed),
             "video_id": ctx.video_id,
             "full_script": full_script,
             "carry_forward": carry_forward,
@@ -360,7 +369,10 @@ def _build_prompt(
             "max_overlays": max_overlays,
             "spine": spine,
             "visual_ledger": visual_ledger,
-            "emphasis_per_minute": emphasis_per_minute if emphasis_enabled else "",
+            "emphasis_per_minute": (
+                "" if overlays_are_a_separate_stage
+                else (emphasis_per_minute if emphasis_enabled else "")
+            ),
         },
     )
 

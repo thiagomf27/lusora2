@@ -86,13 +86,15 @@ test("validatePrompt rejects a prompt that drops a required variable", () => {
 });
 
 test("roles.json declares the three bounded agents, plus their phase roles", () => {
-  // Five prompt roles, still three agents (D2). Two roles are PHASES of an
+  // Six prompt roles, still three agents (D2). Three roles are PHASES of an
   // agent rather than agents of their own, and each shares its agent's
   // llm/model: `spine` is phase 1 of the beat planner on a long script (D52),
-  // `research` is phase 0 of the script agent (D64).
+  // `research` is phase 0 of the script agent (D64), and `overlay` is the
+  // graphic decision lifted out of the planner into its own call (D87) — it
+  // reads the beats the planner wrote and answers one question about them.
   assert.deepEqual(
     Object.keys(loadRoles()).sort(),
-    ["chat", "planner", "research", "script", "spine"]
+    ["chat", "overlay", "planner", "research", "script", "spine"]
   );
 });
 

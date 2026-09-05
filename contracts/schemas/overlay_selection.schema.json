@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/overlay_selection.schema.json",
+  "title": "OverlaySelection",
+  "description": "D87 — the overlays.json artifact: which graphics belong on which beats, decided in a call where that is the only question. Produced by the select_overlays stage (faceless_v3 only), consumed by the compiler, which prefers it when present and reads beat.overlay exactly as before when it is absent. A beat sheet is not rewritten by this file; the selection references beats by id.",
+  "type": "object",
+  "required": ["version", "video_id", "selections"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "enum": ["1.0"] },
+    "video_id": { "type": "string", "minLength": 1 },
+    "selections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/selection" },
+      "description": "One per beat that gets a graphic. May be empty: a script with no moment worth decorating is a legitimate answer, and an empty array says so out loud where a missing file would not."
+    },
+    "declined": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/declined" },
+      "description": "Beats that COULD have carried a graphic and did not, with the reason. Optional, and not read by the compiler. It exists so a refusal is a recorded decision rather than an absence — which is the only way to tell restraint from an oversight when a score moves."
+    }
+  },
+  "$defs": {
+    "selection": {
+      "type": "object",
+      "required": ["beat_id", "component", "role"],
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": { "type": "string", "pattern": "^b[0-9]+$" },
+        "component": { "type": "string", "minLength": 1, "description": "MUST exist in the catalog and be inside the channel's allowed_components" },
+        "role": {
+          "enum": ["anchor", "emphasis"],
+          "description": "D86. `anchor` carries a fact and must name an anchor_ref; `emphasis` lifts a moment with pure text. A component whose catalog anchor_types are empty is emphasis whatever this says."
+        },
+        "anchor_ref": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "index into the referenced beat's anchors; required for a fact-carrying component"
+        },
+        "props_hint": { "type": "object", "description": "partial props; the compiler fills the rest from the anchor and the theme" },
+        "why": { "type": "string", "description": "one line, unscored, and the field that makes a later disagreement legible" }
+      }
+    },
+    "declined": {
+      "type": "object",
+      "required": ["beat_id", "why"],
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": { "type": "string", "pattern": "^b[0-9]+$" },
+        "why": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

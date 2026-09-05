@@ -1,12 +1,16 @@
 name: faceless_v3
-version: "1.0"
+version: "1.1"
 description: >
-  The overlay-quality pipeline. Its stage list is faceless v1's, copied
-  verbatim — and at v1.0 that is the whole of it: v3 and v1 walk the same
-  stages, so a video enqueued against either produces the same beats.json.
-  That is deliberate. It makes v3 an A/B partner for v1 before anything new
-  exists, and every stage added here later is measured against a baseline
-  taken on a manifest that was provably inert.
+  The overlay-quality pipeline. v1.0 was faceless v1's stage list copied
+  verbatim, so that the first baseline was taken on a manifest provably
+  identical to production.
+
+  v1.1 adds `select_overlays` (D87): the overlay decision moves out of
+  plan_beats into a call where it is the only question, reading beats.json and
+  writing overlays.json. Two consequences are declared rather than implied —
+  the planner composes with NO component menu on any pipeline carrying this
+  stage, and the compiler prefers overlays.json when it is present. Neither
+  reaches a pipeline that does not list the stage.
 
   It is NOT built on faceless_v2. v2 is the only home of the `research`
   stage, and putting the overlay work there would move two independent
@@ -70,6 +74,14 @@ stages:
     human_approval_on_review_mode: true   # gate after the beat sheet in review mode
     # Everything below runs only once this gate is passed, which is what makes
     # "nothing renders before the beats are approved" true rather than a habit.
+
+  # D87 — the overlay question in a call where it is the only question. The
+  # planner above therefore composes with NO component menu on this pipeline,
+  # and the compiler below prefers overlays.json over the beats' own overlay.
+  - name: select_overlays
+    requires: [beats.json]
+    produces: [overlays.json]
+    receivable_on_upload: true            # hand-written selection (schema-checked)
 
   - name: compile_plan
     requires: [beats.json]

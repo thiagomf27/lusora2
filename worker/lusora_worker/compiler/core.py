@@ -13,6 +13,7 @@ from typing import Any
 
 import lusora_contracts
 
+from .. import validators
 from ..errors import StageError
 from ..textsplit import split_sentences
 from . import geo, sound
@@ -31,9 +32,29 @@ def compile_plan(
     sentence_timings: list[dict[str, Any]],
     cfg: dict[str, Any],
     audio_duration_s: float,
+    overlay_selection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """sentence_timings: [{text, start_s, end_s}] in audio time (from the
-    TTS adapter or the SRT), covering the whole narration in order."""
+    TTS adapter or the SRT), covering the whole narration in order.
+
+    `overlay_selection` is an overlays.json (D87) and is AUTHORITATIVE when
+    given: a beat it does not name carries no graphic, even if the sheet wrote
+    one. That is what makes the select_overlays stage the decision rather than
+    a suggestion. Absent — every pipeline that does not run that stage — the
+    beats' own `overlay` is read exactly as before, so v1 and v2 compile
+    byte-identically and this argument is purely additive.
+    """
+    if overlay_selection is not None:
+        chosen = validators.selections_by_beat(overlay_selection)
+        beats_doc = {
+            **beats_doc,
+            "beats": [
+                {**b, "overlay": chosen[str(b.get("id"))]}
+                if str(b.get("id")) in chosen
+                else {k: v for k, v in b.items() if k != "overlay"}
+                for b in (beats_doc.get("beats") or [])
+            ],
+        }
 
     style = cfg.get("style_pack_doc") or {}
     pacing = style.get("pacing") or {}

@@ -5,6 +5,8 @@ changed — so the first test pins the exact stage order and done-check the
 hardcoded STAGES constant had.
 """
 
+import json
+
 import pytest
 import yaml
 from lusora_contracts.pipelines import (
@@ -47,26 +49,40 @@ def test_faceless_is_the_pre_refactor_stage_list():
     assert [(s.name, s.artifact, s.is_done) for s in stages] == PRE_REFACTOR
 
 
-def test_faceless_v3_starts_as_faceless_plus_nothing():
-    """D84: v3 is v1's stage list, verbatim, so the first eval taken on it is
-    taken on a manifest that provably does nothing new. Every later slice that
-    adds a stage edits THIS test deliberately — which is the point: a stage
-    list that drifts by accident is a baseline that silently stopped being one.
-    """
+def test_faceless_v3_is_faceless_plus_select_overlays_and_nothing_else():
+    """Edited deliberately in slice 5, which is what this test is for.
+
+    It began (D84) as "v3 == v1, exactly", so the first baseline was taken on a
+    manifest that provably did nothing new. It now pins the ONE stage D87 added
+    and the position it sits in. A second stage appearing here without this
+    test changing is the accident it exists to catch."""
     v1, v3 = load_pipeline("faceless"), load_pipeline("faceless_v3")
-    assert stage_names(v3) == stage_names(v1)
-    # not only the names: the requires/produces/gates are the same list too,
-    # or "identical stage list" would mean less than it says
-    assert v3["stages"] == v1["stages"]
-    # and what the worker BUILDS from it is the pre-refactor list, done-checks
-    # included — the manifest is inert, not merely similar
-    assert [(s.name, s.artifact, s.is_done) for s in build_stages(v3)] == PRE_REFACTOR
+    added = [n for n in stage_names(v3) if n not in stage_names(v1)]
+    assert added == ["select_overlays"]
+    # between the beats and the compile, because it reads one and feeds the other
+    names = stage_names(v3)
+    assert names.index("plan_beats") < names.index("select_overlays") < names.index("compile_plan")
+    # every OTHER stage is still v1's, declaration for declaration
+    assert [s for s in v3["stages"] if s["name"] != "select_overlays"] == v1["stages"]
+
+
+def test_faceless_v3_still_binds_to_the_pre_refactor_stages_around_it():
+    """The stage added is additive: everything v1 had still builds identically,
+    done-checks included."""
+    built = [(s.name, s.artifact, s.is_done) for s in build_stages(load_pipeline("faceless_v3"))]
+    assert [row for row in built if row[0] != "select_overlays"] == PRE_REFACTOR
+    assert ("select_overlays", "overlays.json", None) in built
 
 
 def test_the_same_video_beats_identically_on_v1_and_v3(tmp_path, monkeypatch):
-    """D84's exit criterion, run offline: the stage BODY must not be able to
-    see which manifest called it. Same folder, same deterministic planner, two
-    pipeline snapshots — the bytes have to match, or v3 is not a baseline."""
+    """D84's exit criterion, narrowed by D87 and worth saying out loud.
+
+    The DETERMINISTIC planner still cannot see which manifest called it, which
+    is what this asserts. Its LLM path deliberately can, as of slice 5: a
+    pipeline carrying `select_overlays` composes the planner prompt with no
+    component menu, because the overlay question is asked elsewhere. That
+    difference is pinned by
+    `test_the_planner_prompt_drops_the_menu_when_select_overlays_will_run`."""
     from lusora_worker.context import StageContext
     from lusora_worker.pipeline import steps
 
@@ -673,3 +689,102 @@ def test_substages_are_declarative_and_do_not_become_stages():
     stages = build_stages(manifest)
     assert [s.name for s in stages] == stage_names(manifest)
     assert "script_split" not in [s.name for s in stages]
+
+
+# ---------------- select_overlays is v3-only and additive (slice 5, D87) ----------------
+
+
+def test_faceless_v3_runs_select_overlays_and_faceless_does_not():
+    assert "select_overlays" in stage_names(load_pipeline("faceless_v3"))
+    for name in ("faceless", "faceless_v2"):
+        assert "select_overlays" not in stage_names(load_pipeline(name)), name
+
+
+def test_the_planner_prompt_drops_the_menu_when_select_overlays_will_run(tmp_path):
+    """The token saving is real, and it is read from the pipeline SNAPSHOT so a
+    video enqueued before the stage existed composes exactly as it did."""
+    from lusora_worker.agents import planner
+
+    from test_agents import CFG
+
+    base = json.loads(json.dumps(CFG))
+    without = planner._build_prompt(_ctx(tmp_path, base), "The port fed the capital.", 60.0)
+    with_stage = planner._build_prompt(
+        _ctx(tmp_path, {**base, "pipeline_doc": load_pipeline("faceless_v3")}),
+        "The port fed the capital.", 60.0,
+    )
+    assert "AnimatedCounter" in without[0], "the menu is there when the planner owns overlays"
+    assert "AnimatedCounter" not in with_stage[0], "and gone when it does not"
+    assert len(with_stage[0]) < len(without[0]) / 2
+
+
+def test_the_planner_prompt_is_byte_identical_for_a_pipeline_without_the_stage(tmp_path):
+    """v1 and v2 compose exactly as before — the whole point of putting the
+    stage in its own manifest."""
+    from lusora_worker.agents import planner
+
+    from test_agents import CFG
+
+    base = json.loads(json.dumps(CFG))
+    none = planner._build_prompt(_ctx(tmp_path, base), "The port fed the capital.", 60.0)
+    for name in ("faceless", "faceless_v2"):
+        snap = {**base, "pipeline_doc": load_pipeline(name)}
+        assert planner._build_prompt(_ctx(tmp_path, snap), "The port fed the capital.", 60.0) == none, name
+
+
+def test_select_overlays_is_billed_like_any_other_call():
+    """D13: an unknown provider+operation is a hard error, never a silent $0,
+    so every provider that carries llm.* needs the new operation."""
+    import lusora_contracts
+
+    prices = lusora_contracts.load_prices()["prices"]
+    for provider in ("mock", "deepseek", "anthropic"):
+        assert "llm.select_overlays" in prices[provider], provider
+
+
+def test_the_compiler_prefers_overlays_json_when_present():
+    from lusora_worker.compiler import compile_plan
+
+    from test_agents import CFG
+
+    cfg = {**json.loads(json.dumps(CFG)), "captions": {"enabled": False},
+           "theme_doc": {}, "output": {"fps": 30}}
+    beats = {"version": "1.1", "video_id": "v", "beats": [
+        {"id": "b1", "kind": "narration", "script_text": "The port fed the capital.",
+         "visual_intent": "a harbour",
+         "anchors": [{"type": "number", "value": 12, "source_words": "The port"}],
+         "overlay": {"component": "AnimatedCounter", "anchor_ref": 0}}]}
+    timings = [{"text": "The port fed the capital.", "start_s": 0.0, "end_s": 8.0}]
+
+    # the selection replaces what the sheet wrote
+    swapped = compile_plan(beats, timings, cfg, 8.0, {
+        "version": "1.0", "video_id": "v",
+        "selections": [{"beat_id": "b1", "component": "StatTag",
+                        "role": "anchor", "anchor_ref": 0,
+                        "props_hint": {"label": "quays"}}]})
+    assert [o["component"] for o in swapped["tracks"]["overlays"]] == ["StatTag"]
+
+    # ...and a beat the selection does not name carries nothing, even though
+    # the sheet wrote an overlay on it: the file is the decision, not a hint
+    silenced = compile_plan(beats, timings, cfg, 8.0,
+                            {"version": "1.0", "video_id": "v", "selections": []})
+    assert silenced["tracks"]["overlays"] == []
+
+
+def test_the_compiler_falls_back_to_beat_overlays_when_absent():
+    """v1 regression guard: with no selection the compiler reads the sheet
+    exactly as it always did."""
+    from lusora_worker.compiler import compile_plan
+
+    from test_agents import CFG
+
+    cfg = {**json.loads(json.dumps(CFG)), "captions": {"enabled": False},
+           "theme_doc": {}, "output": {"fps": 30}}
+    beats = {"version": "1.1", "video_id": "v", "beats": [
+        {"id": "b1", "kind": "narration", "script_text": "The port fed the capital.",
+         "visual_intent": "a harbour",
+         "anchors": [{"type": "number", "value": 12, "source_words": "The port"}],
+         "overlay": {"component": "AnimatedCounter", "anchor_ref": 0}}]}
+    timings = [{"text": "The port fed the capital.", "start_s": 0.0, "end_s": 8.0}]
+    plan = compile_plan(beats, timings, cfg, 8.0)
+    assert [o["component"] for o in plan["tracks"]["overlays"]] == ["AnimatedCounter"]

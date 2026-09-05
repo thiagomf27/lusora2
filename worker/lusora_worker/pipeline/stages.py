@@ -57,6 +57,9 @@ STEP_REGISTRY: dict[str, Step] = {
     "narration": Step(steps.run_narration),
     "transcript": Step(steps.run_transcript),
     "plan_beats": Step(steps.run_plan_beats),
+    # D87 — the overlay question in its own call. Only faceless_v3 lists it;
+    # a manifest without it plans overlays inside plan_beats exactly as before.
+    "select_overlays": Step(steps.run_select_overlays),
     "compile_plan": Step(steps.run_compile_plan, steps.plan_compiled_and_fresh),
     "resolve_assets": Step(steps.run_resolve_assets, steps.assets_resolved),
     # D48: binds the compiler's cue and bed NAMES to bytes from the sound pack.

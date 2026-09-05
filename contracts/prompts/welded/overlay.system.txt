@@ -1,0 +1,8 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. Every selection names a beat_id from the CANDIDATES below. Never invent one, and never name a beat that is not listed — a beat not listed cannot legally carry a graphic.
+2. Every selection names a component from THAT candidate's own menu. The menus differ per candidate because each one lists only what that beat's anchor can attach to; a component from another candidate's menu is invalid here.
+3. role is "anchor" or "emphasis". An "anchor" selection MUST carry anchor_ref, the index of the anchor it shows, and the component must accept that anchor's type. A component listed under "carries no fact" is always "emphasis".
+4. props_hint carries concrete VALUES only (e.g. {"text": "1943"}), never a prop schema. Leave it out entirely when the anchor already says everything — the compiler fills the rest from the anchor and the theme.
+5. Stay inside both budgets. They are counted separately and neither can borrow from the other.

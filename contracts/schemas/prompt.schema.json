@@ -22,7 +22,8 @@
         "script",
         "planner",
         "spine",
-        "chat"
+        "chat",
+        "overlay"
       ],
       "description": "must match the containing directory; decides the variable set and the welded block"
     },

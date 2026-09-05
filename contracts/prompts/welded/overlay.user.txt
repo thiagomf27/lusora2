@@ -1,0 +1,7 @@
+Output JSON shape:
+{"version":"1.0","video_id":"{{video_id}}",
+ "selections":[{"beat_id":"b12","component":"…","role":"anchor","anchor_ref":0,"props_hint":{},"why":"…"}],
+ "declined":[{"beat_id":"b14","why":"…"}]}
+
+Put every candidate you did NOT choose into `declined` with a one-line reason. A beat missing from both lists is an oversight, not a decision, and reads as one.
+Respond with the JSON object only.

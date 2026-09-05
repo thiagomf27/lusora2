@@ -124,8 +124,8 @@
           "source": "cfg.overrides.instructions"
         },
         "component_menu": {
-          "required": true,
-          "source": "catalog, filtered by the style pack's allowed_packs"
+          "required": false,
+          "source": "catalog, filtered by the style pack's allowed_packs. EMPTY on any pipeline whose stage list contains select_overlays (D87): the overlay question is asked in its own call there, so the planner does not pay for the menu at all. Optional for exactly that reason."
         },
         "video_id": {
           "required": true,
@@ -216,6 +216,55 @@
         "message": {
           "required": true,
           "source": "the editor's request"
+        }
+      }
+    },
+    "overlay": {
+      "description": "D87 — beat sheet + one shortlisted menu per candidate -> overlays.json. Asks the overlay question in a call where it is the only question. Output is schema- and validator-checked, then repaired up to 3 times, the same contract the planner has.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "video_id": {
+          "required": true,
+          "source": "the video id"
+        },
+        "candidates": {
+          "required": true,
+          "source": "derived: one block per beat that could legally carry a graphic, each with its script_text, its anchors, and the SHORTLISTED component menu its own anchor type permits"
+        },
+        "max_overlays": {
+          "required": true,
+          "source": "derived: the anchor-class density ceiling for this video"
+        },
+        "emphasis_per_minute": {
+          "required": false,
+          "source": "style_pack.overlays.emphasis.per_minute, and only when that class is enabled (D59)"
+        },
+        "max_emphasis": {
+          "required": false,
+          "source": "derived: the emphasis-class ceiling, empty when the class is off"
+        },
+        "audio_duration_s": {
+          "required": true,
+          "source": "probed audio.mp3 duration"
+        },
+        "density": {
+          "required": false,
+          "source": "style_pack.overlays.density"
+        },
+        "visual_language": {
+          "required": false,
+          "source": "style_pack.visual_language"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
         }
       }
     }

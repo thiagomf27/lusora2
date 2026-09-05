@@ -540,3 +540,164 @@ def _check_sfx_density(tracks: dict, cfg: dict, total_duration_s: float) -> list
             f"{len(tight)} sfx pair(s) closer than min_gap_s {min_gap:g} (first at {a:.2f}s and {b:.2f}s)"
         )
     return violations
+
+
+# ---------------- overlay selection (D87) ----------------
+
+
+def validate_overlay_selection(
+    doc: dict[str, Any],
+    beats: list[dict[str, Any]],
+    cfg: dict[str, Any],
+    expected_duration_s: float | None = None,
+) -> list[str]:
+    """Judge an overlays.json against the beats it references.
+
+    Deliberately the SAME rules `validate_beat_sheet` applies to `beat.overlay`
+    — catalog existence, the channel's allowed list, anchor type, prop values,
+    the two separate budgets (D59) — so that moving the decision into its own
+    stage cannot quietly move the standard it is held to. A selection that
+    would have been refused inside a beat sheet is refused here.
+    """
+    violations = _schema_errors("overlay_selection", doc)
+    if violations:
+        return violations  # structure first; content checks assume shape
+
+    style = cfg.get("style_pack_doc") or {}
+    allowed = (style.get("overlays") or {}).get("allowed_components")
+    emphasis_enabled, emphasis_per_minute = emphasis_policy(style)
+    by_id = {str(b.get("id")): b for b in beats}
+
+    anchor_count = 0
+    emphasis_count = 0
+    seen: set[str] = set()
+
+    for i, sel in enumerate(doc.get("selections") or []):
+        beat_id = str(sel.get("beat_id"))
+        where = f"selection[{i}] (beat {beat_id})"
+        beat = by_id.get(beat_id)
+        if beat is None:
+            violations.append(f"{where}: no such beat in the sheet")
+            continue
+        if beat_id in seen:
+            violations.append(
+                f"{where}: this beat already has a selection — one graphic per beat, "
+                "because a beat is the span an overlay is held over"
+            )
+            continue
+        seen.add(beat_id)
+
+        name = str(sel.get("component", ""))
+        entry = lusora_contracts.catalog_component(name)
+        if entry is None:
+            violations.append(f"{where}: component '{name}' not in catalog")
+            anchor_count += 1
+            continue
+        if allowed and name not in allowed:
+            violations.append(
+                f"{where}: component '{name}' not in style pack allowed_components {allowed}"
+            )
+
+        # The class is DERIVED from the catalog, exactly as in a beat sheet
+        # (D86): a component that carries no fact is an emphasis overlay
+        # whatever the selection declares.
+        role = overlay_role(sel, entry)
+        if role == "emphasis":
+            emphasis_count += 1
+            if not emphasis_enabled:
+                violations.append(
+                    f"{where}: '{name}' carries no anchor type, so it can only ever be an "
+                    "emphasis graphic — and this style pack does not enable that class. "
+                    "Choose a component that attaches to one of this beat's anchors, or "
+                    "decline the beat"
+                )
+            elif entry["anchor_types"] and _declared_role(sel) == "emphasis":
+                violations.append(
+                    f"{where}: '{name}' carries a fact (anchor types {entry['anchor_types']}) "
+                    "and cannot take role 'emphasis' — set role 'anchor' and reference an anchor"
+                )
+            elif _declared_role(sel) == "anchor":
+                violations.append(
+                    f"{where}: '{name}' carries no anchor type, so it cannot take role "
+                    "'anchor' — it is an emphasis graphic and is counted against that budget"
+                )
+        else:
+            anchor_count += 1
+
+        anchors = beat.get("anchors") or []
+        ref = sel.get("anchor_ref")
+        if entry["anchor_types"]:
+            if ref is None:
+                violations.append(
+                    f"{where}: component '{name}' requires an anchor_ref "
+                    f"(types {entry['anchor_types']})"
+                )
+            elif ref >= len(anchors):
+                violations.append(
+                    f"{where}: anchor_ref {ref} out of range — beat {beat_id} has "
+                    f"{len(anchors)} anchor(s)"
+                )
+            elif anchors[ref].get("type") not in entry["anchor_types"]:
+                violations.append(
+                    f"{where}: component '{name}' cannot attach to anchor type "
+                    f"'{anchors[ref].get('type')}' — it takes {entry['anchor_types']}"
+                )
+
+        for prop_name, prop_value in (sel.get("props_hint") or {}).items():
+            spec = entry["props"].get(prop_name)
+            if spec is None:
+                violations.append(f"{where}: prop '{prop_name}' unknown for {name}")
+            else:
+                err = check_prop_value(spec, prop_name, prop_value)
+                if err:
+                    violations.append(
+                        f"{where}: props_hint {err} — props_hint carries concrete values, "
+                        "never the prop schema itself"
+                    )
+
+    for i, declined in enumerate(doc.get("declined") or []):
+        beat_id = str(declined.get("beat_id"))
+        if beat_id not in by_id:
+            violations.append(f"declined[{i}]: no such beat '{beat_id}' in the sheet")
+        elif beat_id in seen:
+            violations.append(
+                f"declined[{i}]: beat '{beat_id}' is both selected and declined — "
+                "it can only be one"
+            )
+
+    # The two budgets, counted separately and neither borrowing from the other.
+    if expected_duration_s:
+        ceiling = max_overlays_for(style, expected_duration_s)
+        if anchor_count > ceiling:
+            violations.append(
+                f"{anchor_count} fact-carrying graphics exceed the density budget "
+                f"(max {ceiling} for {expected_duration_s:.0f}s) — decline the weakest"
+            )
+        if emphasis_enabled:
+            max_emphasis = math.ceil(emphasis_per_minute * expected_duration_s / 60) + 1
+            if emphasis_count > max_emphasis:
+                violations.append(
+                    f"{emphasis_count} emphasis graphics exceed overlays.emphasis.per_minute "
+                    f"{emphasis_per_minute:g} (max {max_emphasis} for {expected_duration_s:.0f}s)"
+                )
+
+    return violations
+
+
+def selections_by_beat(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """overlays.json -> {beat_id: the overlay dict a beat sheet would carry}.
+
+    The shapes are deliberately near-identical, so the compiler reads one or
+    the other with no second code path (D87).
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for sel in doc.get("selections") or []:
+        overlay = {"component": sel.get("component")}
+        if sel.get("role") is not None:
+            overlay["role"] = sel["role"]
+        if sel.get("anchor_ref") is not None:
+            overlay["anchor_ref"] = sel["anchor_ref"]
+        if sel.get("props_hint"):
+            overlay["props_hint"] = sel["props_hint"]
+        out[str(sel.get("beat_id"))] = overlay
+    return out

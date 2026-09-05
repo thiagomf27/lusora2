@@ -27,6 +27,10 @@
         "unit": "token",
         "unit_price_usd": 0
       },
+      "llm.select_overlays": {
+        "unit": "token",
+        "unit_price_usd": 0
+      },
       "tts.narrate": {
         "unit": "char",
         "unit_price_usd": 0
@@ -43,7 +47,7 @@
       }
     },
     "ai33": {
-      "comment": "aggregator at api.ai33.pro; charges internal credits (recorded in details) \u2014 per-char USD is an estimate until a real rate is known (OQ-15)",
+      "comment": "aggregator at api.ai33.pro; charges internal credits (recorded in details) — per-char USD is an estimate until a real rate is known (OQ-15)",
       "tts.narrate": {
         "unit": "char",
         "unit_price_usd": 1e-05
@@ -69,6 +73,10 @@
       "llm.plan_spine": {
         "unit": "token",
         "unit_price_usd": 2.8e-07
+      },
+      "llm.select_overlays": {
+        "unit": "token",
+        "unit_price_usd": 2.8e-07
       }
     },
     "anthropic": {
@@ -89,6 +97,10 @@
         "unit_price_usd": 3e-06
       },
       "llm.plan_spine": {
+        "unit": "token",
+        "unit_price_usd": 3e-06
+      },
+      "llm.select_overlays": {
         "unit": "token",
         "unit_price_usd": 3e-06
       }

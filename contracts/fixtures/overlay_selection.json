@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "video_id": "vid_fixture",
+  "selections": [
+    {
+      "beat_id": "b12",
+      "component": "AnimatedCounter",
+      "role": "anchor",
+      "anchor_ref": 0,
+      "props_hint": { "label": "tanks built" },
+      "why": "the figure is what the sentence lands on, and the next line sets a second against it"
+    },
+    {
+      "beat_id": "b19",
+      "component": "DocumentCard",
+      "role": "emphasis",
+      "props_hint": { "title": "Chelyabinsk ledger" },
+      "why": "the shot IS the exhibit; a counter over it would caption a thing already on screen"
+    }
+  ],
+  "declined": [
+    {
+      "beat_id": "b14",
+      "why": "a real date anchor, and the footage already carries the year in its slate"
+    }
+  ]
+}

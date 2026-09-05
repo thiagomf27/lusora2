@@ -29,7 +29,7 @@ from . import CONTRACTS_ROOT
 
 PROMPTS_DIR = CONTRACTS_ROOT / "prompts"
 
-ROLES = ("research", "script", "planner", "spine", "chat")
+ROLES = ("research", "script", "planner", "spine", "chat", "overlay")
 
 _SECTION_RE = re.compile(r"\{\{#([a-z_][a-z0-9_]*)\}\}(.*?)\{\{/\1\}\}", re.DOTALL)
 _VAR_RE = re.compile(r"\{\{([a-z_][a-z0-9_]*)\}\}")
