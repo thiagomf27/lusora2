@@ -7,6 +7,7 @@ import { query } from "../db/pool";
 import { ApiError } from "./auth";
 import { videoFolder, type VideoRow } from "./videos";
 import { validateAgainst } from "./validate";
+import { overlayPolicy, validateOverlays } from "./overlayRules";
 
 export function readArtifact<T>(videoId: string, name: string): T {
   const p = join(videoFolder(videoId), name);
@@ -26,11 +27,25 @@ export function writePlan(videoId: string, plan: EditPlan): void {
   writeFileSync(join(videoFolder(videoId), "edit_plan.json"), JSON.stringify(plan, null, 2));
 }
 
-/** Validate an edited beat sheet: schema + verbatim coverage of the script. */
+/**
+ * Validate an edited beat sheet: schema, verbatim coverage of the script, and
+ * the OVERLAY rules the worker's validator applies.
+ *
+ * The overlay half was missing, and llm-usage.md claimed it was not: an
+ * overlay the chat agent invented reached beats.json and stopped the video at
+ * compile, with an error about a stage the human never touched. The policy
+ * comes from the video's frozen cfg.json, the same snapshot the worker reads,
+ * so the editor and the pipeline judge against one set of rules.
+ */
 export function validateBeats(videoId: string, beats: BeatSheet): string[] {
   const schema = validateAgainst("beat_sheet", beats);
   if (!schema.ok) return schema.errors;
   const errors: string[] = [];
+
+  const cfgPath = join(videoFolder(videoId), "cfg.json");
+  const cfg = existsSync(cfgPath) ? JSON.parse(readFileSync(cfgPath, "utf8")) : null;
+  errors.push(...validateOverlays(beats.beats, overlayPolicy(cfg)));
+
   const scriptPath = join(videoFolder(videoId), "script.txt");
   if (existsSync(scriptPath)) {
     const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();

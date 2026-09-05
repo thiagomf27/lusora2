@@ -389,3 +389,55 @@ def test_the_two_budgets_stay_separate_under_role():
     sheet = sheet_with_role()
     violations = validate_beat_sheet(sheet, SCRIPT, EMPHASIS_CFG, 10.0)
     assert violations == [], violations
+
+
+# ---------------- the rules BOTH languages enforce (slice 7) ----------------
+
+
+def test_the_shared_overlay_rules_hold_on_the_python_side():
+    """contracts/fixtures/rules/overlay_rules.json is the table the platform's
+    editor route asserts against too (platform/test/overlayRules.test.ts).
+
+    The worker has always applied these; the platform did not, so an overlay
+    the chat agent invented reached beats.json and stopped the video at
+    compile. One table, two implementations, no drift."""
+    import json as _json
+    from pathlib import Path
+
+    import lusora_contracts
+
+    table = _json.loads(
+        (lusora_contracts.CONTRACTS_ROOT / "fixtures" / "rules" / "overlay_rules.json")
+        .read_text(encoding="utf-8")
+    )
+    assert Path(lusora_contracts.CONTRACTS_ROOT, "fixtures", "rules").is_dir()
+
+    for case in table["cases"]:
+        cfg = {"style_pack_doc": {**CFG["style_pack_doc"], "overlays": {
+            **CFG["style_pack_doc"]["overlays"],
+            **({"allowed_components": case["allowed_components"]}
+               if case.get("allowed_components") else {}),
+        }}}
+        # built explicitly rather than from good_sheet(), so the beats match
+        # the table's own script and the platform's fixture exactly
+        sheet = {
+            "version": "1.1", "video_id": "vid_r", "beats": [
+                {"id": "b1", "kind": "narration",
+                 "script_text": "The port fed the capital.",
+                 "visual_intent": "aerial harbour, 1940s"},
+                {"id": "b2", "kind": "narration",
+                 "script_text": "Nearly 70% of all grain passed through it.",
+                 "visual_intent": "dock workers unloading sacks",
+                 "anchors": [{"type": "percentage", "value": 70, "label": "of grain",
+                              "source_words": "Nearly 70%"}],
+                 "overlay": case["overlay"]},
+            ],
+        }
+        violations = validate_beat_sheet(sheet, table["script"], cfg, 10.0)
+        if not case["expect"]:
+            assert violations == [], f"{case['name']}: {violations}"
+            continue
+        for needle in case["expect"]:
+            assert any(needle in v for v in violations), (
+                f"{case['name']}: expected a violation containing {needle!r}, got {violations}"
+            )

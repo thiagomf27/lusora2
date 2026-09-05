@@ -75,7 +75,20 @@ these breaks a downstream stage.
 
 - Exactly the published op vocabulary — 6 beat ops, 6 plan ops. Anything
   else is rejected by the route.
-- Overlays may only attach to an existing, type-matching anchor.
+- Overlays may only attach to an existing, type-matching anchor — and as of
+  slice 7 the route actually **enforces** that. It did not before: the section
+  described the intention, `validateBeats` checked only the schema and the
+  verbatim coverage, and an overlay naming a component that does not exist, or
+  one the channel never installed, was written to `beats.json` and stopped the
+  video later at compile, with an error about a stage the human never touched.
+  `platform/src/lib/overlayRules.ts` now applies the rules the worker's
+  validator applies, reading the same frozen `cfg.json`, and
+  `contracts/fixtures/rules/overlay_rules.json` is the shared expectation table
+  both languages assert against so the two cannot drift.
+- The menu the agent is offered is the CHANNEL's, not the whole catalog. It
+  used to be unfiltered, so the agent could propose a component the channel
+  had not installed and be right by its own lights — the menu and the
+  validator have to describe the same world.
 - Smallest set of ops that fulfils the request; one-sentence
   `explanation`.
 - The model **never applies** anything (D15): propose → validate → the
@@ -141,14 +154,28 @@ Closed in M10: target length is style pack data (D45); `arc` is passed to
 the planner; the repair loop no longer accumulates stale violations; the
 chat agent gets the same menu as the planner (`when_not_to_use` and prop
 constraints included); `script.model` / `planner.model` are in the channel
-config schema. Still open:
+config schema.
+
+Closed in the overlay-quality work: the planner's menu carries no prop schemas
+and no colliding `emphasis` prop, and names what a component costs in screen
+time (D85's slice); temperature is a property of the prompt pack and JSON mode
+a declared property of the provider (D85); `overlay.role` replaced the
+`emphasis` boolean and the class is now DERIVED from the catalog, closing a
+gate a no-anchor component used to fall through (D86); the overlay decision is
+its own stage with a shortlisted per-candidate menu (D87); the script is cut in
+code and the model answers by index, so verbatim coverage cannot fail (D88);
+and the editor route enforces the overlay rules it always claimed to.
+
+Still open:
 
 - **Script:** no forbidden-phrase list in the *default* prompt (the
   shipped `doc-grave` pack has one — that is now a prompt-authoring
   choice, not a code change); **no output validation at all** — a stray
   `**bold**` reaches both the TTS and the planner's verbatim check.
-- **Planner:** `kind:"timed"` never explained to the model; no worked
-  example of a good beat, only a shape skeleton. (`music[]` is no longer
+- **Planner:** no worked example of a good beat, only a shape skeleton.
+  (`kind:"timed"` is no longer listed here — D58 explained it in the pack, and
+  D86 exempted a timed beat's overlay from the class system so a cold open is
+  reachable on a pack that does not enable emphasis.) (`music[]` is no longer
   listed here: D50 replaced it with `mood` per beat, which the compiler
   groups into spans — the planner is never asked to name music.)
 - **`visual_intent` serves three consumers with opposite needs**:

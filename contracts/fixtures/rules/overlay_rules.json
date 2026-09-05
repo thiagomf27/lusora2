@@ -1,0 +1,52 @@
+{
+  "_comment": "The overlay rules BOTH languages must enforce. The worker's validate_beat_sheet has always applied these; the platform's editor route did not, so an illegal overlay written by the chat agent reached beats.json and stopped the video at compile. Each case is asserted by worker/tests/test_validators.py and platform/test/overlayRules.test.ts against the same expectations, so the two cannot drift. `expect` is a substring that must appear in some violation; an empty list means the beats must be accepted.",
+  "script": "The port fed the capital. Nearly 70% of all grain passed through it.",
+  "cases": [
+    {
+      "name": "a legal anchor overlay is accepted",
+      "overlay": { "component": "AnimatedCounter", "anchor_ref": 0 },
+      "expect": []
+    },
+    {
+      "name": "a component that is not in the catalog",
+      "overlay": { "component": "HoloProjector", "anchor_ref": 0 },
+      "expect": ["not in catalog"]
+    },
+    {
+      "name": "a component outside the channel's allowed list",
+      "allowed_components": ["StatTag"],
+      "overlay": { "component": "AnimatedCounter", "anchor_ref": 0 },
+      "expect": ["allowed_components"]
+    },
+    {
+      "name": "a component that cannot attach to this anchor's type",
+      "overlay": { "component": "DateStamp", "anchor_ref": 0 },
+      "expect": ["cannot attach to anchor type"]
+    },
+    {
+      "name": "an anchor_ref past the end of the beat's anchors",
+      "overlay": { "component": "AnimatedCounter", "anchor_ref": 7 },
+      "expect": ["anchor_ref"]
+    },
+    {
+      "name": "a fact-carrying component with no anchor_ref at all",
+      "overlay": { "component": "AnimatedCounter" },
+      "expect": ["requires an anchor_ref"]
+    },
+    {
+      "name": "a prop the component does not have",
+      "overlay": { "component": "AnimatedCounter", "anchor_ref": 0, "props_hint": { "telepathy": true } },
+      "expect": ["unknown"]
+    },
+    {
+      "name": "props_hint carrying a schema instead of a value",
+      "overlay": { "component": "AnimatedCounter", "anchor_ref": 0, "props_hint": { "label": { "type": "string" } } },
+      "expect": ["props_hint"]
+    },
+    {
+      "name": "a no-anchor component on a pack with the emphasis class off (D86)",
+      "overlay": { "component": "HammerStatement", "props_hint": { "text": "The port fed the capital" } },
+      "expect": ["does not use"]
+    }
+  ]
+}

@@ -26,7 +26,11 @@ export async function propose(
   beats: BeatSheet,
   plan: EditPlan,
   message: string,
-  cfg?: { prompts?: { chat?: ResolvedPrompt }; chat?: { llm?: string; model?: string } } | null
+  cfg?: {
+    prompts?: { chat?: ResolvedPrompt };
+    chat?: { llm?: string; model?: string };
+    style_pack_doc?: { overlays?: { allowed_components?: string[] | null } };
+  } | null
 ): Promise<ChatProposal> {
   loadEnv();
   const deepseekKey = process.env.DEEPSEEK_API_KEY;
@@ -44,10 +48,14 @@ export async function propose(
   if (!doc) throw new ApiError(500, "contracts/prompts/chat/default.json is missing");
 
   const { system, user } = compose("chat", doc, {
-    // the AUTHORING menu: unlike the planner, the chat agent really does write
-    // props_hint, so it is the caller that pays for the prop schemas and gets
-    // the prop descriptions in exchange
-    component_menu: componentMenu(null, { props: true }),
+    // The AUTHORING menu, filtered to THIS CHANNEL's components. Unfiltered it
+    // offered every component in the catalog, so the agent could propose one
+    // the channel had not installed and the route would accept it — the menu
+    // and the validator have to describe the same world.
+    component_menu: componentMenu(
+      cfg?.style_pack_doc?.overlays?.allowed_components ?? null,
+      { props: true }
+    ),
     beats: JSON.stringify(beats),
     plan_tracks: JSON.stringify(plan.tracks),
     message,
