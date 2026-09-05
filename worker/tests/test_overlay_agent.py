@@ -384,3 +384,77 @@ def test_the_shortlist_stays_cheap_even_with_props():
         overlay_agent._candidate_menu(["percentage"], None, False),
     )
     assert len(block) < len(_catalog_menu(None, props=True)) / 8
+
+
+# ---------------- the worked examples (the plan's slice-5 task 4) ----------------
+
+
+def test_the_pack_carries_worked_examples_including_a_negative(tmp_path):
+    """The plan said the overlay pack is 'where the worked examples go,
+    including at least one negative: a beat with a legal anchor and no overlay,
+    with the reason stated'. It shipped without them, and the first measured
+    run lost 20-25 points of restraint and collapsed one case's component
+    accuracy from 89% to 22% — the two failures a negative example and a
+    counter-vs-exhibit example are for."""
+    ctx = _ctx(tmp_path)
+    seen: dict[str, str] = {}
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen["system"] = system
+        return _reply(_selection())
+
+    overlay_agent.select_overlays(ctx, _beats(), 60.0, chat_fn=chat_fn)
+    system = seen["system"]
+    assert "WORKED EXAMPLES" in system
+    # a positive, a decline on a LEGAL anchor, and the exhibit-vs-counter pair
+    assert '"declined"' in system or "declined:" in system
+    assert "the answer is still no" in system
+    assert "an exhibit is not a better counter" in system.lower()
+
+
+def test_the_examples_show_props_that_the_anchor_does_not_fill(tmp_path):
+    """`value`, `quote`, `name` and `date` are from_anchor — the compiler fills
+    them, and a props_hint repeating one is how a number ends up wrong. A
+    schema cannot say that; a worked example can."""
+    ctx = _ctx(tmp_path)
+    seen: dict[str, str] = {}
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen["system"] = system
+        return _reply(_selection())
+
+    overlay_agent.select_overlays(ctx, _beats(), 60.0, chat_fn=chat_fn)
+    assert "NOT props_hint" in seen["system"]
+    assert "comes from the anchor" in seen["system"]
+
+
+def test_the_examples_show_an_array_of_objects_where_the_prop_wants_one(tmp_path):
+    """StepFlow and Timeline take arrays of OBJECTS, and guessing strings there
+    is what killed two runs before the shortlist carried prop shapes at all."""
+    ctx = _ctx(tmp_path)
+    seen: dict[str, str] = {}
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen["system"] = system
+        return _reply(_selection())
+
+    overlay_agent.select_overlays(ctx, _beats(), 60.0, chat_fn=chat_fn)
+    assert '"events":[{"date"' in seen["system"]
+
+
+def test_every_component_the_examples_name_exists_and_is_used_legally():
+    """An example naming a component that cannot take that role would teach the
+    exact mistake it is there to prevent."""
+    import re
+
+    import lusora_contracts
+    from lusora_contracts import prompts as pp
+
+    catalog = {c["name"]: c for c in lusora_contracts.load_catalog()["components"]}
+    system = pp.load_prompt("overlay", "default")["system"]
+    pairs = re.findall(r'"component":"(\w+)","role":"(\w+)"', system)
+    assert pairs, "the examples must show component/role pairs"
+    for name, role in pairs:
+        assert name in catalog, name
+        takes_anchor = bool(catalog[name]["anchor_types"])
+        assert (role == "anchor") == takes_anchor, (name, role, catalog[name]["anchor_types"])
