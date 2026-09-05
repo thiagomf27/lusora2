@@ -99,7 +99,38 @@ def _render_candidate(beat: dict[str, Any], menu: list[dict[str, Any]]) -> str:
         hold = (entry.get("duration_hint_s") or {}).get("default")
         held = f", holds ~{hold:g}s" if hold else ""
         lines.append(f"    - {entry['name']} ({takes}{held}): {entry['when_to_use']}")
+        props = _hintable_props(entry)
+        if props:
+            lines.append(f"      props: {json.dumps(props, ensure_ascii=False, separators=(',', ':'))}")
     return "\n".join(lines)
+
+
+def _hintable_props(entry: dict[str, Any]) -> dict[str, Any]:
+    """The props this component will accept, with their shapes.
+
+    The planner deliberately does NOT get these (D85's slice): thirty entries
+    of prop schemas is 2k tokens read once for a whole video, and a model handed
+    a schema fills the schema. Here the menu is six entries, so the same
+    information costs almost nothing — and it is REQUIRED, because the re-aim
+    worked: the selector started reaching for StepFlow, Timeline and
+    DocumentCard, then failed three attempts guessing that `steps` takes
+    strings rather than objects. Telling it to choose an exhibit while hiding
+    how to fill one is asking for a decision it cannot express.
+    """
+    out: dict[str, Any] = {}
+    for name, spec in (entry.get("props") or {}).items():
+        if spec.get("from_anchor") or spec.get("computed") or name in _HIDDEN_PROPS:
+            continue
+        shape = {k: spec[k] for k in ("type", "enum", "required", "items", "min", "max", "maxWords")
+                 if k in spec}
+        if shape:
+            out[name] = shape
+    return out
+
+
+# The catalog's `emphasis` prop is a visual weight the theme owns; the beat
+# sheet's is an overlay CLASS (D86). One word for two meanings in one prompt.
+_HIDDEN_PROPS = frozenset({"emphasis"})
 
 
 def build_candidates(beats: list[dict[str, Any]], cfg: dict[str, Any]) -> list[dict[str, Any]]:

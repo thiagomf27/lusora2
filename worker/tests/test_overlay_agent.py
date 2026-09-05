@@ -342,3 +342,45 @@ def test_a_timed_beat_is_always_a_candidate(tmp_path):
     names = [e["name"] for e in cold["menu"]]
     assert "KineticTitle" in names
     assert all(not e["anchor_types"] for e in cold["menu"]), "it can carry no fact"
+
+
+def test_the_shortlist_shows_how_to_fill_the_component_it_offers():
+    """The re-aim worked and then tripped over itself: the selector started
+    reaching for StepFlow, Timeline and DocumentCard — the exhibit family the
+    baseline never touched — and burned three attempts guessing that `steps`
+    takes strings rather than objects.
+
+    The planner deliberately gets NO prop schemas (thirty entries is 2k tokens
+    read once for a video, and a model handed a schema fills it). Here the menu
+    is six entries, so the same information is nearly free — and offering a
+    component while hiding how to fill it asks for a decision the model cannot
+    express."""
+    menu = [e for e in overlay_agent._candidate_menu([], None, True)
+            if e["name"] in ("StepFlow", "Timeline")]
+    block = overlay_agent._render_candidate(
+        {"id": "b1", "kind": "narration", "script_text": "a ledger", "anchors": []}, menu
+    )
+    assert '"steps"' in block and '"type":"object"' in block, block
+    assert '"events"' in block
+
+
+def test_the_shortlist_never_shows_the_emphasis_prop():
+    """D86's collision does not come back through the selector's own menu."""
+    block = overlay_agent._render_candidate(
+        {"id": "b1", "script_text": "x", "anchors": []},
+        overlay_agent._candidate_menu([], None, True),
+    )
+    assert '"emphasis"' not in block
+
+
+def test_the_shortlist_stays_cheap_even_with_props():
+    """Small enough to send per candidate: the whole reason the question can be
+    asked per beat at all."""
+    from lusora_worker.agents.planner import _catalog_menu
+
+    block = overlay_agent._render_candidate(
+        {"id": "b1", "script_text": "x",
+         "anchors": [{"type": "percentage", "value": 70, "source_words": "70%"}]},
+        overlay_agent._candidate_menu(["percentage"], None, False),
+    )
+    assert len(block) < len(_catalog_menu(None, props=True)) / 8
