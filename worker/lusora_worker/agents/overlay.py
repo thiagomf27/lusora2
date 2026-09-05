@@ -116,7 +116,13 @@ def build_candidates(beats: list[dict[str, Any]], cfg: dict[str, Any]) -> list[d
     candidates = []
     for beat in beats:
         anchor_types = [str(a.get("type")) for a in (beat.get("anchors") or [])]
-        menu = _candidate_menu(anchor_types, allowed, emphasis_enabled)
+        # A TIMED beat sits outside the class system (D86): no script_text, so
+        # no anchor, so every overlay on one is pure text by construction and
+        # the emphasis gate does not apply. It is always a candidate, or a cold
+        # open could never get its title card on a pipeline where the planner
+        # no longer writes overlays at all.
+        structural = beat.get("kind") == "timed"
+        menu = _candidate_menu(anchor_types, allowed, emphasis_enabled or structural)
         if menu:
             candidates.append({"beat": beat, "menu": menu})
     return candidates

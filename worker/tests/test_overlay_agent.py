@@ -326,3 +326,19 @@ def test_the_prompt_names_both_budgets_and_every_candidate(tmp_path):
     # the re-aim, in the shipped prompt rather than only in the decision log
     assert "under-using your budget" in seen["system"].lower()
     assert "counter every time" in seen["system"].lower()
+
+
+def test_a_timed_beat_is_always_a_candidate(tmp_path):
+    """D86: a timed beat is outside the class system, so the emphasis gate does
+    not apply to it. Without this a cold open could never get its title card on
+    v3, where the planner writes no overlays at all."""
+    doc = _beats()
+    doc["beats"].insert(0, {
+        "id": "b0", "kind": "timed", "timing": {"start_s": 0, "end_s": 4.5},
+        "visual_intent": "slow push-in on a bombed cathedral at dawn"})
+    # emphasis OFF — the beat still gets a menu, and it is the pure-text one
+    candidates = overlay_agent.build_candidates(doc["beats"], _cfg())
+    cold = next(c for c in candidates if c["beat"]["id"] == "b0")
+    names = [e["name"] for e in cold["menu"]]
+    assert "KineticTitle" in names
+    assert all(not e["anchor_types"] for e in cold["menu"]), "it can carry no fact"

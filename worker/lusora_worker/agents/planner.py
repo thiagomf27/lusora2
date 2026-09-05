@@ -482,6 +482,26 @@ def _plan_chunk(
     )
 
 
+def _one_of_each_timed_beat(beats: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """At most one cold open and one outro across a chunked video.
+
+    The prompt says "use at most one of each" and each chunk obeys it — but a
+    chunk only sees its own section, so a six-section script can return six
+    outros, all of them at the example's 900s, and the merged sheet fails on
+    overlapping timed spans. The rule is about the VIDEO, so it can only be
+    enforced where the video exists.
+
+    A cold open is a timed beat starting at 0; everything else timed is an
+    outro. The first cold open wins and the LAST outro wins, which is the
+    reading that keeps the strongest closing image rather than the earliest.
+    """
+    cold = [b for b in beats if b.get("kind") == "timed"
+            and float((b.get("timing") or {}).get("start_s", 0)) <= 0.001]
+    outro = [b for b in beats if b.get("kind") == "timed" and b not in cold]
+    keep = {id(b) for b in (cold[:1] + outro[-1:])}
+    return [b for b in beats if b.get("kind") != "timed" or id(b) in keep]
+
+
 def plan_beats(
     ctx: StageContext,
     script: str,
@@ -549,6 +569,8 @@ def plan_beats(
             next_id += 1
             merged_beats.append(beat)
 
+    if chunked:
+        merged_beats = _one_of_each_timed_beat(merged_beats)
     merged = {"version": "1.1", "video_id": ctx.video_id, "beats": merged_beats}
     if chunked:
         # Belt-and-suspenders: each chunk already validated its own slice;

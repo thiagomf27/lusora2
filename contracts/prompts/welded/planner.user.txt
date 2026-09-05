@@ -1,5 +1,6 @@
 Output JSON shape:
-{"version":"1.1","video_id":"{{video_id}}","beats":[{"id":"b1","kind":"narration","script_text":"…","visual_intent":"…","queries":["…","…"],"mood":"neutral|tense|somber|hopeful|urgent|triumphant|reflective|playful","media_preference":"video|image|any","anchors":[{"type":"percentage","value":70,"label":"…","source_words":"…"}],"overlay":{"component":"…","role":"anchor","anchor_ref":0,"props_hint":{}}}]}
+{"version":"1.1","video_id":"{{video_id}}","beats":[{"id":"b1","kind":"narration","script_text":"…","visual_intent":"…","queries":["…","…"],"mood":"neutral|tense|somber|hopeful|urgent|triumphant|reflective|playful","media_preference":"video|image|any","anchors":[{"type":"percentage","value":70,"label":"…","source_words":"…"}]{{#component_menu}},"overlay":{"component":"…","role":"anchor","anchor_ref":0,"props_hint":{}}{{/component_menu}}}]}
 `mood` selects the background music for the SECTION a beat sits in, so use one of those eight words exactly — anything else is read as "neutral". Keep one mood across a run of beats and change it only where the story turns; a mood set on a single isolated beat is merged away.
 Each `queries` entry is a keyword search of at most 5 words — that limit is enforced, and a query longer than it is rejected.
-Omit anchors/overlay where not needed. Respond with the JSON object only.
+{{#component_menu}}Omit anchors/overlay where not needed.
+{{/component_menu}}Find the anchors wherever they exist — a later stage decides which of them become graphics, so a missed anchor is a graphic nobody can place. Respond with the JSON object only.

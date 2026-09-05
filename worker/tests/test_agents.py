@@ -845,3 +845,60 @@ def test_the_emphasis_paragraph_is_absent_when_the_pack_disables_the_class(tmp_p
     them, which is what keeps the prompt byte-identical for packs that do not."""
     _system, user = _composed(make_ctx(tmp_path))
     assert "emphasis" not in user
+
+
+# ---------------- v3 leaves the overlay question alone (slice 5, fixes) ----------------
+
+
+def test_the_planner_prompt_says_nothing_about_overlays_when_it_owns_none(tmp_path):
+    """Not just the MENU. The hard rules, the shape's overlay field, the craft
+    line and the density number all go with it — a prompt that says "the only
+    components that exist:" followed by nothing invites the model to invent
+    them, and it did: a v3 run failed on 6 emphasis overlays the planner was
+    not supposed to be writing at all."""
+    from lusora_contracts.pipelines import load_pipeline
+
+    cfg = json.loads(json.dumps(CFG))
+    cfg["pipeline_doc"] = load_pipeline("faceless_v3")
+    system, user = planner._build_prompt(make_ctx(tmp_path, cfg), SCRIPT, 60.0)
+    composed = (system + user).lower()
+    assert "overlay" not in composed, [l for l in (system + user).splitlines() if "overlay" in l.lower()]
+    assert "component menu" not in composed
+    # ...and the anchors are still asked for, because a later stage needs them
+    assert "anchor" in composed
+
+
+def test_the_planner_still_asks_for_overlays_when_it_owns_them(tmp_path):
+    system, user = planner._build_prompt(make_ctx(tmp_path), SCRIPT, 60.0)
+    composed = system + user
+    assert "COMPONENT MENU" in composed
+    assert '"overlay"' in composed
+    assert "AnimatedCounter" in composed
+
+
+def test_a_chunked_video_keeps_one_cold_open_and_one_outro(tmp_path):
+    """Each chunk obeys "at most one of each" while seeing only its own
+    section, so a six-section script returned six outros — all at the example's
+    900s — and the merged sheet failed on overlapping timed spans. The rule is
+    about the VIDEO, so it is enforced where the video exists."""
+    beats = [
+        {"id": "b1", "kind": "timed", "timing": {"start_s": 0, "end_s": 4.0}},
+        {"id": "b2", "kind": "narration", "script_text": "one"},
+        {"id": "b3", "kind": "timed", "timing": {"start_s": 0, "end_s": 3.0}},
+        {"id": "b4", "kind": "timed", "timing": {"start_s": 900, "end_s": 905}},
+        {"id": "b5", "kind": "narration", "script_text": "two"},
+        {"id": "b6", "kind": "timed", "timing": {"start_s": 900, "end_s": 905}},
+    ]
+    kept = planner._one_of_each_timed_beat(beats)
+    assert [b["id"] for b in kept] == ["b1", "b2", "b5", "b6"]
+    # every narration beat survives untouched — the coverage check depends on it
+    assert [b["id"] for b in kept if b["kind"] == "narration"] == ["b2", "b5"]
+
+
+def test_a_video_with_one_of_each_is_left_alone(tmp_path):
+    beats = [
+        {"id": "b1", "kind": "timed", "timing": {"start_s": 0, "end_s": 4.0}},
+        {"id": "b2", "kind": "narration", "script_text": "one"},
+        {"id": "b3", "kind": "timed", "timing": {"start_s": 900, "end_s": 905}},
+    ]
+    assert planner._one_of_each_timed_beat(beats) == beats
