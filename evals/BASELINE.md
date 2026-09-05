@@ -367,11 +367,104 @@ authoring rather than compute.
 **Do this before slice 5.** Slice 5 exists to move restraint; measuring it with
 an instrument whose noise floor is 50 points would answer nothing.
 
+## The real baseline — four reference cases, `faceless` v1 + slices 2-4, deepseek-v4-pro, 2026-09-04
+
+The first baseline in this file taken on cases with a **reference video behind
+them** rather than on scripts LUSORA wrote and I marked. Three runs per case,
+twelve planner runs, no failures.
+
+| case | level | marks | recall | precision | restraint | component_acc |
+|---|---|---|---|---|---|---|
+| `cnbc-ref` | L3 | 30 | **22.2** (0.0) | 60.0 (60.0) | 88.6 (17.6) | 100 (0.0) |
+| `good-news-august-ref` | L2 | 32 | **64.6** (12.5) | 86.1 (16.7) | 83.0 (20.0) | 100 (0.0) |
+| `neu-ref` | L3 | 30 | **38.1** (7.1) | 76.2 (14.3) | 81.5 (16.7) | **25.6** (23.3) |
+| `the-bim-ref` | L3 | 34 | **49.3** (4.3) | 91.7 (0.0) | 90.9 (0.0) | 100 (0.0) |
+
+Mean over three runs, with the spread in brackets.
+
+### The instrument works now
+
+`the-bim-ref` reports a spread of **0.0** on precision and restraint across
+three runs, and 4.3 on recall. `cnbc-ref` reports 0.0 on recall. Against the
+25-50 point spreads the twelve-mark cases produced, that is the noise problem
+solved — and it was solved by writing 30-34 marks, not by touching a sampler.
+The granularity diagnosis was right: recall now moves in 4-11 point steps
+instead of 25.
+
+### The finding: the planner UNDER-places, it does not over-place
+
+| case | overlays written | budget available | moments marked |
+|---|---|---|---|
+| `cnbc-ref` | 5, 2, 5 | 16 | 9 |
+| `good-news-august-ref` | 12, 12, 12 | 19 | 16 |
+| `neu-ref` | 7, 7, 7 | 18 | 14 |
+| `the-bim-ref` | 12, 13, 12 | 24 | 23 |
+
+Every run finishes well under its ceiling, and every overlay written lands on a
+marked moment. Restraint averages **86%** across the four cases while recall
+averages **44%**.
+
+**This inverts the premise of the whole plan.** `overlayqualityv3plan.md` is
+built on "the model cannot stop" — the density violation that killed a
+pearl-harbor run, the reflexive DateStamp on an opening. On reference-grade
+material the opposite is true: the planner is cautious, spends half its
+allowance, and is *right* about what it does place (precision 60-92%,
+component accuracy 100% on three of four cases).
+
+The old finding was not wrong, it was unrepresentative. `pearl-harbor-doc` is
+57 seconds with a budget of four, where one extra graphic is a 25% error.
+These are 161-195 seconds with budgets of 16-24, where the interesting failure
+is the twelve moments it declined.
+
+**Slice 5 (`select_overlays`, D87) was designed to improve restraint.**
+Restraint is the number already at 86%. Its ceiling is +14 points, and the
+recall gap is 56. Asking the overlay question in its own call may well raise
+recall too — a dedicated call with a shortlisted menu is plausibly *more*
+willing, not less — but that is now the hypothesis to test, and the slice's
+exit criterion should be rewritten to say so before it is built.
+
+### Second finding: the planner uses 11 of 29 components
+
+Across all twelve sheets:
+
+```
+USED    AnimatedCounter 46, StatTag 28, HammerStatement 7, ComparisonSplit 7,
+        DateStamp 5, SatelliteLocate 4, PieChart 3, QuoteBlock 2,
+        KineticTitle 2, RankLabel 1, NamePlate 1
+
+NEVER   ArchivalFrame, BarChart, BulletList, CalloutArrow, ChapterCard,
+        DataTable, DefinitionCard, DocumentCard, FactCard, FactSheet,
+        FramedExhibit, HighlightedPassage, LineChart, PortraitPlates,
+        RegionHighlight, RouteMap, StepFlow, Timeline
+```
+
+Three quarters of every overlay written is a counter or a tag. The entire
+"exhibit" family — show the document, the table, the chart, the photograph —
+is never reached for, on four channels whose references use exactly that
+language.
+
+This is what `neu-ref`'s 25.6% component accuracy is measuring, and inspecting
+its mismatches shows the pattern cleanly: on "debt explode from roughly $10
+billion to…" the ground truth wants `DataTable` / `DocumentCard` /
+`FramedExhibit` and the planner writes `ComparisonSplit`; on "a record 37.2
+million people" it wants an exhibit and gets an `AnimatedCounter`. The planner
+reaches for the component that fills itself from an anchor, every time.
+
+One genuine planner error in that set: `Norwegian Cruise Line` is a `name`
+anchor wanting `NamePlate`, and it got an `AnimatedCounter` in all three runs.
+
+**Caveat on that case.** Several `neu-ref` marks put `class: emphasis` on spans
+full of numbers, because the reference showed a chart there. That is a
+defensible editorial reading and it is also the hardest thing in the eval for
+the planner to guess, so `neu-ref`'s component score should be read as "does
+the planner reach for exhibits" rather than as a general accuracy number.
+
 ## Log
 
 | date | slice | what changed | cases | note |
 |---|---|---|---|---|
 | 2026-09-03 | 1 | — | 2 | baseline taken from runs of 2026-07-25/26. No new provider spend: the sheets already existed |
+| 2026-09-04 | — | first reference baseline | 4 cases × 3 runs | Spreads collapse to 0-4 points on the 30-mark cases: granularity was the noise. Planner UNDER-places (restraint 86%, recall 44%) and uses 11 of 29 components, never the exhibit family. Inverts the plan's premise; slice 5's exit criterion needs rewriting |
 | 2026-09-04 | 3b | confound separated | 3 arms | Temperature CONFIRMED inert on deepseek-v4-pro: with JSON mode held constant, 0.2 was noisier than 0.7 on both cases. Most run-level spread is mark-count granularity; per-mark failure rates are stable. Scorer should aggregate across runs before slice 5 |
 | 2026-09-04 | 3 | per-role temperature + JSON mode | 2 × 2 runs | FAILED its exit criterion: 0.2 did not reduce the spread, and the breakdown case went from perfectly stable to unstable. Confounded with JSON mode. Measurement then blocked on provider balance |
 | 2026-09-03 | 2 | menu diet + prompt hygiene | 2 × 2 runs × 2 arms | July baseline invalidated (model changed) and re-taken. Input tokens −31%/−33%. `props_hint` all but disappeared, taking the planner's `emphasis` override with it. Quality NOT established: identical code scored 75% and 25% recall on one case, so the noise floor is wider than the effect |
