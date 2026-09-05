@@ -586,3 +586,80 @@ def test_check_says_nothing_about_budget_when_the_case_has_no_timings(tmp_path):
     problems = check_case(_case(tmp_path, "no-timings", marks,
                                 cfg={"style_pack_doc": {"overlays": {"density": "low"}}}))
     assert not any("budget" in p for p in problems), problems
+
+
+# ---------------- the harness itself (cost visibility + the beats cache) ----------------
+
+
+def test_the_beats_cache_is_keyed_by_case_arm_and_run(tmp_path):
+    """Run 2 of a tuning session must reuse run 2's beats, not run 1's — the
+    point is to hold the planner constant per run, not to collapse three runs
+    into one and lose the spread."""
+    from lusora_worker.evals.harness import BeatsCache
+
+    v3 = BeatsCache(tmp_path, "v3")
+    base = BeatsCache(tmp_path, "base")
+    v3.put("cnbc", 1, {"beats": [{"id": "b1"}]})
+    v3.put("cnbc", 2, {"beats": [{"id": "b2"}]})
+
+    assert v3.get("cnbc", 1)["beats"][0]["id"] == "b1"
+    assert v3.get("cnbc", 2)["beats"][0]["id"] == "b2"
+    assert v3.get("cnbc", 3) is None, "an unseen run must not silently reuse another's"
+    assert base.get("cnbc", 1) is None, "the arms must not share beats"
+    assert v3.get("other-case", 1) is None
+
+
+def test_eval_spend_is_recorded_rather_than_thrown_away(tmp_path):
+    """The harness used a test double for the database, so every eval run
+    discarded its cost events: the control plane recorded $0.25 across all
+    history while roughly $4 had been billed. Without a DSN it still keeps the
+    numbers in memory so a run can report what it spent."""
+    from lusora_worker.evals.harness import EvalDb
+
+    db = EvalDb("cnbc-ref", "v3", dsn=None)
+    db.cost_event(video_id=None, channel_id=None, provider="deepseek",
+                  operation="llm.select_overlays", status="completed",
+                  units=1000, unit_price_usd=0.0, usd=0.25, details={})
+    db.cost_event(video_id=None, channel_id=None, provider="deepseek",
+                  operation="llm.select_overlays", status="reserved",
+                  units=1000, unit_price_usd=0.0, usd=0.25, details={})
+    assert db.spend() == 0.25, "only completed calls are spend; a reservation is not"
+
+
+def test_a_call_costs_what_the_published_rates_say(tmp_path):
+    """The shape that was being mis-billed: cheap input, expensive output."""
+    from lusora_worker.evals.harness import call_cost
+
+    cost = call_cost("deepseek", "llm.plan_beats", "deepseek-v4-flash", 2_000, 20_000)
+    assert cost == pytest.approx(2_000 * 0.44 / 1e6 + 20_000 * 1.32 / 1e6)
+    # and the model matters: v4-pro is three times the price for the same call
+    assert call_cost("deepseek", "llm.plan_beats", "deepseek-v4-pro", 2_000, 20_000) > cost * 2
+
+
+def test_reusing_beats_skips_the_planner_entirely(tmp_path, monkeypatch):
+    """The saving is the whole point: an overlay iteration is one call, not
+    four, because the overlay prompt cannot change the beats."""
+    from lusora_worker.evals import run_case
+    from lusora_worker.evals.harness import BeatsCache
+
+    case = EVALS / "_synthetic"
+    beats = {"version": "1.1", "video_id": "x", "beats": [
+        {"id": "b1", "kind": "narration",
+         "script_text": (case / "script.txt").read_text(encoding="utf-8").strip(),
+         "visual_intent": "a factory floor"}]}
+    BeatsCache(tmp_path, "v3").put(case.name, 1, beats)
+
+    def explode(*a, **k):
+        raise AssertionError("the planner must not run when beats are cached")
+
+    monkeypatch.setattr(run_case.beatcraft, "craft_beats", explode)
+    monkeypatch.setattr(run_case.planner_agent, "plan_beats", explode)
+    monkeypatch.setattr(
+        run_case.overlay_agent, "select_overlays",
+        lambda ctx, b, d, chat_fn=None: {"version": "1.0", "video_id": "x", "selections": []},
+    )
+    assert run_case.main([
+        str(case), str(tmp_path / "out.json"), "--arm", "v3", "--run", "1",
+        "--reuse-beats", "--cache", str(tmp_path),
+    ]) == 0
+    assert json.loads((tmp_path / "out.json").read_text())["beats"]
