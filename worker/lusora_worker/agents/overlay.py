@@ -210,7 +210,12 @@ def select_overlays(
     provider = str(cfg_block.get("llm") or "deepseek")
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     model = cfg_block.get("model") or (prompt or {}).get("model_hint")
-    max_tokens = int((prompt or {}).get("max_tokens") or 32000)
+    # 64k, matching the planner, and for the same reason: reasoning is billed
+    # out of max_tokens and its length is not bounded by the prompt. One run
+    # died here having spent all 32,000 completion tokens thinking, with none
+    # left for the answer. Unused budget is free — billing is on actual tokens
+    # — so buy headroom rather than track the spread.
+    max_tokens = int((prompt or {}).get("max_tokens") or 64000)
     temperature = prompt_packs.temperature(ROLE, prompt)
 
     if provider == "mock":
