@@ -8,7 +8,7 @@
     "marked_by": "assistant",
     "marked_on": "2026-09-04"
   },
-  "notes": "(originally filed as case 'cnbc_taylor_farms') Full visual inspection of the opening segment (00:00-03:15). CNBC uses StatTag/AnimatedCounter overlays on headline financial figures, PieChart for market breakdown, ChapterCard for segment transitions, and DocumentCard/ArchivalFrame for news clippings and FDA notices, while leaving narrative commentary and fast B-roll undecorated.",
+  "notes": "(originally filed as case 'cnbc_taylor_farms') Full visual inspection of the opening segment (00:00-03:15). CNBC uses StatTag/AnimatedCounter overlays on headline financial figures, PieChart for market breakdown, ChapterCard for segment transitions, and DocumentCard/ArchivalFrame for news clippings and FDA notices, while leaving narrative commentary and fast B-roll undecorated. | 2026-09-08: m26-m28 had acceptable[] widened to Timeline, the component the side-by-side render judged better, and each says so in its own `why`. Nothing else was re-marked — the rest of this case still needs the pass BASELINE.md asks for, by someone who has watched it. Two of BASELINE's three named examples turned out not to need a change: v3's BulletList on 'three different segments' sits on m15, which is `unmappable` and was never scored as an error; and its StepFlow on 'hundreds of family farms' cannot be added to m18, because m18 is an anchor-class mark and StepFlow carries no anchor type, so D86 forbids the placement outright. `overlays check` refused that edit, which is the case checker doing its job.",
   "marks": [
     {
       "id": "m1",
@@ -246,10 +246,11 @@
       "acceptable": [
         "ArchivalFrame",
         "DocumentCard",
-        "FactCard"
+        "FactCard",
+        "Timeline"
       ],
       "ideal": "DocumentCard",
-      "why": "Official corporate acquisition press release displayed as a document graphic."
+      "why": "Official corporate acquisition press release displayed as a document graphic. [acceptable[] widened 2026-09-08 to record a verdict already in evals/BASELINE.md: on the 2026-09-05 side-by-side render, one Timeline over the three dated acquisitions was judged the better cut. The reference shows a separate press-release card per acquisition; both are defensible, and a mark naming only what the reference happened to do measures the marker rather than the model.]"
     },
     {
       "id": "m27",
@@ -260,10 +261,11 @@
       "acceptable": [
         "ArchivalFrame",
         "DocumentCard",
-        "FactCard"
+        "FactCard",
+        "Timeline"
       ],
       "ideal": "DocumentCard",
-      "why": "Second corporate acquisition announcement document flipped onto screen."
+      "why": "Second corporate acquisition announcement document flipped onto screen. [acceptable[] widened 2026-09-08 to record a verdict already in evals/BASELINE.md: on the 2026-09-05 side-by-side render, one Timeline over the three dated acquisitions was judged the better cut. The reference shows a separate press-release card per acquisition; both are defensible, and a mark naming only what the reference happened to do measures the marker rather than the model.]"
     },
     {
       "id": "m28",
@@ -274,10 +276,11 @@
       "acceptable": [
         "ArchivalFrame",
         "DocumentCard",
-        "FactCard"
+        "FactCard",
+        "Timeline"
       ],
       "ideal": "DocumentCard",
-      "why": "Third press release card showcasing Taylor Farms' agtech robotics acquisition."
+      "why": "Third press release card showcasing Taylor Farms' agtech robotics acquisition. [acceptable[] widened 2026-09-08 to record a verdict already in evals/BASELINE.md: on the 2026-09-05 side-by-side render, one Timeline over the three dated acquisitions was judged the better cut. The reference shows a separate press-release card per acquisition; both are defensible, and a mark naming only what the reference happened to do measures the marker rather than the model.]"
     },
     {
       "id": "m29",

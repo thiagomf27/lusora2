@@ -49,6 +49,24 @@ repeatable — only *producing* the `beats.json` costs anything.
 | `precision` | of the overlays placed, how many landed on such a moment |
 | `restraint` | of the moments that should NOT, how many were left alone |
 | `component_accuracy` | of the moments correctly carrying a graphic, how many chose a component the ground truth calls defensible |
+| `compiles` | does the sheet become a valid edit plan at all |
+| `rule violations` | placements that break a mechanical rule — the pack's allow-list, an anchor type, a density ceiling, a prop constraint |
+
+The last two are slice 1's. `compiles` exists because the scorer's blindest spot
+had nothing to do with judgement: the arm that produced the 2026-09-05 baseline
+video scored 63% precision and then died at compile on an over-long anchor
+label, and no number in `BASELINE.md` could show it. A sheet that cannot become
+an edit plan is not a 63%-precision sheet, it is a dead video.
+
+`rule violations` is reported BESIDE `restraint` and never folded into it,
+because the two are different kinds of wrong. An overlay on a `no_graphic` mark
+costs restraint and may be nothing worse than a denser cut than the reference
+made; a rule breach is a cost whatever the marks say. Conflating them is what
+made v3 read as a regression the render disagreed with.
+
+Pass `--no-compile` to score the judgement alone. `score()` itself is still pure
+and does no I/O — the compile check lives in `score_case`, which is what keeps a
+score reproducible from two documents.
 
 A score reads `n/a` when its denominator is empty; a case with no `no_graphic`
 marks has no restraint to report, and printing 100% there would be an answer to

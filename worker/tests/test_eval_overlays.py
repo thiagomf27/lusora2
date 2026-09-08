@@ -412,6 +412,98 @@ def _write(path: Path, doc) -> Path:
     return path
 
 
+# ---------------- the compile axis (slice 1) ----------------
+
+
+def _synthetic_sheet(overlay=None, on_words=None):
+    """A realistic sheet for the synthetic case: one beat per sentence.
+
+    One beat holding the whole script is the easy fixture and the wrong one — it
+    fails the pacing range, so every sheet built that way reports a rule
+    violation that has nothing to do with what the test is asking about.
+    """
+    script = load_case(EVALS / "_synthetic")[1]
+    beats = []
+    for i, sentence in enumerate(textsplit.split_sentences(script), start=1):
+        beat = _beat(f"b{i}", sentence)
+        if overlay and on_words and textsplit.normalize(on_words) in textsplit.normalize(sentence):
+            beat["overlay"] = overlay
+        beats.append(beat)
+    if overlay and not on_words:
+        beats[0]["overlay"] = overlay
+    return _sheet(*beats)
+
+
+def test_a_sheet_that_cannot_compile_says_so_instead_of_scoring_well(tmp_path):
+    """The scorer's blindest spot, closed.
+
+    The baseline arm of the 2026-09-05 comparison scored 63% precision and then
+    died at compile on an over-long anchor label — and no number in BASELINE.md
+    could show it, because the scorer read beat sheets and never compiled one. A
+    sheet that cannot become an edit plan is not a good sheet.
+
+    Here the flaw is a component that requires an anchor placed on a beat that
+    has none: legal-looking JSON, refused by the compiler.
+    """
+    sheet = _synthetic_sheet(overlay={"component": "AnimatedCounter", "role": "anchor"})
+    scores = score_case(EVALS / "_synthetic", _write(tmp_path / "beats.json", sheet))
+    assert scores.compiled is False
+    assert scores.rule_violations, "the reason must be reported, not just the verdict"
+
+
+def test_a_sound_sheet_compiles_and_reports_no_rule_violations(tmp_path):
+    """The other side of the same check: the axis must be able to say yes, or a
+    permanent 'NO' would be indistinguishable from a broken scorer."""
+    scores = score_case(EVALS / "_synthetic", _write(tmp_path / "beats.json", _synthetic_sheet()))
+    assert scores.compiled is True
+    assert scores.compile_error is None
+    assert scores.rule_violations == ()
+
+
+def test_the_compile_axis_can_be_switched_off_and_score_stays_pure(tmp_path):
+    """`score()` does no I/O by contract — it is what makes a score reproducible
+    from two documents alone. The compile check is therefore in `score_case`,
+    and `--no-compile` reports it as not attempted rather than as a pass."""
+    beats = _write(tmp_path / "beats.json", _synthetic_sheet())
+    scores = score_case(EVALS / "_synthetic", beats, compile_it=False)
+    assert scores.compiled is None and scores.rule_violations == ()
+
+
+def test_a_taste_disagreement_is_not_reported_as_a_rule_breach(tmp_path):
+    """The distinction BASELINE.md asked for.
+
+    An overlay on a `no_graphic` mark costs restraint and may still be nothing
+    worse than a denser cut than the reference made; an overlay that breaks a
+    mechanical rule is a cost whatever the marks say. Conflating them is what
+    made v3 read as a regression the render disagreed with, so the two are
+    reported separately: here restraint notices and the rule axis stays clean.
+    """
+    marks, script = load_case(EVALS / "_synthetic")
+    sentences = textsplit.split_sentences(script)
+
+    def sentence_of(mark):
+        words = textsplit.normalize(mark["source_words"])
+        return next(i for i, s in enumerate(sentences) if words in textsplit.normalize(s))
+
+    busy = {sentence_of(m) for m in marks["marks"] if m["verdict"] == "graphic"}
+    # A negative that SHARES a sentence with a positive is unscorable by design
+    # (the scorer says so), so the fixture has to pick one that sits alone or
+    # the overlay lands on the positive and restraint never sees it.
+    negative = next(
+        m for m in marks["marks"]
+        if m["verdict"] == "no_graphic" and sentence_of(m) not in busy
+    )
+    sheet = _synthetic_sheet(
+        overlay={"component": "HammerStatement", "role": "emphasis",
+                 "props_hint": {"text": "a state secret"}},
+        on_words=negative["source_words"],
+    )
+    scores = score_case(EVALS / "_synthetic", _write(tmp_path / "beats.json", sheet))
+    assert scores.restraint is not None and scores.restraint < 1.0, "restraint still notices"
+    assert scores.compiled is True, "a taste disagreement is not a compile failure"
+    assert scores.rule_violations == (), "and it is not a rule breach either"
+
+
 # ---------------- the authoring prompt cannot drift from the catalog ----------------
 
 

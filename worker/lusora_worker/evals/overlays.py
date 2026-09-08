@@ -35,7 +35,7 @@ import argparse
 import json
 import math
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -81,6 +81,25 @@ class Scores:
     misses: tuple[str, ...] = ()
     restraint_failures: tuple[str, ...] = ()
     wrong_components: tuple[tuple[str, str], ...] = ()
+
+    # Does this sheet survive the compiler? None when the check was not run
+    # (score() is pure and cannot read a case's cfg; score_case() fills it).
+    #
+    # It exists because the scorer's blindest spot had nothing to do with
+    # judgement: the arm that produced the BASELINE video scored 63% precision
+    # and then died at compile on an over-long anchor label, and no number in
+    # this file could show it. A sheet that cannot become an edit plan is not a
+    # 63%-precision sheet, it is a dead video.
+    compiled: bool | None = None
+    compile_error: str | None = None
+    # Placements that break a MECHANICAL rule — the pack's allow-list, an
+    # anchor type, a density ceiling, a prop the component will not accept.
+    # Reported beside `restraint` rather than inside it, because the two are
+    # different kinds of wrong: a rule breach is always a cost, while an
+    # overlay on a `no_graphic` mark may be nothing worse than a denser cut
+    # than the reference made. BASELINE.md is explicit that conflating them is
+    # what made v3 look like a regression on a metric the render disagreed with.
+    rule_violations: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -510,10 +529,58 @@ def check_case(case_dir: Path) -> list[str]:
     return problems
 
 
-def score_case(case_dir: Path, beats_path: Path) -> Scores:
+def compile_check(case_dir: Path, beats: dict[str, Any]) -> tuple[bool, str | None, list[str]]:
+    """Put the sheet through the real compiler and the real plan validator.
+
+    Everything the pipeline does between `beats.json` and a render, minus the
+    parts that need files on disk: `require_assets=False`, because a case has no
+    clips and asset resolution is not what this is asking about.
+
+    Returns (compiled, compile_error, rule_violations). A case with no cfg.json
+    cannot be compiled — there is no style pack to compile against — and that is
+    reported as "not attempted" rather than as a failure the sheet caused.
+    """
+    from ..compiler.core import CompileError, compile_plan
+    from ..srt import read_srt
+    from ..validators import validate_beat_sheet, validate_plan
+
+    cfg_path, srt_path = case_dir / "cfg.json", case_dir / "subtitles.srt"
+    if not cfg_path.exists() or not srt_path.exists():
+        return False, None, []
+    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    timings = [
+        {"text": item.text, "start_s": item.start_s, "end_s": item.end_s}
+        for item in read_srt(srt_path)
+    ]
+    duration = _narration_seconds(srt_path)
+
+    script = (case_dir / "script.txt").read_text(encoding="utf-8").strip()
+    # The sheet's own rules first: a beat sheet the worker would have refused
+    # must not be scored as though it had reached the compiler.
+    violations = list(validate_beat_sheet(beats, script, cfg, duration))
+    try:
+        plan = compile_plan(beats, timings, cfg, duration)
+    except CompileError as exc:
+        return False, str(exc), violations
+    except Exception as exc:  # a compiler bug is a finding, not a crashed scorer
+        return False, f"{exc.__class__.__name__}: {exc}", violations
+    violations += validate_plan(plan, case_dir, cfg, duration, require_assets=False)
+    return True, None, violations
+
+
+def score_case(case_dir: Path, beats_path: Path, compile_it: bool = True) -> Scores:
     marks, script = load_case(case_dir)
     beats = json.loads(beats_path.read_text(encoding="utf-8"))
-    return score(marks, beats, script)
+    scores = score(marks, beats, script)
+    if not compile_it:
+        return scores
+    compiled, error, violations = compile_check(case_dir, beats)
+    return replace(
+        scores,
+        compiled=compiled,
+        compile_error=error,
+        rule_violations=tuple(violations),
+    )
 
 
 def _format(case: str, scores: Scores) -> str:
@@ -531,6 +598,17 @@ def _format(case: str, scores: Scores) -> str:
         f"  component_accuracy {pct(scores.component_accuracy)}   "
         f"({scores.components_defensible}/{scores.graphic_marks_hit} chose a defensible component)",
     ]
+    if scores.compiled is not None:
+        lines.append(
+            f"  compiles           {'   yes' if scores.compiled else '    NO'}   "
+            + (scores.compile_error or "the sheet becomes a valid edit plan")
+        )
+    if scores.rule_violations:
+        lines.append(
+            f"  rule violations    {len(scores.rule_violations):5}   "
+            "(a cost whatever the marks say; restraint above is taste)"
+        )
+        lines.extend(f"      - {v}" for v in scores.rule_violations[:6])
     if scores.unmappable_marks or scores.unscorable_negatives or scores.unscorable_overlays:
         lines.append(
             f"  excluded: {scores.unmappable_marks} unmappable, "
@@ -558,6 +636,8 @@ def main(argv: list[str] | None = None) -> int:
     scorer.add_argument("case_dir", type=Path, help="evals/overlays/<case>")
     scorer.add_argument("beats", type=Path, help="the beats.json a run produced")
     scorer.add_argument("--json", action="store_true", help="machine-readable output")
+    scorer.add_argument("--no-compile", action="store_true",
+                        help="score the judgement only, without compiling the sheet")
 
     checker = sub.add_parser(
         "check", help="validate a case before spending anything on it"
@@ -576,7 +656,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{args.case_dir.name}: valid, with {len(problems)} advisory note(s)")
         return 1 if hard else 0
     try:
-        scores = score_case(args.case_dir, args.beats)
+        scores = score_case(args.case_dir, args.beats, compile_it=not args.no_compile)
     except EvalCaseError as exc:
         print(f"eval case error: {exc}", file=sys.stderr)
         return 2

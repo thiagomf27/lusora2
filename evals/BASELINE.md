@@ -553,10 +553,130 @@ but nothing may be planned around it. **The eval averages several runs,
 permanently.** Any criterion that assumed one run was trustworthy was
 unevaluable, which is what happened to slices 2 and 3.
 
+## Slice 0 — the probe, and what it found before it got to its own question
+(2026-09-08)
+
+The plan's slice 0 was one run on a 10-minute script, to find out whether the
+production path survives a length no eval case reaches. Every case here is
+116-538 words; `beatcraft.craft_beats` sends **every cut in one call**, and
+`planner.py:56` puts the safe ceiling for a single call at 20-30 beats.
+
+The fixture is the four reference cases' scripts and their real TTS timings
+joined end to end — 1,846 words, 11.5 minutes. A Frankenstein narrative, which
+does not matter: the question is structural capacity, not whether it reads well.
+
+**It never reached the model's answer, because the cutting was wrong first.**
+
+Cutting that fixture under `breakdown-blitz` (ceiling 4.5s) produced spans of up
+to 17s. Checking the real cases one at a time showed it was not the fixture:
+
+| case | ceiling | longest span | spans over it |
+|---|---|---|---|
+| cnbc-ref | 8.0s | 12.73s | 5 of 29 |
+| good-news-august-ref | 8.0s | 14.93s | 9 of 20 |
+| neu-ref | 10.0s | **19.24s** | 4 of 24 |
+| the-bim-ref | 7.0s | 6.94s | 0 |
+
+`_under_the_ceiling` exists to prevent exactly this and was failing silently,
+for two reasons — `_merge_undersized`'s char floor undoing the split, and no
+fallback below punctuation. Both are fixed; the commit message carries the
+detail. Every case now sits inside its pack's window, floor and ceiling, with
+verbatim coverage unchanged.
+
+This is a **visible editing defect**, not a metric: a single image sitting on
+screen for 19 seconds on a channel whose pack says 10. No score in this file
+could have shown it, because the scorer reads overlay decisions and never asks
+how long a shot is held. It was found by measuring the cuts directly.
+
+### The long-form question is still open
+
+With the ceiling honoured the same fixture cuts into **217 spans**, twice what
+the broken cutting produced and seven times the documented safe ceiling for one
+call. The composed prompt is only ~4.3k tokens in; the ANSWER is the problem —
+217 indices at roughly 90 tokens each is ~19.5k output tokens before the
+reasoning trace, against a 64k `max_tokens`.
+
+The live call was made and **its result was lost**: the probe script crashed on
+a field `LLMResult` does not have (`finish_reason`), after `llm.chat` returned
+but before `cost.actual`, so nothing was recorded and no cost row was written.
+What is known is only that deepseek accepted the prompt and returned within
+about four minutes. No further provider spend was authorised, so it was not
+re-run.
+
+**Slice 2 therefore proceeds on the structural argument rather than on a
+measurement**, which the evidence already supports without the call: 217 indices
+is 7x the limit the code itself states, one bad JSON loses the whole video with
+no partial progress, and `chunk_target_beats` is meanwhile a channel-config knob
+that does nothing on the production pipeline. To take the measurement later:
+
+```bash
+cd worker && uv run python - <<'EOF'
+# build cuts, then: beatcraft.craft_beats(ctx, cuts, script, duration, menu="")
+# LLMResult carries .text/.input_tokens/.output_tokens — there is no finish_reason
+EOF
+```
+
+## Slice 1 — the instrument (2026-09-08)
+
+Three changes, no provider spend: every number below is a re-score of sheets
+already on disk.
+
+**The scorer compiles what it scores.** `score_case` now runs
+`validate_beat_sheet`, `compile_plan` and `validate_plan` on every sheet and
+reports two new things: whether the sheet becomes a valid edit plan, and the
+mechanical rule breaches it carries. This is the gap the 2026-09-05 comparison
+fell into — the baseline arm scored 63% precision and then died at compile on an
+over-long anchor label, and no number here could show it. `score()` itself stays
+pure; the I/O is in `score_case`, and `--no-compile` turns it off.
+
+Re-scoring the two sheets from that comparison, both now compile — which is
+correct, because `954782f` fixed that defect after the render found it. The axis
+is verified against a deliberately broken sheet in the tests instead.
+
+**Rule breaches are reported beside restraint, not inside it.** BASELINE's own
+critique was that restraint "counts an overlay on a `no_graphic` mark and never
+asks whether the overlay is any good". The two are now separate numbers: an
+overlay on a negative mark costs restraint and may be nothing worse than a
+denser cut, while a breach of the pack's allow-list, an anchor type, a density
+ceiling or a prop constraint is a cost whatever the marks say.
+
+**`cnbc-ref` re-marked, narrowly.** BASELINE asked for a re-mark by someone who
+has watched the render. That person has not been available, so the only edit
+made is the transcription of a verdict *already written here* on 2026-09-05:
+`Timeline` added to `acceptable[]` on m26-m28, the three dated acquisitions.
+Each mark says so in its own `why`, and `notes` records the scope.
+
+Two of the three examples BASELINE named turned out to need no change, which is
+worth recording because both are cases of the prose being looser than the data:
+
+- the `BulletList` on "three different segments" sits on **m15, which is
+  `unmappable`** — it was excluded from scoring, never counted as an error.
+- the `StepFlow` on "hundreds of family farms" **cannot be added to m18 at
+  all**: m18 is an anchor-class mark and `StepFlow` carries no anchor type, so
+  D86 forbids the placement outright. `overlays check` refused the edit. The
+  instrument catching a bad edit to its own ground truth is the check working.
+
+| cnbc-ref | recall | precision | restraint | component acc | compiles |
+|---|---|---|---|---|---|
+| baseline sheet | 22.2 | 40.0 | 76.5 | 100 | yes |
+| v3 sheet, before re-mark | 66.7 | 50.0 | 58.3 | **33.3** | yes |
+| v3 sheet, after re-mark | 66.7 | 50.0 | 58.3 | **66.7** | yes |
+
+The remaining two component disagreements on the v3 sheet are `SatelliteLocate`
+on m8 and `StepFlow` on m18 — the second of which is the illegal placement
+above, and is a genuine model error rather than a marking one.
+
+**Still outstanding, and it is the honest limit of this slice:** three of the
+four cases have never been re-marked at all, and `cnbc-ref` has had exactly
+three marks touched. `component_accuracy` should still be read as "does the
+planner reach for exhibits" rather than as an accuracy number.
+
 ## Log
 
 | date | slice | what changed | cases | note |
 |---|---|---|---|---|
+| 2026-09-08 | 1 | instrument: the scorer compiles, rule breaches split from restraint, cnbc-ref m26-m28 widened to Timeline | re-scores only | No provider spend. v3's component accuracy on cnbc-ref 33.3 -> 66.7, explainable mark by mark |
+| 2026-09-08 | 0 | long-form probe | 6 cases, offline | Found `cut_beats` ignoring its own ceiling on 3 of 4 reference cases — a 19.2s shot on a 10s pack. Fixed. The long-form question itself is still open: the one live call's result was lost to a bug in the probe |
 | 2026-09-03 | 1 | — | 2 | baseline taken from runs of 2026-07-25/26. No new provider spend: the sheets already existed |
 | 2026-09-05 | 5-8 | v3 measured and WATCHED | 4 cases × 3 runs × 2 arms | Recall roughly doubled everywhere; components 10→20 of 29. Restraint and component accuracy fell and a side-by-side render showed both were measuring the ground truth, not the model. The render also found a compiler bug that kills the BASELINE video and that no score could see |
 | 2026-09-04 | — | first reference baseline | 4 cases × 3 runs | Spreads collapse to 0-4 points on the 30-mark cases: granularity was the noise. Planner UNDER-places (restraint 86%, recall 44%) and uses 11 of 29 components, never the exhibit family. Inverts the plan's premise; slice 5's exit criterion needs rewriting |
