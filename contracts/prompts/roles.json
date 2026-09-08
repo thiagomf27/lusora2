@@ -336,7 +336,7 @@
     "image": {
       "description": "Beat -> a generation prompt for the image model, when the source chain falls through to ai_image. Not a chat role: the two halves are joined into one string and sent as the prompt, subject first, because image models weight early tokens most. It has no welded half — there is no JSON shape to protect and no closed vocabulary; the model is not being asked to obey a contract, only to draw.",
       "welded": {
-        "system": false,
+        "system": true,
         "user": false
       },
       "variables": {
@@ -359,6 +359,10 @@
         "aspect": {
           "required": false,
           "source": "derived from cfg.output: 'landscape', 'portrait' or 'square'"
+        },
+        "no_person": {
+          "required": false,
+          "source": "set when an identity beat fell through to the scene question — the frame stands in for a person the pipeline could not find, so it must not draw one"
         }
       }
     }

@@ -330,6 +330,18 @@
               "description": "order = preference; omission = forbidden; replaced wholesale by overrides"
             },
             "max_clip_seconds": { "type": "number", "exclusiveMinimum": 0, "default": 12 },
+            "identity": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "D91 — who may answer the question 'footage of <this named person>'. A beat whose overlay names a person asks that question first; when nothing answers it, the same beat's SCENE question runs on the whole chain instead, flagged so no source returns a shot whose own description makes one person its subject. The video may show whatever b-roll it can find; what it may never do is put person A's name over person B's face.",
+              "properties": {
+                "sources": {
+                  "type": "array",
+                  "items": { "enum": ["library", "stock", "ai_image"] },
+                  "description": "default ['library']. Pexels does not have a named historical figure — it has photographs of people, and it answers confidently — and a generator does not know what anyone looked like, so a likeness it draws under a real name is a fabrication. Widen this only for a source that genuinely indexes named people, such as an editorial stock library."
+                }
+              }
+            },
             "orientation": { "enum": ["landscape", "portrait", "square"], "default": "landscape" },
             "min_score_floor": {
               "type": "number",

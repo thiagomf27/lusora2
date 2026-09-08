@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from typing import Any, Protocol
 
 import httpx
@@ -56,6 +57,63 @@ _NOISE = set(
     "entre ao aos e ou que se como plano vista cena imagem foto"
     .split()
 )
+
+
+# ---------------- identity (slice 1 of the identity plan) ----------------
+
+# Sources allowed to answer "footage of <this person>". Only the library can
+# be right by default: Pexels does not have Carsten Borchgrevink, it has
+# photographs of men, and a generator does not know what he looked like. Both
+# answer confidently, which is the whole failure. A channel wiring an editorial
+# stock source — the kind that does index named people — can widen this.
+DEFAULT_IDENTITY_SOURCES = ("library",)
+
+# Words that say ONE PERSON is the subject of a shot. Plurals are deliberately
+# absent: a crowd, workers, a group make no claim about any individual, and the
+# rule is about a portrait standing in for someone, not about human beings
+# appearing on screen. Portuguese as well as English because the narration is.
+_PERSON_SUBJECT = re.compile(
+    r"\b("
+    r"man|woman|boy|girl|person|portrait|headshot|selfie|guy|lady|gentleman|face|"
+    r"homem|mulher|menino|menina|rapaz|pessoa|retrato|rosto|senhor|senhora"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def identity_sources(cfg: dict[str, Any]) -> list[str]:
+    policy = (((cfg.get("source_policy") or {}).get("visual") or {}).get("identity") or {})
+    return [str(s) for s in (policy.get("sources") or DEFAULT_IDENTITY_SOURCES)]
+
+
+def reads_as_a_person(text: str) -> bool:
+    """Does a source's own description say a single person is the subject?
+
+    Metadata only — the library's tags and caption, a stock photo's `alt`, the
+    words in a stock video's URL slug. It never looks at the image, so it is a
+    filter and not a guarantee: some faces get through. What stops those faces
+    being read as somebody in particular is the scene question not asking for a
+    person in the first place; this is the second line, not the first.
+    """
+    return bool(_PERSON_SUBJECT.search(text or ""))
+
+
+def _slug_words(url: str) -> str:
+    """A stock video carries no description, but its URL is built from its
+    title — `.../video/shipyard-welding-work-near-large-ship-38415766/`."""
+    tail = str(url).rstrip("/").rsplit("/", 1)[-1]
+    return " ".join(part for part in tail.split("-") if not part.isdigit())
+
+
+def identity_queries(person: str, intent: str) -> tuple[str, list[str]]:
+    """What to ask each kind of source for footage OF this person.
+
+    A semantic source wants the name inside the scene, which is what the one
+    video that got this right happened to send ("Joseph Strauss portrait"); a
+    keyword source wants the name and little else.
+    """
+    semantic = intent if person.lower() in intent.lower() else f"{person}. {intent}"
+    return semantic, [person, f"{person} portrait"]
 
 
 def keywords_from_intent(intent: str, limit: int = 3) -> str:
@@ -167,6 +225,13 @@ class LibraryAdapter:
             seg_id = str(best.get("id"))
             if ledger is not None and ledger.blocked("library", None, seg_id):
                 continue
+            # The scene question may not be answered by a shot whose own caption
+            # says one person is its subject: with a name super on screen, that
+            # person reads as the person being discussed.
+            if source_cfg.get("no_person") and reads_as_a_person(
+                f"{best.get('caption') or ''} {' '.join(best.get('tags') or [])}"
+            ):
+                continue
             # Every library row is an mp4 — an uploaded image is stored as a
             # still CLIP, deliberately, so that nothing downstream has to know
             # about a second kind of segment. There is no image branch to take.
@@ -274,6 +339,13 @@ class PexelsAdapter:
             asset_id = str(hit.get("id"))
             if ledger is not None and ledger.blocked("stock", "pexels", asset_id):
                 continue
+            # A photo carries `alt`; a video carries neither alt nor tags, but
+            # its URL is built from its title, which is the only thing Pexels
+            # says about it.
+            if source_cfg.get("no_person") and reads_as_a_person(
+                hit.get("alt") or _slug_words(hit.get("url") or "")
+            ):
+                continue
             try:
                 if want_video:
                     files = sorted(hit["video_files"], key=lambda f: f.get("width") or 0, reverse=True)
@@ -379,6 +451,11 @@ def image_prompt(ctx: StageContext, query: str, source_cfg: dict) -> str:
             "visual_language": str(style.get("visual_language") or ""),
             "content_rules": str(ctx.cfg.get("content_rules") or ""),
             "aspect": image_aspect(ctx.cfg),
+            # Welded, and rendered away when unset: an identity beat that fell
+            # through to the scene question must not be answered with a
+            # generated portrait either. A convincing face under a real name is
+            # the same lie whether it was found or drawn.
+            "no_person": "yes" if source_cfg.get("no_person") else "",
         },
     )
     return "\n\n".join(part for part in (shot.strip(), house.strip()) if part)
@@ -588,13 +665,52 @@ def resolve_item(
     chain: list[dict],
     queries: list[str] | None = None,
     ledger: Ledger | None = None,
+    identity: str | None = None,
 ) -> bool:
     """Walk the chain in order, stop at the first acceptable asset.
     Returns False only when the chain is exhausted (caller fails loud).
 
     `query` is the beat's visual_intent; `queries` its optional keyword
     alternates (beat sheet v1.1); `ledger` is what this video has already put
-    on screen (D54)."""
+    on screen (D54).
+
+    `identity` names the real person this shot is presented as being of, and
+    turns one question into two. First the IDENTITY question — footage of that
+    person — asked only of the sources that could know them. If nothing answers,
+    the SCENE question: the same moment with the person taken out of it, asked
+    of everything, and refused any result whose own description says a single
+    person is its subject.
+
+    The point of the split is that the second question makes no claim. A shore,
+    a boat, a coastline under a name super is ordinary documentary grammar; a
+    stranger under it is a false statement about a real person, and that is the
+    only thing the pipeline may never do.
+    """
+    if identity:
+        allowed = identity_sources(ctx.cfg)
+        semantic, keyword = identity_queries(identity, query)
+        if _walk(ctx, item, semantic, [c for c in chain if str(c.get("source")) in allowed],
+                 keyword, ledger):
+            ctx.db.event(ctx.video_id, STAGE, "progress",
+                         f"beat {item.get('beat_id')}: found footage of {identity}")
+            return True
+        ctx.db.event(
+            ctx.video_id, STAGE, "progress",
+            f"beat {item.get('beat_id')}: no source could confirm footage of {identity} "
+            f"(asked {', '.join(allowed)}) — showing the scene instead, which claims nobody",
+        )
+        chain = [{**c, "no_person": True} for c in chain]
+    return _walk(ctx, item, query, chain, queries, ledger)
+
+
+def _walk(
+    ctx: StageContext,
+    item: dict,
+    query: str,
+    chain: list[dict],
+    queries: list[str] | None,
+    ledger: Ledger | None,
+) -> bool:
     for source_cfg in chain:
         adapter = ADAPTERS.get(str(source_cfg.get("source")))
         if adapter is None:

@@ -199,3 +199,70 @@ def test_an_image_is_never_short(tmp_path):
     item = {"id": "v_b1", "beat_id": "b1", "start_s": 0.0, "end_s": 6.0, "media_type": "image",
             "asset": {"source": "stock", "path": "clips/v_b1.jpg"}}
     assert degrade.apply_short_clip_policy(ctx, item) is None
+
+
+# ---------------- the identity card, the last resort (slice 1) ----------------
+
+
+def test_the_identity_card_sets_the_persons_name_on_the_plate(tmp_path):
+    """Reached only when BOTH questions came back empty. Before this, that beat
+    raised `source chain exhausted` and stopped the video, which is a worse
+    answer than a plain frame carrying the name."""
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v_b61", "beat_id": "b61", "start_s": 4.0, "end_s": 10.0,
+            "media_type": "video", "asset": {"source": "manual", "path": ""},
+            "motion": {"type": "ken_burns"}}
+    plan = plan_with(item)
+
+    used = degrade.to_identity_card(ctx, plan, item, "Carsten Borchgrevink")
+
+    assert used == "NamePlate"
+    assert item["media_type"] == "color", "no background image on this channel"
+    assert "motion" not in item, "a card does not drift"
+    card = plan["tracks"]["overlays"][0]
+    assert card["component"] == "NamePlate"
+    assert card["props"]["name"] == "Carsten Borchgrevink"
+
+
+def test_the_identity_card_does_not_depend_on_the_packs_fallback(tmp_path):
+    """Six of the seven shipped packs leave `style_pack.fallback` null —
+    including descoberta-doc, the pack of the video this reproduces. A channel
+    may choose how a missing person looks; it may not choose whether the video
+    survives one."""
+    ctx = make_ctx(tmp_path)
+    ctx.cfg["style_pack_doc"] = {**STYLE, "fallback": None}
+    item = {"id": "v_b61", "beat_id": "b61", "start_s": 0.0, "end_s": 6.0,
+            "media_type": "video", "asset": {"source": "manual", "path": ""}}
+    plan = plan_with(item)
+
+    assert degrade.to_identity_card(ctx, plan, item, "Carsten Borchgrevink") == "NamePlate"
+    assert plan["tracks"]["overlays"], "and it drew one anyway"
+
+
+def test_the_identity_card_does_not_double_a_nameplate_the_beat_already_has(tmp_path):
+    """The beat that triggers this usually already carries the NamePlate that
+    identified it. The plate is the point; a second copy of the name is not."""
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v_b61", "beat_id": "b61", "start_s": 0.0, "end_s": 6.0,
+            "media_type": "video", "asset": {"source": "manual", "path": ""}}
+    plan = plan_with(item)
+    plan["tracks"]["overlays"].append({
+        "id": "o_b61", "beat_id": "b61", "locked": False, "kind": "component",
+        "component": "NamePlate", "props": {"name": "Carsten Borchgrevink"},
+        "start_s": 0.4, "end_s": 4.4,
+    })
+
+    degrade.to_identity_card(ctx, plan, item, "Carsten Borchgrevink")
+    plates = [o for o in plan["tracks"]["overlays"] if o["component"] == "NamePlate"]
+    assert len(plates) == 1, plates
+
+
+def test_the_card_still_makes_a_plan_the_validator_accepts(tmp_path):
+    """A degrade that produces an invalid plan stops the video with `compiler
+    produced an invalid plan (bug)`, which is the failure it was meant to avoid."""
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v_b61", "beat_id": "b61", "start_s": 0.0, "end_s": 6.0,
+            "media_type": "video", "asset": {"source": "manual", "path": ""}}
+    plan = plan_with(item)
+    degrade.to_identity_card(ctx, plan, item, "Carsten Borchgrevink")
+    assert validate_plan(plan, tmp_path, ctx.cfg, None, require_assets=False) == []

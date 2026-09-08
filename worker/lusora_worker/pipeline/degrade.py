@@ -96,6 +96,76 @@ def card_text(beat: dict[str, Any], max_words: int) -> str:
     return " ".join(w if w.isupper() or w[:1].isdigit() else w.capitalize() for w in kept)
 
 
+def _lay_plate(ctx: StageContext, item: dict[str, Any]) -> None:
+    """The plate a card is set on, in place.
+
+    `look.background.image` (copied into the video folder at enqueue) is there
+    precisely because a card does not fill the frame; without one, both
+    renderers draw a flat colour fill, which is why the validator lets a colour
+    item carry no asset.
+    """
+    background = str(
+        (((ctx.cfg.get("look") or {}).get("background") or {}).get("image")) or ""
+    )
+    if background:
+        item["media_type"] = "image"
+        item["asset"] = {"source": "manual", "path": background}
+    else:
+        item["media_type"] = "color"
+        item["asset"] = {"source": "manual", "path": ""}
+    item.pop("motion", None)
+    item.pop("loop", None)
+    item.pop("speed", None)
+
+
+IDENTITY_CARD = "NamePlate"
+
+
+def to_identity_card(
+    ctx: StageContext, plan: dict[str, Any], item: dict[str, Any], person: str
+) -> str:
+    """The last resort for a beat about a person: their name, set as a name.
+
+    Reached only when BOTH questions came back empty — no source could confirm
+    footage of them, and nothing could be found for the scene either. Before
+    this, that beat raised `source chain exhausted` and stopped the video, which
+    is a worse answer than a plain frame.
+
+    Deliberately NOT `style_pack.fallback`. That is the weak-match card, six of
+    the seven shipped packs leave it null, and its `ChapterCard` says in its own
+    catalog entry that it must not be used for a person's name. This one is
+    built in, because a channel may choose how a missing person looks but not
+    whether the video survives one.
+    """
+    _lay_plate(ctx, item)
+    entry = lusora_contracts.catalog_component(IDENTITY_CARD)
+    props: dict[str, Any] = {
+        name: spec["default"] for name, spec in entry["props"].items() if "default" in spec
+    }
+    props["name"] = person
+    hint = entry.get("duration_hint_s") or {}
+    start = round(float(item["start_s"]) + 0.2, 3)
+    end = min(float(item["end_s"]), start + float(hint.get("default", 4.0)))
+    overlays = plan["tracks"]["overlays"]
+    # A beat that already carries its own NamePlate does not need a second one:
+    # the plate is the point, and the overlay it was going to get is the card.
+    if not any(str(o.get("beat_id")) == str(item.get("beat_id"))
+               and o.get("component") == IDENTITY_CARD for o in overlays):
+        overlays.append({
+            "id": f"o_{item['id']}_identity",
+            "beat_id": item.get("beat_id"),
+            "locked": False,
+            "kind": "component",
+            "component": IDENTITY_CARD,
+            "props": props,
+            "start_s": start,
+            "end_s": round(max(end, start + float(hint.get("min", 1.0))), 3),
+        })
+        overlays.sort(key=lambda o: float(o["start_s"]))
+        _keep_apart(overlays)
+    return IDENTITY_CARD
+
+
 def to_title_card(
     ctx: StageContext, plan: dict[str, Any], item: dict[str, Any], beat: dict[str, Any]
 ) -> str | None:
@@ -138,22 +208,7 @@ def to_title_card(
                      f"fallback component '{name}' needs props {missing} nothing can fill — keeping the weak asset")
         return None
 
-    # The plate under the card. `look.background.image` (copied into the video
-    # folder at enqueue) is there precisely because a card does not fill the
-    # frame; without one, both renderers draw a flat colour fill, which is why
-    # the validator lets a colour item carry no asset.
-    background = str(
-        (((ctx.cfg.get("look") or {}).get("background") or {}).get("image")) or ""
-    )
-    if background:
-        item["media_type"] = "image"
-        item["asset"] = {"source": "manual", "path": background}
-    else:
-        item["media_type"] = "color"
-        item["asset"] = {"source": "manual", "path": ""}
-    item.pop("motion", None)
-    item.pop("loop", None)
-    item.pop("speed", None)
+    _lay_plate(ctx, item)
 
     hint = entry.get("duration_hint_s") or {}
     start = round(float(item["start_s"]) + 0.2, 3)

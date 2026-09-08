@@ -142,6 +142,15 @@ have titled it "Man Jumping Rowboat Shore".
 
 ## Slice 1 — no unverified shot is presented as a named person
 
+> **DONE 2026-09-08 (D91).** Detection from the compiled plan, the identity
+> question restricted to `source_policy.visual.identity.sources`, the scene
+> question on the whole chain with `no_person` set, metadata guards on the
+> library and Pexels, a welded "draw nobody" block in the image pack, and a
+> built-in `NamePlate` card replacing the `source chain exhausted` error.
+> Verified against the real `vid_bb05c1b483eb` plan: b61 is detected and its
+> identity question now goes only to the library. Not re-rendered — no
+> provider spend, and the sources it would have to call are live ones.
+
 **Why first.** It is the whole of the forbidden case, it needs no new field, and
 it can be detected for free: when a beat's own overlay is a `NamePlate` or
 `PortraitPlates` filled from a `name` anchor, the sheet has already declared

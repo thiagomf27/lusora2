@@ -1,0 +1,3 @@
+{{#no_person}}
+Draw NOBODY as the subject. This frame stands in for a real named person the pipeline could not find footage of, and a name will appear on screen over it — so a face here would be read as that person's face, which is a false statement about someone who existed. Show the place, the object, the vehicle, the landscape, the document, the weather. Distant or incidental figures are acceptable; a portrait, a face in focus, or one person the composition is built around is not.
+{{/no_person}}

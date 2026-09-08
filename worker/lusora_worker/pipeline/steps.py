@@ -588,6 +588,50 @@ def assets_resolved(ctx: StageContext) -> bool:
     return True
 
 
+def identities_in(plan: dict) -> dict[str, str]:
+    """beat_id -> the real person that beat's shot is presented as being of.
+
+    Read from the PLAN's overlays rather than from beats.json, because that is
+    where the answer is on every pipeline: on faceless_v3 the selections live in
+    overlays.json and are merged into beats only in the compiler's memory, so a
+    beat sheet on disk carries no `overlay` at all.
+
+    The signal is free and needs no new field: a component that attaches to a
+    `name` anchor, with a name in its props, is the sheet declaring that a named
+    someone belongs to this moment. That is the exact case in the reproduction —
+    a NamePlate reading "Carsten Borchgrevink" over a stock photograph of an
+    unrelated man. Slice 2's `depicts` is what widens this to the beats that
+    show a person without naming one on screen.
+    """
+    out: dict[str, str] = {}
+    for overlay in plan["tracks"]["overlays"]:
+        entry = lusora_contracts.catalog_component(str(overlay.get("component", "")))
+        if entry is None or "name" not in (entry.get("anchor_types") or []):
+            continue
+        person = _person_in(overlay.get("props") or {})
+        if person:
+            out[str(overlay.get("beat_id"))] = person
+    return out
+
+
+def _person_in(props: dict) -> str:
+    """The name a name-bearing component is showing. `NamePlate` carries it
+    directly; `PortraitPlates` carries one or two plates."""
+    name = props.get("name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    frames = props.get("frames")
+    if isinstance(frames, list):
+        for frame in frames:
+            if isinstance(frame, dict):
+                label = frame.get("name") or frame.get("label")
+                if isinstance(label, str) and label.strip():
+                    return label.strip()
+            elif isinstance(frame, str) and frame.strip():
+                return frame.strip()
+    return ""
+
+
 def run_resolve_assets(ctx: StageContext) -> None:
     plan = ctx.read_json("edit_plan.json")
     beats = {b["id"]: b for b in ctx.read_json("beats.json")["beats"]} if ctx.has("beats.json") else {}
@@ -601,6 +645,7 @@ def run_resolve_assets(ctx: StageContext) -> None:
     ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
     changed = False
     floor = degrade.source_score_floor(ctx.cfg)
+    identities = identities_in(plan)
     for item in plan["tracks"]["visual"]:
         path = str(item["asset"].get("path", ""))
         if path and (ctx.folder / path).exists():
@@ -611,13 +656,24 @@ def run_resolve_assets(ctx: StageContext) -> None:
         query = str((beat or {}).get("visual_intent") or ctx.video.get("title") or "establishing shot")
         # v1.1 (D53): keyword sources get these instead of the scout sentence
         queries = [str(q) for q in ((beat or {}).get("queries") or [])]
-        resolved = sources.resolve_item(ctx, item, query, chain, queries, ledger)
+        person = identities.get(str(item.get("beat_id")))
+        resolved = sources.resolve_item(ctx, item, query, chain, queries, ledger,
+                                        identity=person)
         if not resolved:
-            raise StageError(
-                "resolve_assets",
-                f"source chain exhausted for beat {item.get('beat_id')} (item {item['id']}) — "
-                f"query was: {query!r}; add sources, lower min_score, or edit the beat",
-            )
+            if person:
+                # Both questions came back empty. A plain frame carrying their
+                # name is a worse video than real footage and a better one than
+                # no video at all, which is what this used to be.
+                degrade.to_identity_card(ctx, plan, item, person)
+                ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                             f"beat {item.get('beat_id')}: nothing found for {person} or for "
+                             "the scene — showing their name on the plate")
+            else:
+                raise StageError(
+                    "resolve_assets",
+                    f"source chain exhausted for beat {item.get('beat_id')} (item {item['id']}) — "
+                    f"query was: {query!r}; add sources, lower min_score, or edit the beat",
+                )
         # A score below the floor is a match nobody would have chosen: place a
         # card that says what the beat is about instead of a clip that is
         # nearly unrelated (D55). Sources that return no score (stock, ai) are

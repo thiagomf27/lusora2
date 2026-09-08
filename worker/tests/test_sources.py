@@ -1,6 +1,7 @@
 """Source-policy chain semantics (D12)."""
 
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -530,3 +531,164 @@ def test_the_image_prompt_is_data_and_can_be_replaced_per_video(tmp_path):
                                     "user": "{{query}}"}}
     prompt = image_prompt(ctx, "a harbour at dawn", {"style": "ignored by this pack"})
     assert prompt == "a harbour at dawn\n\nInk on paper, no colour."
+
+
+# ---------------- identity: never A's name over B's face (slice 1) ----------------
+
+
+class Recorder:
+    """A stub that records every question it was asked and what it was told."""
+
+    def __init__(self, answer_to=None, source="stock"):
+        self.asked: list[tuple[str, bool]] = []
+        self.answer_to = answer_to          # substring that makes it answer
+        self.source = source
+
+    def resolve(self, ctx, item, query, source_cfg, ledger=None):
+        self.asked.append((query, bool(source_cfg.get("no_person"))))
+        if self.answer_to is None or self.answer_to.lower() in query.lower():
+            return sources.Resolution(
+                source=self.source, id="a1", provider="p", license="cc0",
+                path="clips/x.jpg", score=0.9, query=query, media_type="image")
+        return None
+
+
+CHAIN = [{"source": "library"}, {"source": "stock"}, {"source": "ai_image"}]
+
+
+def test_stock_and_ai_are_never_asked_who_a_person_is(tmp_path):
+    """The reproduction, at its root. Pexels does not have Carsten Borchgrevink;
+    it has photographs of men, and it answers confidently. So it is not asked —
+    the identity question goes only to sources that could know him."""
+    lib, stock, ai = Recorder(source="library"), Recorder(), Recorder(source="ai")
+    sources.ADAPTERS.update({"library": lib, "stock": stock, "ai_image": ai})
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v1", "beat_id": "b61", "start_s": 0, "end_s": 4}
+
+    sources.resolve_item(ctx, item, "man leaping from a rowboat onto rock", CHAIN,
+                         ["man jumping rowboat shore"], None,
+                         identity="Carsten Borchgrevink")
+
+    identity_qs = [q for q, _ in lib.asked if "Borchgrevink" in q]
+    assert identity_qs, "the library WAS asked about the person"
+    assert not any("Borchgrevink" in q for q, _ in stock.asked), stock.asked
+    assert not any("Borchgrevink" in q for q, _ in ai.asked), ai.asked
+
+
+def test_the_identity_question_wins_when_a_source_can_answer_it(tmp_path):
+    """The good path: a library that has him is used, and the scene question
+    never runs, so the video shows the actual person."""
+    lib = Recorder(answer_to="Borchgrevink", source="library")
+    stock = Recorder()
+    sources.ADAPTERS.update({"library": lib, "stock": stock, "ai_image": Recorder(source="ai")})
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v1", "beat_id": "b61", "start_s": 0, "end_s": 4}
+
+    assert sources.resolve_item(ctx, item, "a man on a shore", CHAIN, ["shore"], None,
+                                identity="Carsten Borchgrevink")
+    assert item["asset"]["source"] == "library"
+    assert stock.asked == [], "the scene question is not asked when the person was found"
+
+
+def test_the_scene_question_runs_on_the_whole_chain_and_claims_nobody(tmp_path):
+    """When the person cannot be found the frame is still filled — by the scene,
+    from any source, flagged so that none of them answers with a person."""
+    lib, stock = Recorder(answer_to="__never__", source="library"), Recorder()
+    sources.ADAPTERS.update({"library": lib, "stock": stock, "ai_image": Recorder(source="ai")})
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v1", "beat_id": "b61", "start_s": 0, "end_s": 4}
+
+    assert sources.resolve_item(ctx, item, "a rocky shore", CHAIN, ["rocky shore"], None,
+                                identity="Carsten Borchgrevink")
+    assert item["asset"]["source"] == "stock", "stock is good at shores, just not at people"
+    assert stock.asked and all(no_person for _q, no_person in stock.asked), stock.asked
+    assert not any("Borchgrevink" in q for q, _ in stock.asked)
+
+
+def test_a_beat_with_no_identity_behaves_exactly_as_before(tmp_path):
+    """The regression that matters: almost every beat is not about a person, and
+    none of them may change."""
+    stock = Recorder()
+    sources.ADAPTERS.update({"library": Recorder(answer_to="__never__", source="library"),
+                             "stock": stock, "ai_image": Recorder(source="ai")})
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v1", "beat_id": "b1", "start_s": 0, "end_s": 4}
+
+    assert sources.resolve_item(ctx, item, "a rocky shore", CHAIN, ["rocky shore"], None)
+    assert all(no_person is False for _q, no_person in stock.asked), stock.asked
+
+
+# ---------------- the portrait guard ----------------
+
+
+def test_the_guard_reads_a_single_person_as_a_subject_and_a_crowd_as_a_scene():
+    """The rule is about a portrait standing in for someone, not about human
+    beings appearing on screen — so plurals are deliberately absent from the
+    list. Portuguese too, because the narration is."""
+    assert sources.reads_as_a_person("Man in Black Jacket Standing on Rocky Shore")
+    assert sources.reads_as_a_person("retrato de um homem")
+    assert sources.reads_as_a_person("close-up portrait, studio lighting")
+    assert not sources.reads_as_a_person("A crowd of workers leaves the factory gates")
+    assert not sources.reads_as_a_person("shipyard welding work near large ship")
+    assert not sources.reads_as_a_person("rocky coastline with waves")
+    assert not sources.reads_as_a_person(""), "no description is not a person"
+
+
+def test_the_guard_does_not_fire_on_words_that_merely_contain_one():
+    """`man` inside `many`, `human` or `manager` is how a word-list guard starts
+    rejecting everything."""
+    for text in ("many ships at anchor", "a human settlement from the air",
+                 "the manager's office, empty", "romance languages on a map"):
+        assert not sources.reads_as_a_person(text), text
+
+
+def test_a_stock_video_is_judged_by_its_url_because_it_carries_nothing_else():
+    """A Pexels photo has `alt`; a video has neither alt nor tags, and its URL is
+    built from its title, which is the only thing Pexels says about it."""
+    assert sources._slug_words(
+        "https://www.pexels.com/video/shipyard-welding-work-near-large-ship-38415766/"
+    ) == "shipyard welding work near large ship"
+
+
+# ---------------- detection, read from the plan (slice 1) ----------------
+
+
+def _plan_with_overlay(**overlay):
+    base = {"id": "o1", "beat_id": "b61", "locked": False, "kind": "component",
+            "start_s": 1.0, "end_s": 5.0}
+    return {"tracks": {"overlays": [{**base, **overlay}]}}
+
+
+def test_a_nameplate_is_the_sheet_declaring_a_person_belongs_to_the_moment():
+    """Free detection, needing no new field: a component that attaches to a
+    `name` anchor, with a name in its props, is exactly the reproduction."""
+    from lusora_worker.pipeline.steps import identities_in
+
+    plan = _plan_with_overlay(component="NamePlate",
+                              props={"name": "Carsten Borchgrevink", "role": "norueguês"})
+    assert identities_in(plan) == {"b61": "Carsten Borchgrevink"}
+
+
+def test_a_component_that_takes_no_name_anchor_is_not_an_identity():
+    """A counter, a chart or a date card says nothing about who is on screen."""
+    from lusora_worker.pipeline.steps import identities_in
+
+    assert identities_in(_plan_with_overlay(component="AnimatedCounter",
+                                            props={"value": 70, "label": "of grain"})) == {}
+    assert identities_in(_plan_with_overlay(component="ChapterCard",
+                                            props={"title": "Part One"})) == {}
+
+
+def test_detection_reads_the_plan_because_v3_beats_carry_no_overlay():
+    """On faceless_v3 the selections live in overlays.json and are merged into
+    beats only in the compiler's memory, so a beat sheet on disk has no
+    `overlay` at all. Reading the plan is what makes this work on every
+    pipeline rather than on the two that predate D87."""
+    from lusora_worker.pipeline.steps import identities_in
+
+    path = (Path(__file__).resolve().parents[2] / "data" / "videos"
+            / "vid_bb05c1b483eb" / "edit_plan.json")
+    if not path.exists():
+        pytest.skip("the reproduction is not on this machine")
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    assert identities_in(plan) == {"b61": "Carsten Borchgrevink"}
