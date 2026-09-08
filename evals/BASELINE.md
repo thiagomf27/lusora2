@@ -671,10 +671,48 @@ four cases have never been re-marked at all, and `cnbc-ref` has had exactly
 three marks touched. `component_accuracy` should still be read as "does the
 planner reach for exhibits" rather than as an accuracy number.
 
+## Slices 2-4 — NOT MEASURED (2026-09-08)
+
+No provider spend was authorised, so these three landed on code, tests and
+argument. Each exit criterion below is a real number that has not been taken,
+and none of them should be reported as though it had.
+
+**Slice 2 (chunking).** Exit criterion: a 10-minute script produces a beat sheet
+and an overlay selection with no truncation and no repair-loop exhaustion, at a
+token cost that scales roughly linearly. What IS known, offline: the 11.5-minute
+fixture cuts into 217 spans and now goes out as 8 calls of ~28 cuts, each about
+2.5k of expected answer instead of one ~19.5k answer, and each independently
+repairable. To measure it:
+
+```bash
+cd worker && uv run python -m lusora_worker.evals.run_case \
+    ../evals/overlays/<case> /tmp/out.json --arm v3
+```
+
+**Slice 4 (the selector sees the shot).** Exit criterion: re-score with the
+slice-1 instrument on the sheets already on disk plus one fresh run per case;
+precision and the rule/taste split are the axes this should move, and recall
+must not fall. The sheets on disk cannot answer it — they were produced by the
+old prompt, and the change is to what the model is SHOWN, so it can only be
+measured by running it. Cheapest form, one call per case:
+
+```bash
+cd worker && uv run python -m lusora_worker.evals.run_case \
+    ../evals/overlays/<case> /tmp/out.json --arm v3 --reuse-beats
+```
+
+**Slice 3 (script validation)** has no eval criterion — its evidence is the
+corpus. Of the 22 scripts on disk, three fail, and they fail because they
+genuinely carry markdown that was read aloud: `*Alcedo*` in
+`vid_4ba61bc328ea`, `vid_ebd119ffabbd` and `vid_f7ac2576db3f`. The six eval
+scripts are clean and a test pins them that way, so a future rule cannot start
+quietly rejecting real narration.
+
 ## Log
 
 | date | slice | what changed | cases | note |
 |---|---|---|---|---|
+| 2026-09-08 | 2-4 | chunking, script validation, the selector sees the planned shot | none — NOT MEASURED | No provider spend authorised. Slice 3's evidence is the corpus: 3 of 22 shipped scripts carry markdown that the TTS read aloud. Slices 2 and 4 carry commands, not numbers |
 | 2026-09-08 | 1 | instrument: the scorer compiles, rule breaches split from restraint, cnbc-ref m26-m28 widened to Timeline | re-scores only | No provider spend. v3's component accuracy on cnbc-ref 33.3 -> 66.7, explainable mark by mark |
 | 2026-09-08 | 0 | long-form probe | 6 cases, offline | Found `cut_beats` ignoring its own ceiling on 3 of 4 reference cases — a 19.2s shot on a 10s pack. Fixed. The long-form question itself is still open: the one live call's result was lost to a bug in the probe |
 | 2026-09-03 | 1 | — | 2 | baseline taken from runs of 2026-07-25/26. No new provider spend: the sheets already existed |

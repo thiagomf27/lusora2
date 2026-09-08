@@ -83,9 +83,22 @@ def _candidate_menu(
 
 
 def _render_candidate(beat: dict[str, Any], menu: list[dict[str, Any]]) -> str:
-    """One candidate block: what the beat says, what it can show, what it may use."""
-    span = " ".join(str(beat.get("script_text") or beat.get("visual_intent") or "").split()[:SPAN_WORDS])
+    """One candidate block: what the beat says, what it SHOWS, what it may use.
+
+    The shot is here because the prompt's first reason to decline is "the shot
+    already carries the fact — do not caption a thing the viewer is looking at",
+    and this stage runs two stages before `resolve_assets`. There is no footage
+    yet and there cannot be; what exists is the shot the beat was PLANNED to
+    show, which is the same judgement one remove away. Until this line, the only
+    way to satisfy that rule was to invent a shot — `script_text` is always
+    present on a narration beat, so the `or beat.get("visual_intent")` fallback
+    this replaced never once fired on the path that needed it.
+    """
+    span = " ".join(str(beat.get("script_text") or "").split()[:SPAN_WORDS])
     lines = [f'BEAT {beat.get("id")}: "{span}"']
+    intent = " ".join(str(beat.get("visual_intent") or "").split()[:SPAN_WORDS])
+    if intent:
+        lines.append(f"  the shot planned for it: {intent}")
 
     anchors = beat.get("anchors") or []
     if anchors:

@@ -84,6 +84,58 @@ def _selection(**over):
     return doc
 
 
+# ---------------- the selector can see the shot (slice 4) ----------------
+
+
+def test_the_candidate_block_names_the_shot_the_beat_will_show(tmp_path):
+    """The prompt's first reason to decline is "the planned shot already carries
+    the fact". This stage runs two stages before resolve_assets, so there is no
+    footage and there cannot be — but the SHOT is decided, it is sitting in
+    beats.json, and it was not being shown. `script_text` is always present on a
+    narration beat, so the old `or visual_intent` fallback never once fired on
+    the path that needed it: the rule could only be satisfied by invention."""
+    ctx = _ctx(tmp_path)
+    seen = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(user)
+        return _reply(_selection())
+
+    overlay_agent.select_overlays(ctx, _beats(), 60.0, chat_fn=chat_fn)
+    assert "the shot planned for it: dock workers unloading sacks" in seen[0]
+    assert "Nearly 70% of all grain passed through it." in seen[0], "the words are still there"
+
+
+def test_a_beat_with_no_planned_shot_simply_omits_the_line(tmp_path):
+    """A timed beat carries no visual_intent, and an absent line is better than
+    an empty label the model has to interpret."""
+    beats = _beats()
+    beats["beats"][1].pop("visual_intent")
+    ctx = _ctx(tmp_path)
+    seen = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(user)
+        return _reply(_selection())
+
+    overlay_agent.select_overlays(ctx, beats, 60.0, chat_fn=chat_fn)
+    assert "the shot planned for it: dock workers" not in seen[0]
+    assert "the shot planned for it:" not in seen[0].split("BEAT b2")[-1]
+
+
+def test_the_packs_decline_rule_asks_about_the_shot_not_about_footage(tmp_path):
+    """The rule was aimed at the wrong tense. Prompt and code have to agree
+    about what the model can actually see, or the instruction is an invitation
+    to make something up."""
+    import lusora_contracts.prompts as pp
+
+    system = pp.load_prompt("overlay", "default")["system"]
+    assert "the planned shot already carries the fact" in system
+    assert "the footage already carries the fact" not in system
+    # and the worked examples show the same block the model is handed
+    assert system.count("the shot planned for it:") >= 5
+
+
 # ---------------- chunking a long video (slice 2) ----------------
 
 
