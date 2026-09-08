@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any
+from typing import Any, Callable
 
 import lusora_contracts
 
@@ -33,6 +33,7 @@ def compile_plan(
     cfg: dict[str, Any],
     audio_duration_s: float,
     overlay_selection: dict[str, Any] | None = None,
+    on_drop: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """sentence_timings: [{text, start_s, end_s}] in audio time (from the
     TTS adapter or the SRT), covering the whole narration in order.
@@ -159,7 +160,7 @@ def compile_plan(
         if item:
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
-    _trim_overlay_holds(overlays, total_end=total_end)
+    overlays = _trim_overlay_holds(overlays, total_end=total_end, on_drop=on_drop)
 
     # ---- captions ----
     theme = cfg.get("theme_doc") or {}
@@ -662,21 +663,89 @@ def _anchor_field(anchor: dict[str, Any], ref: str) -> Any:
     return None
 
 
+def _readable_minimum(item: dict[str, Any]) -> float:
+    """How long this graphic must hold to be read at all.
+
+    The catalog's own number: a DataTable says 4s, a DateStamp 2s. A media
+    overlay has no catalog entry and keeps the old half-second floor.
+    """
+    if item.get("kind") != "component":
+        return 0.5
+    entry = lusora_contracts.catalog_component(str(item.get("component", "")))
+    return float(((entry or {}).get("duration_hint_s") or {}).get("min", 1.0))
+
+
 def _trim_overlay_holds(
-    overlays: list[dict[str, Any]], total_end: float, gap: float = 0.2
-) -> None:
-    """Bound each overlay's hold, in place, on a start-sorted list.
+    overlays: list[dict[str, Any]],
+    total_end: float,
+    gap: float = 0.2,
+    on_drop: Callable[[str], None] | None = None,
+) -> list[dict[str, Any]]:
+    """Fit the overlays into the time there is, and drop what will not fit.
 
     An overlay may cross a visual cut, but never another overlay: two graphics
-    on screen at once is a mess, and at high density the next one is close.
-    Floor of 0.5s keeps a squeezed overlay from collapsing to nothing.
+    on screen at once is a mess, and at high density the next one is close. What
+    this used to do about that was squeeze — clamp the earlier one to
+    `next.start - 0.2` with a hard floor of half a second — and nothing checked
+    the result against the catalog's own `duration_hint_s.min`. So a `DataTable`
+    that says it needs 4s to be read could be handed 0.5s, and the plan passed
+    every check it has.
+
+    Not yet a wreck, and close: across the eight plans in `data/videos` two
+    overlays are already trimmed, one `StatTag` to 2.63s against a minimum of
+    2.5 — 0.13s of headroom. v3 roughly doubled the number of overlays placed,
+    so the pressure is all in one direction.
+
+    So a COLLISION is resolved by choosing rather than by squeezing both. The
+    earlier graphic wins: it was chosen first, its subject is already being
+    spoken, and it is the one whose hold the squeeze was damaging. The later one
+    is dropped with a reason, because a graphic nobody can read is worth less
+    than the one it was stealing from.
+
+    Only collisions. An overlay that simply runs out of video is left alone and
+    clamped exactly as before: nothing cut it short, the viewer had every second
+    there was, and dropping it would be a regression dressed up as a fix.
+
+    Returns the overlays that survive, start-sorted, and reports each drop
+    through `on_drop` — a human whose chosen graphic vanished is owed the
+    reason, and this is the only place that knows it.
     """
-    for i, item in enumerate(overlays):
-        ceiling = total_end
-        if i + 1 < len(overlays):
-            ceiling = min(ceiling, float(overlays[i + 1]["start_s"]) - gap)
-        end = min(float(item["end_s"]), ceiling)
-        item["end_s"] = round(max(end, float(item["start_s"]) + 0.5), 3)
+    kept: list[dict[str, Any]] = []
+    for item in overlays:
+        start = float(item["start_s"])
+
+        if kept:
+            previous = kept[-1]
+            room = start - gap - float(previous["start_s"])
+            previous_minimum = _readable_minimum(previous)
+            if room < previous_minimum - 1e-6:
+                _report(on_drop, item,
+                        f"it lands {room + gap:.1f}s after {previous.get('component', 'the graphic')} "
+                        f"on {previous.get('beat_id')}, which needs {previous_minimum:g}s — "
+                        "the earlier graphic keeps the moment")
+                continue
+            previous["end_s"] = round(min(float(previous["end_s"]), start - gap), 3)
+
+        kept.append(item)
+
+    # The end of the video is deliberately NOT a reason to drop. A graphic the
+    # credits roll over was not cut short by anything — the viewer had every
+    # second there was — and the old half-second floor stays as it was, which is
+    # also what keeps this change from touching plans that were already fine.
+    if kept:
+        last = kept[-1]
+        last["end_s"] = round(
+            max(min(float(last["end_s"]), total_end), float(last["start_s"]) + 0.5), 3
+        )
+    return kept
+
+
+def _report(on_drop: Callable[[str], None] | None, item: dict[str, Any], why: str) -> None:
+    if on_drop is not None:
+        on_drop(
+            f"overlay {item.get('component', item.get('kind'))} on beat "
+            f"{item.get('beat_id')} was dropped: {why}"
+        )
 
 
 def _place_captions(

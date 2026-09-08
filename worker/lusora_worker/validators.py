@@ -559,12 +559,45 @@ def validate_plan(
     # per-beat hold bounds (style pack pacing.hold_floor_ratio/hold_ceiling_ratio)
     violations.extend(_check_visual_holds(visual, cfg))
 
+    # overlays readable for as long as the catalog says they need (slice 5)
+    violations.extend(_check_overlay_holds(tracks["overlays"], timeline_end))
+
     # sfx density (D48) — belt and suspenders over the compiler's own thinning,
     # the same arrangement overlays.density has. The compiler is what enforces
     # these; this catches a hand-edited or chat-edited plan that beeps.
     violations.extend(_check_sfx_density(tracks, cfg, total))
 
     return violations
+
+
+def _check_overlay_holds(overlays: list[dict], timeline_end: float) -> list[str]:
+    """No graphic is on screen for less time than it needs to be read.
+
+    Belt and suspenders over the compiler's own fitting, the same arrangement
+    `_check_sfx_density` has: the compiler is what enforces this, and this
+    catches a hand-edited or chat-edited plan that does not.
+
+    An overlay running to the END of the video is exempt. It was not cut short
+    by anything — the viewer had every second there was — and the compiler
+    deliberately clamps rather than drops there, so flagging it would turn a
+    reasonable last graphic into "compiler produced an invalid plan (bug)".
+    """
+    out = []
+    for item in overlays:
+        if item.get("kind") != "component":
+            continue
+        entry = lusora_contracts.catalog_component(str(item.get("component", "")))
+        minimum = float(((entry or {}).get("duration_hint_s") or {}).get("min", 0))
+        if not minimum:
+            continue
+        held = float(item["end_s"]) - float(item["start_s"])
+        if held >= minimum - 1e-6 or float(item["end_s"]) >= timeline_end - 1e-6:
+            continue
+        out.append(
+            f"overlay {item['id']}: {item['component']} is held {held:.2f}s but needs "
+            f"{minimum:g}s to be read — drop it or move the graphic that crowds it"
+        )
+    return out
 
 
 def _check_visual_holds(visual: list[dict], cfg: dict) -> list[str]:

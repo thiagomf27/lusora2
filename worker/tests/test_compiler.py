@@ -984,3 +984,99 @@ def test_a_transition_that_already_fits_is_left_alone():
     ]
     _fit_transitions(visual)
     assert visual[0]["transition_out"] == {"type": "crossfade", "duration_s": 0.5}
+
+
+# ---------------- an overlay is readable or it is not there (slice 5) ----------------
+
+
+def _two_close_overlays(gap_s: float):
+    """Two anchored beats whose graphics land `gap_s` apart."""
+    doc = beats(
+        {"id": "b1", "kind": "narration",
+         "script_text": "Production reached 70 percent of the target.",
+         "visual_intent": "a factory floor",
+         "anchors": [{"type": "percentage", "value": 70, "label": "of target",
+                      "source_words": "70 percent"}],
+         "overlay": {"component": "AnimatedCounter", "anchor_ref": 0}},
+        {"id": "b2", "kind": "narration",
+         "script_text": "By 1943 the lines ran day and night.",
+         "visual_intent": "a night shift",
+         "anchors": [{"type": "date", "value": "1943", "source_words": "1943"}],
+         "overlay": {"component": "DateStamp", "anchor_ref": 0}},
+    )
+    st = timings(
+        ("Production reached 70 percent of the target.", 0.0, gap_s),
+        ("By 1943 the lines ran day and night.", gap_s, gap_s + 8.0),
+    )
+    return doc, st, gap_s + 8.0
+
+
+def test_a_graphic_that_would_starve_the_one_before_it_is_dropped():
+    """The measured pathology. `_trim_overlay_holds` used to squeeze the earlier
+    overlay to `next.start - 0.2` with a floor of half a second, and nothing
+    compared the result to the catalog's own minimum — so an AnimatedCounter
+    that says it needs 2.5s could be handed 0.5s and the plan passed every check
+    it has. Two overlays in the shipped plans are already trimmed, one to within
+    0.13s of its minimum."""
+    doc, st, total = _two_close_overlays(1.2)
+    dropped = []
+    plan = compile_plan(doc, st, CFG, total, on_drop=dropped.append)
+    overlays = plan["tracks"]["overlays"]
+    assert len(overlays) == 1, [o["component"] for o in overlays]
+    assert overlays[0]["component"] == "AnimatedCounter", "the earlier graphic keeps the moment"
+    held = overlays[0]["end_s"] - overlays[0]["start_s"]
+    assert held >= 2.5, f"and it holds for its own minimum, not {held}"
+    assert dropped and "DateStamp" in dropped[0] and "needs 2.5s" in dropped[0]
+
+
+def test_two_graphics_far_enough_apart_both_survive():
+    """The guard must not be an excuse to thin a sheet the pacing allows."""
+    doc, st, total = _two_close_overlays(9.0)
+    plan = compile_plan(doc, st, CFG, total)
+    assert len(plan["tracks"]["overlays"]) == 2
+
+
+def test_a_graphic_the_video_simply_ends_under_is_kept():
+    """Running out of video is not being cut short: the viewer had every second
+    there was. Dropping it would be a regression dressed up as a fix, and it is
+    what made two existing compiler tests fail when the rule was written wider."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "The push toward Stalingrad began.",
+         "visual_intent": "map",
+         "anchors": [{"type": "place", "value": "Stalingrad", "source_words": "Stalingrad"}],
+         "overlay": {"component": "SatelliteLocate", "anchor_ref": 0}},
+    )
+    st = timings(("The push toward Stalingrad began.", 0.0, 5.0))
+    plan = compile_plan(doc, st, CFG, 5.0)
+    assert len(plan["tracks"]["overlays"]) == 1
+
+
+def test_the_plan_validator_catches_a_squeeze_the_compiler_would_not_have_made():
+    """Belt and suspenders, the arrangement _check_sfx_density already has: the
+    compiler is what enforces this, and the validator catches a hand-edited or
+    chat-edited plan that does not."""
+    plan = {
+        "tracks": {
+            "overlays": [
+                {"id": "o_b1", "kind": "component", "component": "DataTable",
+                 "start_s": 1.0, "end_s": 2.0},
+            ]
+        }
+    }
+    problems = validators._check_overlay_holds(plan["tracks"]["overlays"], timeline_end=30.0)
+    assert len(problems) == 1 and "needs 4s" in problems[0]
+
+
+def test_no_plan_this_repo_has_shipped_becomes_invalid():
+    """The check is new; the plans are not. If it fires on something already
+    rendered, the rule is wrong rather than the plan."""
+    import json
+
+    root = Path(__file__).resolve().parents[2]
+    plans = sorted((root / "data" / "videos").glob("*/edit_plan.json"))
+    if not plans:
+        pytest.skip("no rendered plans on this machine")
+    for path in plans:
+        tracks = json.loads(path.read_text(encoding="utf-8"))["tracks"]
+        end = max([float(v["end_s"]) for v in tracks["visual"]] or [0.0])
+        assert validators._check_overlay_holds(tracks["overlays"], end) == [], path.parent.name
