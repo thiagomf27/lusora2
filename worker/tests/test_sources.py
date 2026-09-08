@@ -692,3 +692,74 @@ def test_detection_reads_the_plan_because_v3_beats_carry_no_overlay():
         pytest.skip("the reproduction is not on this machine")
     plan = json.loads(path.read_text(encoding="utf-8"))
     assert identities_in(plan) == {"b61": "Carsten Borchgrevink"}
+
+
+# ---------------- an identity answer must name the entity ----------------
+
+
+def test_a_library_hit_that_does_not_name_the_entity_is_not_an_answer(tmp_path):
+    """Found by running a video, which is the only way it could have been.
+
+    Restricting WHO may answer the identity question is not enough: asked for
+    "Royal Geographical Society", the live library returned a formal portrait of
+    a 19th-century naval officer at sim 0.50 — high, because the query carries
+    the shot description too — and slice 1 accepted it. That is the same
+    wrong-face-under-a-name bug, one source over.
+
+    A similarity threshold could not have caught it. Only the name can.
+    """
+    class Library:
+        def __init__(self): self.offered = []
+        def resolve(self, ctx, item, query, source_cfg, ledger=None):
+            self.offered.append(source_cfg.get("must_name"))
+            described = "A formal portrait of a 19th-century naval officer"
+            # both guards, as the real adapter applies them
+            if source_cfg.get("must_name") and not sources.mentions(described, source_cfg["must_name"]):
+                return None
+            if source_cfg.get("no_person") and sources.reads_as_a_person(described):
+                return None
+            return sources.Resolution(source="library", id="seg1", provider=None, license="cc0",
+                                      path="clips/x.mp4", score=0.5, query=query,
+                                      media_type="video")
+
+    lib = Library()
+    sources.ADAPTERS.update({"library": lib, "stock": Recorder(answer_to="__never__"),
+                             "ai_image": Recorder(answer_to="__never__", source="ai")})
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v1", "beat_id": "b6", "start_s": 0, "end_s": 4}
+
+    assert not sources.resolve_item(ctx, item, "a weathered explorer aboard a ship",
+                                    CHAIN, ["explorer ship"], None,
+                                    identity="Royal Geographical Society")
+    assert "Royal Geographical Society" in lib.offered, "the requirement reached the adapter"
+
+
+def test_a_hit_that_does_name_the_entity_is_accepted(tmp_path):
+    """The rule has to be able to say yes, or an identity beat could never show
+    the thing it is about."""
+    class Library:
+        def resolve(self, ctx, item, query, source_cfg, ledger=None):
+            described = "Royal Geographical Society medal ceremony, 1901"
+            if source_cfg.get("must_name") and not sources.mentions(described, source_cfg["must_name"]):
+                return None
+            return sources.Resolution(source="library", id="seg2", provider=None, license="cc0",
+                                      path="clips/x.mp4", score=0.5, query=query,
+                                      media_type="video")
+
+    sources.ADAPTERS.update({"library": Library(), "stock": Recorder(), "ai_image": Recorder(source="ai")})
+    ctx = make_ctx(tmp_path)
+    item = {"id": "v1", "beat_id": "b6", "start_s": 0, "end_s": 4}
+    assert sources.resolve_item(ctx, item, "a ceremony", CHAIN, ["ceremony"], None,
+                                identity="Royal Geographical Society")
+    assert item["asset"]["source"] == "library"
+
+
+def test_mentions_needs_every_token_not_the_longest_one():
+    """Matching on one token would let "Southern Cross" be answered by anything
+    containing "cross". Strict on purpose: a miss falls to the scene question,
+    which is safe, while a false accept is the whole bug."""
+    assert sources.mentions("Carsten Borchgrevink at Cape Adare, 1899", "Carsten Borchgrevink")
+    assert sources.mentions("borchgrevink, carsten — landing party", "Carsten Borchgrevink")
+    assert not sources.mentions("a crucifix on a hill", "Southern Cross")
+    assert not sources.mentions("A formal portrait of a naval officer", "Royal Geographical Society")
+    assert not sources.mentions("", "Carsten Borchgrevink")

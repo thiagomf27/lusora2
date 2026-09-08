@@ -22,6 +22,7 @@ from ..context import StageContext
 from ..costs import budget_gate
 from ..errors import StageError
 from ..media import run_ffmpeg
+from ..textsplit import normalize
 
 STAGE = "resolve_assets"
 
@@ -103,6 +104,19 @@ def _slug_words(url: str) -> str:
     title — `.../video/shipyard-welding-work-near-large-ship-38415766/`."""
     tail = str(url).rstrip("/").rsplit("/", 1)[-1]
     return " ".join(part for part in tail.split("-") if not part.isdigit())
+
+
+def mentions(text: str, name: str) -> bool:
+    """Does this description actually refer to that named entity?
+
+    Every token of the name, normalised, must appear. Deliberately strict:
+    a miss falls through to the scene question, which is safe, while a false
+    accept is the entire bug. Matching on the longest token alone would let
+    "Southern Cross" be answered by anything containing "cross".
+    """
+    haystack = normalize(text or "")
+    tokens = [t for t in normalize(name).split() if len(t) >= 3]
+    return bool(tokens) and all(t in haystack for t in tokens)
 
 
 def identity_queries(person: str, intent: str) -> tuple[str, list[str]]:
@@ -225,12 +239,21 @@ class LibraryAdapter:
             seg_id = str(best.get("id"))
             if ledger is not None and ledger.blocked("library", None, seg_id):
                 continue
+            described = (
+                f"{best.get('caption') or ''} {' '.join(best.get('tags') or [])} "
+                f"{best.get('source_name') or ''}"
+            )
+            # The IDENTITY question is answered only by a clip that actually
+            # says who it is. Similarity cannot do this: asked for "Royal
+            # Geographical Society", the library returned a formal portrait of
+            # a 19th-century naval officer at sim 0.19 and slice 1 accepted it,
+            # which is the same wrong-face-under-a-name bug one source over.
+            if source_cfg.get("must_name") and not mentions(described, source_cfg["must_name"]):
+                continue
             # The scene question may not be answered by a shot whose own caption
             # says one person is its subject: with a name super on screen, that
             # person reads as the person being discussed.
-            if source_cfg.get("no_person") and reads_as_a_person(
-                f"{best.get('caption') or ''} {' '.join(best.get('tags') or [])}"
-            ):
+            if source_cfg.get("no_person") and reads_as_a_person(described):
                 continue
             # Every library row is an mp4 — an uploaded image is stored as a
             # still CLIP, deliberately, so that nothing downstream has to know
@@ -342,9 +365,10 @@ class PexelsAdapter:
             # A photo carries `alt`; a video carries neither alt nor tags, but
             # its URL is built from its title, which is the only thing Pexels
             # says about it.
-            if source_cfg.get("no_person") and reads_as_a_person(
-                hit.get("alt") or _slug_words(hit.get("url") or "")
-            ):
+            described = hit.get("alt") or _slug_words(hit.get("url") or "")
+            if source_cfg.get("must_name") and not mentions(described, source_cfg["must_name"]):
+                continue
+            if source_cfg.get("no_person") and reads_as_a_person(described):
                 continue
             try:
                 if want_video:
@@ -689,8 +713,9 @@ def resolve_item(
     if identity:
         allowed = identity_sources(ctx.cfg)
         semantic, keyword = identity_queries(identity, query)
-        if _walk(ctx, item, semantic, [c for c in chain if str(c.get("source")) in allowed],
-                 keyword, ledger):
+        id_chain = [{**c, "must_name": identity}
+                    for c in chain if str(c.get("source")) in allowed]
+        if _walk(ctx, item, semantic, id_chain, keyword, ledger):
             ctx.db.event(ctx.video_id, STAGE, "progress",
                          f"beat {item.get('beat_id')}: found footage of {identity}")
             return True
