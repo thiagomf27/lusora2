@@ -59,7 +59,18 @@ LEDGER_ENTRIES = 12
 # Craft keys the model may set. `script_text`, `timing` and `id` are ours and
 # are filled from the cuts; anything else it invents is dropped rather than
 # carried into a sheet the schema would reject.
-CRAFT_KEYS = ("visual_intent", "queries", "mood", "media_preference", "anchors", "overlay", "notes")
+#
+# `transition_out` (D89, beat sheet v1.2) is in this list even though the
+# shipped prompt does not ask for it. It was missing, which made a
+# PROMPT-PACK edit unable to take effect: someone adding the field to
+# contracts/prompts/beatcraft/*.json would have had every answer silently
+# dropped by merge(), and D43's whole point is that the editable half is data a
+# person can change without a deploy. The default pack still says nothing about
+# transitions — D89 keeps the field human-set until an eval says the model
+# chooses well, and D85 measured what happens when a model is shown a field
+# with no taste attached to it: it fills it, every time, on every beat.
+CRAFT_KEYS = ("visual_intent", "queries", "mood", "media_preference", "anchors", "overlay",
+              "notes", "transition_out")
 
 
 def render_cuts(cuts: list[dict[str, Any]]) -> str:

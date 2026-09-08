@@ -581,3 +581,49 @@ def test_a_pacing_violation_stops_the_stage_instead_of_retrying(tmp_path):
     with pytest.raises(StageError, match="no answer from the model can fix this"):
         beatcraft.craft_beats(ctx, cuts, SCRIPT, 14.0, chat_fn=chat_fn)
     assert len(calls) == 1, "it must not retry a violation the model cannot address"
+
+
+# ---------------- the transition field is reachable (slice 6) ----------------
+
+
+def test_a_prompt_pack_asking_for_a_transition_can_actually_get_one(tmp_path):
+    """D43 promises the editable half is data a person can change without a
+    deploy. `transition_out` was not in CRAFT_KEYS, so it wasn't: someone adding
+    the field to contracts/prompts/beatcraft/*.json would have had every answer
+    silently dropped by merge(), with nothing anywhere saying why."""
+    ctx = _ctx(tmp_path)
+    ctx.cfg["style_pack_doc"]["transitions"] = {"allowed": ["cut", "crossfade"],
+                                                "default": "cut"}
+    cuts = _cuts(ctx)
+    answer = _craft(cuts)
+    answer["beats"][str(cuts[0]["index"])]["transition_out"] = "crossfade"
+
+    doc = beatcraft.craft_beats(ctx, cuts, SCRIPT, 14.0, chat_fn=lambda *a: _reply(answer))
+    assert doc["beats"][0]["transition_out"] == "crossfade"
+    assert "transition_out" not in doc["beats"][1], "and only where it was answered"
+
+
+def test_a_transition_the_pack_forbids_is_still_refused(tmp_path):
+    """Reachable is not unguarded. validate_beat_sheet checks the value against
+    the style pack's own allow-list, from the same table the platform's editor
+    route reads (contracts/fixtures/rules/transition_rules.json)."""
+    ctx = _ctx(tmp_path)
+    ctx.cfg["style_pack_doc"]["transitions"] = {"allowed": ["cut"], "default": "cut"}
+    cuts = _cuts(ctx)
+    answer = _craft(cuts)
+    answer["beats"][str(cuts[0]["index"])]["transition_out"] = "dissolve"
+
+    with pytest.raises(StageError):
+        beatcraft.craft_beats(ctx, cuts, SCRIPT, 14.0, chat_fn=lambda *a: _reply(answer))
+
+
+def test_the_shipped_pack_still_does_not_ask_for_a_transition():
+    """D89 keeps the field human-set until an eval says the model chooses well,
+    and D85 measured what a model does with a field it is shown but given no
+    taste about: it filled `emphasis` on every overlay of every run. Making the
+    field REACHABLE is not the same as asking for it, and this pins the
+    difference so a later edit is a decision rather than an accident."""
+    import lusora_contracts.prompts as pp
+
+    pack = pp.load_prompt("beatcraft", "default")
+    assert "transition" not in (pack["system"] + pack["user"]).lower()
