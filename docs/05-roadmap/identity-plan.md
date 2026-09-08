@@ -7,7 +7,12 @@ them. This is the plan to stop it, in the order it is worth fixing.
 **The rule everything here follows: a wrong face is worse than no face, and a
 wrong face with a name on it is worse than both.** Where identity cannot be
 established, the video says the name in type rather than guessing at a
-photograph (D55's degrade already builds that card).
+photograph.
+
+There is machinery for that already — `degrade.to_title_card` swaps the shot for
+the channel's background image (or a flat colour fill) and lays a typographic
+component over it — but see **The card does not exist yet** below before
+assuming it can be leaned on.
 
 ---
 
@@ -76,6 +81,40 @@ either (`Taylor Farms` and `Pearl Harbor` are `name` anchors too).
 
 ---
 
+## The card does not exist yet
+
+This plan's fallback was written as "reuse D55's degrade". Checking the corpus
+says that is not available, for three separate reasons, and slice 1 has to
+supply it rather than call it.
+
+**Almost no pack configures one.** `style_pack.fallback` names the component,
+and six of the seven shipped packs leave it `null` — including
+`descoberta-doc`, which is the pack of the very video this plan reproduces. With
+no card named, `to_title_card` returns `None` and keeps the weak asset, which is
+the right default for a weak MATCH and the wrong one for a wrong PERSON.
+
+**It has never fired.** The weak-match path is gated on
+`source_policy.visual.min_score_floor`, and no `cfg.json` in `data/videos` sets
+it. As far as the corpus can show, this degrade has never run in production. It
+is a mechanism, not a safety net.
+
+**And `ChapterCard` is the wrong card for a person.** Its own catalog entry says
+`when_not_to_use: … a person's name (NamePlate)`. It is a full-screen act break
+between sections. A person who could not be found wants their name set as a
+name — a `NamePlate` over the plain plate is both honest and deliberate-looking,
+and it is what the beat's own overlay was going to say anyway.
+
+**What follows for slice 1.** Skipping `stock` and `ai_image` without supplying
+a card does not produce a card: `resolve_item` returns `False`, and
+`run_resolve_assets` raises `source chain exhausted for beat …`. The video stops
+instead of degrading. So the identity fallback must be **built in and not
+optional** — a channel may choose which component draws it, but not whether
+there is one — and it must take its words from the person's NAME rather than
+from `card_text`'s `queries[0]`, which on the reproduction would set the card to
+"Man Jumping Rowboat Shore".
+
+---
+
 ## What this plan will not do
 
 - **No face recognition.** Verifying a face against a reference is a different
@@ -97,16 +136,22 @@ named person belongs to that moment. No inference required — the sheet said so
 
 **What changes.** On such a beat, `resolve_assets` skips `stock` and `ai_image`
 entirely and walks only the sources that could hold that person. If the chain
-comes back empty, `degrade.to_title_card` draws the card, which is what the
-beat's own words already say.
+comes back empty, an identity card is drawn — **built in, not conditional on
+`style_pack.fallback`**, for the reasons above — carrying the person's name
+rather than `card_text`'s keyword query. `style_pack.fallback.identity` may name
+a different component; absent, the default is a `NamePlate` over the plate,
+because that is what the moment is and what the beat was going to say anyway.
 
 `source_policy.visual.identity.sources` names the sources allowed to serve one,
 defaulting to `["library"]`. It is config because a channel that wires an
 editorial stock source (Getty and the like, which *does* index named people)
 should be able to say so — but the default is the one that cannot be wrong.
 
-**Exit criterion.** Re-resolving `vid_bb05c1b483eb` b61 produces a card, not a
-stranger, and the event log says why. No other beat in the corpus changes.
+**Exit criterion.** Re-resolving `vid_bb05c1b483eb` b61 produces a card reading
+"Carsten Borchgrevink", not a stranger, and the event log says why. It must work
+on `descoberta-doc` unchanged — that pack names no fallback, and needing to
+configure one first would mean the fix is not on by default where the bug is.
+No other beat in the corpus changes.
 
 **Decision-log entry.** Yes — the rule, and why `ai_image` is excluded by
 default rather than by configuration.
