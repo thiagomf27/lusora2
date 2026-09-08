@@ -150,6 +150,17 @@ have titled it "Man Jumping Rowboat Shore".
 > Verified against the real `vid_bb05c1b483eb` plan: b61 is detected and its
 > identity question now goes only to the library. Not re-rendered — no
 > provider spend, and the sources it would have to call are live ones.
+>
+> **Checked against the cached Pexels response for the exact failing query.**
+> `data/stock-cache` still holds the five results b61's `"man jumping rowboat
+> shore"` returned. The guard refuses four of them — *"A young man leaps between
+> large rocks over the sea"*, *"Man in red jacket jumping on the beach"*, *"Man
+> rowing boat on a peaceful lake"*, *"a person jumping from shore onto docked
+> boat"* — and allows one: *"Silhouetted figure jumping over water against Rio's
+> industrial shoreline"*. A silhouette has no face to mistake for anybody, so
+> the beat that shipped a stranger captioned "Carsten Borchgrevink" now gets a
+> shot that claims nothing. That is a better outcome than the plan predicted,
+> which expected the guard to reject everything and fall to the card.
 
 **Why first.** It is the whole of the forbidden case, it needs no new field, and
 it can be detected for free: when a beat's own overlay is a `NamePlate` or
