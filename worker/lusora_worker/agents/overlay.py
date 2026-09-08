@@ -42,6 +42,13 @@ STAGE = "select_overlays"
 ROLE = "overlay"
 MAX_ATTEMPTS = 3
 
+# Above this many candidates the question is split across several calls. Each
+# candidate block is its own shortlisted menu — roughly 400 tokens — so a long
+# video puts a hundred of them in one prompt, and the budgets it is asked to
+# respect stop being legible long before the context runs out. Same knob as the
+# beat craft, for the same reason: it is the size of one call.
+DEFAULT_CHUNK_TARGET = 30
+
 # How many words of the beat's own narration to show. The selector is choosing a
 # graphic for a span, not rewriting it, so the whole script would be paid for
 # once per candidate and read once in total.
@@ -163,6 +170,8 @@ def _build_prompt(
     ctx: StageContext,
     candidates: list[dict[str, Any]],
     audio_duration_s: float,
+    chunk_position: str = "",
+    share: float = 1.0,
 ) -> tuple[str, str]:
     style = ctx.cfg.get("style_pack_doc") or {}
     overlays = style.get("overlays") or {}
@@ -171,6 +180,8 @@ def _build_prompt(
     max_emphasis: int | str = ""
     if emphasis_enabled:
         max_emphasis = math.ceil(emphasis_per_minute * audio_duration_s / 60) + 1
+        if share < 1.0:
+            max_emphasis = max(1, math.floor(max_emphasis * share))
 
     return prompt_packs.compose(
         ROLE,
@@ -182,7 +193,11 @@ def _build_prompt(
             ),
             "audio_duration_s": f"{audio_duration_s:.0f}",
             "density": density if isinstance(density, str) else json.dumps(density),
-            "max_overlays": max_overlays_for(style, audio_duration_s),
+            "max_overlays": (
+                max_overlays_for(style, audio_duration_s) if share >= 1.0
+                else max(1, math.floor(max_overlays_for(style, audio_duration_s) * share))
+            ),
+            "chunk_position": chunk_position,
             "emphasis_per_minute": emphasis_per_minute if emphasis_enabled else "",
             "max_emphasis": max_emphasis,
             "visual_language": str(style.get("visual_language") or ""),
@@ -221,9 +236,73 @@ def select_overlays(
     if provider == "mock":
         return empty
 
-    system, base_user = _build_prompt(ctx, candidates, audio_duration_s)
+    target = max(1, int((ctx.cfg.get("planner") or {}).get("chunk_target_beats")
+                        or DEFAULT_CHUNK_TARGET))
+    chunks = [candidates[i:i + target] for i in range(0, len(candidates), target)] \
+        if len(candidates) > target else [candidates]
+    if len(chunks) > 1:
+        ctx.log(f"{len(candidates)} candidates over {len(chunks)} calls of ~{target}")
+
+    selections: list[dict[str, Any]] = []
+    declined: list[dict[str, Any]] = []
+    for i, chunk in enumerate(chunks):
+        part = _select_chunk(
+            ctx, chunk, beats, audio_duration_s, chat_fn,
+            provider, model, prompt, max_tokens, temperature,
+            chunk_position=f"part {i + 1} of {len(chunks)}" if len(chunks) > 1 else "",
+            share=len(chunk) / len(candidates) if len(chunks) > 1 else 1.0,
+        )
+        selections += part.get("selections") or []
+        declined += part.get("declined") or []
+
+    doc = {"version": "1.0", "video_id": ctx.video_id,
+           "selections": selections, "declined": declined}
+    # The whole selection, judged against the whole video's budget — the same
+    # arrangement the chunked beat craft uses. Each chunk was held to its own
+    # share; this is what catches a merge that adds up to more than the video
+    # is allowed.
+    violations = validate_overlay_selection(doc, beats, ctx.cfg, audio_duration_s)
+    if violations:
+        raise StageError(
+            STAGE,
+            "merged overlay selection failed final validation: " + "; ".join(violations[:8]),
+        )
+    ctx.db.event(
+        ctx.video_id, STAGE, "progress",
+        f"{len(selections)} overlays selected over {len(chunks)} call(s), "
+        f"{len(declined)} beats declined",
+    )
+    return doc
+
+
+def _select_chunk(
+    ctx: StageContext,
+    candidates: list[dict[str, Any]],
+    beats: list[dict[str, Any]],
+    audio_duration_s: float,
+    chat_fn: llm.ChatFn,
+    provider: str,
+    model: Any,
+    prompt: Any,
+    max_tokens: int,
+    temperature: Any,
+    chunk_position: str = "",
+    share: float = 1.0,
+) -> dict[str, Any]:
+    """One call's worth of candidates, repaired up to three times.
+
+    Judged against this chunk's share of the budget rather than the video's, so
+    a chunk cannot be rejected for spending less than the whole allowance — the
+    failure the planner's chunking hit and documented.
+    """
+    system, base_user = _build_prompt(
+        ctx, candidates, audio_duration_s, chunk_position=chunk_position, share=share
+    )
     user = base_user
     attempts: list[str] = []
+    # The slice of the video these candidates actually cover: what the budget
+    # check should scale to.
+    chunk_duration = audio_duration_s * share
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
@@ -245,12 +324,14 @@ def select_overlays(
             doc["video_id"] = ctx.video_id
             doc.setdefault("version", "1.0")
             doc.setdefault("selections", [])
-            violations = validate_overlay_selection(doc, beats, ctx.cfg, audio_duration_s)
+            violations = validate_overlay_selection(doc, beats, ctx.cfg, chunk_duration)
+            if chunk_position:
+                violations += _outside_this_chunk(doc, candidates)
             if not violations:
                 ctx.db.provider_health(f"llm.{provider}", True)
                 ctx.db.event(
                     ctx.video_id, STAGE, "progress",
-                    f"overlays accepted on attempt {attempt} "
+                    f"{chunk_position or 'overlays'} accepted on attempt {attempt} "
                     f"({len(doc['selections'])} of {len(candidates)} candidates)",
                 )
                 return doc
@@ -269,6 +350,28 @@ def select_overlays(
 
     raise StageError(
         STAGE,
-        f"overlay selection failed after {MAX_ATTEMPTS} attempts ({'; '.join(attempts)}) — "
-        "upload overlays.json manually, or run a pipeline without this stage",
+        f"overlay selection failed after {MAX_ATTEMPTS} attempts ({'; '.join(attempts)})"
+        + (f" on {chunk_position}" if chunk_position else "")
+        + " — upload overlays.json manually, or run a pipeline without this stage",
     )
+
+
+def _outside_this_chunk(
+    doc: dict[str, Any], candidates: list[dict[str, Any]]
+) -> list[str]:
+    """A chunk may only SELECT for the beats it was shown.
+
+    Without this a call could place a graphic on a beat another call is also
+    deciding for, and the merge would carry two answers to one question. Applied
+    to selections only, and only when there is more than one chunk: a `declined`
+    naming a beat outside this part costs nothing (the merge's own validator
+    catches a beat that ends up in both lists), and an unchunked call was always
+    free to decline a beat that was never a candidate.
+    """
+    mine = {str(c["beat"].get("id")) for c in candidates}
+    return [
+        f"beat {sel.get('beat_id')} is not one of the candidates in this part — "
+        "choose only from the beats listed below"
+        for sel in (doc.get("selections") or [])
+        if str(sel.get("beat_id")) not in mine
+    ]

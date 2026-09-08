@@ -74,6 +74,148 @@ def _reply(doc):
     return LLMResult(text=json.dumps(doc), input_tokens=400, output_tokens=300)
 
 
+# ---------------- chunking a long script (slice 2) ----------------
+
+
+def _long_cuts(n=70, hold=4.0):
+    """`n` distinct spans at the pack's average hold.
+
+    Built directly rather than through `cut_script`, because what is under test
+    is what happens ABOVE the single-call size and the fixture script is three
+    sentences long. Each span is distinct so verbatim location stays unambiguous.
+    """
+    return [
+        {"index": i, "script_text": f"Convoy number {i} reached the harbour at dawn.",
+         "start_s": round(i * hold, 3), "end_s": round((i + 1) * hold, 3)}
+        for i in range(n)
+    ]
+
+
+def _long_script(cuts):
+    return " ".join(c["script_text"] for c in cuts)
+
+
+def test_a_long_script_is_split_across_calls_instead_of_asked_in_one(tmp_path):
+    """The slice, in one assertion.
+
+    `planner.py` has always put the safe size of one call at 20-30 beats and
+    said to split above it. This stage never did, and v3 bypasses the planner
+    entirely — so an 11-minute script went out as 217 indices in a single
+    all-or-nothing JSON object, roughly 19.5k output tokens before the reasoning
+    trace, with no partial progress to resume from if one brace came back wrong.
+    """
+    cuts = _long_cuts(70)
+    ctx = _ctx(tmp_path)
+    seen = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(user)
+        asked = [int(line.split("]")[0][1:]) for line in user.splitlines()
+                 if line.startswith("[")]
+        return _reply(_craft([c for c in cuts if c["index"] in set(asked)]))
+
+    doc = beatcraft.craft_beats(ctx, cuts, _long_script(cuts), 280.0, chat_fn=chat_fn)
+    assert len(seen) == 3, "70 cuts at the default target of 30 is three calls"
+    assert len(doc["beats"]) == 70, "every cut still becomes exactly one beat"
+    assert [b["script_text"] for b in doc["beats"]] == [c["script_text"] for c in cuts]
+
+
+def test_each_call_is_asked_only_about_its_own_cuts(tmp_path):
+    """A chunk is a contiguous index range and nothing cleverer. The cuts were
+    already numbered and timed by `cut_beats`, so unlike the planner's chunking
+    there is no partition left for a spine pass to choose."""
+    cuts = _long_cuts(70)
+    ctx = _ctx(tmp_path)
+    asked: list[list[int]] = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        indices = [int(line.split("]")[0][1:]) for line in user.splitlines()
+                   if line.startswith("[")]
+        asked.append(indices)
+        return _reply(_craft([c for c in cuts if c["index"] in set(indices)]))
+
+    beatcraft.craft_beats(ctx, cuts, _long_script(cuts), 280.0, chat_fn=chat_fn)
+    assert [i for chunk in asked for i in chunk] == list(range(70)), "contiguous, in order"
+    assert all(chunk == list(range(chunk[0], chunk[-1] + 1)) for chunk in asked)
+
+
+def test_a_later_chunk_is_shown_what_the_earlier_ones_already_used(tmp_path):
+    """Continuity across a boundary: the previous chunk's last answers so a mood
+    can hold, and the subjects already spent so the video does not shoot the
+    same image twice. The first call gets neither — there is nothing behind it."""
+    cuts = _long_cuts(70)
+    ctx = _ctx(tmp_path)
+    seen: list[str] = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(user)
+        indices = [int(line.split("]")[0][1:]) for line in user.splitlines()
+                   if line.startswith("[")]
+        return _reply(_craft([c for c in cuts if c["index"] in set(indices)]))
+
+    beatcraft.craft_beats(ctx, cuts, _long_script(cuts), 280.0, chat_fn=chat_fn)
+    assert "PREVIOUS SECTION" not in seen[0] and "ALREADY SHOWN" not in seen[0]
+    assert "part 2 of 3" in seen[1]
+    assert "PREVIOUS SECTION" in seen[1] and "a harbour at work, shot 23" in seen[1]
+    assert "ALREADY SHOWN" in seen[1]
+
+
+def test_a_short_script_still_goes_in_exactly_one_call(tmp_path):
+    """The regression that matters most: below the threshold nothing changed,
+    so every existing pipeline composes and bills exactly as it did."""
+    ctx = _ctx(tmp_path)
+    cuts = _cuts(ctx)
+    seen = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(user)
+        return _reply(_craft(cuts))
+
+    beatcraft.craft_beats(ctx, cuts, SCRIPT, 14.0, chat_fn=chat_fn)
+    assert len(seen) == 1
+    assert "part 1 of" not in seen[0], "an unchunked call says nothing about chunks"
+
+
+def test_the_chunk_size_is_the_channels_knob_not_a_constant(tmp_path):
+    """`planner.chunk_target_beats` was dead on the production pipeline — v3
+    bypasses the planner whenever beat_cuts.json exists, so the one knob that
+    governs call size governed nothing. It is the same knob here."""
+    cuts = _long_cuts(70)
+    ctx = _ctx(tmp_path)
+    ctx.cfg["planner"] = {"llm": "deepseek", "chunk_target_beats": 10}
+    calls = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        indices = [int(line.split("]")[0][1:]) for line in user.splitlines()
+                   if line.startswith("[")]
+        calls.append(len(indices))
+        return _reply(_craft([c for c in cuts if c["index"] in set(indices)]))
+
+    beatcraft.craft_beats(ctx, cuts, _long_script(cuts), 280.0, chat_fn=chat_fn)
+    assert len(calls) == 7 and max(calls) <= 10
+
+
+def test_one_bad_chunk_is_repaired_without_re_asking_the_good_ones(tmp_path):
+    """The other half of why chunking is worth it: a malformed answer costs one
+    chunk's worth of tokens to fix, not the whole video's."""
+    cuts = _long_cuts(70)
+    ctx = _ctx(tmp_path)
+    calls = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        indices = [int(line.split("]")[0][1:]) for line in user.splitlines()
+                   if line.startswith("[")]
+        calls.append(indices[0])
+        if indices[0] == 24 and calls.count(24) == 1:
+            return _reply({"beats": {"999": {"visual_intent": "not one of the cuts"}}})
+        return _reply(_craft([c for c in cuts if c["index"] in set(indices)]))
+
+    doc = beatcraft.craft_beats(ctx, cuts, _long_script(cuts), 280.0, chat_fn=chat_fn)
+    assert len(calls) == 4, "three chunks plus one repair"
+    assert calls.count(0) == 1, "the chunk that was fine was not asked twice"
+    assert len(doc["beats"]) == 70
+
+
 # ---------------- the cuts ----------------
 
 

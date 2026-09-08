@@ -38,11 +38,20 @@ control flow.
 - **2c (beatcraft, D88)** answers by cut INDEX over spans `cut_beats` already
   decided in code, and never returns `script_text`. Beats are assembled in
   code from the cuts plus the craft, which is why verbatim coverage cannot
-  fail on that path. `faceless_v3` only.
+  fail on that path. `faceless_v3` only. **Chunked above
+  `planner.chunk_target_beats` (default 30)**: a chunk is a contiguous index
+  range, carrying the previous chunk's last two answers and the visual subjects
+  already spent. No spine pass — `cut_beats` already decided where the narration
+  divides, so there is no partition left to choose, and borrowing D52's
+  mechanism would be paying for an answer we have.
 - **2d (overlay, D87)** is the graphic decision lifted out of the planner into
   a call where it is the only question, with a shortlisted menu per candidate
   rather than the whole catalog. On a pipeline that runs it, the planner
-  composes with NO component menu at all. `faceless_v3` only.
+  composes with NO component menu at all. `faceless_v3` only. **Chunked on the
+  same knob**, because each candidate carries its own menu — a hundred of them
+  is a prompt whose budgets stop being legible. Each chunk is told its
+  slack-free share of the video's budget (floor, no `+1`), so the shares summed
+  stay under the ceiling the merged selection is finally judged against.
 
 Row 2's temperature is 0.2 as of D85; the script agent stays at the house
 default of 0.7, because it is the one call where a second sample being

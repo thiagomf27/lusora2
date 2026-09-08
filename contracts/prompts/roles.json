@@ -265,11 +265,15 @@
         "instructions": {
           "required": false,
           "source": "cfg.overrides.instructions"
+        },
+        "chunk_position": {
+          "required": false,
+          "source": "e.g. 'part 2 of 4'; set only when the candidates are split across several calls, and the budgets above are then this chunk's slack-free share of the video's"
         }
       }
     },
     "beatcraft": {
-      "description": "D88 — NUMBERED cuts + style pack -> per-index craft. The spans and their timings are decided in code (cut_beats) and never returned by the model, so verbatim coverage is true by construction. A second role rather than an edit to `planner`, so a channel pointing at a tuned planner pack is not silently repointed.",
+      "description": "D88 — NUMBERED cuts + style pack -> per-index craft. The spans and their timings are decided in code (cut_beats) and never returned by the model, so verbatim coverage is true by construction. A second role rather than an edit to `planner`, so a channel pointing at a tuned planner pack is not silently repointed. Chunked by cut INDEX above planner.chunk_target_beats: the spans are already numbered and timed, so a chunk is a contiguous index range and needs no spine pass to choose where it starts.",
       "welded": {
         "system": true,
         "user": true
@@ -314,6 +318,18 @@
         "emphasis_per_minute": {
           "required": false,
           "source": "style_pack.overlays.emphasis.per_minute when the class is on"
+        },
+        "chunk_position": {
+          "required": false,
+          "source": "e.g. 'part 2 of 5'; set only when the cuts are split across several calls"
+        },
+        "carry_forward": {
+          "required": false,
+          "source": "the previous chunk's last answers (visual_intent + mood), so a mood holds across a chunk boundary and two consecutive shots do not describe the same subject; set only when chunked"
+        },
+        "visual_ledger": {
+          "required": false,
+          "source": "visual subjects already used by earlier chunks, so the video does not shoot the same image twice; set only when chunked"
         }
       }
     }

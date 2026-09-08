@@ -84,6 +84,110 @@ def _selection(**over):
     return doc
 
 
+# ---------------- chunking a long video (slice 2) ----------------
+
+
+def _many_anchored_beats(n=70):
+    """`n` beats each carrying one number anchor, so every one is a candidate."""
+    return {
+        "version": "1.1", "video_id": "vid_o",
+        "beats": [
+            {"id": f"b{i}", "kind": "narration",
+             "script_text": f"Convoy {i} carried 70% of that month's grain.",
+             "visual_intent": f"a harbour at work, shot {i}",
+             "anchors": [{"type": "percentage", "value": 70, "label": f"in month {i}",
+                          "source_words": "70%"}]}
+            for i in range(1, n + 1)
+        ],
+    }
+
+
+def _answer_for(user, per_chunk=1):
+    """Choose `per_chunk` of the beats this call was actually shown."""
+    ids = [line.split(":")[0].removeprefix("BEAT ").strip()
+           for line in user.splitlines() if line.startswith("BEAT ")]
+    chosen = ids[:per_chunk]
+    return {
+        "version": "1.0", "video_id": "vid_o",
+        "selections": [{"beat_id": b, "component": "AnimatedCounter", "role": "anchor",
+                        "anchor_ref": 0, "why": "the figure lands here"} for b in chosen],
+        "declined": [{"beat_id": b, "why": "a stronger figure is nearby"}
+                     for b in ids[per_chunk:]],
+    }
+
+
+def test_a_long_video_splits_the_overlay_question_across_calls(tmp_path):
+    """Each candidate block carries its own shortlisted menu — roughly 400
+    tokens — so a hundred of them is a prompt whose budgets stop being legible
+    long before the context runs out."""
+    ctx = _ctx(tmp_path)
+    seen = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(user)
+        return _reply(_answer_for(user))
+
+    doc = overlay_agent.select_overlays(ctx, _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+    assert len(seen) == 3, "70 candidates at the default target of 30"
+    assert "part 2 of 3" in seen[1]
+    assert len(doc["selections"]) == 3, "one from each call, merged"
+
+
+def test_each_call_gets_its_own_share_of_the_budget(tmp_path):
+    """The budget belongs to the video, so a chunk is told its slack-free share
+    — floor, no +1 — and the shares summed stay under the ceiling the merged
+    selection is finally judged against."""
+    import re
+
+    ctx = _ctx(tmp_path)
+    budgets = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        budgets.append(int(re.search(r"at most (\d+) fact-carrying", user).group(1)))
+        return _reply(_answer_for(user))
+
+    overlay_agent.select_overlays(ctx, _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+    whole = validators.max_overlays_for(_cfg()["style_pack_doc"], 600.0)
+    assert sum(budgets) <= whole, (budgets, whole)
+    assert all(b >= 1 for b in budgets), budgets
+
+
+def test_a_chunk_placing_a_graphic_on_another_chunks_beat_is_repaired(tmp_path):
+    """Two answers to one question is what a merge cannot resolve, so it is
+    caught in the call that made it — where the repair loop can still say which
+    beats were on offer — rather than surfacing later as a duplicate."""
+    ctx = _ctx(tmp_path)
+    calls = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        calls.append(user)
+        if len(calls) == 2:  # part 2 answers about part 1's beat
+            return _reply({"version": "1.0", "video_id": "vid_o", "declined": [],
+                           "selections": [{"beat_id": "b1", "component": "AnimatedCounter",
+                                           "role": "anchor", "anchor_ref": 0, "why": "mine"}]})
+        return _reply(_answer_for(user))
+
+    doc = overlay_agent.select_overlays(ctx, _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+    assert len(calls) == 4, "three parts plus one repair"
+    assert "not one of the candidates in this part" in calls[2], "the reason is fed back"
+    assert [s["beat_id"] for s in doc["selections"]].count("b1") <= 1
+
+
+def test_a_short_video_still_asks_in_one_call(tmp_path):
+    """Below the threshold nothing changed — including that an unchunked call
+    may decline a beat that was never a candidate, which the chunk-scope check
+    would otherwise have started refusing."""
+    ctx = _ctx(tmp_path)
+    seen = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        seen.append(user)
+        return _reply(_selection())
+
+    overlay_agent.select_overlays(ctx, _beats(), 60.0, chat_fn=chat_fn)
+    assert len(seen) == 1 and "part 1 of" not in seen[0]
+
+
 # ---------------- the shortlisted menu ----------------
 
 
