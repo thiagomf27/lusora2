@@ -1,5 +1,12 @@
 # Editing Quality — the plan after v3
 
+> **Status 2026-09-08:** all nine slices worked through in one pass; see the
+> note under each. Two things to carry: no provider spend was authorised, so
+> slices 2, 4 and 6 landed on code and argument with their exit criteria
+> UNMEASURED and the commands recorded in `evals/BASELINE.md`; and slice 0
+> found a defect in `cut_beats` big enough to have been worth the whole probe
+> on its own.
+
 `faceless_v3` is production (D84) and it is better than v1 on the thing that
 matters: recall roughly doubled on four reference cases and the component
 vocabulary went from 10 of 29 to 20. This plan is what is wrong with the
@@ -30,6 +37,8 @@ A slice that moves no score is still a result and gets a row in
 ---
 
 ## Slice 0 — the probe that may reorder this plan
+> **DONE 2026-09-08 — and it never reached its own question.** Cutting the fixture found `cut_beats` ignoring its own ceiling on three of the four reference cases (a 19.2s shot on a 10s pack); that is fixed and every case now sits inside its pack's window. The long-form question itself is **still open**: the one live call's result was lost to a bug in the probe script and no further provider spend was authorised. See `evals/BASELINE.md`.
+
 
 **One run, no code.** Enqueue a 10-minute script on `faceless_v3` with
 `breakdown-blitz` (avg hold 2.4s, ceiling 4.5s → 130–250 cuts) and watch
@@ -46,6 +55,8 @@ as useful as the failure.
 ---
 
 ## Slice 1 — the instrument can tell a better cut from a busier one
+> **DONE 2026-09-08, partially.** The scorer compiles what it scores and reports rule breaches beside restraint rather than inside it. `cnbc-ref` was re-marked only where BASELINE.md already recorded a watched verdict (m26-m28 → `Timeline`), which moved v3's component accuracy on that case 33.3 → 66.7. **Three cases have never been re-marked** and `cnbc-ref` has had three marks touched, so `component_accuracy` is still "does the planner reach for exhibits" rather than an accuracy number.
+
 
 **Why.** `evals/BASELINE.md` says it plainly: of the four axes, two were
 measuring the ground truth rather than the model when v3 was scored.
@@ -81,6 +92,8 @@ mark by mark. The compile axis reproduces the baseline video's failure.
 ---
 
 ## Slice 2 — the production path handles a long script
+> **DONE 2026-09-08, NOT MEASURED.** `beatcraft` and `select_overlays` chunk on `planner.chunk_target_beats`; the 217-cut fixture goes out as 8 calls of ~28 instead of one all-or-nothing JSON. Built on the structural argument rather than on the probe, because the probe's measurement was lost. No spine pass, and the reason is recorded: the cuts are already numbered, so there is no partition left to choose.
+
 
 **Why.** [planner.py:56](../../worker/lusora_worker/agents/planner.py#L56) states
 the rule in the repo's own words: a single call comfortably handles 20–30 beats,
@@ -118,6 +131,8 @@ scales roughly linearly with length rather than falling off a cliff.
 ---
 
 ## Slice 3 — the script's output is checked like everything else
+> **DONE 2026-09-08.** `validate_script` plus one repair attempt. Its evidence is the corpus, not an eval: three shipped videos carry `*Alcedo*` in `script.txt`, so the TTS read the asterisks aloud. The six eval scripts are clean and a test pins them that way.
+
 
 **Why.** [steps.py:62](../../worker/lusora_worker/pipeline/steps.py#L62) writes
 the model's text straight to `script.txt` with no validation of any kind. It is
@@ -142,6 +157,8 @@ untouched.
 ---
 
 ## Slice 4 — the selector can see the shot it is decorating
+> **DONE 2026-09-08, NOT MEASURED.** Each candidate now names the shot planned for it and the decline rule asks about that instead of about footage that does not exist yet. The exit criterion needs a fresh run per case — the sheets on disk were made by the old prompt, and what changed is what the model is shown.
+
 
 **Why.** The overlay prompt's first decline rule is *"the footage already
 carries the fact — the ledger is on screen, do not caption it"*, and worked
@@ -166,6 +183,8 @@ the axes this should move; recall should not fall.
 ---
 
 ## Slice 5 — an overlay never renders below its own readable minimum
+> **DONE 2026-09-08.** A collision is resolved by dropping the later graphic with a logged reason rather than squeezing both; running out of video is deliberately not a collision. `validate_plan` carries the same check for hand-edited plans, scoped so it cannot fire on the compiler's own output. The minimum-SPACING question stays open, as planned, until the instrument can tell a dense cut from a busy one.
+
 
 **Why.** `_trim_overlay_holds`
 ([core.py:665](../../worker/lusora_worker/compiler/core.py#L665)) clamps an
@@ -195,6 +214,8 @@ still validate.
 ---
 
 ## Slice 6 — a beat may choose its transition
+> **PARTIALLY DONE 2026-09-08 — mechanism only, on purpose.** `transition_out` is in `CRAFT_KEYS`, so a prompt-pack edit adding it now takes effect instead of being silently dropped. The shipped pack still does not ask for it and a test pins that: D89 keeps it human-set until an eval says the model chooses well, and D85 measured what a model does with a field it is shown but given no taste about. The ground truth that would settle it does not exist.
+
 
 **Why.** This is the only item in the plan that *adds* an editorial dimension
 rather than repairing one. Every video the pipeline has ever produced uses the
@@ -221,6 +242,8 @@ human-set and D89 stands — and that is a result worth a row in the log.
 ---
 
 ## Slice 7 — the image generator gets a real prompt
+> **DONE 2026-09-08.** The `image` prompt pack, joined subject-first, carrying `visual_language` and an explicit ban on lettering. The aspect fix is narrower than this section claimed: gpt-image-1 does not sell 16:9, so it picks the nearest of its three shapes to the video's orientation and the prompt composes for a centre crop. Not eyeballed — the adapter still has no key.
+
 
 **Why.** `ai_image` is the **terminal fallback in every source chain on this
 machine**, so it catches every beat the library and stock miss. Its prompt is
@@ -242,6 +265,8 @@ prompting skills already worked out. Fix the aspect ratio to match
 ---
 
 ## Slice 8 — silent degradations say so
+> **DONE 2026-09-08.** Unknown moods and fallback visual intents both report now. The compiler's drop callback generalised to `on_note`, which is the channel for anything it decides quietly.
+
 
 **Why.** Two places degrade quietly and correctly, and report nothing.
 

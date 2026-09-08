@@ -79,6 +79,39 @@ what the eyeball showed and why the ground truth, not the model, was wrong.
 `beats.json` costs anything, and `--reuse-beats` makes an overlay iteration one
 model call instead of four.
 
+## Editing quality — the nine slices (2026-09-08)
+
+Worked through in one pass against
+[the plan](05-roadmap/editing-quality-plan.md), which carries a status note per
+slice. **No provider spend was authorised**, so every exit criterion needing a
+fresh model run is recorded as NOT MEASURED in `evals/BASELINE.md`, with the
+command to take it.
+
+What changed, shortest first:
+
+- **`cut_beats` honours its ceiling.** Found by the long-form probe before it
+  reached its own question: 5 of 29 spans on `cnbc-ref` and a 19.2s shot on
+  `neu-ref`, each held past the ceiling its own pack sets. Two causes — the
+  merge floor undoing the split, and no fallback below punctuation. All six
+  cases now sit inside their pack's window, floor and ceiling.
+- **The scorer compiles what it scores** and reports rule breaches beside
+  restraint instead of inside it. This was the blind spot that let a sheet
+  score 63% precision and then die at compile.
+- **`beatcraft` and `select_overlays` chunk** above `planner.chunk_target_beats`
+  — a knob that was doing nothing on the production pipeline, because v3
+  bypasses the planner. 217 cuts is 8 calls now, not one.
+- **`validate_script`** plus one repair. Three shipped videos have `*Alcedo*` in
+  `script.txt`, read aloud with the asterisks.
+- **The overlay selector is shown the planned shot**, so its "the shot already
+  carries the fact" rule is answerable rather than an invitation to invent one.
+- **An overlay is dropped rather than squeezed below its readable minimum**,
+  with the reason logged.
+- **`transition_out` is reachable** from a prompt pack. Still not asked for —
+  D89 stands.
+- **The image generator has a prompt pack** with composition and negative
+  guidance, and asks for the shape nearest the video's orientation.
+- **Unknown moods and fallback visual intents report themselves.**
+
 ## Platform UI — the VidRush skin (2026-08-16)
 
 The web UI was re-skinned from the Claude Design project *Video Generation App
