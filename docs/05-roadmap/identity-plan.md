@@ -161,6 +161,17 @@ have titled it "Man Jumping Rowboat Shore".
 > the beat that shipped a stranger captioned "Carsten Borchgrevink" now gets a
 > shot that claims nothing. That is a better outcome than the plan predicted,
 > which expected the guard to reject everything and fall to the card.
+>
+> **Then a real video was run, and it found that this slice did not do what its
+> title says.** `vid_706252447884` beat b6 carried a NamePlate reading "Royal
+> Geographical Society"; the identity question went to the library alone, as
+> designed, and the library answered with a formal portrait of a 19th-century
+> naval officer at sim **0.50**. Restricting WHO may answer is not enough — the
+> one source still allowed will answer anyway, and a similarity threshold could
+> not have caught this, because the query carries the shot description as well
+> as the name. An identity hit must now NAME the entity (`must_name`, checked
+> against caption, tags and source_name). Slice 3's verification, pulled forward
+> because slice 1 is not true without it.
 
 **Why first.** It is the whole of the forbidden case, it needs no new field, and
 it can be detected for free: when a beat's own overlay is a `NamePlate` or
@@ -254,6 +265,12 @@ Marked by hand: this is an authoring judgement and the eval has no case for it.
 ---
 
 ## Slice 3 — the library can answer "is this them?"
+
+> **PARTLY DONE 2026-09-08.** The name check itself landed in slice 1, because a
+> test run proved slice 1 was untrue without it. What remains here is the
+> ranking half: preferring a hit whose caption a human wrote (`caption_edited`)
+> over the vision model's first guess, and the tooling that makes tagging a
+> person's clips something anyone would actually do.
 
 **Why.** After slices 1 and 2 an identity beat is *safe* and always answers the
 scene question, because nothing can verify a library hit either — so the
