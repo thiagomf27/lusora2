@@ -109,9 +109,18 @@ def test_cut_beats_respects_the_packs_hold_floor(tmp_path):
 
 def test_an_incoherent_pack_settles_instead_of_fighting(tmp_path):
     """min_hold above max_hold is a pack that cannot be satisfied: the floor
-    joins what the ceiling then splits. The floor wins — it is raised to the
-    ceiling — so the two passes agree on a number and stop, rather than undoing
-    each other. What must survive either way is the verbatim text."""
+    joins what the ceiling then splits.
+
+    `cut_script`'s docstring settles it — the FLOOR wins, because a beat below
+    it flashes by and reads as a mistake while a beat above the ceiling merely
+    sits there. That rule used to be true only of the joining pass: the
+    splitting pass never saw min_hold, so it happily cut a span into halves the
+    floor would have refused, and the ceiling won by not being asked. Now both
+    passes read the same window, so an unsatisfiable pack settles on the long
+    side rather than the short one.
+
+    What must survive either way, and is the real point of the test: it
+    terminates, it does not empty the script, and the text stays verbatim."""
     from lusora_worker.textsplit import normalize
 
     cfg = json.loads(json.dumps(CFG))
@@ -119,7 +128,8 @@ def test_an_incoherent_pack_settles_instead_of_fighting(tmp_path):
                                        "max_hold": 3.0}
     parts = steps.cut_script(_ctx(tmp_path, cfg), SCRIPT, 14.0)
     assert parts, "it must not empty the script"
-    assert all(p.duration <= 10.0 + 0.001 for p in parts), [p.duration for p in parts]
+    assert all(p.duration >= 10.0 - 0.001 or len(parts) == 1 for p in parts), \
+        [p.duration for p in parts]
     assert normalize(" ".join(p.text for p in parts)) == normalize(SCRIPT)
 
 
@@ -344,13 +354,58 @@ def test_a_span_with_somewhere_to_split_is_brought_under_the_ceiling():
     assert normalize(" ".join(p.text for p in parts)) == normalize(text)
 
 
-def test_a_span_with_nowhere_to_split_is_left_long(tmp_path):
-    """One clause, no interior punctuation: cutting it anyway would leave a
-    beat whose script_text is not a verbatim span, which fails everything
-    downstream. A shot held too long fails nothing."""
+def test_a_clause_with_no_punctuation_is_cut_at_a_WORD_boundary(tmp_path):
+    """One clause, no interior punctuation, three times over the ceiling.
+
+    This used to be left whole, on the stated grounds that cutting it "would
+    leave a beat whose script_text is not a verbatim span". That reason was
+    wrong: a word boundary is inside the string, so every piece is still an
+    exact contiguous substring and the concatenation is the input unchanged.
+    The cost of believing it was real — 5 of 29 spans on `cnbc-ref` and a 19.2s
+    shot on `neu-ref`, each held past the ceiling its own pack sets."""
+    from lusora_worker.textsplit import normalize
+
     text = "and every sack of grain that reached the city came over its quays"
     parts = steps._under_the_ceiling([steps.beatphases.Piece(text, 0.0, 12.0)], 4.0)
+    assert len(parts) >= 3, [p.text for p in parts]
+    assert max(p.duration for p in parts) <= 4.0 + 0.001, [p.duration for p in parts]
+    assert normalize(" ".join(p.text for p in parts)) == normalize(text)
+
+
+def test_a_short_opening_sentence_no_longer_undoes_the_split(tmp_path):
+    """The defect the probe found, at its smallest.
+
+    `_merge_undersized`'s char floor was folding a short leading sentence back
+    into the long one the ceiling had just cut it from, so `script_split`
+    returned the input unchanged — indistinguishable, to the caller, from a span
+    that genuinely could not be cut. Nothing reported it and the shot went out
+    at 8.9s on an 8s pack."""
+    from lusora_worker.textsplit import normalize
+
+    text = ("And it has. This summer Taylor Farms has been at the center of "
+            "cyclosporiasis and salmonella outbreaks linked to its facilities in Mexico.")
+    parts = steps._under_the_ceiling([steps.beatphases.Piece(text, 0.0, 9.0)], 4.0)
+    assert len(parts) >= 2, [p.text for p in parts]
+    assert max(p.duration for p in parts) <= 4.0 + 0.001, [p.duration for p in parts]
+    assert normalize(" ".join(p.text for p in parts)) == normalize(text)
+
+
+def test_the_floor_still_refuses_a_split_that_would_go_under_it(tmp_path):
+    """The other half of the same rule: a span only just over the ceiling has
+    nowhere to be cut that both halves survive, so it stays long. The ceiling
+    pass reads the floor now, which is what stops it inventing 0.4s shots."""
+    text = "and every sack of grain that reached the city came over its quays"
+    parts = steps._under_the_ceiling(
+        [steps.beatphases.Piece(text, 0.0, 5.0)], max_hold=4.0, min_hold=3.0
+    )
     assert [p.text for p in parts] == [text]
+
+
+def test_a_single_word_is_the_one_span_that_cannot_be_cut(tmp_path):
+    """`better long than wrong` still has a case — it is just a much smaller
+    one than the old code believed."""
+    parts = steps._under_the_ceiling([steps.beatphases.Piece("Antarctica", 0.0, 12.0)], 4.0)
+    assert [p.text for p in parts] == ["Antarctica"]
 
 
 def test_an_unbreakable_span_is_left_long_rather_than_cut_wrong(tmp_path):

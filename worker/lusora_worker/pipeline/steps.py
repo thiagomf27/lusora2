@@ -253,11 +253,15 @@ def cut_script(
     # incoherent, and the floor wins: a beat below it flashes by and reads as a
     # mistake, while a beat above the ceiling merely sits there.
     return _under_the_ceiling(
-        beatphases.beat_parts(aligned, min_hold), max(max_hold, min_hold) if max_hold else 0.0
+        beatphases.beat_parts(aligned, min_hold),
+        max(max_hold, min_hold) if max_hold else 0.0,
+        min_hold,
     )
 
 
-def _under_the_ceiling(parts: list["beatphases.Piece"], max_hold: float) -> list["beatphases.Piece"]:
+def _under_the_ceiling(
+    parts: list["beatphases.Piece"], max_hold: float, min_hold: float = 0.0
+) -> list["beatphases.Piece"]:
     """Split any span that holds longer than the pack's ceiling.
 
     `beat_parts` deliberately handles only the FLOOR, and its docstring gives
@@ -276,6 +280,10 @@ def _under_the_ceiling(parts: list["beatphases.Piece"], max_hold: float) -> list
     re-run on the span's own text, with its time apportioned by character share
     the way `srt_alignment` apportions it. The text stays verbatim and
     contiguous, which is the property everything else rests on.
+
+    `min_hold` is passed so the split cannot create a fragment the FLOOR would
+    have refused. Without it the ceiling and the floor were enforced in
+    different passes and only the first one was ever re-checked.
     """
     if not max_hold:
         return parts
@@ -283,39 +291,121 @@ def _under_the_ceiling(parts: list["beatphases.Piece"], max_hold: float) -> list
     # pass leaves a sub-span still over it whenever the text divides unevenly,
     # which is most of the time.
     for _ in range(4):
-        split = _split_once(parts, max_hold)
+        split = _split_once(parts, max_hold, min_hold)
         if len(split) == len(parts):
             return split
         parts = split
     return parts
 
 
-def _split_once(parts: list["beatphases.Piece"], max_hold: float) -> list["beatphases.Piece"]:
+def _breakpoints(text: str, wanted: int) -> list[str]:
+    """Where this span may be cut, into roughly `wanted` pieces.
+
+    Punctuation first, and only then word boundaries. The word fallback is what
+    makes the ceiling reachable at all: a long sentence carrying no comma, colon
+    or full stop — "Is it just a coincidence that salmonella is happening at the
+    same time as cyclospora?" — offers the punctuation splitter nothing to cut
+    on, so the old code kept it whole and a 12.7s shot went out on a pack whose
+    ceiling is 8s. Better long than wrong was the right instinct for a splitter
+    that could only guess; a word boundary is not a guess.
+    """
+    target_chars = max(8, len(text) // wanted + 1)
+    # min_chars=1, deliberately. `_merge_undersized`'s floor exists to stop a
+    # three-word fragment becoming a shot, and here it was UNDOING the split:
+    # given "And it has. This summer Taylor Farms has been at the center of…"
+    # it cut the two sentences apart and then folded the short one straight back
+    # into the long one, returning the input unchanged. Nothing reported it,
+    # because returning one piece is also what an unbreakable span looks like.
+    # The floor is re-applied in `_apportion` below, where it can be measured
+    # against TIME — which is what the pack's window is actually about.
+    pieces = beatphases.script_split(text, None, min_chars=1, max_chars=target_chars)
+    if len(pieces) > 1:
+        return pieces
+    return _word_split(text, wanted)
+
+
+def _word_split(text: str, wanted: int) -> list[str]:
+    """Cut `text` at whitespace into `wanted` roughly equal pieces.
+
+    Slices the ORIGINAL string at space offsets rather than re-joining a word
+    list, so every piece is an exact substring and the concatenation is the
+    input unchanged. (`validate_beat_sheet` compares normalised text, so this is
+    belt and braces — but the spans are also what a human reads in the editor,
+    and silently reflowed narration reads as a bug.)
+    """
+    spaces = [i for i, ch in enumerate(text) if ch.isspace()]
+    if wanted < 2 or not spaces:
+        return [text]
+    cuts: list[int] = []
+    for n in range(1, wanted):
+        ideal = len(text) * n / wanted
+        at = min(spaces, key=lambda i: abs(i - ideal))
+        if at not in cuts:
+            cuts.append(at)
+    pieces, prev = [], 0
+    for at in sorted(cuts):
+        piece = text[prev:at].strip()
+        if piece:
+            pieces.append(piece)
+        prev = at
+    tail = text[prev:].strip()
+    if tail:
+        pieces.append(tail)
+    return pieces if len(pieces) > 1 else [text]
+
+
+def _split_once(
+    parts: list["beatphases.Piece"], max_hold: float, min_hold: float = 0.0
+) -> list["beatphases.Piece"]:
     out: list[beatphases.Piece] = []
     for part in parts:
         if part.duration <= max_hold or not part.text.strip():
             out.append(part)
             continue
         wanted = math.ceil(part.duration / max_hold)
-        target_chars = max(8, len(part.text) // wanted + 1)
-        # min_chars has to come down with max_chars, or `_merge_undersized`
-        # puts back exactly what the split took apart — its floor is 24 by
-        # default, which silently defeats any target below that. Invisible on
-        # long spans, which is why the four real cases passed while a short one
-        # did not.
-        sub = beatphases.script_split(
-            part.text, None, min_chars=max(4, target_chars // 2), max_chars=target_chars
-        )
-        if len(sub) < 2:
-            out.append(part)  # one unbreakable run of words; better long than wrong
-            continue
-        total = sum(len(t) for t in sub) or 1
-        cursor = part.start_s
-        for i, text in enumerate(sub):
-            share = (part.end_s - part.start_s) * (len(text) / total)
-            end = part.end_s if i == len(sub) - 1 else cursor + share
-            out.append(beatphases.Piece(text, round(cursor, 3), round(end, 3)))
-            cursor = end
+        runs = _apportion(part, _breakpoints(part.text, wanted), min_hold)
+        if len(runs) < 2:
+            # The floor put back exactly what the ceiling took apart. That is
+            # not "this span cannot be cut" — it is "the cut fell in the wrong
+            # place": punctuation offered a three-word opener and joining it
+            # forward rebuilt the whole span. A word split is balanced by
+            # construction, so no piece is under the floor unless the span
+            # itself is, and then the floor genuinely does win.
+            runs = _apportion(part, _word_split(part.text, wanted), min_hold)
+        out.extend(runs)
+    return out
+
+
+def _apportion(
+    part: "beatphases.Piece", pieces: list[str], min_hold: float
+) -> list["beatphases.Piece"]:
+    """Give each piece its character share of the span's time.
+
+    Character share is how `srt_alignment` apportions time, and using the same
+    rule here keeps one answer to "when is this spoken" rather than two. Any run
+    that would land under the pack's floor is joined forward first — the rule
+    `beat_parts` applies, applied again because splitting is what can create a
+    fragment too short to be a shot.
+    """
+    span = part.end_s - part.start_s
+    total = sum(len(p) for p in pieces) or 1
+
+    runs: list[str] = []
+    for piece in pieces:
+        if runs and span * (len(runs[-1]) / total) < min_hold:
+            runs[-1] = f"{runs[-1]} {piece}"
+        else:
+            runs.append(piece)
+    if len(runs) > 1 and span * (len(runs[-1]) / total) < min_hold:
+        tail = runs.pop()
+        runs[-1] = f"{runs[-1]} {tail}"
+
+    out: list[beatphases.Piece] = []
+    cursor = part.start_s
+    for i, text in enumerate(runs):
+        end = part.end_s if i == len(runs) - 1 else cursor + span * (len(text) / total)
+        out.append(beatphases.Piece(text, round(cursor, 3), round(end, 3)))
+        cursor = end
     return out
 
 
