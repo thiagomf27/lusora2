@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { NextResponse } from "next/server";
 import { handler, requireUser, requireRole, requireChannelAccess, ApiError } from "@/lib/auth";
 import { query } from "@/db/pool";
-import { gatedStages, getVideo, pendingGate, videoFolder } from "@/lib/videos";
+import { gatedStages, getVideo, pendingGate, renderPending, videoFolder } from "@/lib/videos";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -18,6 +18,9 @@ export const GET = handler(async (_req: Request, ctx: Ctx) => {
     ...video,
     review_gates: gatedStages(video),
     pending_gate: video.status === "awaiting_approval" ? pendingGate(video) : null,
+    // Saving a beat no longer starts a render, so a screen has to be able to
+    // say "there is an edit here that nothing has drawn yet".
+    render_pending: renderPending(id),
   });
 });
 

@@ -221,6 +221,22 @@ def validate_beat_sheet(
                     "in visual_intent"
                 )
 
+    # transitions (D89): a beat may name the one it hands over with, and it has
+    # to be one this video can actually draw. Checked HERE, where the planner's
+    # repair loop can still fix it, for the same reason overlays are: the
+    # compiler passes the kind through to the plan, and the renderer degrades
+    # anything it cannot draw to a cut — silently, which is a video that came
+    # out wrong rather than a document that was refused.
+    allowed_transitions = (style.get("transitions") or {}).get("allowed")
+    if allowed_transitions:
+        for b in beats:
+            named = b.get("transition_out")
+            if named and named not in allowed_transitions:
+                violations.append(
+                    f"beat {b.get('id')}: transition '{named}' is not in the style pack's "
+                    f"allowed transitions {allowed_transitions}"
+                )
+
     # overlays: catalog existence + allowed_components + anchor types
     allowed = (style.get("overlays") or {}).get("allowed_components")
     emphasis_enabled, emphasis_per_minute = emphasis_policy(style)

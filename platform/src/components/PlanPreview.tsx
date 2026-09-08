@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import type { EditPlan, Theme, AssetProvenance } from "@lusora/contracts";
-import { VideoComposition } from "@lusora/engine/src/renderers/remotion/Composition.tsx";
+import { BeatWindow } from "@lusora/engine/src/renderers/remotion/BeatWindow.tsx";
 import { DEFAULT_THEME } from "@lusora/engine/src/themes/runtime.ts";
 
 function rebaseAsset(asset: AssetProvenance, base: string): AssetProvenance {
@@ -49,6 +49,9 @@ export default function PlanPreview({
   theme,
   onTime,
   controlRef,
+  window: playWindow = null,
+  openAt = null,
+  loop = false,
 }: {
   videoId: string;
   plan: EditPlan;
@@ -57,14 +60,30 @@ export default function PlanPreview({
   onTime?: (seconds: number) => void;
   /** Populated with the underlying player so callers can seek. */
   controlRef?: { current: PlayerRef | null };
+  /**
+   * Play only this slice of the video, in seconds. The whole plan is still
+   * mounted — a beat's transition into the next shot is drawn by the items on
+   * either side of the cut, so previewing one beat means WINDOWING the real
+   * timeline, never rebuilding a shorter one out of it.
+   */
+  window?: { start_s: number; end_s: number } | null;
+  /** Where to park the playhead before anyone presses play, in seconds. */
+  openAt?: number | null;
+  loop?: boolean;
 }) {
   const rebased = useMemo(() => rebasePlan(plan, videoId), [plan, videoId]);
-  const inputProps = useMemo(
-    () => ({ plan: rebased, theme: theme ?? DEFAULT_THEME }),
-    [rebased, theme]
-  );
   const ref = useRef<PlayerRef>(null);
   const fps = plan.fps;
+  const fullFrames = Math.max(Math.ceil(totalDuration(plan) * fps), 1);
+  const offsetFrames = playWindow ? Math.max(Math.floor(playWindow.start_s * fps), 0) : 0;
+  // The player's timeline IS the window: its length, its timecode, its scrub.
+  const frames = playWindow
+    ? Math.max(Math.round((playWindow.end_s - playWindow.start_s) * fps), 1)
+    : fullFrames;
+  const inputProps = useMemo(
+    () => ({ plan: rebased, theme: theme ?? DEFAULT_THEME, offsetFrames, fullFrames }),
+    [rebased, theme, offsetFrames, fullFrames]
+  );
   useEffect(() => {
     const p = ref.current;
     if (!p) return;
@@ -76,12 +95,16 @@ export default function PlanPreview({
   return (
     <Player
       ref={ref}
-      component={VideoComposition}
+      component={BeatWindow}
       inputProps={inputProps}
-      durationInFrames={Math.max(Math.ceil(totalDuration(plan) * plan.fps), 1)}
+      durationInFrames={frames}
       fps={plan.fps}
       compositionWidth={plan.resolution.width}
       compositionHeight={plan.resolution.height}
+      initialFrame={
+        openAt === null ? 0 : Math.min(Math.max(Math.round(openAt * fps) - offsetFrames, 0), frames - 1)
+      }
+      loop={loop}
       controls
       style={{ width: "100%", height: "100%" }}
     />

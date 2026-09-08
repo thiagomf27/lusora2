@@ -93,7 +93,8 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
                  "prompt": (prompt or {}).get("name", "default")},
         model=model,
     ) as cost:
-        result = chat_fn(provider, model, system, user, max_tokens, temperature)
+        # prose, not JSON: asking DeepSeek for json_object here is a 400 (D90)
+        result = chat_fn(provider, model, system, user, max_tokens, temperature, expect_json=False)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                           "output_tokens": result.output_tokens})
     ctx.db.provider_health(f"llm.{provider}", True)
@@ -157,7 +158,8 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         details={"title": title[:80], "prompt": (prompt or {}).get("name", "default")},
         model=model,
     ) as cost:
-        result = chat_fn(provider, model, system, user, max_tokens, temperature)
+        # prose, not JSON: asking DeepSeek for json_object here is a 400 (D90)
+        result = chat_fn(provider, model, system, user, max_tokens, temperature, expect_json=False)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                           "output_tokens": result.output_tokens})
     ctx.db.provider_health(f"llm.{provider}", True)

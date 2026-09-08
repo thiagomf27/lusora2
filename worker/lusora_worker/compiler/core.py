@@ -69,6 +69,8 @@ def compile_plan(
         raise CompileError(
             f"style pack default transition '{default_transition}' is not in allowed {allowed_transitions}"
         )
+    # D89 — the PACK owns how long a transition runs; a beat only chooses which.
+    transition_seconds = float(transitions.get("duration_s", 0.5))
     output = cfg.get("output") or {}
 
     beats: list[dict[str, Any]] = beats_doc.get("beats") or []
@@ -111,7 +113,8 @@ def compile_plan(
             beat=b,
             start=start,
             end=end,
-            transition=default_transition,
+            transition=_beat_transition(b, default_transition),
+            transition_seconds=transition_seconds,
         ))
 
     for slot in _enforce_hold_floor(aligned, hold_floor):
@@ -119,12 +122,20 @@ def compile_plan(
         spans = _split_for_max_hold(slot["start"], slot["end"], slot["sentences"], min_hold, max_hold)
         spans = _enforce_hold_ceiling(spans, max_hold, hold_ceiling)
         for j, (s0, s1) in enumerate(spans):
+            # A beat too long for one hold becomes several shots of the SAME
+            # beat, and its transition names the junction to the NEXT beat — so
+            # it lands on the last of them; the cuts inside a beat keep the
+            # pack's own default, which is what they were before D89.
+            last_of_beat = j == len(spans) - 1
             item = _visual_item(
                 item_id=f"v_{beat['id']}" + (f"_{j}" if len(spans) > 1 else ""),
                 beat=beat,
                 start=s0,
                 end=s1,
-                transition=default_transition,
+                transition=(
+                    _beat_transition(beat, default_transition) if last_of_beat else default_transition
+                ),
+                transition_seconds=transition_seconds,
             )
             if slot["absorbed"]:
                 item["absorbed_beat_ids"] = list(slot["absorbed"])
@@ -132,6 +143,7 @@ def compile_plan(
 
     visual.sort(key=lambda v: v["start_s"])
     _make_contiguous(visual, total_end=total_end)
+    _fit_transitions(visual)
 
     # ---- overlays ----
     # captions_enabled is read here, not in the caption block below: it decides
@@ -552,8 +564,60 @@ def _make_contiguous(visual: list[dict[str, Any]], total_end: float) -> None:
     visual[-1]["end_s"] = round(max(total_end, visual[-1]["start_s"] + 0.5), 3)
 
 
+def _beat_transition(beat: dict[str, Any], default: str) -> str:
+    """Which transition this beat hands over with (D89).
+
+    The beat may name one; the style pack's default is what it had before, and
+    still is when it names nothing. An unknown kind is not repaired here —
+    `validate_beat_sheet` rejects one outside the pack's allowed list while the
+    planner can still fix it, and the renderer degrades anything it cannot draw
+    to a cut, so the compiler passing it through keeps the plan honest about
+    what the document asked for.
+    """
+    named = beat.get("transition_out")
+    return str(named) if named else default
+
+
+def _fit_transitions(visual: list[dict[str, Any]]) -> None:
+    """Bound each transition by the shots on BOTH sides of it, in place.
+
+    A transition consumes footage from the outgoing shot and the incoming one,
+    so a 0.5s crossfade between two 1.4s beats is a third of each. The renderer
+    already protects itself — `timeline.ts` clamps to the shorter neighbour and
+    degrades to a hard cut when there is no room — but it does that SILENTLY,
+    against a plan that still claims a crossfade. The plan is the document a
+    human reads and the editor edits, so the arithmetic belongs here too, where
+    it is visible: what the plan says is then what the render draws.
+
+    The last item has no junction after it, so its transition is dropped
+    outright rather than trimmed. That also stops `compile_sfx` placing a
+    transition cue on a transition nothing will play.
+    """
+    if not visual:
+        return
+    visual[-1].pop("transition_out", None)
+    for i in range(len(visual) - 1):
+        transition = visual[i].get("transition_out") or {}
+        if not transition or transition.get("type") == "cut":
+            continue
+        here = float(visual[i]["end_s"]) - float(visual[i]["start_s"])
+        nxt = float(visual[i + 1]["end_s"]) - float(visual[i + 1]["start_s"])
+        # a hair under the shorter neighbour: TransitionSeries needs the
+        # transition to be strictly shorter than both sequences it joins
+        room = round(min(here, nxt) - 0.05, 3)
+        if room < 0.1:
+            visual[i]["transition_out"] = {"type": "cut", "duration_s": 0.1}
+        elif float(transition.get("duration_s", 0.5)) > room:
+            visual[i]["transition_out"] = {**transition, "duration_s": room}
+
+
 def _visual_item(
-    item_id: str, beat: dict[str, Any], start: float, end: float, transition: str
+    item_id: str,
+    beat: dict[str, Any],
+    start: float,
+    end: float,
+    transition: str,
+    transition_seconds: float = 0.5,
 ) -> dict[str, Any]:
     pref = str(beat.get("media_preference") or "any")
     media_type = "video" if pref == "video" else "image"
@@ -566,7 +630,10 @@ def _visual_item(
         "media_type": media_type,
         "asset": {"source": "manual", "path": ""},  # filled by resolve_assets
         "mute": True,
-        "transition_out": {"type": transition, "duration_s": 0.5 if transition != "cut" else 0.1},
+        "transition_out": {
+            "type": transition,
+            "duration_s": transition_seconds if transition != "cut" else 0.1,
+        },
     }
     if media_type == "image":
         item["motion"] = {"type": "ken_burns", "direction": "in", "pan": "center", "strength": 0.12}

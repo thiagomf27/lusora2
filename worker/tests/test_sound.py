@@ -201,7 +201,12 @@ def test_transition_cues_are_opt_in_and_skip_cuts():
         "music": {"enabled": False},
     }
     plan = compile_plan(doc, st, cfg(theme_doc=theme, style_pack_doc=style), 8.0)
-    assert [i["origin"] for i in plan["tracks"]["audio"]["sfx"]] == ["transition", "transition"]
+    # ONE cue, not two: two beats make one junction. The last item has nothing
+    # to transition INTO, so the renderer draws no transition there and D89
+    # drops it from the plan — a cue used to fire at the end of the video over
+    # a transition nobody could see.
+    assert [i["origin"] for i in plan["tracks"]["audio"]["sfx"]] == ["transition"]
+    assert plan["tracks"]["visual"][-1].get("transition_out") is None
 
     # ...and a cut is not an event you can hear
     style["transitions"] = {"allowed": ["cut"], "default": "cut"}

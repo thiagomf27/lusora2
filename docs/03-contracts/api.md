@@ -25,7 +25,13 @@ VIDEOS    GET /videos?channel&status&…  GET /videos/:id
           POST /videos/:id/notes
 
 EDITOR    GET/PUT /videos/:id/beats     (beats.json through the API; PUT
-                                         validates + triggers per-beat recompile)
+                                         validates + writes, and does NOT
+                                         render — see /render below)
+          POST /videos/:id/render       (compile + re-render what is on disk:
+                                         the manual half of the save/render
+                                         split. GET /videos/:id reports
+                                         render_pending when beats.json is
+                                         newer than the compiled plan)
           GET/PATCH /videos/:id/plan    (validated ops; timing/asset/transform
                                          edits set locked; set_lock toggles
                                          it explicitly — unlock lets the next

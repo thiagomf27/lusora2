@@ -43,7 +43,7 @@ def capture(tmp_path, cfg=None) -> dict:
     ctx = make_ctx(tmp_path, cfg)
     seen: dict = {}
 
-    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None, expect_json=True):
         seen.update(system=system, user=user, model=model, max_tokens=max_tokens)
         return reply("Narração.")
 

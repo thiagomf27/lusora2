@@ -438,7 +438,9 @@
         "research": { "$ref": "#/$defs/resolvedPrompt" },
         "planner": { "$ref": "#/$defs/resolvedPrompt" },
         "spine": { "$ref": "#/$defs/resolvedPrompt" },
-        "chat": { "$ref": "#/$defs/resolvedPrompt" }
+        "chat": { "$ref": "#/$defs/resolvedPrompt" },
+        "overlay": { "$ref": "#/$defs/resolvedPrompt" },
+        "beatcraft": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
   },
@@ -456,7 +458,11 @@
         "system": { "type": "string", "description": "editable half only; the welded block is appended at call time" },
         "user": { "type": "string" },
         "model_hint": { "type": ["string", "null"] },
-        "max_tokens": { "type": ["integer", "null"] }
+        "max_tokens": { "type": ["integer", "null"] },
+        "temperature": {
+          "type": ["number", "null"],
+          "description": "D85 — the sampling temperature this role runs at, resolved from the prompt pack and embedded like the rest of the prompt, so a re-run samples the way the first run did"
+        }
       }
     },
     "visualSource": {

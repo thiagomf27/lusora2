@@ -17,6 +17,15 @@ const MIME: Record<string, string> = {
   ".png": "image/png",
   ".webp": "image/webp",
   ".gif": "image/gif",
+  // Text artifacts are things a human READS — a script, the captions, the
+  // plan. Served as octet-stream they only ever arrived as a download, which
+  // is no way to review a script at its gate.
+  ".txt": "text/plain; charset=utf-8",
+  ".srt": "text/plain; charset=utf-8",
+  ".vtt": "text/vtt; charset=utf-8",
+  ".log": "text/plain; charset=utf-8",
+  ".md": "text/plain; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
 };
 
 /** Serve any artifact inside the video folder (the editor's Player preview

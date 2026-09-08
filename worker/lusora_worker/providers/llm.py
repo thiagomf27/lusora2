@@ -93,7 +93,17 @@ def chat(
     user: str,
     max_tokens: int = 4000,
     temperature: float = HOUSE_TEMPERATURE,
+    expect_json: bool = True,
 ) -> LLMResult:
+    """One completion. `expect_json` is the CALL's half of JSON mode (D90).
+
+    The provider declares whether it CAN take `response_format`; the caller
+    declares whether this answer is JSON at all. Both are needed: DeepSeek
+    rejects `response_format: json_object` unless the prompt also contains the
+    word "json", so asking for it on a prose role is a 400 rather than a
+    harmless extra key — which is what every script generation got between D85
+    and D90. Defaulting to True keeps the JSON roles exactly as they were.
+    """
     if provider not in PROVIDERS:
         raise StageError(
             "llm",
@@ -122,9 +132,10 @@ def chat(
                 "max_tokens": max_tokens,
                 "temperature": temperature,
             }
-            # only where the provider DECLARES it: a backend that does not have
-            # JSON mode answers the key with a 400 that reads like a prompt bug
-            if spec.json_mode:
+            # provider CAN and caller WANTS (D90): a backend without JSON mode
+            # answers the key with a 400 that reads like a prompt bug, and so
+            # does DeepSeek when the answer it is being asked for is prose
+            if spec.json_mode and expect_json:
                 body["response_format"] = {"type": "json_object"}
             resp = httpx.post(
                 f"{base_url}/chat/completions",

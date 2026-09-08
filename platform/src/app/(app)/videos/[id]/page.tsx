@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Button, StatusBadge, type Tone } from "@/components/ds";
+import { Button, StatusBadge, TextInput, type Tone } from "@/components/ds";
 import scr from "../../screen.module.css";
 import s from "./video.module.css";
 
@@ -32,6 +32,17 @@ interface VideoRow {
   review_gates?: string[];
   /** D62 — the one it is stopped at, when it is stopped at all. */
   pending_gate?: string | null;
+  /** The frozen snapshot this video runs on (Principle 7) — null on a draft. */
+  cfg?: {
+    theme?: string;
+    style_pack?: string;
+    language?: string;
+    video_type?: string;
+    checkpoint_policy?: string;
+    /** D60 — the stage list this video is locked to, so progress can be
+     *  counted against the run that is actually happening. */
+    pipeline_doc?: { name?: string; stages?: { name: string }[] } | null;
+  } | null;
 }
 interface EventRow { id: number; stage: string; status: string; message: string | null; ts: string }
 interface NoteRow { id: number; text: string; ts: string; user_name: string }
@@ -92,6 +103,13 @@ export default function VideoPage() {
   const [titleDraft, setTitleDraft] = useState("");
   const [noteText, setNoteText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  /** The narration, read at every load so a gate can show it (D62). */
+  const [script, setScript] = useState<string | null>(null);
+  const [scriptDraft, setScriptDraft] = useState<string | null>(null);
+  const [savingScript, setSavingScript] = useState(false);
+  /** An artifact opened for READING, in place — every stage's output is a text
+   *  file, and a download is no way to look at one. */
+  const [viewing, setViewing] = useState<{ name: string; body: string } | null>(null);
 
   const canManage = role !== "" && role !== "editor";
   // D62: editors approve review-mode gates. Reviewing the script and the beat
@@ -110,6 +128,9 @@ export default function VideoPage() {
     if (v.ok) {
       const row: VideoRow = await v.json();
       setVideo(row);
+      // A gate is exactly when you want the stage log and the artifacts, so
+      // open the detail rather than making a reviewer find the toggle first.
+      if (row.status === "awaiting_approval") setDetailOpen(true);
       const cs = await fetch("/api/channels").then((r) => (r.ok ? r.json() : []));
       setChannel((cs as ChannelRow[]).find((c) => c.id === row.channel_id) ?? null);
     }
@@ -117,9 +138,33 @@ export default function VideoPage() {
     if (n.ok) setNotes(await n.json());
     if (a.ok) setAssets(await a.json());
     if (me.ok) setRole((await me.json()).role ?? "");
+    const sc = await fetch(`/api/videos/${id}/script`);
+    // 404 until the script stage has written one; that is a state, not a failure
+    const text = sc.ok ? ((await sc.json()).text as string) : null;
+    setScript(text);
+    setScriptDraft(null);
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  /**
+   * A worker moves this video without telling the page, so a screen opened at
+   * "queued" sat on that word until someone reloaded — through the claim, the
+   * whole run, and a stop at a gate. Poll the STATUS only (one small request)
+   * and do the full reload when it actually changes.
+   */
+  useEffect(() => {
+    const status = video?.status;
+    if (!status || !["queued", "producing"].includes(status)) return;
+    const timer = setInterval(async () => {
+      const res = await fetch(`/api/videos/${id}`);
+      if (!res.ok) return;
+      const row: VideoRow = await res.json();
+      if (row.status !== status || row.pending_gate !== video?.pending_gate) load();
+      else setEvents(await fetch(`/api/videos/${id}/events`).then((r) => (r.ok ? r.json() : [])));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [video?.status, video?.pending_gate, id, load]);
 
   async function transition(to: string) {
     setMessage(null);
@@ -138,6 +183,52 @@ export default function VideoPage() {
       setMessage(err.problems?.join("; ") ?? err.error ?? `transition failed (${res.status})`);
     }
     load();
+  }
+
+  async function viewArtifact(name: string, href: string) {
+    if (viewing?.name === name) return setViewing(null);
+    const res = await fetch(href);
+    if (!res.ok) {
+      setViewing({
+        name,
+        body:
+          res.status === 404
+            ? "Not written yet — the stage that produces this file has not run."
+            : `could not read this file (${res.status})`,
+      });
+      return;
+    }
+    const body = await res.text();
+    // pretty-print the JSON ones: a plan on one line is not readable
+    try {
+      setViewing({ name, body: JSON.stringify(JSON.parse(body), null, 2) });
+    } catch {
+      setViewing({ name, body });
+    }
+  }
+
+  /** Rewrite the narration at its gate. Refused by the route once the
+   *  voiceover exists, because the audio was synthesised from these words. */
+  async function saveScript() {
+    if (scriptDraft === null) return;
+    setSavingScript(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/videos/${id}/script`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: scriptDraft }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setMessage(err.error ?? `could not save the script (${res.status})`);
+        return;
+      }
+      setMessage("Script saved — approve the gate when it reads right.");
+      load();
+    } finally {
+      setSavingScript(false);
+    }
   }
 
   /** D62 — pass the gate this video is stopped at. The stage is not sent: the
@@ -197,17 +288,33 @@ export default function VideoPage() {
   if (!video) return <div className={scr.loading}>Loading…</div>;
 
   const playable = ["rendered", "in_review", "approved", "posted"].includes(video.status);
+  // The script is editable only where nothing has been built from it yet.
+  const atScriptGate = video.status === "awaiting_approval" && video.pending_gate === "script";
+
+  /** Where this run actually is: the snapshot's stage list against the log. */
+  const run = (() => {
+    const stages = (video.cfg?.pipeline_doc?.stages ?? []).map((x) => x.name);
+    const done = new Set(events.filter((e) => e.status === "done").map((e) => e.stage));
+    const started = [...events].reverse().find((e) => e.status === "started");
+    return {
+      total: stages.length,
+      doneCount: stages.filter((n) => done.has(n)).length,
+      current: started && !done.has(started.stage) ? started.stage : null,
+      pipeline: video.cfg?.pipeline_doc?.name ?? "pipeline",
+    };
+  })();
   const reviewable = video.status === "in_review" || video.status === "sent_back" || video.status === "rendered";
   const channelName = channel?.name ?? video.channel_id;
   const actions = canManage ? STATUS_ACTIONS[video.status] ?? [] : [];
 
-  const exports: { name: string; detail: string; href: string | null }[] = [
+  const exports: { name: string; detail: string; href: string | null; text?: boolean }[] = [
     { name: "Video · final.mp4", detail: video.size_bytes ? `${(video.size_bytes / 1e6).toFixed(1)} MB · H.264` : "not rendered yet", href: playable ? `/api/videos/${id}/stream` : null },
-    { name: "Edit plan · JSON", detail: "Beat timings, media slots and overlay tracks", href: `/api/videos/${id}/files/edit_plan.json` },
-    { name: "Beat sheet · JSON", detail: "The AI's output, before it was compiled", href: `/api/videos/${id}/files/beats.json` },
-    { name: "Script · text", detail: "The narration the voiceover was synthesised from", href: `/api/videos/${id}/files/script.txt` },
-    { name: "Captions · SRT", detail: channel?.language ?? "video language", href: `/api/videos/${id}/files/subtitles.srt` },
-    { name: "Config snapshot · JSON", detail: "The immutable cfg this render was locked to", href: `/api/videos/${id}/files/cfg.json` },
+    { name: "Edit plan · JSON", detail: "Beat timings, media slots and overlay tracks", href: `/api/videos/${id}/files/edit_plan.json`, text: true },
+    { name: "Beat sheet · JSON", detail: "The AI's output, before it was compiled", href: `/api/videos/${id}/files/beats.json`, text: true },
+    { name: "Script · text", detail: "The narration the voiceover was synthesised from", href: `/api/videos/${id}/files/script.txt`, text: true },
+    { name: "Captions · SRT", detail: channel?.language ?? "video language", href: `/api/videos/${id}/files/subtitles.srt`, text: true },
+    { name: "Config snapshot · JSON", detail: "The immutable cfg this render was locked to", href: `/api/videos/${id}/files/cfg.json`, text: true },
+    { name: "Production log · text", detail: "What the worker did, stage by stage", href: `/api/videos/${id}/files/production.log`, text: true },
   ];
 
   return (
@@ -282,11 +389,30 @@ export default function VideoPage() {
                 <div className={s.stage}>
                   <div className={s.spinner} />
                   <div className={s.stageText}>
-                    {video.status === "queued" ? "Queued — waiting for a worker to claim it" : "Producing — running the pipeline"}
+                    {video.status === "queued"
+                      ? run.doneCount > 0
+                        ? "Queued — waiting for a worker to pick it up again"
+                        : "Queued — waiting for a worker to claim it"
+                      : run.current
+                      ? `Producing — ${run.current}`
+                      : "Producing — running the pipeline"}
                   </div>
-                  <div className={s.progressTrack}>
-                    <div className={s.progressFill} style={{ width: video.status === "producing" ? "57%" : "12%" }} />
-                  </div>
+                  {/* The real position in the run: stages this video's own
+                      pipeline snapshot declares, against the ones its event
+                      log says are done. The bar used to be a hardcoded 57%. */}
+                  {run.total > 0 && (
+                    <>
+                      <div className={s.progressTrack}>
+                        <div
+                          className={s.progressFill}
+                          style={{ width: `${Math.round((run.doneCount / run.total) * 100)}%` }}
+                        />
+                      </div>
+                      <div className={s.stageMono}>
+                        {run.doneCount} of {run.total} stages · {run.pipeline}
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : video.status === "awaiting_approval" ? (
                 <div className={s.stage}>
@@ -308,6 +434,11 @@ export default function VideoPage() {
                       Approve {video.pending_gate ?? ""} and continue
                     </Button>
                   )}
+                  {video.pending_gate === "plan_beats" && (
+                    <Link href={`/videos/${id}/review`} className={s.gateLink}>
+                      Open the beat sheet →
+                    </Link>
+                  )}
                 </div>
               ) : video.status === "error" ? (
                 <div className={s.stage}>
@@ -323,6 +454,50 @@ export default function VideoPage() {
                 </div>
               )}
             </div>
+
+            {script !== null && (
+              <div className={scr.card}>
+                <div className={s.configHead}>
+                  <div style={{ flex: 1 }}>
+                    <h2 className={scr.h2}>Script</h2>
+                    <p className={scr.cardSub}>
+                      {atScriptGate
+                        ? "The narration, before a word of it has been spoken. Read it, change it if it needs changing, then approve the gate — nothing downstream has run yet."
+                        : "The narration the voiceover was synthesised from. Read-only: the audio, the captions and the beats are all aligned to these words."}
+                    </p>
+                  </div>
+                  <div className={s.scriptMeta}>
+                    {(scriptDraft ?? script).trim().split(/\s+/).length} words
+                  </div>
+                </div>
+                {atScriptGate && canReview ? (
+                  <>
+                    <TextInput
+                      multiline
+                      rows={12}
+                      value={scriptDraft ?? script}
+                      onChange={(e) => setScriptDraft(e.currentTarget.value)}
+                    />
+                    <div className={s.scriptActions}>
+                      <Button
+                        size="sm"
+                        disabled={savingScript || scriptDraft === null || scriptDraft === script}
+                        onClick={saveScript}
+                      >
+                        {savingScript ? "Saving…" : "Save script"}
+                      </Button>
+                      {scriptDraft !== null && scriptDraft !== script && (
+                        <Button size="sm" variant="ghost" onClick={() => setScriptDraft(null)}>
+                          Discard changes
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <p className={s.scriptText}>{script}</p>
+                )}
+              </div>
+            )}
 
             <div className={scr.card}>
               <div className={s.configHead}>
@@ -342,10 +517,15 @@ export default function VideoPage() {
               <div className={scr.tileGrid}>
                 {[
                   ["Channel", channelName],
-                  ["Video type", channel?.video_type ?? "—"],
-                  ["Theme", channel?.theme ?? "—"],
-                  ["Style pack", channel?.style_pack ?? "—"],
-                  ["Language", channel?.language ?? "—"],
+                  // The SNAPSHOT, not the channel: a video runs on what was
+                  // frozen at enqueue, and a per-video override (or a later
+                  // edit to the channel) makes these two different answers.
+                  // Showing the channel's told you what the next video would
+                  // use, never what this one did.
+                  ["Video type", video.cfg?.video_type ?? channel?.video_type ?? "—"],
+                  ["Theme", video.cfg?.theme ?? channel?.theme ?? "—"],
+                  ["Style pack", video.cfg?.style_pack ?? channel?.style_pack ?? "—"],
+                  ["Language", video.cfg?.language ?? channel?.language ?? "—"],
                   ["Assets recorded", `${assets.length}`],
                 ].map(([label, value]) => (
                   <div key={label} className={scr.tile}>
@@ -410,15 +590,31 @@ export default function VideoPage() {
                   </p>
                   <div>
                     {exports.map((x) => (
-                      <div key={x.name} className={s.exportRow}>
-                        <div className={s.exportMain}>
-                          <div className={s.exportName}>{x.name}</div>
-                          <div className={s.exportDetail}>{x.detail}</div>
+                      <div key={x.name}>
+                        <div className={s.exportRow}>
+                          <div className={s.exportMain}>
+                            <div className={s.exportName}>{x.name}</div>
+                            <div className={s.exportDetail}>{x.detail}</div>
+                          </div>
+                          {x.href ? (
+                            <>
+                              {x.text && (
+                                <button
+                                  type="button"
+                                  className={s.exportBtn}
+                                  onClick={() => viewArtifact(x.name, x.href!)}
+                                >
+                                  {viewing?.name === x.name ? "Hide" : "View"}
+                                </button>
+                              )}
+                              <a className={s.exportBtn} href={x.href} target="_blank" rel="noreferrer">Open</a>
+                            </>
+                          ) : (
+                            <span className={`${s.exportBtn} ${s.off}`}>Unavailable</span>
+                          )}
                         </div>
-                        {x.href ? (
-                          <a className={s.exportBtn} href={x.href} target="_blank" rel="noreferrer">Open</a>
-                        ) : (
-                          <span className={`${s.exportBtn} ${s.off}`}>Unavailable</span>
+                        {viewing?.name === x.name && (
+                          <pre className={s.artifact}>{viewing.body}</pre>
                         )}
                       </div>
                     ))}

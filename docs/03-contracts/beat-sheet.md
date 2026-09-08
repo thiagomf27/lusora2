@@ -12,7 +12,7 @@ emphasize). Everything computable (timings) or identity-bound
 
 ```json
 {
-  "version": "1.1",
+  "version": "1.2",
   "video_id": "…",
   "beats": [
     {
@@ -27,6 +27,7 @@ emphasize). Everything computable (timings) or identity-bound
         { "type": "percentage", "value": 70, "label": "factories converted", "source_words": "nearly 70%" }
       ],
       "overlay": { "component": "AnimatedCounter", "anchor_ref": 0, "props_hint": { "label": "factories converted", "suffix": "%" } },
+      "transition_out": "crossfade",
       "notes": null
     },
     {
@@ -114,6 +115,18 @@ emphasize). Everything computable (timings) or identity-bound
   in here is a valid document that searches exactly as badly as before.
 - `media_preference` (`video` | `image` | `any`) — hint for resolution
   ordering within the source policy.
+- `transition_out` (v1.2, D89) — how this beat HANDS OVER to the next one,
+  overriding `style_pack.transitions.default`. **The junction belongs to the
+  beat that ends**, exactly as the plan's `VisualItem.transition_out` does, so
+  it has one owner and no precedence rule has to be invented for two beats
+  disagreeing about the cut between them. Omitted is the pack's default, which
+  is what every beat had before v1.2. Must be in `transitions.allowed` (the
+  validator rejects anything else, the same way it rejects a component outside
+  `allowed_components`). Ignored on the last beat, which has no junction; on a
+  beat the compiler splits into several shots it applies to the last of them.
+  **The length is the pack's** (`transitions.duration_s`), never the beat's: a
+  transition eats footage from the shots on both sides of it, so how long it
+  runs is a property of the style's pacing rather than of one junction.
 - `mood` — the beat's emotional register, and the ONLY thing the model
   contributes to sound (D50). Vocabulary: `neutral, tense, somber,
   hopeful, urgent, triumphant, reflective, playful`. Deliberately typed

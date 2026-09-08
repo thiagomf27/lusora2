@@ -34,6 +34,8 @@ export default function EditorPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [messageErr, setMessageErr] = useState(false);
   const [dirty, setDirty] = useState(false);
+  /** Beats on disk that no render has drawn (server-derived, kept live here). */
+  const [renderPending, setRenderPending] = useState(false);
   const [chat, setChat] = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -62,6 +64,7 @@ export default function EditorPage() {
     if (v.ok) {
       const row = await v.json();
       setStatus(row.status);
+      setRenderPending(Boolean(row.render_pending));
       setTitle(row.title ?? "");
       setTheme(row.cfg?.theme_doc ?? null);
     }
@@ -112,9 +115,21 @@ export default function EditorPage() {
     const body = await res.json();
     if (res.ok) {
       setDirty(false);
-      setStatus("queued");
-      note("saved — per-beat recompile queued");
+      setRenderPending(true);
+      note("saved — click Render when you want it drawn");
     } else note((body.problems ?? [body.error]).join("; "), true);
+  }
+
+  /** Saving writes beats.json; this is what spends a compile and a render. */
+  async function startRender() {
+    setMessage(null);
+    const res = await fetch(`/api/videos/${id}/render`, { method: "POST" });
+    const body = await res.json();
+    if (res.ok) {
+      setStatus("queued");
+      setRenderPending(false);
+      note("queued — recompiling what the edits made stale");
+    } else note(body.error, true);
   }
 
   async function reroll(beatId: string) {
@@ -265,7 +280,15 @@ export default function EditorPage() {
             <button className={`${s.segBtn} ${mode === "timeline" ? s.segActive : ""}`} onClick={() => setMode("timeline")}>Timeline</button>
           </div>
           <button className={s.saveBtn} disabled={!dirty} onClick={saveBeats}>
-            {canManage ? "Save & re-queue" : "Save — sends back for re-render"}
+            Save beats
+          </button>
+          <button
+            className={s.saveBtn}
+            disabled={["queued", "producing"].includes(status)}
+            title="Compile and re-render what is saved on disk"
+            onClick={startRender}
+          >
+            {renderPending ? "Render ●" : "Render"}
           </button>
         </div>
       </header>

@@ -8,6 +8,7 @@ import { ApiError } from "./auth";
 import { videoFolder, type VideoRow } from "./videos";
 import { validateAgainst } from "./validate";
 import { overlayPolicy, validateOverlays } from "./overlayRules";
+import { transitionPolicy, validateTransitions } from "./transitionRules";
 
 export function readArtifact<T>(videoId: string, name: string): T {
   const p = join(videoFolder(videoId), name);
@@ -45,6 +46,7 @@ export function validateBeats(videoId: string, beats: BeatSheet): string[] {
   const cfgPath = join(videoFolder(videoId), "cfg.json");
   const cfg = existsSync(cfgPath) ? JSON.parse(readFileSync(cfgPath, "utf8")) : null;
   errors.push(...validateOverlays(beats.beats, overlayPolicy(cfg)));
+  errors.push(...validateTransitions(beats.beats, transitionPolicy(cfg)));
 
   const scriptPath = join(videoFolder(videoId), "script.txt");
   if (existsSync(scriptPath)) {

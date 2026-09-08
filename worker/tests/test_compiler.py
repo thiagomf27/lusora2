@@ -907,3 +907,80 @@ def test_a_short_anchor_label_is_left_exactly_as_it_is():
     timings = [{"text": beats["beats"][0]["script_text"], "start_s": 0.0, "end_s": 8.0}]
     plan = compile_plan(beats, timings, cfg, 8.0)
     assert plan["tracks"]["overlays"][0]["props"]["label"] == "of salad kits"
+
+
+# ---------------- per-beat transitions (D89) ----------------
+
+
+def test_beat_transition_overrides_the_pack_default():
+    """The beat owns the junction it hands over at; the pack owns the rest."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "First sentence.",
+         "visual_intent": "a", "transition_out": "cut"},
+        {"id": "b2", "kind": "narration", "script_text": "Second one here.",
+         "visual_intent": "b"},
+        {"id": "b3", "kind": "narration", "script_text": "Third and last.",
+         "visual_intent": "c"},
+    )
+    st = timings(
+        ("First sentence.", 0.0, 3.0),
+        ("Second one here.", 3.0, 6.0),
+        ("Third and last.", 6.0, 9.0),
+    )
+    visual = compile_plan(doc, st, CFG, 9.0)["tracks"]["visual"]
+    # b1 named a cut; b2 said nothing and takes the pack's crossfade
+    assert visual[0]["transition_out"]["type"] == "cut"
+    assert visual[1]["transition_out"]["type"] == "crossfade"
+    # the last item has no junction after it at all
+    assert visual[2].get("transition_out") is None
+
+
+def test_the_pack_owns_how_long_a_transition_runs():
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "First sentence.", "visual_intent": "a"},
+        {"id": "b2", "kind": "narration", "script_text": "Second one here.", "visual_intent": "b"},
+    )
+    st = timings(("First sentence.", 0.0, 4.0), ("Second one here.", 4.0, 8.0))
+    cfg = {**CFG, "style_pack_doc": {**CFG["style_pack_doc"], "transitions": {
+        "allowed": ["cut", "crossfade"], "default": "crossfade", "duration_s": 1.2}}}
+    visual = compile_plan(doc, st, cfg, 8.0)["tracks"]["visual"]
+    assert visual[0]["transition_out"] == {"type": "crossfade", "duration_s": 1.2}
+
+
+def test_a_transition_is_trimmed_to_the_room_its_neighbours_have():
+    """The renderer clamps against both shots and degrades to a cut silently;
+    the plan has to say the same thing, because the plan is what a human reads
+    and edits. Exercised on the pass itself: building a track of one-second
+    beats through the aligner would be testing the aligner."""
+    from lusora_worker.compiler.core import _fit_transitions
+
+    crossfade = {"type": "crossfade", "duration_s": 1.5}
+    visual = [
+        {"id": "a", "start_s": 0.0, "end_s": 4.0, "transition_out": dict(crossfade)},
+        {"id": "b", "start_s": 4.0, "end_s": 5.2, "transition_out": dict(crossfade)},
+        {"id": "c", "start_s": 5.2, "end_s": 5.3, "transition_out": dict(crossfade)},
+        {"id": "d", "start_s": 5.3, "end_s": 11.0, "transition_out": dict(crossfade)},
+    ]
+    _fit_transitions(visual)
+
+    # a: a 1.5s dissolve into a 1.2s shot — trimmed to just under the shorter
+    assert visual[0]["transition_out"] == {"type": "crossfade", "duration_s": 1.15}
+    # b: its neighbour is a tenth of a second, which is no room at all
+    assert visual[1]["transition_out"] == {"type": "cut", "duration_s": 0.1}
+    # c: the short shot cannot give a transition room either
+    assert visual[2]["transition_out"] == {"type": "cut", "duration_s": 0.1}
+    # d: nothing follows it, so it has no junction to draw
+    assert visual[3].get("transition_out") is None
+
+
+def test_a_transition_that_already_fits_is_left_alone():
+    from lusora_worker.compiler.core import _fit_transitions
+
+    visual = [
+        {"id": "a", "start_s": 0.0, "end_s": 4.0,
+         "transition_out": {"type": "crossfade", "duration_s": 0.5}},
+        {"id": "b", "start_s": 4.0, "end_s": 9.0,
+         "transition_out": {"type": "crossfade", "duration_s": 0.5}},
+    ]
+    _fit_transitions(visual)
+    assert visual[0]["transition_out"] == {"type": "crossfade", "duration_s": 0.5}

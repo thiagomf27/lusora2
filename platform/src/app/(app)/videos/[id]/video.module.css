@@ -228,3 +228,31 @@
   border-radius: var(--radius-md);
   padding: 10px 13px;
 }
+
+/* Script review at the D62 gate */
+.scriptMeta { font-size: 11.5px; color: var(--text-faint); font-family: var(--font-mono); }
+.scriptText {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+.scriptActions { display: flex; gap: 8px; margin-top: 12px; }
+.gateLink { font-size: 12.5px; color: var(--accent-link); text-decoration: none; }
+.gateLink:hover { color: var(--accent-link-hover); text-decoration: underline; }
+.artifact {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  max-height: 380px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-field);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

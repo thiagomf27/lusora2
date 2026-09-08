@@ -511,6 +511,8 @@ overlays:
 transitions:
   allowed: [cut, crossfade, fade_to_black]
   default: cut
+  duration_s: 0.5               # D89 — the PACK owns how long one runs; a beat
+                                # only chooses WHICH, via its transition_out
 script_persona: |
   Grave, precise documentary narrator. Short sentences. No exclamations.
 visual_language: |

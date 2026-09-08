@@ -771,12 +771,17 @@ def test_a_prompt_without_a_temperature_calls_at_the_house_default(tmp_path):
     ctx = make_ctx(tmp_path, cfg)
     seen: list[float] = []
 
-    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None, expect_json=True):
         seen.append(temperature)
+        json_asked.append(expect_json)
         return LLMResult(text="Some narration.", input_tokens=10, output_tokens=10)
 
+    json_asked: list[bool] = []
     script_agent.generate_script(ctx, chat_fn=chat_fn)
     assert seen == [llm_module.HOUSE_TEMPERATURE] == [0.7]
+    # D90: a script is prose, so it must not ask for JSON mode — DeepSeek
+    # answers that with a 400 unless the prompt says the word "json"
+    assert json_asked == [False]
 
 
 def test_a_snapshot_that_names_a_temperature_wins_over_the_pack(tmp_path):
@@ -804,7 +809,11 @@ def test_a_snapshot_silent_on_temperature_takes_the_house_default(tmp_path):
 def test_every_chat_fn_caller_matches_the_seam():
     """The signature change is complete: every call site passes six positional
     arguments, so a caller left on five would be a TypeError in production
-    rather than a silent house-default."""
+    rather than a silent house-default.
+
+    D90 allows one keyword after them — `expect_json` — and only that one: the
+    six positional arguments are still the contract, and a role that answers in
+    prose says so by name rather than by position."""
     import inspect
 
     from lusora_worker.agents import script as script_agent
@@ -812,7 +821,10 @@ def test_every_chat_fn_caller_matches_the_seam():
     for module in (planner, script_agent):
         for line in inspect.getsource(module).splitlines():
             if "chat_fn(provider, model, system, user" in line:
-                assert line.rstrip().endswith("max_tokens, temperature)"), line
+                tail = line.rstrip()
+                assert tail.endswith("max_tokens, temperature)") or tail.endswith(
+                    "max_tokens, temperature, expect_json=False)"
+                ), line
 
 
 # ---------------- the prompt names role, not the boolean (slice 4, D86) ----------------

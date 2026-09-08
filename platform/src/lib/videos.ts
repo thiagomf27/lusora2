@@ -2,7 +2,7 @@
  * Video lifecycle helpers: folder layout, upload materialization,
  * pre-flight validation, cfg snapshot, enqueue.
  */
-import { copyFileSync, mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync, existsSync, readFileSync, statSync } from "node:fs";
 import { join, isAbsolute, extname, dirname } from "node:path";
 import type { ChannelConfig, PipelineManifest } from "@lusora/contracts";
 import { query, one } from "../db/pool.ts";
@@ -54,6 +54,24 @@ export interface VideoRow {
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Is there an edit on disk that no render has seen?
+ *
+ * beats.json newer than edit_plan.json means the compile stage has not run
+ * since the last save — and a render always follows a compile in the same run,
+ * so it is also what "not rendered yet" means. Derived from the files rather
+ * than stored, like `review_gates`: a flag in the DB would drift from the
+ * folder the worker actually reads. `final.mp4` deliberately plays no part —
+ * retention may thin it, and a thinned video is not an unrendered one.
+ */
+export function renderPending(videoId: string): boolean {
+  const folder = videoFolder(videoId);
+  const beats = join(folder, "beats.json");
+  const plan = join(folder, "edit_plan.json");
+  if (!existsSync(beats) || !existsSync(plan)) return false;
+  return statSync(beats).mtimeMs > statSync(plan).mtimeMs;
 }
 
 export async function getVideo(id: string): Promise<VideoRow> {

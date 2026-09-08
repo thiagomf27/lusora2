@@ -72,6 +72,16 @@ export interface Beat {
   media_preference?: "video" | "image" | "any";
   anchors?: Anchor[];
   overlay?: BeatOverlay;
+  /**
+   * v1.2 (D89) — how this beat HANDS OVER to the next one, overriding the
+   * style pack's `transitions.default`.
+   *
+   * The boundary belongs to the OUTGOING beat, matching `VisualItem`'s own
+   * `transition_out`, so a junction has exactly one owner and no precedence
+   * rule has to be invented for two beats disagreeing about the cut between
+   * them. Omitted is the pack's default, which is what every beat had before.
+   */
+  transition_out?: TransitionType;
   notes?: string | null;
 }
 
@@ -83,7 +93,7 @@ export interface MusicSpan {
 }
 
 export interface BeatSheet {
-  version: "1.0" | "1.1";
+  version: "1.0" | "1.1" | "1.2";
   video_id: string;
   beats: Beat[];
   music?: MusicSpan[];
@@ -365,7 +375,14 @@ export interface StylePack {
     /** D59: a second overlay class, counted under its own budget. */
     emphasis?: { enabled?: boolean; per_minute?: number };
   };
-  transitions: { allowed: TransitionType[]; default: TransitionType };
+  transitions: {
+    allowed: TransitionType[];
+    default: TransitionType;
+    /** D89 — how long a non-cut transition runs; the PACK owns the length,
+     *  because a transition eats footage from the shots on both sides of it.
+     *  Omitted is 0.5s, which is what every transition was before. */
+    duration_s?: number;
+  };
   script_persona?: string;
   visual_language?: string;
   /** D45: narration length lives with the pacing numbers it interacts with,
@@ -416,7 +433,16 @@ export interface SoundPack {
 
 // ---------- prompts (D42-D44) ----------
 
-export type PromptRole = "script" | "research" | "planner" | "spine" | "chat";
+export type PromptRole =
+  | "script"
+  | "research"
+  | "planner"
+  | "spine"
+  | "chat"
+  /** D87 — the stage that picks the overlays. */
+  | "overlay"
+  /** D88 — the stage that decorates the cut beats. */
+  | "beatcraft";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */
@@ -439,6 +465,9 @@ export interface ResolvedPrompt {
   user?: string;
   model_hint?: string | null;
   max_tokens?: number | null;
+  /** D85 — embedded like the rest of the prompt, so a re-run samples the way
+   *  the first run did. */
+  temperature?: number | null;
 }
 
 // ---------- channel config ----------

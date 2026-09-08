@@ -1,0 +1,43 @@
+{
+  "_comment": "The per-beat transition rules BOTH languages must enforce (D89). A beat's transition_out overrides the style pack's default for the junction it OWNS — the one to the next beat — so it has to be checked against the same allow-list the compiler and the renderer will read. The worker's validate_beat_sheet and the platform's editor route apply this table through worker/tests/test_validators.py and platform/test/transitionRules.test.ts, so the two cannot drift. Each case is a two-beat sheet: `transition_out` goes on the FIRST beat (the one that hands over), and `allowed_transitions` is the video's style pack list, defaulting to [\"cut\", \"crossfade\"] when a case does not name one. `expect` is a substring that must appear in some violation; an empty list means the beats must be accepted.",
+  "script": "The port fed the capital. Nearly 70% of all grain passed through it.",
+  "default_allowed": ["cut", "crossfade"],
+  "cases": [
+    {
+      "name": "a transition the style pack allows is accepted",
+      "transition_out": "crossfade",
+      "expect": []
+    },
+    {
+      "name": "a hard cut is nameable like any other, when the pack allows it",
+      "transition_out": "cut",
+      "expect": []
+    },
+    {
+      "name": "no transition at all: the beat takes the pack's default",
+      "expect": []
+    },
+    {
+      "name": "a transition the style pack does not allow",
+      "transition_out": "fade_to_black",
+      "expect": ["allowed transitions"]
+    },
+    {
+      "name": "a pack that allows it accepts what another pack refuses",
+      "transition_out": "fade_to_black",
+      "allowed_transitions": ["cut", "crossfade", "fade_to_black"],
+      "expect": []
+    },
+    {
+      "name": "a kind that is not a transition at all is refused by the schema",
+      "transition_out": "dissolve",
+      "expect": ["transition_out"]
+    },
+    {
+      "name": "an empty allow-list is not a rule — the pack is what is wrong, not the beat",
+      "transition_out": "crossfade",
+      "allowed_transitions": [],
+      "expect": []
+    }
+  ]
+}

@@ -177,7 +177,11 @@ def test_the_seam_takes_temperature_positionally_after_max_tokens():
     import inspect
 
     params = list(inspect.signature(llm.chat).parameters)
-    assert params == ["provider", "model", "system", "user", "max_tokens", "temperature"]
+    assert params[:6] == ["provider", "model", "system", "user", "max_tokens", "temperature"]
+    # D90 added a seventh. It is passed by KEYWORD by the two prose roles, so it
+    # may sit at the tail but must never displace the six above it — a swap in
+    # that prefix is what this test exists to catch.
+    assert params[6:] == ["expect_json"]
 
 
 # ---------------- what a call actually costs ----------------
@@ -234,3 +238,18 @@ def test_asking_for_a_flat_price_on_a_per_direction_operation_is_refused():
 
     with pytest.raises(StageError, match="priced per direction"):
         unit_price("deepseek", "llm.plan_beats")
+
+
+def test_a_prose_role_asks_for_no_json_even_from_a_provider_that_has_it(sent):
+    """D90. JSON mode needs BOTH halves: the provider can, and the caller wants.
+
+    DeepSeek refuses `response_format: json_object` unless the prompt also
+    contains the word "json", so asking for it on a role that answers in prose
+    is a 400, not a harmless extra key — which is what every script generation
+    got between D85 and D90, on a message that reads like a prompt bug."""
+    llm.chat("deepseek", None, "sys", "user", 1000, 0.7, expect_json=False)
+    assert "response_format" not in sent[0]
+
+    # and the JSON roles are untouched: the default is still to ask
+    llm.chat("deepseek", None, "sys", "user", 1000)
+    assert sent[1]["response_format"] == {"type": "json_object"}

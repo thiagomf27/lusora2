@@ -120,7 +120,34 @@
 .editMain { flex: 1; min-width: 240px; }
 .editMeta { font-size: 12.5px; color: var(--text-muted); margin-top: 5px; }
 .editLayout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start; }
-@media (max-width: 1080px) { .editLayout { grid-template-columns: 1fr; } }
+
+/* The right column scrolls on its own: it holds the whole beat form (narration,
+   sourcing, the overlay's props, the hand-off) and is far taller than the
+   player beside it, so scrolling the page to reach a prop used to take the
+   player off screen — the one thing every edit here is judged against. Sticky
+   so it keeps its place while the left column moves. */
+.editSide {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+}
+.editSide::-webkit-scrollbar { width: 10px; }
+.editSide::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--radius-pill);
+  background-color: var(--gray-600);
+}
+.editSide::-webkit-scrollbar-thumb:hover { background-color: var(--gray-500); }
+
+@media (max-width: 1080px) {
+  .editLayout { grid-template-columns: 1fr; }
+  /* one column: the page is the scroll region again */
+  .editSide { position: static; max-height: none; overflow: visible; padding-right: 0; }
+}
 
 .strip { margin-top: 22px; }
 .stripHead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
@@ -177,3 +204,49 @@
   background: var(--status-info-bg);
   border-color: rgba(59, 130, 246, 0.3);
 }
+
+/* Narration, in edit mode: a small reference block at the top of the right
+   column, not a card that competes with the overlay form beneath it. */
+.narration { padding: 12px 14px; }
+.narrationHead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.narrationNote { font-size: 10.5px; color: var(--text-faint); }
+.narrationText {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* Hand-off card (D89) */
+.handoffNote { margin-top: 8px; font-size: 11.5px; line-height: 1.5; color: var(--text-faint); }
+
+/* Manual footage for one beat */
+.upload {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 14px;
+}
+.uploadHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.uploadTitle { font-size: 12.5px; color: var(--text-label); }
+.uploadNote { margin-top: 3px; font-size: 11.5px; line-height: 1.5; color: var(--text-faint); }
+.uploadBtn {
+  flex: none;
+  padding: 7px 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-secondary-btn);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.uploadBtn:hover { border-color: var(--accent-primary); }
+.uploadBtn input { display: none; }
+.uploadOff { opacity: 0.5; cursor: default; }
+.uploadOff:hover { border-color: var(--border-strong); }
+.uploadOk, .uploadBad {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+.uploadOk { color: var(--text-muted); }
+.uploadBad { color: var(--amber-400); }

@@ -133,6 +133,12 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "duration_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 2,
+          "description": "D89 — how long a non-cut transition runs. The PACK owns this, not the beat: a transition eats footage from the shots on both sides of it, so its length is a property of the style's pacing, not of one junction. Omitted means 0.5s, which is what every transition was before. The compiler clamps it against both neighbours and degrades to a cut when a beat is too short to give it room."
+        },
         "allowed": {
           "type": "array",
           "minItems": 1,

@@ -14,9 +14,10 @@
     "version": {
       "enum": [
         "1.0",
-        "1.1"
+        "1.1",
+        "1.2"
       ],
-      "description": "1.1 adds per-beat queries[] (D53). 1.0 sheets stay valid and resolve exactly as before — a human may still drop a hand-written beats.json in."
+      "description": "1.1 adds per-beat queries[] (D53); 1.2 adds per-beat transition_out (D89). Older sheets stay valid and resolve exactly as before — a beat that names no transition takes the style pack's default, which is what every beat did before 1.2 — and a human may still drop a hand-written beats.json in."
     },
     "video_id": {
       "type": "string",
@@ -116,6 +117,15 @@
         },
         "overlay": {
           "$ref": "#/$defs/overlay"
+        },
+        "transition_out": {
+          "enum": [
+            "cut",
+            "crossfade",
+            "fade",
+            "fade_to_black"
+          ],
+          "description": "D89 — how this beat HANDS OVER to the next one, overriding style_pack.transitions.default. The boundary belongs to the outgoing beat, the same way the plan's VisualItem.transition_out does, so a junction has exactly one owner. Omitted means the pack's default. Must be in style_pack.transitions.allowed. Ignored on the last beat, which has no junction; on a beat the compiler splits into several shots it applies to the last of them."
         },
         "notes": {
           "type": [

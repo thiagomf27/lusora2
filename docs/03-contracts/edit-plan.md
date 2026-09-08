@@ -16,6 +16,16 @@ the renderer's ONLY input besides asset files.
 Fixed track set; richness lives in items. Transitions consume handles,
 never move narrative cuts; freeze-frame fallback.
 
+`transition_out` is the junction OUT of an item, and the compiler now writes
+what the renderer will actually draw (D89): its length is trimmed against the
+shots on **both** sides and degrades to a hard cut when neither can spare the
+footage, and the **last item carries none at all** because it has no junction
+after it. Before D89 the plan could claim a 0.5s crossfade that `timeline.ts`
+silently drew as a cut, and `compile_sfx` fired a transition cue at the end of
+the video over a transition nobody could see. The kind comes from the beat
+(`Beat.transition_out`) when it names one, else from the style pack's default;
+the duration always comes from the pack (`transitions.duration_s`).
+
 ## The audio track (D48)
 
 Three item shapes, all placed by the compiler:

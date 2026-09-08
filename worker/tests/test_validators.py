@@ -441,3 +441,53 @@ def test_the_shared_overlay_rules_hold_on_the_python_side():
             assert any(needle in v for v in violations), (
                 f"{case['name']}: expected a violation containing {needle!r}, got {violations}"
             )
+
+
+def test_the_shared_transition_rules_hold_on_the_python_side():
+    """contracts/fixtures/rules/transition_rules.json, the D89 twin of the
+    overlay table: the platform's editor route asserts against the same cases
+    (platform/test/transitionRules.test.ts).
+
+    A beat names the transition it hands over WITH, so the kind has to be one
+    this video's style pack allows — checked here, where the planner can still
+    repair it, rather than in the renderer, which degrades what it cannot draw
+    to a cut without saying so."""
+    import json as _json
+
+    import lusora_contracts
+
+    table = _json.loads(
+        (lusora_contracts.CONTRACTS_ROOT / "fixtures" / "rules" / "transition_rules.json")
+        .read_text(encoding="utf-8")
+    )
+
+    for case in table["cases"]:
+        allowed = case.get("allowed_transitions", table["default_allowed"])
+        cfg = {"style_pack_doc": {**CFG["style_pack_doc"],
+                                  "transitions": {"allowed": allowed or ["cut"],
+                                                  "default": "cut"}}}
+        if not allowed:
+            # "an empty allow-list is not a rule": the pack is what is wrong,
+            # and the compiler refuses it there. The beat is not the offender.
+            cfg["style_pack_doc"]["transitions"] = {"allowed": [], "default": "cut"}
+        first = {"id": "b1", "kind": "narration",
+                 "script_text": "The port fed the capital.",
+                 "visual_intent": "aerial harbour, 1940s"}
+        if case.get("transition_out"):
+            first["transition_out"] = case["transition_out"]
+        sheet = {
+            "version": "1.2", "video_id": "vid_r", "beats": [
+                first,
+                {"id": "b2", "kind": "narration",
+                 "script_text": "Nearly 70% of all grain passed through it.",
+                 "visual_intent": "dock workers unloading sacks"},
+            ],
+        }
+        violations = validate_beat_sheet(sheet, table["script"], cfg, 10.0)
+        if not case["expect"]:
+            assert violations == [], f"{case['name']}: {violations}"
+            continue
+        for needle in case["expect"]:
+            assert any(needle in v for v in violations), (
+                f"{case['name']}: expected a violation containing {needle!r}, got {violations}"
+            )
