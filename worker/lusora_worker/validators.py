@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -137,6 +138,76 @@ def max_overlays_for(style: dict[str, Any], duration_s: float) -> int:
     whole-video budget — the +1 here is granted ONCE, against the merged
     sheet, and must not be handed out per chunk (it accumulates)."""
     return math.ceil(overlays_per_minute(style) * duration_s / 60) + 1
+
+
+# ---------------- script (slice 3) ----------------
+
+# Each rule is a pattern and the sentence sent back to the model when it fires.
+# They are deliberately TIGHT: a false violation costs a repair call, and a
+# false violation that survives the repair stops a video that was fine. Anything
+# that could plausibly appear in ordinary narration is not in this list —
+# parenthetical asides, quotation marks, a colon mid-sentence, a stray hyphen.
+_SCRIPT_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^\s{0,3}#{1,6}\s", re.M),
+     "a markdown heading — the narration is spoken aloud, so a heading is read out as words"),
+    (re.compile(r"\*\*[^*\n]+\*\*|__[^_\n]+__"),
+     "markdown bold — the asterisks are spoken by the TTS"),
+    (re.compile(r"(?<![\w*])\*[^*\n]+\*(?![\w*])"),
+     "markdown italics — the asterisks are spoken by the TTS"),
+    (re.compile(r"^\s{0,3}[-*+]\s+\S", re.M),
+     "a bullet list — narration is sentences, and a bullet is read as a dash"),
+    (re.compile(r"^\s*(narrator|host|voice ?over|vo|speaker|announcer)\s*:", re.M | re.I),
+     "a speaker label — there is one voice and it does not announce itself"),
+    (re.compile(r"^\s*[A-Z][A-Z ]{2,20}:", re.M),
+     "an all-caps label at the start of a line — it will be read aloud"),
+    (re.compile(r"\[[^\]\n]{1,120}\]"),
+     "a bracketed stage direction or note — anything in the file is spoken"),
+    (re.compile(
+        "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF\uFE0F]"),
+     "an emoji — it has no spoken form and the TTS will either skip it or name it"),
+)
+
+# How far from the requested length is worth reporting. Wide on purpose: the
+# word count is a HINT derived at 2.5 words/second, and the compiler works from
+# the real audio duration and never from this estimate. It is here to catch the
+# model answering with three sentences or with an essay, not to police style.
+SCRIPT_SHORT_RATIO = 0.4
+SCRIPT_LONG_RATIO = 2.5
+
+
+def validate_script(text: str, target_words: int | None = None) -> list[str]:
+    """What the welded half of the script prompt already demands, checked.
+
+    This was the last unguarded seam in the pipeline and the most upstream one:
+    `run_script` wrote the model's answer straight to script.txt, so a stray
+    `**bold**`, a `Narrator:` label or a markdown heading went to the TTS to be
+    read aloud AND became the verbatim span text every later stage rests on.
+    contracts/prompts/welded/script.system.txt forbids all of it; nothing
+    checked that the model listened.
+    """
+    violations: list[str] = []
+    if not text.strip():
+        violations.append("the script is empty")
+        return violations
+
+    for pattern, message in _SCRIPT_RULES:
+        found = pattern.search(text)
+        if found:
+            violations.append(f"{message} — found {found.group(0)[:60]!r}")
+
+    if target_words:
+        words = len(text.split())
+        if words < target_words * SCRIPT_SHORT_RATIO:
+            violations.append(
+                f"{words} words against a target of about {target_words} — far too short "
+                "to fill the video; write the whole script, not an outline"
+            )
+        elif words > target_words * SCRIPT_LONG_RATIO:
+            violations.append(
+                f"{words} words against a target of about {target_words} — far too long; "
+                "the narration decides the length of the video"
+            )
+    return violations
 
 
 # ---------------- beat sheet ----------------

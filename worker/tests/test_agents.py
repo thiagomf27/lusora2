@@ -774,7 +774,9 @@ def test_a_prompt_without_a_temperature_calls_at_the_house_default(tmp_path):
     def chat_fn(provider, model, system, user, max_tokens, temperature=None, expect_json=True):
         seen.append(temperature)
         json_asked.append(expect_json)
-        return LLMResult(text="Some narration.", input_tokens=10, output_tokens=10)
+        # long enough to clear validate_script's length floor; this test is
+        # about the temperature that reaches the provider, not about the text
+        return LLMResult(text="Some narration. " * 200, input_tokens=10, output_tokens=10)
 
     json_asked: list[bool] = []
     script_agent.generate_script(ctx, chat_fn=chat_fn)

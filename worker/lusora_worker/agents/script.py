@@ -13,7 +13,9 @@ from lusora_contracts import prompts as prompt_packs
 
 from ..context import StageContext
 from ..costs import budget_gate
+from ..errors import StageError
 from ..providers import llm
+from ..validators import validate_script
 
 STAGE = "script"
 RESEARCH_STAGE = "research"
@@ -28,6 +30,12 @@ RESEARCH_ROLE = "research"
 WORDS_PER_SECOND = 2.5
 
 DEFAULT_TARGET_SECONDS = 90.0
+
+# One repair, not three. A markdown asterisk is a formatting slip, and a model
+# told plainly to remove it either does or does not; a model that ignores the
+# correction twice is a prompt problem, and burning two more calls on it only
+# makes the bill bigger before a human has to look anyway.
+MAX_REPAIRS = 1
 
 
 def target_seconds(cfg: dict) -> float:
@@ -98,7 +106,40 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                           "output_tokens": result.output_tokens})
     ctx.db.provider_health(f"llm.{provider}", True)
-    return result.text.strip()
+
+    text = result.text.strip()
+    target_words = round(seconds * WORDS_PER_SECOND)
+    for attempt in range(MAX_REPAIRS + 1):
+        violations = validate_script(text, target_words)
+        if not violations:
+            return text
+        ctx.db.event(ctx.video_id, STAGE, "progress",
+                     f"script rejected: {'; '.join(violations[:4])}")
+        if attempt == MAX_REPAIRS:
+            raise StageError(
+                STAGE,
+                "the script does not obey the output contract after "
+                f"{MAX_REPAIRS} repair attempt(s): {'; '.join(violations[:4])} — edit the "
+                "prompt pack, or upload script.txt",
+            )
+        with budget_gate(
+            ctx, stage=STAGE, provider=provider, operation="llm.generate_script",
+            estimated_units=est_tokens,
+            details={"repair": attempt + 1, "prompt": (prompt or {}).get("name", "default")},
+            model=model,
+        ) as cost:
+            result = chat_fn(
+                provider, model, system,
+                user + "\n\nYOUR PREVIOUS ANSWER WAS REJECTED. Rewrite it as plain spoken "
+                "narration, fixing ALL of these and changing nothing else:\n- "
+                + "\n- ".join(violations),
+                max_tokens, temperature, expect_json=False,
+            )
+            cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
+                                              "output_tokens": result.output_tokens,
+                                              "repair": attempt + 1})
+        text = result.text.strip()
+    return text
 
 
 # ---------------- research (D64: phase 0 of this same agent) ----------------

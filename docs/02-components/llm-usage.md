@@ -16,7 +16,7 @@ all depend on.
 
 | # | Prompt | Composed in | Prompt text | Provider (default) | Budget | Output must be | Validated by |
 |---|---|---|---|---|---|---|---|
-| 1 | Script agent | `worker/lusora_worker/agents/script.py` | `prompts/script/` + `welded/script.system.txt` | `channel.script.llm` → `deepseek` | 8000 tok (prompt may raise), temp 0.7 | plain narration text | **nothing** (gap) |
+| 1 | Script agent | `worker/lusora_worker/agents/script.py` | `prompts/script/` + `welded/script.system.txt` | `channel.script.llm` → `deepseek` | 8000 tok (prompt may raise), temp 0.7 | plain narration text | `validators.validate_script`, ≤1 repair |
 | 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts, temp 0.2 | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
 | 2b | Beat planner — spine | `worker/lusora_worker/agents/planner.py` | `prompts/spine/` + `welded/spine.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 4000 tok, one shot | `{arc, sections:[{start_sentence, summary}]}` | arithmetic: first index 0, strictly increasing, in range — anything else falls back to the word-balanced split |
 | 2c | Beat planner — beatcraft | `worker/lusora_worker/agents/beatcraft.py` | `prompts/beatcraft/` + `welded/beatcraft.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts, temp 0.2 | `{beats: {"<cut index>": {visual_intent, queries, mood, …}}}` — **never** `script_text` | `validate_beat_sheet` on the MERGED sheet, unchanged, plus an index check |
@@ -195,8 +195,13 @@ Still open:
 
 - **Script:** no forbidden-phrase list in the *default* prompt (the
   shipped `doc-grave` pack has one — that is now a prompt-authoring
-  choice, not a code change); **no output validation at all** — a stray
-  `**bold**` reaches both the TTS and the planner's verbatim check.
+  choice, not a code change). ~~No output validation at all~~ **CLOSED**:
+  `validate_script` checks what the welded half already demanded — no markdown,
+  no speaker labels, no bracketed directions, no emoji, and a length within a
+  wide multiple of the target — and one repair attempt is made before the stage
+  stops. It was not hypothetical: three shipped videos in `data/videos` carry
+  `*Alcedo*` in `script.txt`, so the TTS read the asterisks aloud and the
+  planner quoted them as verbatim span text.
 - **Planner:** no worked example of a good beat, only a shape skeleton.
   (`kind:"timed"` is no longer listed here — D58 explained it in the pack, and
   D86 exempted a timed beat's overlay from the class system so a cold open is
