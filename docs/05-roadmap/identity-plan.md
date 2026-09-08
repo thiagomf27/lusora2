@@ -1,18 +1,31 @@
-# Identity — the shot must be the person it names
+# Identity — never person A's name over person B's face
 
 When the narration is about a specific real person, the video currently shows
 whoever the search happened to return, and sometimes puts that person's name on
 them. This is the plan to stop it, in the order it is worth fixing.
 
-**The rule everything here follows: a wrong face is worse than no face, and a
-wrong face with a name on it is worse than both.** Where identity cannot be
-established, the video says the name in type rather than guessing at a
-photograph.
+**The rule everything here follows: the video may show whatever b-roll it can
+find, and the one thing it may never do is talk about person A while presenting
+a portrait of person B.**
 
-There is machinery for that already — `degrade.to_title_card` swaps the shot for
-the channel's background image (or a flat colour fill) and lays a typographic
-component over it — but see **The card does not exist yet** below before
-assuming it can be leaned on.
+That is narrower than "do not show what we cannot verify", and deliberately so.
+A shore, a ship, a crowd, a map, a document — all fine over narration about a
+person nobody has a photograph of. What is forbidden is a shot that READS AS A
+PORTRAIT of a specific someone standing in for a different specific someone,
+which is the only thing that makes a false claim about a real person.
+
+So an identity beat asks two questions, not one:
+
+1. **the identity question** — "footage of Carsten Borchgrevink". Only a source
+   that could actually know him may answer it. A hit here is a real portrait and
+   the video is correct.
+2. **the scene question** — "rocky Antarctic shore, wooden rowboat pulled up,
+   1890s". Any source may answer this, Pexels included. It is real b-roll and it
+   makes no claim about anyone's identity.
+
+When 1 misses, 2 plays. The frame is never blank, and the video never lies. The
+typographic card is the LAST resort — what happens when even the scene question
+comes back empty, which is the same condition that stops a video today.
 
 ---
 
@@ -81,17 +94,16 @@ either (`Taylor Farms` and `Pearl Harbor` are `name` anchors too).
 
 ---
 
-## The card does not exist yet
+## The card is the last resort, and it does not exist yet
 
-This plan's fallback was written as "reuse D55's degrade". Checking the corpus
-says that is not available, for three separate reasons, and slice 1 has to
-supply it rather than call it.
+An earlier draft of this plan made the card the ANSWER when a person could not
+be found. That was wrong twice over — once on taste, which is the rule above,
+and once on fact.
 
 **Almost no pack configures one.** `style_pack.fallback` names the component,
 and six of the seven shipped packs leave it `null` — including
-`descoberta-doc`, which is the pack of the very video this plan reproduces. With
-no card named, `to_title_card` returns `None` and keeps the weak asset, which is
-the right default for a weak MATCH and the wrong one for a wrong PERSON.
+`descoberta-doc`, the pack of the very video this plan reproduces. With no card
+named, `degrade.to_title_card` returns `None` and keeps the weak asset.
 
 **It has never fired.** The weak-match path is gated on
 `source_policy.visual.min_score_floor`, and no `cfg.json` in `data/videos` sets
@@ -100,20 +112,16 @@ is a mechanism, not a safety net.
 
 **And `ChapterCard` is the wrong card for a person.** Its own catalog entry says
 `when_not_to_use: … a person's name (NamePlate)`. It is a full-screen act break
-between sections. A person who could not be found wants their name set as a
-name — a `NamePlate` over the plain plate is both honest and deliberate-looking,
-and it is what the beat's own overlay was going to say anyway.
+between sections.
 
-**What follows for slice 1.** Skipping `stock` and `ai_image` without supplying
-a card does not produce a card: `resolve_item` returns `False`, and
-`run_resolve_assets` raises `source chain exhausted for beat …`. The video stops
-instead of degrading. So the identity fallback must be **built in and not
-optional** — a channel may choose which component draws it, but not whether
-there is one — and it must take its words from the person's NAME rather than
-from `card_text`'s `queries[0]`, which on the reproduction would set the card to
-"Man Jumping Rowboat Shore".
-
----
+**What follows.** Because the card is now the last resort rather than the plan,
+none of this blocks slice 1 — the scene question is what fills the frame, and it
+is served by the sources that already work. But the last resort still has to
+exist: skipping a source without supplying anything makes `resolve_item` return
+`False` and `run_resolve_assets` raise `source chain exhausted for beat …`, so
+the video stops instead of degrading. When it is reached it should carry the
+person's NAME, not `card_text`'s `queries[0]`, which on the reproduction would
+have titled it "Man Jumping Rowboat Shore".
 
 ## What this plan will not do
 
@@ -124,83 +132,113 @@ from `card_text`'s `queries[0]`, which on the reproduction would set the card to
   fix.
 - **No guessing from context.** "The only man in the shot must be him" is how
   the current bug reasons.
+- **No pixel inspection.** The portrait guard in slice 1 reads what a source
+  SAYS about a clip — the library's own tags and caption, a stock photo's `alt`
+  text — never the image. It is a filter on metadata and will let some faces
+  through; the scene question is what keeps those faces from being presented as
+  anyone in particular.
 
 ---
 
-## Slice 1 — the sources that cannot be right are never asked
+## Slice 1 — no unverified shot is presented as a named person
 
-**Why first.** It is the whole of the reproduction, it needs no new field, and
+**Why first.** It is the whole of the forbidden case, it needs no new field, and
 it can be detected for free: when a beat's own overlay is a `NamePlate` or
-`PortraitPlates` filled from a `name` anchor, that beat is *declaring* that a
-named person belongs to that moment. No inference required — the sheet said so.
+`PortraitPlates` filled from a `name` anchor, the sheet has already declared
+that a named person belongs to that moment. No inference required.
 
-**What changes.** On such a beat, `resolve_assets` skips `stock` and `ai_image`
-entirely and walks only the sources that could hold that person. If the chain
-comes back empty, an identity card is drawn — **built in, not conditional on
-`style_pack.fallback`**, for the reasons above — carrying the person's name
-rather than `card_text`'s keyword query. `style_pack.fallback.identity` may name
-a different component; absent, the default is a `NamePlate` over the plate,
-because that is what the moment is and what the beat was going to say anyway.
+**What changes, in three parts.**
 
-`source_policy.visual.identity.sources` names the sources allowed to serve one,
-defaulting to `["library"]`. It is config because a channel that wires an
-editorial stock source (Getty and the like, which *does* index named people)
-should be able to say so — but the default is the one that cannot be wrong.
+*The identity question is asked only of sources that could answer it.*
+`stock` and `ai_image` are skipped for it — Pexels does not have Borchgrevink,
+and a generator does not know what he looked like, so both return a stranger
+with a clear conscience. `source_policy.visual.identity.sources` names who may,
+defaulting to `["library"]`; a channel wiring an editorial stock source (which
+does index named people) can say so.
 
-**Exit criterion.** Re-resolving `vid_bb05c1b483eb` b61 produces a card reading
-"Carsten Borchgrevink", not a stranger, and the event log says why. It must work
-on `descoberta-doc` unchanged — that pack names no fallback, and needing to
-configure one first would mean the fix is not on by default where the bug is.
-No other beat in the corpus changes.
+*When it misses, the scene question runs instead of the chain ending.* Until
+slice 2 the scene query is the beat's own remaining `queries[]` — the best
+material available today — and stock and AI serve it normally, because it makes
+no claim about anyone. This is what keeps the frame full.
 
-**Decision-log entry.** Yes — the rule, and why `ai_image` is excluded by
-default rather than by configuration.
+*And a portrait of somebody else is refused where a source admits to one.* A hit
+for the scene question is rejected when what the source SAYS about it describes
+a person as its subject: the library's `tags` and `caption`, a Pexels photo's
+`alt`. Best-effort by construction — it reads metadata, never pixels — and the
+library is already the better half of it, because its fine pass is told to
+"exclude talking heads" at ingest.
+
+**The NamePlate stays.** An earlier draft dropped it, which was an
+over-correction: a name super over an establishing shot of the place is ordinary
+documentary grammar and tells the viewer who is being discussed. It is only
+wrong over a claimed portrait of the wrong person, and after this slice the shot
+under it is either verified or makes no claim at all.
+
+**Exit criterion.** Re-resolving `vid_bb05c1b483eb` b61 puts a shore, a boat or
+a coastline on screen — not a stranger — with the `NamePlate` still reading
+"Carsten Borchgrevink", and the event log says the identity question went
+unanswered. It must work on `descoberta-doc` unchanged: that pack configures no
+fallback, and a fix that needs configuring first is not on where the bug is.
+
+**Decision-log entry.** Yes — the two-question rule, and why `ai_image` is
+excluded from the identity question by default rather than by configuration.
 
 ---
 
-## Slice 2 — the beat says who its shot depicts
+## Slice 2 — the beat writes the scene question
 
-**Why.** Slice 1 covers beats that carry a name overlay. It does not cover the
-much larger set where the narration is about a person, the shot is meant to be
-of them, and no graphic is involved — which, on the census above, is most of
-them.
+**Why.** Slice 1's fallback is whatever `queries[]` already held, and on the
+reproduction that is `"man jumping rowboat shore"` and `"explorer stepping
+ashore"` — person-free of NAME, but person-shaped in every other way, so they
+invite exactly the portrait the guard then has to reject. The model should write
+the shot that has no one in it, because it is the only party that knows what the
+moment is about.
 
-**What changes.** A beat may carry `depicts`, naming the real person its shot is
-of:
+It also covers the much larger set slice 1 cannot see: beats where the narration
+is about a person, the shot is meant to be of them, and no graphic is involved.
+Of 306 beats in `data/videos`, two carry a `name` anchor — so detection by
+overlay alone reaches almost none of them.
+
+**What changes.** A beat may carry `depicts`:
 
 ```json
-{"id": "b61", "script_text": "…Carsten Borchgrevink saltou…",
- "visual_intent": "Carsten Borchgrevink stepping from a rowboat onto rock",
- "depicts": {"kind": "person", "name": "Carsten Borchgrevink"}}
+"depicts": {
+  "kind": "person",
+  "name": "Carsten Borchgrevink",
+  "without_them": ["antarctic rocky shore", "wooden rowboat beached", "1890s polar expedition"]
+}
 ```
 
-Three properties make it safe to ask a model for:
+`without_them` is the scene question: two or three keyword queries for the same
+moment with the person taken out of it. Three properties make this safe to ask
+for:
 
-- **It is validated against the span**, exactly as `anchors[].source_words` is:
-  the name must appear verbatim in that cut's own text, so it cannot be invented
-  or carried over from elsewhere in the script.
-- **It is optional and its absence means nothing.** A beat that omits it is
-  treated exactly as today, so the field cannot regress a channel that never
-  emits it.
-- **`kind` is a closed vocabulary** (`person` for now) and therefore welded, not
-  editable — a beat claiming to depict a person is what turns the source policy
-  on.
+- **`name` is validated against the span**, exactly as `anchors[].source_words`
+  is — it must appear verbatim in that cut's own text, so it cannot be invented
+  or borrowed from elsewhere in the script.
+- **`without_them` is validated not to contain the name**, and rejected if it
+  does. A fallback that names the person is not a fallback.
+- **The whole field is optional and its absence means nothing.** A beat that
+  omits it behaves exactly as today, so a channel that never emits one cannot
+  regress.
 
-The name is then forced into the library query rather than left to the model's
-phrasing, which is the difference between the two videos above.
+The name is then forced into the identity query rather than left to the model's
+phrasing — which is the entire difference between the two videos in the
+reproduction.
 
-**Exit criterion.** On the four reference cases plus the two person-bearing
-videos, every span that names a person and describes a shot of them carries
-`depicts`, and no span that merely mentions one does. Marked by hand — this is
-an authoring judgement, and the eval has no case for it yet.
+**Exit criterion.** On the two person-bearing videos, every span that names a
+person and describes a shot of them carries `depicts`, no span that merely
+mentions one does, and every `without_them` reads as a shot with nobody in it.
+Marked by hand: this is an authoring judgement and the eval has no case for it.
 
 ---
 
 ## Slice 3 — the library can answer "is this them?"
 
-**Why.** After slices 1 and 2 an identity beat is *safe* and almost always a
-card, because nothing verifies a library hit either. This is the slice that lets
-it be a photograph.
+**Why.** After slices 1 and 2 an identity beat is *safe* and always answers the
+scene question, because nothing can verify a library hit either — so the
+identity question never hits. This is the slice that lets the video show the
+person when it does have them.
 
 **What changes.** A hit for an identity beat is accepted only if it actually
 references the person: the name (normalised) appears in the segment's `tags`,
@@ -223,7 +261,7 @@ visible instead of filling it with strangers.
 
 **Exit criterion.** A clip tagged with a person's name is returned for that
 person's beats and for no one else's; an untagged library is indistinguishable
-from an empty one, and the beat degrades to its card.
+from an empty one, and the beat falls to its scene shot.
 
 ---
 
@@ -243,14 +281,16 @@ or purely library tags), whether one person may be shared across channels, and
 what happens when a register entry and a library tag disagree.
 
 **Exit criterion.** A channel with a cast list produces the right face for every
-person in it, and a card for everyone else, with no run-to-run variation.
+person in it, a scene shot for everyone else, and no run-to-run variation in
+either.
 
 ---
 
 ## Slice 5 — the human can see and fix what degraded
 
-**Why.** Cards are honest, not finished. A degraded identity beat is exactly the
-thing a person should be shown at the review checkpoint.
+**Why.** A scene shot is honest, not finished — the video is talking about
+someone it cannot show. That is exactly the thing a person should be shown at
+the review checkpoint, and the reviewer is the one who knows the face.
 
 **What changes.** The beat review screen marks beats whose shot degraded for
 identity, says which person could not be found, and offers the upload that fixes
@@ -264,7 +304,14 @@ and no config editing.
 
 ## The order, and why
 
-1 before 2 because 1 stops the observed damage with no new contract. 2 before 3
-because verification needs to know who to verify. 3 before 4 because the
-register is only worth building once something enforces it. 5 last because it is
-the only slice that assumes the rest works.
+1 before 2 because 1 stops the forbidden case with no new contract, using the
+queries a sheet already has. 2 before 3 because the fallback should be a good
+shot before the identity hit is worth chasing, and because verification needs to
+know who to verify. 3 before 4 because the register is only worth building once
+something enforces it. 5 last because it is the only slice that assumes the rest
+works.
+
+Note what the order buys: after slice 1 the video is never wrong. After slice 2
+it is never wrong AND the fallback is a shot someone chose. Slices 3 and 4 are
+what make it *right* rather than merely not-wrong, and they are the ones that
+need curation rather than code.

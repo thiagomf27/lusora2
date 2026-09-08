@@ -56,9 +56,9 @@ docker-compose.
 - [Editing Quality Plan](05-roadmap/editing-quality-plan.md) — what is wrong
   with the pipeline after v3, in the order it is worth fixing ★ read before
   changing a prompt or the compiler
-- [Identity Plan](05-roadmap/identity-plan.md) — the shot must be the person
-  it names: why a named person currently resolves to a stranger, and the
-  fallback rule ★ read before touching person/b-roll matching
+- [Identity Plan](05-roadmap/identity-plan.md) — never person A's name over
+  person B's face: why a named person resolves to a stranger, and the
+  two-question rule ★ read before touching person/b-roll matching
 - [B-roll Integration](05-roadmap/broll-integration.md) — swapping the
   vendored library snapshot for the live broll-engine repo: the API
   mismatches it exposes and the slice order ★ read before touching
