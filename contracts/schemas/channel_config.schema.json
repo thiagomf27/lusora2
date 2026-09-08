@@ -452,7 +452,8 @@
         "spine": { "$ref": "#/$defs/resolvedPrompt" },
         "chat": { "$ref": "#/$defs/resolvedPrompt" },
         "overlay": { "$ref": "#/$defs/resolvedPrompt" },
-        "beatcraft": { "$ref": "#/$defs/resolvedPrompt" }
+        "beatcraft": { "$ref": "#/$defs/resolvedPrompt" },
+        "image": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
   },
