@@ -243,6 +243,7 @@ def craft_beats(
         ))
 
     doc = merge(cuts, {"beats": answers}, ctx.video_id)
+    _note_fallback_intents(ctx, cuts, answers)
     # The whole sheet, judged as a whole — the arrangement D52 already
     # established for chunked planning. Each chunk checked its own slice; this
     # catches anything that only exists across the merge.
@@ -256,6 +257,31 @@ def craft_beats(
     ctx.db.event(ctx.video_id, STAGE, "progress",
                  f"beat craft accepted ({len(doc['beats'])} beats over {len(chunks)} call(s))")
     return doc
+
+
+def _note_fallback_intents(
+    ctx: StageContext, cuts: list[dict[str, Any]], answers: dict[str, Any]
+) -> None:
+    """Say how many shots the model did not actually choose.
+
+    `merge` gives a cut with no usable answer an intent derived from its own
+    words, which is right — it keeps one unanswered index from failing a whole
+    video. But it was silent, and a beat whose shot was picked by a keyword
+    heuristic looks exactly like one the model thought about. `_index_violations`
+    asks for a missing index back, so this should be rare; when it is not, that
+    is the thing worth knowing.
+    """
+    fallback = [
+        c["index"] for c in cuts
+        if not str((answers.get(str(c["index"])) or {}).get("visual_intent") or "").strip()
+    ]
+    if fallback:
+        shown = ", ".join(str(i) for i in fallback[:12]) + ("…" if len(fallback) > 12 else "")
+        ctx.db.event(
+            ctx.video_id, STAGE, "progress",
+            f"{len(fallback)} of {len(cuts)} cuts got a fallback visual_intent derived from "
+            f"their own words rather than one the model chose (index {shown})",
+        )
 
 
 def _raise_if_structural(violations: list[str]) -> None:

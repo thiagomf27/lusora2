@@ -16,6 +16,7 @@ all depend on.
 
 | # | Prompt | Composed in | Prompt text | Provider (default) | Budget | Output must be | Validated by |
 |---|---|---|---|---|---|---|---|
+| 0 | Research (phase 0 of the script agent, D64) | `worker/lusora_worker/agents/script.py` | `prompts/research/` + `welded/research.system.txt` | shares `channel.script.llm` → `deepseek` | 4000 tok, one shot | a prose brief (`research.md`) | shape only — it is read by another agent, not parsed |
 | 1 | Script agent | `worker/lusora_worker/agents/script.py` | `prompts/script/` + `welded/script.system.txt` | `channel.script.llm` → `deepseek` | 8000 tok (prompt may raise), temp 0.7 | plain narration text | `validators.validate_script`, ≤1 repair |
 | 2 | Beat planner | `worker/lusora_worker/agents/planner.py` | `prompts/planner/` + `welded/planner.{system,user}.txt` | `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts, temp 0.2 | beat sheet JSON | `validators.validate_beat_sheet` + `beat_sheet.schema.json` |
 | 2b | Beat planner — spine | `worker/lusora_worker/agents/planner.py` | `prompts/spine/` + `welded/spine.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 4000 tok, one shot | `{arc, sections:[{start_sentence, summary}]}` | arithmetic: first index 0, strictly increasing, in range — anything else falls back to the word-balanced split |
@@ -25,7 +26,7 @@ all depend on.
 | 4 | Library coarse | `library/broll-engine/broll/tagging.py` | `_COARSE_SYSTEM` (in code) | GLM-4.6V (z.ai or local vLLM) | 500 tok | `{score, rough_ranges}` | clamping parser |
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
 | 6 | Library fine | same file | `_FINE_INSTRUCTIONS` (in code) | GLM-4.6V | 12000 tok | array of `{start,end,tags,caption,confidence}` | `_parse_segments` + truncation salvage |
-| 7 | AI image | `worker/lusora_worker/providers/sources.py` | `f"{query}. {style}"` (in code) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |
+| 7 | AI image | `worker/lusora_worker/providers/sources.py` | `prompts/image/` (no welded half) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
 prompts are data. 2b, 2c and 2d are not further agents: each is a PHASE of
@@ -53,9 +54,10 @@ control flow.
   slack-free share of the video's budget (floor, no `+1`), so the shares summed
   stay under the ceiling the merged selection is finally judged against.
 
-Row 2's temperature is 0.2 as of D85; the script agent stays at the house
-default of 0.7, because it is the one call where a second sample being
-different is the point. 4–6 belong to the library service (its own boundary, its
+Row 2's temperature is 0.2 as of D85, and 2b-2d inherit it from their own
+packs; the script agent and the research phase stay at the house default of
+0.7, because those are the calls where a second sample being different is the
+point. 4–6 belong to the library service (its own boundary, its
 own model, its own prompts). 7 is barely a prompt — see gaps.
 
 ---
@@ -211,9 +213,16 @@ Still open:
 - **`visual_intent` serves three consumers with opposite needs**:
   semantic library search, *keyword* stock search (Pexels wants 2–4
   words, not a 30-word scout sentence) and the image-gen prompt.
-- **AI image:** the prompt is `f"{query}. {style}"` — no composition or
-  negative guidance, no `visual_language`, and `1536x1024` (≈3:2) against
-  a 16:9 output. Not a prompt pack; still code.
+- ~~**AI image:** the prompt is `f"{query}. {style}"`~~ **CLOSED** — it is the
+  `image` prompt pack now, carrying composition guidance, an explicit list of
+  what never to draw (all lettering: the renderer draws every word this video
+  shows, and lettering underneath fights it) and `visual_language`, so a
+  generated frame and a sourced clip belong to one video. The size is the
+  nearest of the three shapes gpt-image-1 sells to `cfg.output`'s orientation —
+  it does not "match" 16:9, because that shape is not on offer, and the prompt
+  is told to compose for a centre crop instead. `image` is a PROVIDER prompt,
+  not a fourth agent: it produces no artifact and cannot influence control
+  flow, so D2's count is unchanged.
 - **Missing stages:** no metadata (title/description/tags), no research,
   no review pass.
 

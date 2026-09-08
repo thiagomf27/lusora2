@@ -332,6 +332,35 @@
           "source": "visual subjects already used by earlier chunks, so the video does not shoot the same image twice; set only when chunked"
         }
       }
+    },
+    "image": {
+      "description": "Beat -> a generation prompt for the image model, when the source chain falls through to ai_image. Not a chat role: the two halves are joined into one string and sent as the prompt, subject first, because image models weight early tokens most. It has no welded half — there is no JSON shape to protect and no closed vocabulary; the model is not being asked to obey a contract, only to draw.",
+      "welded": {
+        "system": false,
+        "user": false
+      },
+      "variables": {
+        "query": {
+          "required": true,
+          "source": "the beat's visual_intent, whole — it is a scout description, which is what a generator wants"
+        },
+        "style": {
+          "required": false,
+          "source": "source_policy.visual.chain[].style, the channel's own look for generated frames"
+        },
+        "visual_language": {
+          "required": false,
+          "source": "style_pack.visual_language — the same sentence the beat planner is given, so a generated frame and a sourced one belong to one video"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "aspect": {
+          "required": false,
+          "source": "derived from cfg.output: 'landscape', 'portrait' or 'square'"
+        }
+      }
     }
   }
 }

@@ -15,6 +15,7 @@ import os
 from typing import Any, Protocol
 
 import httpx
+from lusora_contracts import prompts as prompt_packs
 
 from ..context import StageContext
 from ..costs import budget_gate
@@ -338,6 +339,51 @@ def normalize_video(ctx: StageContext, path) -> None:
 # ---------------- ai image (budget-gated generation) ----------------
 
 
+# gpt-image-1 offers three shapes and 16:9 is not one of them, so the closest
+# available is chosen and the prompt is told to keep the subject clear of the
+# edges. Calling this "matching cfg.output" would be a lie: it is the nearest
+# thing the API sells, and the difference is cropped.
+_IMAGE_SIZES = {"landscape": "1536x1024", "portrait": "1024x1536", "square": "1024x1024"}
+
+
+def image_aspect(cfg: dict) -> str:
+    output = cfg.get("output") or {}
+    width, height = float(output.get("width", 1920)), float(output.get("height", 1080))
+    if width > height * 1.05:
+        return "landscape"
+    if height > width * 1.05:
+        return "portrait"
+    return "square"
+
+
+def image_prompt(ctx: StageContext, query: str, source_cfg: dict) -> str:
+    """The generation prompt, from the `image` prompt pack (D42).
+
+    It used to be `f"{query}. {style}"` — a scout sentence and a style string,
+    with no composition guidance, nothing about what NEVER to draw, and no sight
+    of `visual_language`, the one sentence that makes a generated frame and a
+    sourced clip look like the same video. And it was code, so improving it
+    needed a deploy, on the source that catches every beat the library and stock
+    chain misses.
+
+    The two halves are joined subject-first: image models weight early tokens
+    most, so the shot leads and the house rules follow.
+    """
+    style = ctx.cfg.get("style_pack_doc") or {}
+    house, shot = prompt_packs.compose(
+        "image",
+        (ctx.cfg.get("prompts") or {}).get("image"),
+        {
+            "query": query,
+            "style": str(source_cfg.get("style") or ""),
+            "visual_language": str(style.get("visual_language") or ""),
+            "content_rules": str(ctx.cfg.get("content_rules") or ""),
+            "aspect": image_aspect(ctx.cfg),
+        },
+    )
+    return "\n\n".join(part for part in (shot.strip(), house.strip()) if part)
+
+
 class AiImageAdapter:
     # A generator wants the whole description; it is a prompt, not a search.
     query_kind = "semantic"
@@ -347,8 +393,7 @@ class AiImageAdapter:
         ledger: "Ledger | None" = None,
     ) -> Resolution | None:
         provider = str(source_cfg.get("provider") or "mock")
-        style = str(source_cfg.get("style") or "")
-        prompt = f"{query}. {style}".strip()
+        prompt = image_prompt(ctx, query, source_cfg)
         if provider == "mock":
             return self._mock(ctx, item, query, prompt)
         if provider == "openai":
@@ -390,7 +435,8 @@ class AiImageAdapter:
             resp = httpx.post(
                 "https://api.openai.com/v1/images/generations",
                 headers={"Authorization": f"Bearer {api_key}"},
-                json={"model": "gpt-image-1", "prompt": prompt, "size": "1536x1024", "n": 1},
+                json={"model": "gpt-image-1", "prompt": prompt,
+                      "size": _IMAGE_SIZES[image_aspect(ctx.cfg)], "n": 1},
                 timeout=300,
             )
             if resp.status_code != 200:

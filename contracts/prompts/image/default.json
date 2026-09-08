@@ -1,0 +1,9 @@
+{
+  "name": "default",
+  "role": "image",
+  "description": "House look for generated b-roll: documentary photography, no lettering, composed to survive a crop",
+  "system": "Photographic, documentary. Real materials, real light, plausible imperfection — grain, dust, wear, weather. Depth of field from a real lens rather than a blur filter.\nCompose for a CENTRE CROP: the video is a different shape from this frame, so keep the subject and everything that matters well inside the middle, and leave the edges expendable.\nNever draw text of any kind — no captions, titles, labels, signage lettering, numbers, subtitles, watermarks, logos or signatures. Every word this video shows is drawn by the renderer on top of you, and lettering underneath fights it.\nOne scene, one moment. No collage, no split screens, no panels, no borders or frames, no montage of several images.",
+  "user": "{{query}}\n{{#style}}{{style}}\n{{/style}}{{#visual_language}}{{visual_language}}\n{{/visual_language}}{{#content_rules}}{{content_rules}}\n{{/content_rules}}{{#aspect}}Framed {{aspect}}.{{/aspect}}",
+  "model_hint": null,
+  "max_tokens": null
+}

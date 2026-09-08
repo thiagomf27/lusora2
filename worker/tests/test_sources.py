@@ -480,3 +480,53 @@ def test_inert_config_fields_are_not_sent(tmp_path, monkeypatch):
         [{"source": "library", "min_score": 0.5,
           "media_types": ["video_clip"], "profile": "archive"}])
     assert "media_type" not in seen and "profile" not in seen
+
+
+# ---------------- the image generator gets a real prompt (slice 7) ----------------
+
+
+def test_the_image_prompt_carries_the_videos_visual_language(tmp_path):
+    """`ai_image` is the terminal fallback in every source chain on this machine,
+    so it catches every beat the library and stock miss — and its whole prompt
+    was `f"{query}. {style}"`. No composition guidance, nothing about what never
+    to draw, and no sight of `visual_language`, which is the one sentence that
+    makes a generated frame and a sourced clip belong to the same video."""
+    from lusora_worker.providers.sources import image_prompt
+
+    ctx = make_ctx(tmp_path)
+    ctx.cfg["style_pack_doc"] = {"visual_language": "Cold northern light, muted palette."}
+    ctx.cfg["content_rules"] = "No identifiable faces."
+    prompt = image_prompt(ctx, "a harbour at dawn", {"style": "Kodachrome."})
+
+    assert prompt.startswith("a harbour at dawn"), "subject first — image models weight early tokens"
+    assert "Cold northern light" in prompt
+    assert "Kodachrome." in prompt
+    assert "No identifiable faces." in prompt
+    assert "Never draw text" in prompt
+    assert "CENTRE CROP" in prompt
+
+
+def test_the_generated_frame_is_asked_for_in_the_videos_own_orientation(tmp_path):
+    """gpt-image-1 sells three shapes and 16:9 is not one of them, so this picks
+    the nearest rather than always asking for 1536x1024 whatever the output is —
+    which is what a portrait channel used to get."""
+    from lusora_worker.providers.sources import _IMAGE_SIZES, image_aspect
+
+    assert image_aspect({"output": {"width": 1920, "height": 1080}}) == "landscape"
+    assert image_aspect({"output": {"width": 1080, "height": 1920}}) == "portrait"
+    assert image_aspect({"output": {"width": 1080, "height": 1080}}) == "square"
+    assert image_aspect({}) == "landscape", "the default output is 1920x1080"
+    assert _IMAGE_SIZES["portrait"] == "1024x1536"
+
+
+def test_the_image_prompt_is_data_and_can_be_replaced_per_video(tmp_path):
+    """The point of making it a pack (D42): improving it is an edit to a JSON
+    file, not a deploy. It used to be an f-string in the adapter."""
+    from lusora_worker.providers.sources import image_prompt
+
+    ctx = make_ctx(tmp_path)
+    ctx.cfg["prompts"] = {"image": {"name": "custom", "role": "image",
+                                    "system": "Ink on paper, no colour.",
+                                    "user": "{{query}}"}}
+    prompt = image_prompt(ctx, "a harbour at dawn", {"style": "ignored by this pack"})
+    assert prompt == "a harbour at dawn\n\nInk on paper, no colour."

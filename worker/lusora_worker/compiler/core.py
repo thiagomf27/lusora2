@@ -33,7 +33,7 @@ def compile_plan(
     cfg: dict[str, Any],
     audio_duration_s: float,
     overlay_selection: dict[str, Any] | None = None,
-    on_drop: Callable[[str], None] | None = None,
+    on_note: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """sentence_timings: [{text, start_s, end_s}] in audio time (from the
     TTS adapter or the SRT), covering the whole narration in order.
@@ -160,7 +160,7 @@ def compile_plan(
         if item:
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
-    overlays = _trim_overlay_holds(overlays, total_end=total_end, on_drop=on_drop)
+    overlays = _trim_overlay_holds(overlays, total_end=total_end, on_note=on_note)
 
     # ---- captions ----
     theme = cfg.get("theme_doc") or {}
@@ -197,6 +197,7 @@ def compile_plan(
         (start, end, sound.normalize_mood(beat.get("mood")))
         for beat, (start, end, _s) in aligned
     ]
+    _note_unknown_moods([*placed_timed_beats(placed_timed), *(b for b, _t in aligned)], on_note)
 
     absolute_timings = [
         {"start_s": t["start_s"] + vo_start, "end_s": t["end_s"] + vo_start}
@@ -663,6 +664,39 @@ def _anchor_field(anchor: dict[str, Any], ref: str) -> Any:
     return None
 
 
+def placed_timed_beats(placed: list[tuple[dict[str, Any], float, float]]) -> list[dict[str, Any]]:
+    return [beat for beat, _start, _end in placed]
+
+
+def _note_unknown_moods(
+    beats: list[dict[str, Any]], on_note: Callable[[str], None] | None
+) -> None:
+    """Say when a mood was not one of the eight and became `neutral`.
+
+    The degrade itself is right and D50 argues it well: failing a whole video
+    because a model wrote "ominous" instead of "tense" would be absurd. But it
+    was completely silent, and `mood` is not an enum in the beat schema and no
+    validator mentions it — so the PROMPT is the only thing holding the
+    vocabulary. If an edit to the beatcraft pack's editable half stopped naming
+    the eight words, every video would quietly get the same bed and nothing
+    anywhere would say why.
+    """
+    if on_note is None:
+        return
+    unknown = sorted({
+        str(beat.get("mood")).strip()
+        for beat in beats
+        if beat.get("mood") and sound.normalize_mood(beat.get("mood")) == "neutral"
+        and str(beat.get("mood")).strip().lower() != "neutral"
+    })
+    if unknown:
+        on_note(
+            f"mood {', '.join(repr(m) for m in unknown)} is not one of the eight the sound "
+            "pack knows, so those beats scored as 'neutral' — the eight are welded into "
+            "planner.user.txt and beatcraft.user.txt"
+        )
+
+
 def _readable_minimum(item: dict[str, Any]) -> float:
     """How long this graphic must hold to be read at all.
 
@@ -679,7 +713,7 @@ def _trim_overlay_holds(
     overlays: list[dict[str, Any]],
     total_end: float,
     gap: float = 0.2,
-    on_drop: Callable[[str], None] | None = None,
+    on_note: Callable[[str], None] | None = None,
 ) -> list[dict[str, Any]]:
     """Fit the overlays into the time there is, and drop what will not fit.
 
@@ -707,7 +741,7 @@ def _trim_overlay_holds(
     there was, and dropping it would be a regression dressed up as a fix.
 
     Returns the overlays that survive, start-sorted, and reports each drop
-    through `on_drop` — a human whose chosen graphic vanished is owed the
+    through `on_note` — a human whose chosen graphic vanished is owed the
     reason, and this is the only place that knows it.
     """
     kept: list[dict[str, Any]] = []
@@ -719,7 +753,7 @@ def _trim_overlay_holds(
             room = start - gap - float(previous["start_s"])
             previous_minimum = _readable_minimum(previous)
             if room < previous_minimum - 1e-6:
-                _report(on_drop, item,
+                _report(on_note, item,
                         f"it lands {room + gap:.1f}s after {previous.get('component', 'the graphic')} "
                         f"on {previous.get('beat_id')}, which needs {previous_minimum:g}s — "
                         "the earlier graphic keeps the moment")
@@ -740,9 +774,9 @@ def _trim_overlay_holds(
     return kept
 
 
-def _report(on_drop: Callable[[str], None] | None, item: dict[str, Any], why: str) -> None:
-    if on_drop is not None:
-        on_drop(
+def _report(on_note: Callable[[str], None] | None, item: dict[str, Any], why: str) -> None:
+    if on_note is not None:
+        on_note(
             f"overlay {item.get('component', item.get('kind'))} on beat "
             f"{item.get('beat_id')} was dropped: {why}"
         )

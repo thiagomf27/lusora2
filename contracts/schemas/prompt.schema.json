@@ -24,7 +24,8 @@
         "spine",
         "chat",
         "overlay",
-        "beatcraft"
+        "beatcraft",
+        "image"
       ],
       "description": "must match the containing directory; decides the variable set and the welded block"
     },

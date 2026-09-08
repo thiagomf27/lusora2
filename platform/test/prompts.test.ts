@@ -86,7 +86,7 @@ test("validatePrompt rejects a prompt that drops a required variable", () => {
 });
 
 test("roles.json declares the three bounded agents, plus their phase roles", () => {
-  // Seven prompt roles, still three agents (D2). Four are PHASES of an agent
+  // Eight prompt roles, still three agents (D2). Four are PHASES of an agent
   // rather than agents of their own, and each shares its agent's llm/model:
   // `spine` is phase 1 of the beat planner on a long script (D52), `research`
   // is phase 0 of the script agent (D64), `overlay` is the graphic decision
@@ -94,9 +94,15 @@ test("roles.json declares the three bounded agents, plus their phase roles", () 
   // transcription removed — it answers by index over spans code already cut
   // (D88), and exists beside `planner` rather than replacing it so a channel
   // pointing at a tuned planner pack is not silently repointed.
+  //
+  // `image` is neither an agent nor a phase: it is the PROVIDER prompt for the
+  // image model, which the pipeline has always sent and which was until now an
+  // f-string in providers/sources.py. Making it data changes who can edit it,
+  // not what the system decides — it produces no artifact and cannot influence
+  // control flow, so D2's count is unchanged.
   assert.deepEqual(
     Object.keys(loadRoles()).sort(),
-    ["beatcraft", "chat", "overlay", "planner", "research", "script", "spine"]
+    ["beatcraft", "chat", "image", "overlay", "planner", "research", "script", "spine"]
   );
 });
 

@@ -1020,7 +1020,7 @@ def test_a_graphic_that_would_starve_the_one_before_it_is_dropped():
     0.13s of its minimum."""
     doc, st, total = _two_close_overlays(1.2)
     dropped = []
-    plan = compile_plan(doc, st, CFG, total, on_drop=dropped.append)
+    plan = compile_plan(doc, st, CFG, total, on_note=dropped.append)
     overlays = plan["tracks"]["overlays"]
     assert len(overlays) == 1, [o["component"] for o in overlays]
     assert overlays[0]["component"] == "AnimatedCounter", "the earlier graphic keeps the moment"
@@ -1080,3 +1080,38 @@ def test_no_plan_this_repo_has_shipped_becomes_invalid():
         tracks = json.loads(path.read_text(encoding="utf-8"))["tracks"]
         end = max([float(v["end_s"]) for v in tracks["visual"]] or [0.0])
         assert validators._check_overlay_holds(tracks["overlays"], end) == [], path.parent.name
+
+
+# ---------------- a silent degrade says so (slice 8) ----------------
+
+
+def test_an_unrecognised_mood_is_reported_rather_than_only_absorbed():
+    """The degrade is right and D50 argues it well — failing a video because a
+    model wrote "ominous" instead of "tense" would be absurd. But `mood` is not
+    an enum in the beat schema and no validator mentions it, so the PROMPT is
+    the only thing holding the eight-word vocabulary. If an edit to the pack's
+    editable half stopped naming them, every video would get the same bed and
+    nothing anywhere would say why."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "First sentence.",
+         "visual_intent": "a", "mood": "ominous"},
+        {"id": "b2", "kind": "narration", "script_text": "Second one here.",
+         "visual_intent": "b", "mood": "tense"},
+    )
+    st = timings(("First sentence.", 0.0, 3.0), ("Second one here.", 3.0, 6.5))
+    notes = []
+    compile_plan(doc, st, CFG, 6.5, on_note=notes.append)
+    assert any("ominous" in n for n in notes), notes
+    assert not any("tense" in n for n in notes), "a mood it knows is not worth a line"
+
+
+def test_a_sheet_whose_moods_are_all_known_says_nothing():
+    """The channel is for surprises. A line on every video is a line nobody
+    reads."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "First sentence.",
+         "visual_intent": "a", "mood": "somber"},
+    )
+    notes = []
+    compile_plan(doc, timings(("First sentence.", 0.0, 3.0)), CFG, 3.0, on_note=notes.append)
+    assert notes == []
