@@ -23,11 +23,13 @@ from __future__ import annotations
 
 import json
 import math
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import lusora_contracts
 from lusora_contracts import prompts as prompt_packs
 
+from ..config import parallelism
 from ..context import StageContext
 from ..costs import budget_gate
 from ..errors import StageError
@@ -256,15 +258,35 @@ def select_overlays(
     if len(chunks) > 1:
         ctx.log(f"{len(candidates)} candidates over {len(chunks)} calls of ~{target}")
 
-    selections: list[dict[str, Any]] = []
-    declined: list[dict[str, Any]] = []
-    for i, chunk in enumerate(chunks):
-        part = _select_chunk(
+    def select(i: int, chunk: list[dict[str, Any]]) -> dict[str, Any]:
+        return _select_chunk(
             ctx, chunk, beats, audio_duration_s, chat_fn,
             provider, model, prompt, max_tokens, temperature,
             chunk_position=f"part {i + 1} of {len(chunks)}" if len(chunks) > 1 else "",
             share=len(chunk) / len(candidates) if len(chunks) > 1 else 1.0,
         )
+
+    # The chunks are independent — each is held to its own share of the budget
+    # and the merge is judged whole below — so they need not wait on each other.
+    # Merged in chunk order whatever order they finish in, so the document is
+    # the one a serial run writes; the first failing part IN ORDER is the one
+    # reported, and parts not yet started are cancelled rather than paid for.
+    workers = min(len(chunks), parallelism("OVERLAY_PARALLELISM", 4))
+    if workers == 1:
+        parts = [select(i, chunk) for i, chunk in enumerate(chunks)]
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(select, i, chunk) for i, chunk in enumerate(chunks)]
+            try:
+                parts = [f.result() for f in futures]
+            except BaseException:
+                for f in futures:
+                    f.cancel()
+                raise
+
+    selections: list[dict[str, Any]] = []
+    declined: list[dict[str, Any]] = []
+    for part in parts:
         selections += part.get("selections") or []
         declined += part.get("declined") or []
 

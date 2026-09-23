@@ -55,10 +55,11 @@ class EvalDb:
 
     # ---- the part that matters ----
 
-    def cost_event(self, **kw: Any) -> None:
+    def cost_event(self, **kw: Any) -> int:
+        kw["_id"] = len(self.cost_events)
         self.cost_events.append(kw)
         if self._conn is None or kw.get("status") != "completed":
-            return
+            return kw["_id"]
         details = dict(kw.get("details") or {})
         details.update({"eval_case": self.case, "eval_arm": self.arm})
         self._conn.execute(
@@ -70,6 +71,7 @@ class EvalDb:
             (kw["provider"], kw["operation"], "completed", kw["units"],
              kw["unit_price_usd"], kw["usd"], json.dumps(details)),
         )
+        return kw["_id"]
 
     def spend(self) -> float:
         return sum(float(e["usd"]) for e in self.cost_events if e["status"] == "completed")
@@ -80,9 +82,12 @@ class EvalDb:
         return sum(float(e["usd"]) for e in self.cost_events
                    if e["status"] in ("completed", "reserved"))
 
-    def release_reservation(self, video_id: str, provider: str, operation: str) -> None:
+    def release_reservation(
+        self, video_id: str, provider: str, operation: str, event_id: int | None = None
+    ) -> None:
         for e in self.cost_events:
-            if e["status"] == "reserved" and e["provider"] == provider:
+            if e["status"] == "reserved" and e["provider"] == provider \
+                    and event_id in (None, e.get("_id")):
                 e["status"] = "refunded"
 
     def event(self, video_id: str, stage: str, status: str, message: str | None = None) -> None:

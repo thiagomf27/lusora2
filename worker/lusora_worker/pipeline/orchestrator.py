@@ -76,14 +76,20 @@ def process_video(db: Db, config: WorkerConfig, video: dict) -> None:
             else:
                 db.event(video_id, stage.name, "started", None)
                 ctx.log(f"stage {stage.name} started")
-                stage.run(ctx)
+                began = time.monotonic()
+                try:
+                    stage.run(ctx)
+                except Exception:
+                    ctx.log(f"stage {stage.name} failed after {time.monotonic() - began:.1f}s")
+                    raise
                 if stage.artifact is not None and not stage.done(ctx):
                     raise StageError(
                         stage.name,
                         f"stage completed but expected artifact '{stage.artifact}' is missing from {folder}",
                     )
-                db.event(video_id, stage.name, "done", None)
-                ctx.log(f"stage {stage.name} done")
+                took = time.monotonic() - began
+                db.event(video_id, stage.name, "done", f"took {took:.1f}s")
+                ctx.log(f"stage {stage.name} done in {took:.1f}s")
                 db.heartbeat(config.worker_id, video_id)
 
             # The gate fires whether the stage just ran or was skipped as

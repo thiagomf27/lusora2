@@ -56,6 +56,7 @@ class No:
 @pytest.fixture(autouse=True)
 def restore_adapters():
     saved = dict(sources.ADAPTERS)
+    sources.begin_run()
     yield
     sources.ADAPTERS.clear()
     sources.ADAPTERS.update(saved)
@@ -763,3 +764,135 @@ def test_mentions_needs_every_token_not_the_longest_one():
     assert not sources.mentions("a crucifix on a hill", "Southern Cross")
     assert not sources.mentions("A formal portrait of a naval officer", "Royal Geographical Society")
     assert not sources.mentions("", "Carsten Borchgrevink")
+
+
+# ---------------- which Pexels rendition is downloaded (throughput slice 1) ----------------
+
+OUT = {"width": 1920, "height": 1080, "fps": 30}
+
+
+def _file(w, h, fps=30, tag=None):
+    return {"width": w, "height": h, "fps": fps, "file_type": "video/mp4",
+            "link": tag or f"https://pexels.test/{w}x{h}@{fps}.mp4"}
+
+
+def _short(f):
+    return min(f["width"], f["height"])
+
+
+def test_the_rendition_at_the_plan_size_wins_over_a_bigger_one():
+    files = [_file(3840, 2160), _file(1920, 1080), _file(1280, 720)]
+    assert _short(sources.pick_video_file(files, OUT)) == 1080
+
+
+def test_without_the_plan_size_the_largest_below_it_beats_anything_above():
+    """A mild upscale in the render is cheaper than a 4K download and a transcode."""
+    files = [_file(3840, 2160), _file(2560, 1440), _file(1280, 720), _file(1600, 900)]
+    assert _short(sources.pick_video_file(files, OUT)) == 900
+
+
+def test_above_the_plan_size_is_taken_only_when_everything_else_is_under_720():
+    files = [_file(3840, 2160), _file(2560, 1440), _file(960, 540)]
+    assert _short(sources.pick_video_file(files, OUT)) == 1440
+
+
+def test_only_small_renditions_means_the_largest_of_them():
+    files = [_file(640, 360), _file(960, 540)]
+    assert _short(sources.pick_video_file(files, OUT)) == 540
+
+
+def test_portrait_is_judged_on_its_short_side_too():
+    portrait = {"width": 1080, "height": 1920, "fps": 30}
+    files = [_file(2160, 3840), _file(1080, 1920), _file(720, 1280)]
+    assert _short(sources.pick_video_file(files, portrait)) == 1080
+
+
+def test_a_tie_goes_to_the_frame_rate_nearest_the_output():
+    files = [_file(1920, 1080, 60, "sixty"), _file(1920, 1080, 29.97, "ntsc"), _file(1920, 1080, 25, "pal")]
+    assert sources.pick_video_file(files, OUT)["link"] == "ntsc"
+
+
+def test_a_rendition_without_a_size_is_not_a_candidate():
+    files = [{"width": None, "height": None, "file_type": "video/mp4", "link": "x"},
+             {"width": 1920, "height": 1080, "file_type": "application/x-mpegURL", "link": "hls"}]
+    assert sources.pick_video_file(files, OUT) is None
+
+
+def test_the_stock_adapter_downloads_the_chosen_rendition(tmp_path, monkeypatch):
+    fetched = []
+
+    def handler(request):
+        if request.url.host == "api.pexels.com":
+            return httpx.Response(200, json={"videos": [{
+                "id": 7, "url": "https://www.pexels.com/video/harbour-cranes-7/",
+                "video_files": [_file(3840, 2160), _file(1920, 1080), _file(1280, 720)],
+            }]})
+        fetched.append(str(request.url))
+        return httpx.Response(200, content=b"mp4-bytes")
+
+    _patch_library(monkeypatch, handler)
+    monkeypatch.setenv("PEXELS_API_KEY", "k")
+    ctx = make_ctx(tmp_path)
+    ctx.cfg["output"] = OUT
+    ctx.config = type("C", (), {"library_api_url": "", "videos_root": tmp_path / "videos"})()
+
+    res = sources.PexelsAdapter().resolve(ctx, _item(), "harbour cranes", {"source": "stock"})
+
+    assert res is not None and res["id"] == "7"
+    assert fetched == ["https://pexels.test/1920x1080@30.mp4"]
+
+
+# ---------------- library lookups once per run (throughput slice 2) ----------------
+
+
+def _counting_library(monkeypatch, fail_first=False):
+    calls = {"channels": 0, "search": 0}
+
+    def handler(request):
+        path = request.url.path
+        if path == "/channels":
+            calls["channels"] += 1
+            if fail_first and calls["channels"] == 1:
+                return httpx.Response(503)
+            return httpx.Response(200, json=[{"id": 9, "name": "CH"}])
+        if path == "/search":
+            calls["search"] += 1
+            return httpx.Response(200, json=[_seg(f"seg_{calls['search']}")])
+        if path.startswith("/clips/"):
+            return httpx.Response(200, content=b"mp4-bytes")
+        return httpx.Response(200, json=[])
+
+    _patch_library(monkeypatch, handler)
+    return calls
+
+
+def test_the_channel_is_looked_up_once_per_run_not_once_per_item(tmp_path, monkeypatch):
+    calls = _counting_library(monkeypatch)
+    ctx = make_ctx(tmp_path)
+    chain = [{"source": "library", "min_score": 0.5}]
+    for i in range(5):
+        assert sources.resolve_item(ctx, _item(f"v{i}"), "harbour cranes", chain)
+
+    assert calls == {"channels": 1, "search": 5}
+
+
+def test_a_new_run_asks_again(tmp_path, monkeypatch):
+    """A channel the library gains from an ingest is found by the next run."""
+    calls = _counting_library(monkeypatch)
+    ctx = make_ctx(tmp_path)
+    chain = [{"source": "library", "min_score": 0.5}]
+    sources.resolve_item(ctx, _item("v1"), "harbour cranes", chain)
+    sources.begin_run()
+    sources.resolve_item(ctx, _item("v2"), "harbour cranes", chain)
+
+    assert calls["channels"] == 2
+
+
+def test_a_failed_lookup_is_not_remembered(tmp_path, monkeypatch):
+    calls = _counting_library(monkeypatch, fail_first=True)
+    ctx = make_ctx(tmp_path)
+    chain = [{"source": "library", "min_score": 0.5}]
+    sources.resolve_item(ctx, _item("v1"), "harbour cranes", chain)
+    sources.resolve_item(ctx, _item("v2"), "harbour cranes", chain)
+
+    assert calls["channels"] == 2

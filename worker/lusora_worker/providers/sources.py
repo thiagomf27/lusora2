@@ -158,11 +158,30 @@ class LibraryAdapter:
     # embeddings: it matches MEANING, so it wants the whole scout sentence
     query_kind = "semantic"
 
-    def _lookup_ids(self, base: str, endpoint: str, names: list[str]) -> list[str]:
-        try:
-            rows = httpx.get(f"{base}/{endpoint}", timeout=15).json()
-        except (httpx.HTTPError, ValueError):
-            return []
+    def __init__(self) -> None:
+        # /channels and /niches were fetched once per ITEM — ~245 identical
+        # calls on a 20-minute video. Held for one video only: the adapter is a
+        # module-level singleton, and a channel the library gains from an
+        # ingest must be found by the next video, not by the next restart.
+        # The stage calls reset() on entry, so a video resumed after a review
+        # gate asks again too; the id check covers a caller that did not.
+        self.reset()
+
+    def reset(self) -> None:
+        self._rows: dict[tuple[str, str], list[dict]] = {}
+        self._rows_video: str | None = None
+
+    def _lookup_ids(self, ctx: StageContext, base: str, endpoint: str, names: list[str]) -> list[str]:
+        if self._rows_video != ctx.video_id:
+            self.reset()
+            self._rows_video = ctx.video_id
+        rows = self._rows.get((base, endpoint))
+        if rows is None:
+            try:
+                rows = httpx.get(f"{base}/{endpoint}", timeout=15).json()
+            except (httpx.HTTPError, ValueError):
+                return []  # not cached: an outage must not outlive itself
+            self._rows[(base, endpoint)] = rows
         norm = lambda s: "".join(str(s).lower().split()).replace("-", "")  # noqa: E731
         by_name = {norm(r.get("normalized_name") or r.get("name", "")): str(r["id"]) for r in rows}
         return [by_name[norm(n)] for n in names if norm(n) in by_name]
@@ -186,7 +205,7 @@ class LibraryAdapter:
         if source_cfg.get("licenses"):
             params["licenses"] = ",".join(source_cfg["licenses"])
         if source_cfg.get("niches"):
-            niche_ids = self._lookup_ids(base, "niches", source_cfg["niches"])
+            niche_ids = self._lookup_ids(ctx, base, "niches", source_cfg["niches"])
             if niche_ids:
                 params["niches"] = ",".join(niche_ids)
         # Scoping is FAIL-CLOSED. With no channel_id the library applies no
@@ -196,7 +215,7 @@ class LibraryAdapter:
         # (nothing ingested under that name yet) is a normal state, not an
         # error: send the unmatched name so `is_mine` is false for every row
         # and `include_global` decides, which is exactly "the global pool".
-        lib_channel = self._lookup_ids(base, "channels", [ctx.channel_id])
+        lib_channel = self._lookup_ids(ctx, base, "channels", [ctx.channel_id])
         params["channel_id"] = lib_channel[0] if lib_channel else str(ctx.channel_id)
         params["include_global"] = str(bool(source_cfg.get("include_global", True))).lower()
         max_clip = ((ctx.cfg.get("source_policy") or {}).get("visual") or {}).get("max_clip_seconds")
@@ -372,8 +391,10 @@ class PexelsAdapter:
                 continue
             try:
                 if want_video:
-                    files = sorted(hit["video_files"], key=lambda f: f.get("width") or 0, reverse=True)
-                    dl_url = files[0]["link"]
+                    chosen = pick_video_file(hit["video_files"], ctx.cfg.get("output") or {})
+                    if chosen is None:
+                        continue
+                    dl_url = chosen["link"]
                 else:
                     dl_url = hit["src"]["large2x"]
                 with httpx.stream("GET", dl_url, timeout=180, follow_redirects=True) as resp:
@@ -396,6 +417,51 @@ class PexelsAdapter:
                 media_type="video" if want_video else "image",
             )
         return None
+
+
+def pick_video_file(files: list[dict], output: dict) -> dict | None:
+    """Which of a Pexels video's renditions to download.
+
+    Pexels lists the same clip at several sizes, up to 4K. Taking the widest
+    meant downloading the whole 4K file and then transcoding it down, per shot
+    — the largest single cost in resolve_assets. Nothing above the plan's size
+    ever reaches the screen (renders never upscale past it, and normalize_video
+    scales down anyway), so the order is, on the SHORT side so a portrait
+    channel reads the same way:
+
+      1. exactly the target — no transcode;
+      2. else the largest in [720, target) — still no transcode, a mild upscale
+         in the render beats a 4K download;
+      3. else the smallest above target — normalize_video scales it down;
+      4. else (only < 720 exists) the largest there is.
+
+    Ties go to the frame rate nearest the output's. Renditions with no size
+    (a stream playlist) are not candidates; None when nothing is downloadable.
+    """
+    target = min(int(output.get("width") or 1920), int(output.get("height") or 1080))
+    fps = float(output.get("fps") or 30)
+    usable = [
+        (min(int(f["width"]), int(f["height"])), f)
+        for f in files
+        if f.get("link") and f.get("width") and f.get("height")
+        and str(f.get("file_type") or "video/mp4") == "video/mp4"
+    ]
+    if not usable:
+        return None
+
+    def fps_gap(f: dict) -> float:
+        return abs(float(f.get("fps") or fps) - fps)
+
+    exact = [f for side, f in usable if side == target]
+    if exact:
+        return min(exact, key=fps_gap)
+    below = [(side, f) for side, f in usable if 720 <= side < target]
+    if below:
+        return min(below, key=lambda sf: (-sf[0], fps_gap(sf[1])))[1]
+    above = [(side, f) for side, f in usable if side > target]
+    if above:
+        return min(above, key=lambda sf: (sf[0], fps_gap(sf[1])))[1]
+    return min(usable, key=lambda sf: (-sf[0], fps_gap(sf[1])))[1]
 
 
 def normalize_video(ctx: StageContext, path) -> None:
@@ -557,6 +623,14 @@ ADAPTERS: dict[str, SourceAdapter] = {
     "stock": PexelsAdapter(),
     "ai_image": AiImageAdapter(),
 }
+
+
+def begin_run() -> None:
+    """A resolve_assets run starts with no per-run memo in any adapter."""
+    for adapter in ADAPTERS.values():
+        reset = getattr(adapter, "reset", None)
+        if callable(reset):
+            reset()
 
 
 # ---------------- the used-asset ledger (D54) ----------------

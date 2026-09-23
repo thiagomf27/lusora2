@@ -7,6 +7,7 @@ runs BEFORE the operation.
 
 from __future__ import annotations
 
+import threading
 from contextlib import contextmanager
 from typing import Any, Iterator
 
@@ -14,6 +15,9 @@ import lusora_contracts
 
 from .context import StageContext
 from .errors import StageError
+
+# One per process: budget_gate's read-then-reserve must not interleave.
+_GATE_LOCK = threading.Lock()
 
 
 def _entry(provider: str, operation: str) -> dict[str, Any]:
@@ -97,7 +101,6 @@ def budget_gate(
     price = out_rate if tokens else unit_price(provider, operation)
     estimate = estimated_units * price
     budget = float((ctx.cfg.get("budget") or {}).get("max_usd_per_video", float("inf")))
-    spent = ctx.db.spent_and_reserved(ctx.video_id)
 
     common = dict(
         video_id=ctx.video_id,
@@ -106,28 +109,33 @@ def budget_gate(
         operation=operation,
         unit_price_usd=price,
     )
-    ctx.db.cost_event(
-        **common, status="estimated", units=estimated_units, usd=estimate, details=details
-    )
-    if spent + estimate > budget:
-        raise StageError(
-            stage,
-            f"{operation} estimate ${estimate:.4f} would exceed budget ${budget:.2f} "
-            f"(spent+reserved ${spent:.4f}) — raise the budget, change the source policy, or edit the input, then re-queue",
+    # Read-then-reserve is one step: two calls running in parallel (overlay
+    # chunks, TTS parts) would otherwise both read the same spend, both fit,
+    # and together pass a budget neither could have passed alone.
+    with _GATE_LOCK:
+        spent = ctx.db.spent_and_reserved(ctx.video_id)
+        ctx.db.cost_event(
+            **common, status="estimated", units=estimated_units, usd=estimate, details=details
         )
-    ctx.db.cost_event(
-        **common, status="reserved", units=estimated_units, usd=estimate, details=details
-    )
+        if spent + estimate > budget:
+            raise StageError(
+                stage,
+                f"{operation} estimate ${estimate:.4f} would exceed budget ${budget:.2f} "
+                f"(spent+reserved ${spent:.4f}) — raise the budget, change the source policy, or edit the input, then re-queue",
+            )
+        reservation = ctx.db.cost_event(
+            **common, status="reserved", units=estimated_units, usd=estimate, details=details
+        )
 
     recorder = CostRecorder(ctx, common, details, in_rate, out_rate, tokens)
     try:
         yield recorder
     except Exception:
-        ctx.db.release_reservation(ctx.video_id, provider, operation)
+        ctx.db.release_reservation(ctx.video_id, provider, operation, event_id=reservation)
         ctx.db.cost_event(**common, status="failed", units=0, usd=0, details=details)
         raise
     else:
-        ctx.db.release_reservation(ctx.video_id, provider, operation)
+        ctx.db.release_reservation(ctx.video_id, provider, operation, event_id=reservation)
         actual_units = recorder.actual_units if recorder.actual_units is not None else estimated_units
         ctx.db.cost_event(
             **common,

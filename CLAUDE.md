@@ -59,6 +59,10 @@ docker-compose.
 - [Identity Plan](05-roadmap/identity-plan.md) — never person A's name over
   person B's face: why a named person resolves to a stranger, and the
   two-question rule ★ read before touching person/b-roll matching
+- [Throughput Plan](05-roadmap/throughput-plan.md) — a 20-minute video in
+  ~1.5 h instead of ~5: where the time goes per stage, and the slices that
+  parallelise narration, overlays and asset resolution ★ read before touching
+  `tts.py`, `resolve_assets` or worker concurrency
 - [B-roll Integration](05-roadmap/broll-integration.md) — swapping the
   vendored library snapshot for the live broll-engine repo: the API
   mismatches it exposes and the slice order ★ read before touching

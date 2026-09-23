@@ -22,6 +22,22 @@ REPO_ROOT = _find_repo_root()
 load_dotenv(REPO_ROOT / ".env")
 
 
+def parallelism(name: str, default: int) -> int:
+    """How many network calls of one kind may run at once — deployment config
+    (a machine and a rate limit), never channel config: it changes when the
+    output arrives, not what it is, so it is not snapshotted into cfg.json.
+    Anything unreadable or below 1 means serial."""
+    try:
+        return max(1, int(os.environ.get(name) or default))
+    except ValueError:
+        return 1
+
+
+def videos_root() -> Path:
+    root = Path(os.environ.get("VIDEOS_ROOT") or REPO_ROOT / "data/videos")
+    return root if root.is_absolute() else REPO_ROOT / root
+
+
 @dataclass(frozen=True)
 class WorkerConfig:
     database_url: str
@@ -36,13 +52,10 @@ class WorkerConfig:
         db = os.environ.get("DATABASE_URL")
         if not db:
             raise RuntimeError("missing required env var DATABASE_URL")
-        videos_root = Path(os.environ.get("VIDEOS_ROOT") or REPO_ROOT / "data/videos")
-        if not videos_root.is_absolute():
-            videos_root = REPO_ROOT / videos_root
         engine_cli = Path(os.environ.get("ENGINE_CLI") or REPO_ROOT / "engine/src/cli.ts")
         return WorkerConfig(
             database_url=db,
-            videos_root=videos_root,
+            videos_root=videos_root(),
             worker_id=os.environ.get("WORKER_ID", "worker-1"),
             poll_seconds=float(os.environ.get("WORKER_POLL_SECONDS", "3")),
             engine_cli=engine_cli,

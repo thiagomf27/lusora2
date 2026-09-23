@@ -640,6 +640,7 @@ def run_resolve_assets(ctx: StageContext) -> None:
         raise StageError("resolve_assets", "source_policy.visual.chain is empty — nothing can be sourced")
 
     (ctx.folder / "clips").mkdir(exist_ok=True)
+    sources.begin_run()
     # What this video has already put on screen (D54). Rebuilt from the plan,
     # so a worker killed mid-stage resumes with the ledger it had.
     ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)

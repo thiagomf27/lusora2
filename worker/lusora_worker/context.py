@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -49,5 +50,9 @@ class StageContext:
         )
 
     def log(self, line: str) -> None:
+        # Stamped so a stage's wall time can be read off the folder alone
+        # (stage_times.py) — the folder is the data plane of record, and the
+        # database may not be the one the video was made against.
+        stamp = datetime.now().astimezone().isoformat(timespec="seconds")
         with (self.folder / "production.log").open("a", encoding="utf-8") as f:
-            f.write(line.rstrip() + "\n")
+            f.write(f"{stamp} {line.rstrip()}\n")

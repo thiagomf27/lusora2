@@ -50,14 +50,17 @@ class FakeDb:
         self.events = []
 
     def cost_event(self, **kw):
+        kw["_id"] = len(self.cost_events)
         self.cost_events.append(kw)
+        return kw["_id"]
 
     def spent_and_reserved(self, video_id):
         return sum(e["usd"] for e in self.cost_events if e["status"] in ("completed", "reserved"))
 
-    def release_reservation(self, video_id, provider, operation):
+    def release_reservation(self, video_id, provider, operation, event_id=None):
         for e in self.cost_events:
-            if e["status"] == "reserved" and e["provider"] == provider:
+            if e["status"] == "reserved" and e["provider"] == provider \
+                    and event_id in (None, e.get("_id")):
                 e["status"] = "refunded"
 
     def event(self, video_id, stage, status, message=None):

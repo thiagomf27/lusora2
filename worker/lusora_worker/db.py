@@ -69,12 +69,13 @@ class Db:
         unit_price_usd: float,
         usd: float,
         details: dict[str, Any] | None = None,
-    ) -> None:
-        self.conn.execute(
+    ) -> int:
+        row = self.conn.execute(
             """
             INSERT INTO cost_events
               (video_id, channel_id, provider, operation, status, units, unit_price_usd, usd, details)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 video_id,
@@ -87,7 +88,7 @@ class Db:
                 usd,
                 json.dumps(details) if details else None,
             ),
-        )
+        ).fetchone()
         if status == "completed" and video_id:
             self.conn.execute(
                 """
@@ -98,6 +99,7 @@ class Db:
                 """,
                 (video_id, video_id),
             )
+        return int(row["id"])
 
     def spent_and_reserved(self, video_id: str) -> float:
         row = self.conn.execute(
@@ -109,8 +111,22 @@ class Db:
         ).fetchone()
         return float(row["total"]) if row else 0.0
 
-    def release_reservation(self, video_id: str, provider: str, operation: str) -> None:
-        """Mark this operation's open reservations refunded (after completion or failure)."""
+    def release_reservation(
+        self, video_id: str, provider: str, operation: str, event_id: int | None = None
+    ) -> None:
+        """Mark a reservation refunded (after completion or failure).
+
+        With `event_id`, only that row: calls running in parallel for the same
+        operation each hold their own reservation, and the first to finish must
+        not refund the others' while they are still spending. Without it, every
+        open reservation for the operation — the serial behaviour.
+        """
+        if event_id is not None:
+            self.conn.execute(
+                "UPDATE cost_events SET status = 'refunded' WHERE id = %s AND status = 'reserved'",
+                (event_id,),
+            )
+            return
         self.conn.execute(
             """
             UPDATE cost_events SET status = 'refunded'

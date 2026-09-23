@@ -10,6 +10,7 @@ Restraint is the thing being PROTECTED here, not the thing being improved.
 """
 
 import json
+import re
 
 import pytest
 
@@ -181,7 +182,8 @@ def test_a_long_video_splits_the_overlay_question_across_calls(tmp_path):
 
     doc = overlay_agent.select_overlays(ctx, _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
     assert len(seen) == 3, "70 candidates at the default target of 30"
-    assert "part 2 of 3" in seen[1]
+    parts = sorted(re.search(r"part \d+ of \d+", s).group(0) for s in seen)
+    assert parts == ["part 1 of 3", "part 2 of 3", "part 3 of 3"], "in any order: they run in parallel"
     assert len(doc["selections"]) == 3, "one from each call, merged"
 
 
@@ -213,7 +215,9 @@ def test_a_chunk_placing_a_graphic_on_another_chunks_beat_is_repaired(tmp_path):
 
     def chat_fn(provider, model, system, user, max_tokens, temperature=None):
         calls.append(user)
-        if len(calls) == 2:  # part 2 answers about part 1's beat
+        # part 2's first answer is about part 1's beat (parts run in parallel,
+        # so they are told apart by what they were asked, not by arrival order)
+        if "part 2 of" in user and "REJECTED" not in user:
             return _reply({"version": "1.0", "video_id": "vid_o", "declined": [],
                            "selections": [{"beat_id": "b1", "component": "AnimatedCounter",
                                            "role": "anchor", "anchor_ref": 0, "why": "mine"}]})
@@ -221,7 +225,9 @@ def test_a_chunk_placing_a_graphic_on_another_chunks_beat_is_repaired(tmp_path):
 
     doc = overlay_agent.select_overlays(ctx, _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
     assert len(calls) == 4, "three parts plus one repair"
-    assert "not one of the candidates in this part" in calls[2], "the reason is fed back"
+    repairs = [c for c in calls if "REJECTED" in c]
+    assert len(repairs) == 1 and "part 2 of" in repairs[0]
+    assert "not one of the candidates in this part" in repairs[0], "the reason is fed back"
     assert [s["beat_id"] for s in doc["selections"]].count("b1") <= 1
 
 
@@ -614,3 +620,76 @@ def test_every_component_the_examples_name_exists_and_is_used_legally():
         assert name in catalog, name
         takes_anchor = bool(catalog[name]["anchor_types"])
         assert (role == "anchor") == takes_anchor, (name, role, catalog[name]["anchor_types"])
+
+
+# ---------------- parts run in parallel (throughput slice 3) ----------------
+
+
+def test_the_parts_really_run_at_the_same_time(tmp_path, monkeypatch):
+    """Three parts that each wait for the other two: serial would deadlock on
+    the barrier and time out, parallel passes it."""
+    import threading
+
+    monkeypatch.setenv("OVERLAY_PARALLELISM", "3")
+    barrier = threading.Barrier(3, timeout=5)
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        barrier.wait()
+        return _reply(_answer_for(user))
+
+    overlay_agent.select_overlays(_ctx(tmp_path), _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+
+
+def test_parallel_and_serial_write_the_same_document(tmp_path, monkeypatch):
+    """Parts finishing in reverse order still merge in part order."""
+    import random
+    import time
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        time.sleep(random.uniform(0, 0.05))
+        return _reply(_answer_for(user))
+
+    monkeypatch.setenv("OVERLAY_PARALLELISM", "1")
+    serial = overlay_agent.select_overlays(_ctx(tmp_path), _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+    monkeypatch.setenv("OVERLAY_PARALLELISM", "4")
+    parallel = overlay_agent.select_overlays(_ctx(tmp_path), _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+    assert parallel == serial
+
+
+def test_a_failing_part_fails_the_stage_with_its_own_reason(tmp_path, monkeypatch):
+    monkeypatch.setenv("OVERLAY_PARALLELISM", "3")
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        if "part 3 of" in user:
+            return LLMResult(text="not json", input_tokens=10, output_tokens=10)
+        return _reply(_answer_for(user))
+
+    with pytest.raises(StageError, match="on part 3 of 3"):
+        overlay_agent.select_overlays(_ctx(tmp_path), _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+
+
+def test_parallel_parts_each_release_only_their_own_reservation(tmp_path, monkeypatch):
+    """Released by provider+operation, the first part to finish refunded the
+    reservations of the parts still running — spend in flight went uncounted."""
+    import threading
+    import time
+
+    monkeypatch.setenv("OVERLAY_PARALLELISM", "3")
+    ctx = _ctx(tmp_path)
+    reserved = threading.Barrier(3, timeout=5)
+    still_open = []
+
+    def chat_fn(provider, model, system, user, max_tokens, temperature=None):
+        reserved.wait()  # all three parts hold a reservation
+        if "part 1 of" not in user:
+            # wait until part 1 has finished and released, then look
+            deadline = time.time() + 5
+            while not any(e["status"] == "completed" for e in ctx.db.cost_events):
+                assert time.time() < deadline
+                time.sleep(0.005)
+            still_open.append(sum(1 for e in ctx.db.cost_events if e["status"] == "reserved"))
+        return _reply(_answer_for(user))
+
+    overlay_agent.select_overlays(ctx, _many_anchored_beats(70), 600.0, chat_fn=chat_fn)
+    assert still_open and min(still_open) >= 1, still_open
+    assert not [e for e in ctx.db.cost_events if e["status"] == "reserved"], "all released at the end"
