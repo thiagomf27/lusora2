@@ -223,6 +223,14 @@ Downstream must not notice: `tts_timings.json` keeps its exact shape (one item
 per sentence, `start_s`/`end_s`/`text`), so `transcript`, `cut_beats` and
 ducking are untouched. That is the invariant every sub-slice is tested against.
 
+**5a and 5b — DONE.** Parts live in `<video>/tts_parts/`, each named
+`NNNN-<sha1(voice, sentence)>.mp3`, so a resume reuses only audio of THIS
+sentence in THIS voice — an edited script or a new voice re-synthesizes. A part
+is written to `.part` and renamed, so an existing file is a whole one. The
+budget gate bills the characters synthesized in this run, not the whole
+script. Tests: `tests/test_tts.py` (real ffmpeg-made parts, so durations and
+order are measured, not asserted from a stub).
+
 - **5a — resumable parts (no API question).** Parts go to
   `<video>/tts_parts/NNNN.mp3` + a small manifest instead of a tempdir, so a
   crash resumes at the first missing part and paid-for audio is never

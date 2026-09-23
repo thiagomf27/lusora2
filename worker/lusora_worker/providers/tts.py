@@ -15,15 +15,18 @@ Providers:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
 
+from ..config import parallelism
 from ..context import StageContext
 from ..costs import budget_gate
 from ..errors import StageError
@@ -58,8 +61,10 @@ def synthesize(ctx: StageContext, script: str) -> None:
         elif provider == "mock":
             _mock(ctx, sentences)
         elif provider == "ai33":
-            credits = _ai33(ctx, sentences)
-            cost.actual(len(script), {"sentences": len(sentences), "credits": credits})
+            credits, chars = _ai33(ctx, sentences)
+            # billed for what was synthesized THIS run; resumed parts were
+            # paid for by the run that made them
+            cost.actual(chars, {"sentences": len(sentences), "credits": credits})
         else:
             raise StageError(
                 STAGE,
@@ -109,9 +114,28 @@ def _flite(ctx: StageContext, sentences: list[str]) -> None:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
-def _ai33(ctx: StageContext, sentences: list[str]) -> float:
+PARTS_DIR = "tts_parts"
+
+
+def _part_name(i: int, voice: str, sentence: str) -> str:
+    """A part is named by what it SAYS and in which voice, not just its place:
+    an edited script or a changed voice must not resume from audio of the old
+    one. The index keeps the directory readable and the concat order obvious."""
+    digest = hashlib.sha1(f"{voice}\n{sentence}".encode()).hexdigest()[:12]
+    return f"{i:04d}-{digest}.mp3"
+
+
+def _ai33(ctx: StageContext, sentences: list[str]) -> tuple[float, int]:
     """Per-sentence synthesis for exact timings (same contract as flite).
-    Returns total credits reported by the API."""
+    Returns (credits reported by the API, characters actually synthesized now).
+
+    Throughput slice 5: sentences are requested in parallel (TTS_PARALLELISM,
+    default 6) — each one was ~17 s of mostly queue wait, one after another —
+    and each finished part is kept in <video>/tts_parts/ until audio.mp3 is
+    written, so a run that dies at sentence 240 resumes there instead of paying
+    for all 250 again. Order is restored at the concat; timings are each part's
+    own duration, exactly as before.
+    """
     api_key = os.environ.get("AI33_API_KEY")
     if not api_key:
         raise StageError(STAGE, "voice provider ai33 needs AI33_API_KEY in .env")
@@ -119,40 +143,60 @@ def _ai33(ctx: StageContext, sentences: list[str]) -> float:
     voice = str(((ctx.cfg.get("voice") or {}).get("voice_id")) or "edge_en-US-GuyNeural")
     headers = {"xi-api-key": api_key}
 
-    tmp_dir = Path(tempfile.mkdtemp(prefix="lusora_ai33_"))
+    parts_dir = ctx.folder / PARTS_DIR
+    parts_dir.mkdir(exist_ok=True)
+    files = [parts_dir / _part_name(i, voice, s) for i, s in enumerate(sentences)]
+    todo = [i for i, f in enumerate(files) if not (f.exists() and f.stat().st_size > 0)]
+    if len(todo) < len(sentences):
+        ctx.log(f"narration resumes: {len(sentences) - len(todo)} of {len(sentences)} "
+                "sentences already synthesized")
+
+    def synthesize_one(i: int) -> float:
+        body = _ai33_submit(base, headers, voice, sentences[i], i + 1)
+        if not body.get("success") or not body.get("task_id"):
+            raise StageError(STAGE, f"ai33 rejected sentence {i + 1}: {body.get('message', body)}")
+        audio_url, credits = _ai33_wait(base, headers, str(body["task_id"]), i + 1)
+        # written beside, renamed into place: a part that exists is a whole one
+        partial = files[i].with_suffix(".part")
+        try:
+            with httpx.stream("GET", audio_url, timeout=120, follow_redirects=True) as dl:
+                dl.raise_for_status()
+                with open(partial, "wb") as f:
+                    for chunk in dl.iter_bytes():
+                        f.write(chunk)
+        except httpx.HTTPError as e:
+            partial.unlink(missing_ok=True)
+            raise StageError(STAGE, f"ai33 audio download failed (sentence {i + 1}): {e}")
+        partial.replace(files[i])
+        return credits
+
+    workers = min(len(todo), parallelism("TTS_PARALLELISM", 6))
     total_credits = 0.0
-    try:
-        durations: list[float] = []
-        files: list[Path] = []
-        for i, sentence in enumerate(sentences):
-            body = _ai33_submit(base, headers, voice, sentence, i + 1)
-            if not body.get("success") or not body.get("task_id"):
-                raise StageError(STAGE, f"ai33 rejected sentence {i + 1}: {body.get('message', body)}")
-
-            audio_url, credits = _ai33_wait(base, headers, str(body["task_id"]), i + 1)
-            total_credits += credits
-            seg = tmp_dir / f"s{i:04d}.mp3"
+    if workers <= 1:
+        for i in todo:
+            total_credits += synthesize_one(i)
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(synthesize_one, i) for i in todo]
             try:
-                with httpx.stream("GET", audio_url, timeout=120, follow_redirects=True) as dl:
-                    dl.raise_for_status()
-                    with open(seg, "wb") as f:
-                        for chunk in dl.iter_bytes():
-                            f.write(chunk)
-            except httpx.HTTPError as e:
-                raise StageError(STAGE, f"ai33 audio download failed (sentence {i + 1}): {e}")
-            durations.append(probe_duration(STAGE, seg))
-            files.append(seg)
+                # in sentence order, so the first failure reported is the
+                # earliest; the parts that did finish stay on disk for resume
+                total_credits = sum(f.result() for f in futures)
+            except BaseException:
+                for f in futures:
+                    f.cancel()
+                raise
 
-        concat_list = tmp_dir / "list.txt"
-        concat_list.write_text("".join(f"file '{f}'\n" for f in files), encoding="utf-8")
-        run_ffmpeg(STAGE, [
-            "-f", "concat", "-safe", "0", "-i", str(concat_list),
-            "-acodec", "libmp3lame", "-q:a", "3", str(ctx.artifact("audio.mp3")),
-        ])
-        _write_timings(ctx, sentences, durations)
-        return total_credits
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    durations = [probe_duration(STAGE, f) for f in files]
+    concat_list = parts_dir / "list.txt"
+    concat_list.write_text("".join(f"file '{f}'\n" for f in files), encoding="utf-8")
+    run_ffmpeg(STAGE, [
+        "-f", "concat", "-safe", "0", "-i", str(concat_list),
+        "-acodec", "libmp3lame", "-q:a", "3", str(ctx.artifact("audio.mp3")),
+    ])
+    _write_timings(ctx, sentences, durations)
+    shutil.rmtree(parts_dir, ignore_errors=True)
+    return total_credits, sum(len(sentences[i]) for i in todo)
 
 
 def _ai33_submit(
