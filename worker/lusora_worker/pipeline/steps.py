@@ -12,6 +12,8 @@ import json
 import math
 import shutil
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import lusora_contracts
@@ -21,6 +23,7 @@ from ..agents import overlay as overlay_agent
 from ..agents import planner as planner_agent
 from ..agents import script as script_agent
 from ..compiler import compile_plan
+from ..config import parallelism
 from ..context import StageContext
 from ..errors import StageError
 from ..media import extract_audio, probe_duration, run_ffmpeg
@@ -644,64 +647,116 @@ def run_resolve_assets(ctx: StageContext) -> None:
     # What this video has already put on screen (D54). Rebuilt from the plan,
     # so a worker killed mid-stage resumes with the ledger it had.
     ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
-    changed = False
     floor = degrade.source_score_floor(ctx.cfg)
     identities = identities_in(plan)
-    for item in plan["tracks"]["visual"]:
+
+    def pending(item: dict) -> bool:
         path = str(item["asset"].get("path", ""))
         if path and (ctx.folder / path).exists():
-            continue  # human-provided or already resolved
-        if item.get("media_type") == "color":
-            continue  # already degraded to a card on an earlier pass
-        beat = beats.get(str(item.get("beat_id")))
-        query = str((beat or {}).get("visual_intent") or ctx.video.get("title") or "establishing shot")
+            return False  # human-provided or already resolved
+        return item.get("media_type") != "color"  # degraded to a card on an earlier pass
+
+    def question(item: dict) -> tuple[dict, str, list[str], str | None]:
+        beat = beats.get(str(item.get("beat_id"))) or {}
+        query = str(beat.get("visual_intent") or ctx.video.get("title") or "establishing shot")
         # v1.1 (D53): keyword sources get these instead of the scout sentence
-        queries = [str(q) for q in ((beat or {}).get("queries") or [])]
-        person = identities.get(str(item.get("beat_id")))
-        resolved = sources.resolve_item(ctx, item, query, chain, queries, ledger,
-                                        identity=person)
-        if not resolved:
-            if person:
-                # Both questions came back empty. A plain frame carrying their
-                # name is a worse video than real footage and a better one than
-                # no video at all, which is what this used to be.
-                degrade.to_identity_card(ctx, plan, item, person)
-                ctx.db.event(ctx.video_id, "resolve_assets", "progress",
-                             f"beat {item.get('beat_id')}: nothing found for {person} or for "
-                             "the scene — showing their name on the plate")
-            else:
-                raise StageError(
-                    "resolve_assets",
-                    f"source chain exhausted for beat {item.get('beat_id')} (item {item['id']}) — "
-                    f"query was: {query!r}; add sources, lower min_score, or edit the beat",
-                )
-        # A score below the floor is a match nobody would have chosen: place a
-        # card that says what the beat is about instead of a clip that is
-        # nearly unrelated (D55). Sources that return no score (stock, ai) are
-        # not judged here — there is nothing to judge them by.
-        score = (item.get("asset") or {}).get("score")
-        if floor > 0 and score is not None and float(score) < floor:
-            used = degrade.to_title_card(ctx, plan, item, beat or {})
-            if used:
-                ctx.db.event(ctx.video_id, "resolve_assets", "progress",
-                             f"beat {item.get('beat_id')}: best match scored {float(score):.2f}, "
-                             f"under min_score_floor {floor:g} — showing a {used} instead")
+        queries = [str(q) for q in (beat.get("queries") or [])]
+        return beat, query, queries, identities.get(str(item.get("beat_id")))
+
+    # Throughput slice 4: FETCH in parallel, COMMIT in plan order. A fetch
+    # searches and downloads against a snapshot of the ledger taken when it
+    # starts and writes nothing else; the loop below places each answer in
+    # order, exactly where the serial loop did. An answer an earlier item took
+    # in the meantime is fetched again, serially, against the live ledger —
+    # the question the serial loop would have asked at that point.
+    ledger_lock = threading.Lock()
+
+    def fetch(item: dict, live: bool = False) -> sources.Resolution | None:
+        _beat, query, queries, person = question(item)
+        if live:
+            snapshot = ledger
         else:
-            strategy = degrade.apply_short_clip_policy(ctx, item)
-            if strategy:
+            with ledger_lock:
+                snapshot = ledger.copy()
+        return sources.find_item(ctx, item, query, chain, queries, snapshot, identity=person)
+
+    todo = [item for item in plan["tracks"]["visual"] if pending(item)]
+    workers = min(len(todo), parallelism("ASSET_PARALLELISM", 4))
+    pool = ThreadPoolExecutor(max_workers=workers) if workers > 1 else None
+    futures = [pool.submit(fetch, item) for item in todo] if pool else []
+    try:
+        for n, item in enumerate(todo):
+            found = futures[n].result() if pool else fetch(item)
+            if found is not None and sources.conflicts(ctx, found, ledger):
+                (ctx.folder / str(found["path"])).unlink(missing_ok=True)
                 ctx.db.event(ctx.video_id, "resolve_assets", "progress",
-                             f"beat {item.get('beat_id')}: footage shorter than the beat — {strategy}")
+                             f"beat {item.get('beat_id')}: {found.get('source')} {found.get('id')} "
+                             "was taken by an earlier beat — asking again")
+                found = fetch(item, live=True)
+            _place(ctx, plan, item, found, question(item), ledger, ledger_lock, floor)
+            # checkpoint after every item so a killed worker resumes without
+            # re-downloading what it already has
+            ctx.write_json("edit_plan.json", plan)
+    except BaseException:
+        for f in futures:
+            f.cancel()  # not-yet-started fetches are not paid for
+        raise
+    finally:
+        if pool:
+            pool.shutdown(wait=True)
 
-        # checkpoint after every item so a killed worker resumes without
-        # re-downloading what it already has
-        ctx.write_json("edit_plan.json", plan)
-        changed = True
-
-    if changed:
+    if todo:
         ctx.db.event(ctx.video_id, "resolve_assets", "progress",
                      f"{sum(1 for v in plan['tracks']['visual'] if v['asset'].get('path'))} of "
                      f"{len(plan['tracks']['visual'])} items resolved")
     ctx.log("assets resolved for all visual items")
+
+
+def _place(
+    ctx: StageContext,
+    plan: dict,
+    item: dict,
+    found: sources.Resolution | None,
+    question: tuple[dict, str, list[str], str | None],
+    ledger: sources.Ledger,
+    ledger_lock: threading.Lock,
+    floor: float,
+) -> None:
+    """One item's answer, placed: what the serial loop did per item, unchanged."""
+    beat, query, _queries, person = question
+    if found is not None:
+        with ledger_lock:  # the fetches copy it; only this writes it
+            sources.commit(ctx, item, found, ledger)
+    elif person:
+        # Both questions came back empty. A plain frame carrying their name is
+        # a worse video than real footage and a better one than no video at
+        # all, which is what this used to be.
+        degrade.to_identity_card(ctx, plan, item, person)
+        ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                     f"beat {item.get('beat_id')}: nothing found for {person} or for "
+                     "the scene — showing their name on the plate")
+    else:
+        raise StageError(
+            "resolve_assets",
+            f"source chain exhausted for beat {item.get('beat_id')} (item {item['id']}) — "
+            f"query was: {query!r}; add sources, lower min_score, or edit the beat",
+        )
+    # A score below the floor is a match nobody would have chosen: place a
+    # card that says what the beat is about instead of a clip that is nearly
+    # unrelated (D55). Sources that return no score (stock, ai) are not judged
+    # here — there is nothing to judge them by.
+    score = (item.get("asset") or {}).get("score")
+    if floor > 0 and score is not None and float(score) < floor:
+        used = degrade.to_title_card(ctx, plan, item, beat)
+        if used:
+            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                         f"beat {item.get('beat_id')}: best match scored {float(score):.2f}, "
+                         f"under min_score_floor {floor:g} — showing a {used} instead")
+    else:
+        strategy = degrade.apply_short_clip_policy(ctx, item)
+        if strategy:
+            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                         f"beat {item.get('beat_id')}: footage shorter than the beat — {strategy}")
 
 
 # ---------------- resolve_audio (D48) ----------------

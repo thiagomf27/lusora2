@@ -896,3 +896,17 @@ def test_a_failed_lookup_is_not_remembered(tmp_path, monkeypatch):
     sources.resolve_item(ctx, _item("v2"), "harbour cranes", chain)
 
     assert calls["channels"] == 2
+
+
+def test_the_ledger_hashes_nothing_while_the_similarity_check_is_off(tmp_path, monkeypatch):
+    """Every placed shot used to be hashed — one or two ffmpeg runs each —
+    whether or not any channel had asked for the check."""
+    hashed = []
+    monkeypatch.setattr(sources, "perceptual_hash", lambda p: hashed.append(p) or 1)
+
+    sources.Ledger().remember({"source": "stock", "id": "1"}, tmp_path / "a.mp4")
+    assert hashed == []
+
+    on = sources.Ledger({"source_policy": {"visual": {"dedup": {"min_hamming_distance": 6}}}})
+    on.remember({"source": "stock", "id": "1"}, tmp_path / "a.mp4")
+    assert len(hashed) == 1

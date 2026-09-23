@@ -13,11 +13,13 @@ import hashlib
 import json
 import os
 import re
+import threading
 from typing import Any, Protocol
 
 import httpx
 from lusora_contracts import prompts as prompt_packs
 
+from ..config import parallelism
 from ..context import StageContext
 from ..costs import budget_gate
 from ..errors import StageError
@@ -186,6 +188,18 @@ class LibraryAdapter:
         by_name = {norm(r.get("normalized_name") or r.get("name", "")): str(r["id"]) for r in rows}
         return [by_name[norm(n)] for n in names if norm(n) in by_name]
 
+    def _mark_used(self, ctx: StageContext, base: str, seg_id: str, channel_id: str) -> None:
+        try:
+            httpx.post(
+                f"{base}/segments/{seg_id}/mark_used",
+                # the same channel the search was scoped to, so the overuse
+                # penalty it feeds is read back under the key it was written under
+                json={"project_id": ctx.video_id, "channel_id": channel_id},
+                timeout=30,
+            )
+        except httpx.HTTPError as e:
+            ctx.db.provider_health("library", False, f"mark_used failed for {seg_id}: {e}")
+
     def resolve(
         self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
         ledger: "Ledger | None" = None,
@@ -289,25 +303,16 @@ class LibraryAdapter:
                 return None
             if _too_similar(ctx, ledger, ctx.folder / out_rel, f"library segment {seg_id}"):
                 continue
-            try:
-                httpx.post(
-                    f"{base}/segments/{seg_id}/mark_used",
-                    # the same channel the search was scoped to, so the overuse
-                    # penalty it feeds is read back under the key it was
-                    # written under
-                    json={"project_id": ctx.video_id,
-                          "channel_id": params["channel_id"]},
-                    timeout=30,
-                )
-            except httpx.HTTPError as e:
-                ctx.db.provider_health("library", False, f"mark_used failed for {seg_id}: {e}")
-
             ctx.db.provider_health("library", True)
             return Resolution(
                 source="library", id=seg_id, provider=None,
                 license=best.get("license"), path=out_rel,
                 score=float(best.get("score", 0)), query=query[:200],
                 media_type="video",
+                # Marked at COMMIT, not here: fetched in parallel, a segment
+                # may lose to an earlier item that took it first, and a loser
+                # must not feed the library's overuse penalty.
+                _on_commit=lambda seg_id=seg_id: self._mark_used(ctx, base, seg_id, params["channel_id"]),
             )
         return None
 
@@ -339,7 +344,22 @@ class PexelsAdapter:
     # man at a desk: every content word missed, "view" and "of" hit.
     query_kind = "keyword"
 
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        # Pexels' quota is per key and per hour (~200 requests by default), so
+        # its share of resolve_assets' parallelism is capped on its own.
+        self._slots = threading.BoundedSemaphore(parallelism("PEXELS_CONCURRENCY", 2))
+
     def resolve(
+        self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None:
+        with self._slots:
+            return self._resolve(ctx, item, query, source_cfg, ledger)
+
+    def _resolve(
         self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
         ledger: "Ledger | None" = None,
     ) -> Resolution | None:
@@ -712,6 +732,14 @@ class Ledger:
             ledger.remember(asset, folder / path if ledger.min_distance else None)
         return ledger
 
+    def copy(self) -> "Ledger":
+        """A snapshot for a fetch running beside the commits: it reads what was
+        on screen when it started, and never writes back."""
+        other = Ledger.__new__(Ledger)
+        other.window, other.min_distance = self.window, self.min_distance
+        other.entries = list(self.entries)
+        return other
+
     @staticmethod
     def key(asset: dict[str, Any]) -> str:
         return f"{asset.get('source')}:{asset.get('provider') or ''}:{asset.get('id') or ''}"
@@ -740,7 +768,9 @@ class Ledger:
         return None
 
     def remember(self, asset: dict[str, Any], path: Any = None) -> None:
-        digest = perceptual_hash(path) if path is not None else None
+        # Hash only when a distance is set: it is one or two ffmpeg runs per
+        # placed shot (~0.17 s), and with the check off nothing ever reads it.
+        digest = perceptual_hash(path) if path is not None and self.min_distance > 0 else None
         self.entries.append((self.key(asset), digest))
 
 
@@ -765,12 +795,36 @@ def resolve_item(
     ledger: Ledger | None = None,
     identity: str | None = None,
 ) -> bool:
-    """Walk the chain in order, stop at the first acceptable asset.
-    Returns False only when the chain is exhausted (caller fails loud).
+    """Walk the chain in order, stop at the first acceptable asset, and put it
+    on the item. Returns False only when the chain is exhausted (caller fails
+    loud). find_item + commit, for a caller with nothing to do in between.
 
     `query` is the beat's visual_intent; `queries` its optional keyword
     alternates (beat sheet v1.1); `ledger` is what this video has already put
     on screen (D54).
+    """
+    resolution = find_item(ctx, item, query, chain, queries, ledger, identity)
+    if resolution is None:
+        return False
+    commit(ctx, item, resolution, ledger)
+    return True
+
+
+def find_item(
+    ctx: StageContext,
+    item: dict,
+    query: str,
+    chain: list[dict],
+    queries: list[str] | None = None,
+    ledger: Ledger | None = None,
+    identity: str | None = None,
+) -> Resolution | None:
+    """The asset this item should get — fetched to disk, but NOT yet placed.
+
+    Nothing here writes to the item, the ledger or the database's usage rows,
+    which is what lets resolve_assets run it for several items at once and
+    commit the answers in plan order (throughput slice 4). The file is already
+    at its final path, `clips/<item id>.*`, which no other item can claim.
 
     `identity` names the real person this shot is presented as being of, and
     turns one question into two. First the IDENTITY question — footage of that
@@ -789,54 +843,72 @@ def resolve_item(
         semantic, keyword = identity_queries(identity, query)
         id_chain = [{**c, "must_name": identity}
                     for c in chain if str(c.get("source")) in allowed]
-        if _walk(ctx, item, semantic, id_chain, keyword, ledger):
+        found = _find(ctx, item, semantic, id_chain, keyword, ledger)
+        if found is not None:
             ctx.db.event(ctx.video_id, STAGE, "progress",
                          f"beat {item.get('beat_id')}: found footage of {identity}")
-            return True
+            return found
         ctx.db.event(
             ctx.video_id, STAGE, "progress",
             f"beat {item.get('beat_id')}: no source could confirm footage of {identity} "
             f"(asked {', '.join(allowed)}) — showing the scene instead, which claims nobody",
         )
         chain = [{**c, "no_person": True} for c in chain]
-    return _walk(ctx, item, query, chain, queries, ledger)
+    return _find(ctx, item, query, chain, queries, ledger)
 
 
-def _walk(
+def _find(
     ctx: StageContext,
     item: dict,
     query: str,
     chain: list[dict],
     queries: list[str] | None,
     ledger: Ledger | None,
-) -> bool:
+) -> Resolution | None:
     for source_cfg in chain:
         adapter = ADAPTERS.get(str(source_cfg.get("source")))
         if adapter is None:
             continue
-        resolution = None
         for candidate in _queries_for(adapter, query, queries):
             resolution = _call_adapter(adapter, ctx, item, candidate, source_cfg, ledger)
             if resolution is not None:
-                break
-        if resolution is None:
-            continue
-        media_type = resolution.pop("media_type", "image")
-        item["media_type"] = media_type
-        item["asset"] = dict(resolution)
-        if media_type == "image":
-            item.setdefault("motion", {"type": "ken_burns", "direction": "in",
-                                       "pan": "center", "strength": 0.12})
-        else:
-            item.pop("motion", None)
-        ctx.db.asset_usage(
-            ctx.video_id, str(item.get("beat_id") or ""),
-            str(resolution["source"]), resolution.get("id"),
-            resolution.get("license"), resolution.get("provider"),
-        )
-        if ledger is not None:
-            ledger.remember(item["asset"], ctx.folder / str(item["asset"]["path"]))
+                return resolution
+    return None
+
+
+def commit(ctx: StageContext, item: dict, resolution: Resolution, ledger: Ledger | None) -> None:
+    """Place a found asset: on the item, in the usage table, in the ledger,
+    and — for a library segment — marked used in the library. Everything
+    order-dependent about resolving happens here and only here."""
+    resolution = Resolution(resolution)
+    on_commit = resolution.pop("_on_commit", None)
+    media_type = resolution.pop("media_type", "image")
+    item["media_type"] = media_type
+    item["asset"] = dict(resolution)
+    if media_type == "image":
+        item.setdefault("motion", {"type": "ken_burns", "direction": "in",
+                                   "pan": "center", "strength": 0.12})
+    else:
+        item.pop("motion", None)
+    ctx.db.asset_usage(
+        ctx.video_id, str(item.get("beat_id") or ""),
+        str(resolution["source"]), resolution.get("id"),
+        resolution.get("license"), resolution.get("provider"),
+    )
+    if ledger is not None:
+        ledger.remember(item["asset"], ctx.folder / str(item["asset"]["path"]))
+    if callable(on_commit):
+        on_commit()
+
+
+def conflicts(ctx: StageContext, resolution: Resolution, ledger: Ledger) -> bool:
+    """Would the live ledger have refused this answer? True when it was found
+    against an older snapshot and an item committed since took the same asset,
+    or one that looks the same."""
+    if ledger.blocked(str(resolution.get("source")), resolution.get("provider"), resolution.get("id")):
         return True
+    if ledger.min_distance > 0:
+        return ledger.too_similar(perceptual_hash(ctx.folder / str(resolution["path"]))) is not None
     return False
 
 

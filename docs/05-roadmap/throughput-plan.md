@@ -168,9 +168,25 @@ order with random delays → same document as serial; a chunk that raises fails
 the stage with that chunk's reason. **Exit:** on a multi-chunk case wall time
 ≈ the slowest chunk, not the sum.
 
-## Slice 4 — resolve_assets fetches in parallel, commits in order
+## Slice 4 — resolve_assets fetches in parallel, commits in order — DONE
 
-The biggest slice. Shape:
+Built as below, with two differences from the sketch. There is no
+`clips/.staging/`: a fetch already writes to `clips/<item id>.*`, a path no
+other item can claim, and a result that loses a conflict is deleted before
+the re-fetch. And each fetch snapshots the ledger when it STARTS, not when the
+stage starts, so later items see what earlier ones committed and conflicts
+stay rare. `sources.resolve_item` is now `find_item` (search + download,
+writes nothing else) + `commit` (item, `asset_usage`, ledger, and the
+library's `mark_used`, which travels on the resolution as `_on_commit`).
+
+Found on the way, and worth more than expected: `Ledger.remember` computed a
+perceptual hash — one or two ffmpeg runs, ~0.17 s — for EVERY placed shot,
+even with the similarity check off. ~40 s of a 245-shot video, for a hash
+nothing read. It now hashes only when `min_hamming_distance` is set.
+
+Tests: `tests/test_resolve_parallel.py`.
+
+The sketch, for the record:
 
 1. **Fetch (parallel, `ASSET_PARALLELISM`, default 4).** For each unresolved
    item, run the source chain against a *snapshot* of the ledger, downloading
