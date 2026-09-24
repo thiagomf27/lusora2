@@ -963,7 +963,33 @@ def run_qa(ctx: StageContext) -> None:
             float(vo.get("start_s", 0)) + float(vo["duration_s"]),
             float(visual[-1]["end_s"]) if visual else 0.0,
         )
+        qa.check(ctx, final, expected, _source_at(ctx, visual))
+        return
     qa.check(ctx, final, expected)
+
+
+def _source_at(ctx: StageContext, visual: list[dict]) -> qa.SourceAt:
+    """Where in which source file the plan is at a given moment of the video —
+    so QA can tell a dark shot from a shot that failed to draw."""
+    lengths: dict[str, float | None] = {}
+
+    def at(t: float) -> tuple[Path, float] | None:
+        item = next((v for v in visual if float(v["start_s"]) <= t < float(v["end_s"])), None)
+        path = str(((item or {}).get("asset") or {}).get("path") or "")
+        if not item or not path or item.get("media_type") not in ("video", "image"):
+            return None
+        source = ctx.folder / path
+        if item.get("media_type") == "image":
+            return source, 0.0
+        offset = float(item.get("in_offset_s") or 0) + (t - float(item["start_s"]))
+        if path not in lengths:
+            lengths[path] = qa.probe_duration(source)
+        length = lengths[path]
+        if length:
+            offset = offset % length if item.get("loop") else min(offset, max(length - 0.05, 0.0))
+        return source, offset
+
+    return at
 
 
 # ---------------- finalize ----------------

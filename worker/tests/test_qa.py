@@ -133,3 +133,35 @@ def test_an_unreadable_file_is_a_failure_not_a_crash(tmp_path):
     (tmp_path / "final.mp4").write_bytes(b"not a video")
     problems = qa.inspect(tmp_path / "final.mp4", 6.0, {})
     assert len(problems) == 1 and "no readable duration" in problems[0]
+
+
+# ---------------- dark footage is not a failed draw ----------------
+
+NIGHT = "color=c=0x0c0c0c:s=320x180:rate=30"  # a night shot, as dark as it was filmed
+
+
+def test_a_dark_frame_over_dark_footage_is_excused(tmp_path):
+    """The first real 5-minute test stopped on a night aerial and a dusk
+    aerial: frames under the black threshold because the FOOTAGE is dark. The
+    plan says which clip is on screen, so QA looks at that clip too."""
+    night = render(tmp_path / "night.mp4", video=NIGHT, audio=GOOD_AUDIO, seconds=6)
+    final = render(tmp_path / "final.mp4", video=NIGHT, audio=GOOD_AUDIO, seconds=6)
+    excused = []
+    assert qa.inspect(final, 6.0, {}, lambda t: (night, t), excused) == []
+    assert len(excused) == 12 and "night.mp4" in excused[0]
+
+
+def test_a_black_frame_over_bright_footage_still_fails(tmp_path):
+    """The case the check exists for: the source had a picture, the render
+    drew nothing."""
+    bright = render(tmp_path / "shot.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=6)
+    black = render(tmp_path / "final.mp4", video="color=c=black:s=320x180:rate=30",
+                   audio=GOOD_AUDIO, seconds=6)
+    problems = qa.inspect(black, 6.0, {}, lambda t: (bright, t))
+    assert problems and "sampled frames are black" in problems[0]
+
+
+def test_where_the_plan_shows_no_file_a_black_frame_is_judged_as_before(tmp_path):
+    black = render(tmp_path / "final.mp4", video="color=c=black:s=320x180:rate=30",
+                   audio=GOOD_AUDIO, seconds=6)
+    assert qa.inspect(black, 6.0, {}, lambda t: None)

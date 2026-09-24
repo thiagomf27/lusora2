@@ -15,6 +15,40 @@ the better, and it is the one slice that needs a decision entry and a listen.
 
 ---
 
+## Measured: the first real run after slices 0-6 (2026-09-23)
+
+`vid_ac2fd06b90d3`, "How electricity reached the American farm", American
+Century Docs, paragraph narration, 322 s of video, 66 shots (65 Pexels, 1
+library — the dev library holds 3 segments), on the 8-thread / 7.5 GB laptop.
+
+| stage | time | vs the pre-plan run (254 s video) |
+|---|---|---|
+| script | 27 s | 34 s |
+| narration (paragraph + alignment) | 64 s | 913 s |
+| plan_beats (3 chunks, sequential by design) | 152 s | 69 s — 77 beats vs 53 |
+| select_overlays | 11 s | 15 s |
+| resolve_assets | 213 s (3.2 s a shot) | ~2,090 s (~40 s a shot) |
+| render | 899 s (2.8x realtime) | ~715 s |
+| qa | 55 s | — |
+| **total** | **~24 min (4.4 min per video-minute)** | **~64 min (15 min per video-minute)** |
+
+Render is now 63% of the wall time; everything else together is ~9 min.
+Scaled to 20 minutes (x3.7): ~1.5 h, of which render ~56 min — the estimate
+at the top of this file holds. Cost recorded: $0.10 (ai33 at the table's
+estimated rate; deepseek craft_beats $0.045 over 5 calls).
+
+The run found two bugs, both fixed before it finished:
+- **Beats did not meet** (`compile_plan`: 0.76 s gap). Aligned word ends stop
+  at the pause; a beat is timed first-word-start to last-word-end. Words now
+  tile their sentence (each holds until the next starts).
+- **QA stopped a good video**: two sampled frames under the black threshold
+  were a night aerial and a dusk aerial, exactly as shot. QA now looks at the
+  source frame the plan puts there, and excuses a dark render over dark
+  footage (source luma <= 0.15); black over bright footage still fails.
+
+Still worth doing: QA itself took ~55-65 s for 5 minutes (full-file
+volumedetect + silencedetect + 12 seeks) — ~4 min at 20 minutes.
+
 ## Where the time goes today
 
 `vid_39f574974bda` is the one clean `faceless_v3` run: 254 s of video,

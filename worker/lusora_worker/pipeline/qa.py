@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,17 @@ DEFAULTS = {
     "clip_dbfs": -0.1,
     "duration_tolerance_s": 1.0,
 }
+
+
+# A source frame at or under this mean luma is DARK footage (night, dusk,
+# archive): a render that comes out near-black over it is showing the shot,
+# not failing to draw it. Well above black_luma_max, because the theme's grade
+# (desaturation, a vignette) darkens what it is given.
+DARK_SOURCE_LUMA_MAX = 0.15
+
+# video time -> (the file the plan shows there, the moment within it); None
+# where the plan shows no file (a colour card) or the caller has no plan
+SourceAt = Callable[[float], "tuple[Path, float] | None"]
 
 
 def settings(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -111,8 +123,20 @@ def sample_points(duration_s: float, count: int) -> list[float]:
     return [inset + span * i / (count - 1) for i in range(count)]
 
 
-def inspect(video: Path, expected_duration_s: float | None, cfg: dict[str, Any]) -> list[str]:
-    """Every complaint about the finished file. Empty = ship it."""
+def inspect(
+    video: Path,
+    expected_duration_s: float | None,
+    cfg: dict[str, Any],
+    source_at: SourceAt | None = None,
+    excused: list[str] | None = None,
+) -> list[str]:
+    """Every complaint about the finished file. Empty = ship it.
+
+    With `source_at`, a black sample is checked against the footage the plan
+    put there: if that source frame is itself dark, the render is showing a
+    night shot, not failing to draw one, and the sample is excused (and
+    described in `excused`). The first real 5-minute test stopped on two
+    such frames — a night aerial and a dusk aerial, both exactly as shot."""
     opts = settings(cfg)
     problems: list[str] = []
 
@@ -138,6 +162,12 @@ def inspect(video: Path, expected_duration_s: float | None, cfg: dict[str, Any])
             continue
         mean, spread = stats
         if mean <= float(opts["black_luma_max"]):
+            source = source_at(at) if source_at else None
+            origin = frame_stats(source[0], source[1]) if source else None
+            if origin is not None and origin[0] <= DARK_SOURCE_LUMA_MAX:
+                if excused is not None:
+                    excused.append(f"{at:.1f}s ({source[0].name}, source luma {origin[0]:.2f})")
+                continue
             black.append(at)
         elif spread <= int(opts["flat_frame_range"]):
             flat.append(at)
@@ -184,13 +214,18 @@ def inspect(video: Path, expected_duration_s: float | None, cfg: dict[str, Any])
     return problems
 
 
-def check(ctx, video: Path, expected_duration_s: float | None) -> None:
+def check(ctx, video: Path, expected_duration_s: float | None,
+          source_at: SourceAt | None = None) -> None:
     """Raise with ONE actionable reason, or return quietly."""
     opts = settings(ctx.cfg)
     if not opts.get("enabled", True):
         ctx.log("post-render QA disabled for this channel")
         return
-    problems = inspect(video, expected_duration_s, ctx.cfg)
+    excused: list[str] = []
+    problems = inspect(video, expected_duration_s, ctx.cfg, source_at, excused)
+    if excused:
+        ctx.log(f"QA: {len(excused)} dark frame(s) excused, the footage itself is dark there: "
+                + "; ".join(excused))
     if problems:
         # every complaint is recorded; the STATUS carries one reason (the error
         # model: which stage, which file, why — not a list to triage)

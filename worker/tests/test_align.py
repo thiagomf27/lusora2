@@ -191,3 +191,31 @@ def test_word_cues_join_split_tokens_back_into_the_written_word(tmp_path):
     steps.run_transcript(ctx)
     cues = [c.text for c in steps.read_srt(tmp_path / "subtitles.srt")]
     assert "forty-five" in cues and "forty" not in cues
+
+
+# ---------------- beats still meet (the 5-minute test's failure) ----------------
+
+
+def test_words_tile_their_sentence_so_beats_meet():
+    """Real word ends stop at the pause; a beat is timed first-word-start to
+    last-word-end, and the compiler fails a plan with a gap over 0.75 s. The
+    5-minute test video died on exactly that (0.76 s)."""
+    timing = align.align_chunk(SENTENCES, HEARD, PAUSES, duration=10.5)
+    bounds = timing.starts + [10.5]
+    for i, ws in enumerate(timing.words):
+        assert ws[0]["start_s"] == bounds[i] and ws[-1]["end_s"] == bounds[i + 1]
+        assert all(a["end_s"] == b["start_s"] for a, b in zip(ws, ws[1:]))
+
+
+def test_beats_split_at_a_long_pause_compile_without_a_gap():
+    sentences = ["It drew millions of workers.", "The economy shifted."]
+    heard = _heard([("It", 0.0, 0.3), ("drew", 0.3, 0.6), ("millions", 0.6, 1.1), ("of", 1.1, 1.3),
+                    ("workers.", 1.3, 1.8), ("The", 2.8, 3.0), ("economy", 3.0, 3.5),
+                    ("shifted.", 3.5, 4.0)])  # a full second of silence after "workers."
+    timing = align.align_chunk(sentences, heard, [2.8], duration=4.2)
+    bounds = timing.starts + [4.2]
+    items = [{"text": s, "start_s": bounds[i], "end_s": bounds[i + 1], "words": timing.words[i]}
+             for i, s in enumerate(sentences)]
+    beats = [{"id": "b1", "script_text": sentences[0]}, {"id": "b2", "script_text": sentences[1]}]
+    (_b1, (s1, e1, _)), (_b2, (s2, e2, _)) = core._align_beats(beats, items, 0.0)
+    assert e1 == s2 == 2.8, "the pause belongs to the beat before it, as with the old spread"

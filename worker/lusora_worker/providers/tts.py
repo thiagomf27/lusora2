@@ -278,13 +278,12 @@ def _write_aligned_timings(
         unplaced += timing.unplaced
         bounds = timing.starts + [dur]
         for k, text in enumerate(texts):
-            items.append({
-                "text": text,
-                "start_s": round(offset + bounds[k], 3),
-                "end_s": round(offset + bounds[k + 1], 3),
-                "words": [{**w, "start_s": round(offset + w["start_s"], 3),
-                           "end_s": round(offset + w["end_s"], 3)} for w in timing.words[k]],
-            })
+            start, end = round(offset + bounds[k], 3), round(offset + bounds[k + 1], 3)
+            words = [{**w, "start_s": round(offset + w["start_s"], 3),
+                      "end_s": round(offset + w["end_s"], 3)} for w in timing.words[k]]
+            if words:  # tiled to the sentence exactly, not to within a rounding
+                words[0]["start_s"], words[-1]["end_s"] = start, end
+            items.append({"text": text, "start_s": start, "end_s": end, "words": words})
         offset += dur
     if unplaced:
         ctx.log(f"narration timing: {unplaced} sentence(s) had no recognised word "

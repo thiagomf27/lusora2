@@ -133,10 +133,24 @@ def align_chunk(
     for k, tok in enumerate(tokens):
         i = owner[k]
         lo, hi = bounds[i], bounds[i + 1]
-        s = min(max(starts_w[k], lo), hi)
-        e = min(max(ends_w[k], s), hi)
-        words[i].append({"text": tok, "start_s": round(s, 3), "end_s": round(e, 3),
+        prev = words[i][-1]["start_s"] if words[i] else lo
+        s = min(max(starts_w[k], lo, prev), hi)
+        words[i].append({"text": tok, "start_s": round(s, 3), "end_s": 0.0,
                          "w": written[k][0], "written": written[k][1]})
+    # Words TILE their sentence: the first starts where the sentence does, each
+    # holds until the next one starts, the last until the next sentence. A beat
+    # is timed from its first word's start to its last word's end, and the
+    # compiler requires beats to meet (a gap over 0.75 s fails the plan) —
+    # which the old even spread did by construction and real word ends, which
+    # stop at the pause, do not. Only word STARTS carry the new precision
+    # (overlay placement, a highlight), so nothing is lost.
+    for i, ws in enumerate(words):
+        if not ws:
+            continue
+        ws[0]["start_s"] = round(bounds[i], 3)
+        for a, b in zip(ws, ws[1:]):
+            a["end_s"] = b["start_s"]
+        ws[-1]["end_s"] = round(bounds[i + 1], 3)
     return ChunkTiming(starts=starts, words=words, unplaced=unplaced)
 
 
