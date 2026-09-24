@@ -247,6 +247,19 @@ def _word_timeline(sentence_timings: list[dict[str, Any]]) -> list[dict[str, Any
         n = len(words)
         if n == 0:
             continue
+        # Paragraph narration (D93) carries each word's aligned time, built on
+        # this same tokenize(), so it is taken one-for-one. Anything else — a
+        # sentence adapter, an SRT, a count that disagrees — is spread evenly.
+        timed = item.get("words")
+        if isinstance(timed, list) and len(timed) == n:
+            for w, t in zip(words, timed):
+                out.append({
+                    "word": w,
+                    "norm": compare_key(w),
+                    "start_s": float(t["start_s"]),
+                    "end_s": float(t["end_s"]),
+                })
+            continue
         start_s, end_s = float(item["start_s"]), float(item["end_s"])
         span = end_s - start_s
         for i, w in enumerate(words):

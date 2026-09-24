@@ -28,7 +28,7 @@ from ..context import StageContext
 from ..errors import StageError
 from ..media import extract_audio, probe_duration, run_ffmpeg
 from ..providers import sources, tts, whisper
-from .. import beatphases
+from .. import align, beatphases
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
@@ -121,6 +121,19 @@ def run_transcript(ctx: StageContext) -> None:
         )
         ctx.log("subtitles built from TTS adapter timings (sentence cues)")
         return
+
+    # Paragraph narration (D93) already aligned every word to get its sentence
+    # times, so a word cue costs nothing more — no second Whisper pass.
+    if granularity == "word" and ctx.has("tts_timings.json"):
+        timings = ctx.read_json("tts_timings.json")["items"]
+        if timings and all(t.get("words") for t in timings):
+            write_srt(
+                ctx.artifact("subtitles.srt"),
+                [SrtItem(w["start_s"], w["end_s"], w["text"])
+                 for t in timings for w in align.written_words(t["words"])],
+            )
+            ctx.log("subtitles built from the narration's aligned word timings (word cues)")
+            return
 
     whisper.transcribe(ctx, ctx.artifact("audio.mp3"), words=granularity == "word")
     ctx.log(f"subtitles transcribed by local whisper ({granularity} cues)")

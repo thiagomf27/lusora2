@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -26,6 +27,7 @@ from pathlib import Path
 
 import httpx
 
+from .. import align
 from ..config import parallelism
 from ..context import StageContext
 from ..costs import budget_gate
@@ -61,7 +63,7 @@ def synthesize(ctx: StageContext, script: str) -> None:
         elif provider == "mock":
             _mock(ctx, sentences)
         elif provider == "ai33":
-            credits, chars = _ai33(ctx, sentences)
+            credits, chars = _ai33(ctx, sentences, script)
             # billed for what was synthesized THIS run; resumed parts were
             # paid for by the run that made them
             cost.actual(chars, {"sentences": len(sentences), "credits": credits})
@@ -125,16 +127,60 @@ def _part_name(i: int, voice: str, sentence: str) -> str:
     return f"{i:04d}-{digest}.mp3"
 
 
-def _ai33(ctx: StageContext, sentences: list[str]) -> tuple[float, int]:
-    """Per-sentence synthesis for exact timings (same contract as flite).
-    Returns (credits reported by the API, characters actually synthesized now).
+# D93: how much text one paragraph-mode request carries. Chunks break at the
+# script's own paragraph breaks where they can, so the voice reads a paragraph
+# in one breath and the joins fall where a pause belongs anyway.
+CHUNK_CHARS = 2500
 
-    Throughput slice 5: sentences are requested in parallel (TTS_PARALLELISM,
-    default 6) — each one was ~17 s of mostly queue wait, one after another —
-    and each finished part is kept in <video>/tts_parts/ until audio.mp3 is
-    written, so a run that dies at sentence 240 resumes there instead of paying
-    for all 250 again. Order is restored at the concat; timings are each part's
-    own duration, exactly as before.
+
+def request_unit(cfg: dict) -> str:
+    unit = str(((cfg.get("voice") or {}).get("request_unit")) or "sentence")
+    return unit if unit in ("sentence", "paragraph") else "sentence"
+
+
+def chunk_sentences(script: str, sentences: list[str], limit: int = CHUNK_CHARS) -> list[list[int]]:
+    """Group sentence indices into requests of at most `limit` characters,
+    preferring the script's paragraph breaks. A single sentence longer than
+    the limit is a request of its own — never split mid-sentence."""
+    paragraphs = [split_sentences(p) for p in re.split(r"\n\s*\n", script) if p.strip()]
+    if [x for p in paragraphs for x in p] != sentences:
+        paragraphs = [sentences]  # the paragraph split disagrees: pack by sentence only
+    chunks: list[list[int]] = []
+    current: list[int] = []
+    size = 0
+    i = 0
+    for para in paragraphs:
+        para_idx = list(range(i, i + len(para)))
+        i += len(para)
+        para_len = sum(len(sentences[k]) + 1 for k in para_idx)
+        if current and size + para_len > limit:
+            chunks.append(current)
+            current, size = [], 0
+        for k in para_idx:
+            if current and size + len(sentences[k]) + 1 > limit:
+                chunks.append(current)
+                current, size = [], 0
+            current.append(k)
+            size += len(sentences[k]) + 1
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _ai33(ctx: StageContext, sentences: list[str], script: str = "") -> tuple[float, int]:
+    """Synthesize through ai33 and write audio.mp3 + tts_timings.json.
+    Returns (credits reported by the API, characters synthesized in THIS run).
+
+    Two request units (D93, `voice.request_unit`):
+    - `sentence` — one request per sentence; each part's length IS that
+      sentence's timing, exactly.
+    - `paragraph` — one request per chunk of up to CHUNK_CHARS; the voice reads
+      across sentences, and sentence/word times come from align.py (local
+      Whisper + pauses). Each sentence then also carries its `words`.
+
+    Either way requests run in parallel (TTS_PARALLELISM, default 6) and each
+    finished part is kept in <video>/tts_parts/ until audio.mp3 is written, so
+    a run that dies midway resumes instead of paying again.
     """
     api_key = os.environ.get("AI33_API_KEY")
     if not api_key:
@@ -143,21 +189,27 @@ def _ai33(ctx: StageContext, sentences: list[str]) -> tuple[float, int]:
     voice = str(((ctx.cfg.get("voice") or {}).get("voice_id")) or "edge_en-US-GuyNeural")
     headers = {"xi-api-key": api_key}
 
+    unit = request_unit(ctx.cfg)
+    units = chunk_sentences(script or " ".join(sentences), sentences, CHUNK_CHARS) if unit == "paragraph" \
+        else [[i] for i in range(len(sentences))]
+    texts = [" ".join(sentences[i] for i in u) for u in units]
+
     parts_dir = ctx.folder / PARTS_DIR
     parts_dir.mkdir(exist_ok=True)
-    files = [parts_dir / _part_name(i, voice, s) for i, s in enumerate(sentences)]
-    todo = [i for i, f in enumerate(files) if not (f.exists() and f.stat().st_size > 0)]
-    if len(todo) < len(sentences):
-        ctx.log(f"narration resumes: {len(sentences) - len(todo)} of {len(sentences)} "
-                "sentences already synthesized")
+    files = [parts_dir / _part_name(n, voice, t) for n, t in enumerate(texts)]
+    todo = [n for n, f in enumerate(files) if not (f.exists() and f.stat().st_size > 0)]
+    if len(todo) < len(units):
+        ctx.log(f"narration resumes: {len(units) - len(todo)} of {len(units)} "
+                f"{unit} requests already synthesized")
 
-    def synthesize_one(i: int) -> float:
-        body = _ai33_submit(base, headers, voice, sentences[i], i + 1)
+    def synthesize_one(n: int) -> float:
+        label = f"{unit} {n + 1}"
+        body = _ai33_submit(base, headers, voice, texts[n], n + 1)
         if not body.get("success") or not body.get("task_id"):
-            raise StageError(STAGE, f"ai33 rejected sentence {i + 1}: {body.get('message', body)}")
-        audio_url, credits = _ai33_wait(base, headers, str(body["task_id"]), i + 1)
+            raise StageError(STAGE, f"ai33 rejected {label}: {body.get('message', body)}")
+        audio_url, credits = _ai33_wait(base, headers, str(body["task_id"]), n + 1)
         # written beside, renamed into place: a part that exists is a whole one
-        partial = files[i].with_suffix(".part")
+        partial = files[n].with_suffix(".part")
         try:
             with httpx.stream("GET", audio_url, timeout=120, follow_redirects=True) as dl:
                 dl.raise_for_status()
@@ -166,21 +218,21 @@ def _ai33(ctx: StageContext, sentences: list[str]) -> tuple[float, int]:
                         f.write(chunk)
         except httpx.HTTPError as e:
             partial.unlink(missing_ok=True)
-            raise StageError(STAGE, f"ai33 audio download failed (sentence {i + 1}): {e}")
-        partial.replace(files[i])
+            raise StageError(STAGE, f"ai33 audio download failed ({label}): {e}")
+        partial.replace(files[n])
         return credits
 
     workers = min(len(todo), parallelism("TTS_PARALLELISM", 6))
     total_credits = 0.0
     if workers <= 1:
-        for i in todo:
-            total_credits += synthesize_one(i)
+        for n in todo:
+            total_credits += synthesize_one(n)
     else:
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(synthesize_one, i) for i in todo]
+            futures = [pool.submit(synthesize_one, n) for n in todo]
             try:
-                # in sentence order, so the first failure reported is the
-                # earliest; the parts that did finish stay on disk for resume
+                # in order, so the first failure reported is the earliest; the
+                # parts that did finish stay on disk for resume
                 total_credits = sum(f.result() for f in futures)
             except BaseException:
                 for f in futures:
@@ -188,15 +240,57 @@ def _ai33(ctx: StageContext, sentences: list[str]) -> tuple[float, int]:
                 raise
 
     durations = [probe_duration(STAGE, f) for f in files]
+    if unit == "paragraph":
+        _write_aligned_timings(ctx, sentences, units, files, durations)
+    else:
+        _write_timings(ctx, sentences, durations)
+
     concat_list = parts_dir / "list.txt"
     concat_list.write_text("".join(f"file '{f}'\n" for f in files), encoding="utf-8")
     run_ffmpeg(STAGE, [
         "-f", "concat", "-safe", "0", "-i", str(concat_list),
         "-acodec", "libmp3lame", "-q:a", "3", str(ctx.artifact("audio.mp3")),
     ])
-    _write_timings(ctx, sentences, durations)
     shutil.rmtree(parts_dir, ignore_errors=True)
-    return total_credits, sum(len(sentences[i]) for i in todo)
+    return total_credits, sum(len(texts[n]) for n in todo)
+
+
+def _write_aligned_timings(
+    ctx: StageContext,
+    sentences: list[str],
+    units: list[list[int]],
+    files: list[Path],
+    durations: list[float],
+) -> None:
+    """Per-sentence timings for chunked narration, from align.py. The file has
+    the same shape as the sentence adapter's, plus `words` on each sentence —
+    so every reader of tts_timings.json keeps working, and the compiler places
+    overlays on the real word rather than an even spread."""
+    language = str(ctx.cfg.get("language") or "").split("-")[0].lower() or None
+    items: list[dict] = []
+    offset = 0.0
+    unplaced = 0
+    for unit, part, dur in zip(units, files, durations):
+        texts = [sentences[i] for i in unit]
+        timing = align.align_chunk(
+            texts, align.transcribe_words(part, language), align.pause_ends(part), dur
+        )
+        unplaced += timing.unplaced
+        bounds = timing.starts + [dur]
+        for k, text in enumerate(texts):
+            items.append({
+                "text": text,
+                "start_s": round(offset + bounds[k], 3),
+                "end_s": round(offset + bounds[k + 1], 3),
+                "words": [{**w, "start_s": round(offset + w["start_s"], 3),
+                           "end_s": round(offset + w["end_s"], 3)} for w in timing.words[k]],
+            })
+        offset += dur
+    if unplaced:
+        ctx.log(f"narration timing: {unplaced} sentence(s) had no recognised word "
+                "and were timed by estimate")
+    ctx.write_json("tts_timings.json", {"provider_exact": False, "aligned": "whisper+pauses",
+                                        "items": items})
 
 
 def _ai33_submit(

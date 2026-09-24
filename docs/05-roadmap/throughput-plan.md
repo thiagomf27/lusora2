@@ -244,6 +244,59 @@ order are measured, not asserted from a stub).
   returns (word/char timestamps? format? per-request char cap for the
   elevenlabs backend?). The docs page is behind login, so this is the only
   way to know.
+  **5c — DONE (2026-09-23).** `with_transcript=true` works on the
+  elevenlabs backend (`eleven_multilingual_v2`). The finished task's
+  `metadata` carries `audio_url`, `srt_url` and `json_url`; the JSON is a
+  one-element list with `words[]` — `{text, start, end, type: word|spacing}`
+  per token, seconds, plus `audio_duration_secs`. It is a TRANSCRIPTION of
+  the generated audio (it wrote "American century" for "American Century"),
+  so words are matched back to the script, not trusted as the script. The
+  transcript cost 151 credits on a 900-char request (1,159 total; the same
+  text per-sentence cost 976). The CDN refuses urllib's user agent (403);
+  httpx is fine. On that text a difflib match of script words to heard words
+  placed all 153 words and every sentence start — so 5d needs no Whisper.
+  Side-by-side test renders: `data/tts-comparison/` (A per-sentence, B one
+  request; A 61.8 s, B 59.7 s, pauses 11.4 s vs 10.6 s over 26 vs 24 gaps).
+
+  **5d — BUILT, awaiting a listen (D93).** Paragraph requests WITHOUT
+  `with_transcript` (the transcript is ~13% more credits); timings from
+  `align.py`: local Whisper `base` (no initial_prompt — it made a 60 s chunk
+  take 43 s instead of 8) tells which pause each sentence starts at, and the
+  pause gives the exact time. Measured against the provider's word stamps:
+  every sentence start ≤ 78 ms (median 21 ms); words ~120 ms vs ~300 ms for
+  the old even spread. Each sentence in `tts_timings.json` carries `words`;
+  the compiler's `_word_timeline` takes them one-for-one, and a
+  `word`-granularity transcript is built from them with no Whisper pass.
+  Approval run: the whole 3,644-char script of `vid_39f574974bda`, 2 chunks
+  (49 + 38 sentences), 87 sentences / 608 words placed, none estimated, 59.8 s
+  for synthesis + alignment of 246.6 s of audio, 4,073 credits.
+  `data/tts-comparison/C-*` (sentence captions) and `D-*` (karaoke word
+  highlight). Word cues now show the words as written ("forty-five", not
+  "forty five"): each aligned token keeps the written word it came from, and
+  `align.written_words()` joins them back.
+
+  **Speed test (2026-09-23).** Same 900-char text, alignment vs the
+  provider's word stamps (bought for the test only):
+
+  | voice | words/min | sentence starts max / median | words median (p90) |
+  |---|---|---|---|
+  | River 0.7x | 119 | 99 / 26 ms | 160 (280) ms |
+  | Roger 1.0x | 155 | 78 / 21 ms | 120 (220) ms |
+  | River 1.0x | 167 | 81 / 21 ms | 100 (200) ms |
+  | Liam 1.0x | 166 | 74 / 24 ms | 100 (200) ms |
+  | Liam 1.2x | 196 | 90 / 14 ms | 100 (180) ms |
+
+  0.7x first put one sentence 980 ms off: Whisper folds a pause INTO the
+  next word ("The" heard as lasting 1.04 s), and the real pause ended outside
+  the 0.8 s window. A pause that ends inside the first word's own span is now
+  taken first, and any word containing a pause end starts at it. The word
+  residue is almost all a constant offset — ours 100-160 ms EARLIER than the
+  provider's, ±40-60 ms around it — two recognisers disagreeing about where
+  an onset is, not drift; left uncorrected without true ground truth.
+  Renders: `data/tts-comparison/E-*`, `F-*`, `G-*` (current word highlighted).
+
+  The original sketch:
+
 - **5d — paragraph chunks.** Split the script into chunks of whole sentences
   up to `TTS_CHUNK_CHARS` (default ~2,500 — not the 1M limit: one failure at
   minute 19 should cost one chunk, and long generations drift). Submit chunks

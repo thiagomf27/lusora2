@@ -65,7 +65,12 @@
       "additionalProperties": false,
       "properties": {
         "provider": { "type": "string" },
-        "voice_id": { "type": "string" }
+        "voice_id": { "type": "string" },
+        "request_unit": {
+          "enum": ["sentence", "paragraph"],
+          "default": "sentence",
+          "description": "D93 - what one TTS request carries. `sentence` (default, what every video did before this existed): one request per sentence, each timed exactly by its own length; the voice starts every sentence cold. `paragraph`: requests of up to ~2,500 characters broken at the script's paragraph breaks, so the voice reads across sentences; sentence and word times come from local Whisper snapped to the pauses in the audio (worker/lusora_worker/align.py), and every sentence in tts_timings.json then also carries its aligned words, which the compiler uses to place overlays and a word-granularity transcript uses without a second Whisper pass. Only the ai33 provider honours it."
+        }
       }
     },
     "script": {

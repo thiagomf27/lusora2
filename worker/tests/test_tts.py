@@ -221,3 +221,69 @@ def test_a_new_voice_does_not_resume_from_the_old_voices_parts(tmp_path, monkeyp
     again = Ai33(tmp_path)
     _narrate(tmp_path, monkeypatch, again, voice="edge_b")
     assert len(again.submitted) == 5
+
+
+# ---------------- paragraph requests (D93, slice 5d) ----------------
+
+PARA_SCRIPT = "One harbour. Two cranes stand.\n\nThree ships wait here. Four men walk out. Five."
+
+
+def test_paragraph_mode_sends_chunks_and_times_every_sentence_and_word(tmp_path, monkeypatch):
+    """Two paragraphs -> two requests (at a small chunk limit). Each chunk's
+    words are 'heard' 0.2 s apart, as the fake voice speaks them, and the
+    timings must come back per SENTENCE, in order, with the second chunk
+    offset by the first one's length."""
+    from lusora_worker import align
+
+    monkeypatch.setattr(tts, "CHUNK_CHARS", 50)
+    voice = "elevenlabs_x"
+    sentences = tts.split_sentences(PARA_SCRIPT)
+    chunks = tts.chunk_sentences(PARA_SCRIPT, sentences, 50)
+    assert chunks == [[0, 1], [2, 3, 4]]
+    heard_by_part = {}
+    for n, chunk in enumerate(chunks):
+        text = " ".join(sentences[i] for i in chunk)
+        heard_by_part[tts._part_name(n, voice, text)] = [
+            align.Heard(w, 0.2 * k, 0.2 * k + 0.15) for k, w in enumerate(text.split())
+        ]
+    monkeypatch.setattr(align, "transcribe_words", lambda part, lang: heard_by_part[part.name])
+    monkeypatch.setattr(align, "pause_ends", lambda part: [])
+
+    fake = Ai33(tmp_path)
+    monkeypatch.setenv("AI33_API_KEY", "k")
+    monkeypatch.setattr(tts.httpx, "post", fake.post)
+    monkeypatch.setattr(tts.httpx, "get", fake.get)
+    monkeypatch.setattr(tts.httpx, "stream", fake.stream)
+    folder = tmp_path / "video"
+    folder.mkdir()
+    ctx = StageContext(
+        video={"id": "vid_p", "channel_id": "CH", "title": "T"}, folder=folder,
+        cfg={"voice": {"provider": "ai33", "voice_id": voice, "request_unit": "paragraph"},
+             "budget": {"max_usd_per_video": 5}},
+        db=FakeDb(), config=None,
+    )
+    ctx.db.provider_health = lambda *a, **k: None
+    tts.synthesize(ctx, PARA_SCRIPT)
+
+    assert sorted(fake.submitted) == sorted(["One harbour. Two cranes stand.",
+                                             "Three ships wait here. Four men walk out. Five."])
+    items = _timings(ctx)
+    assert [t["text"] for t in items] == sentences
+    starts = [t["start_s"] for t in items]
+    assert starts == sorted(starts) and starts[0] == 0.0
+    # sentence 2 starts at its first heard word: 2 words in, 0.4 s
+    assert abs(starts[1] - 0.4) < 0.01
+    # chunk 2 opens where chunk 1's audio ends (5 words at 0.2 s, plus padding)
+    first_chunk_len = items[1]["end_s"]
+    assert abs(starts[2] - first_chunk_len) < 0.01 and first_chunk_len >= 1.0
+    assert all(t["words"] for t in items)
+    assert all(t["start_s"] <= w["start_s"] <= w["end_s"] <= t["end_s"]
+               for t in items for w in t["words"])
+    assert not (folder / tts.PARTS_DIR).exists()
+
+
+def test_sentence_mode_is_what_an_unset_request_unit_means(tmp_path, monkeypatch):
+    fake = Ai33(tmp_path)
+    ctx = _narrate(tmp_path, monkeypatch, fake)
+    assert len(fake.submitted) == 5
+    assert all("words" not in t for t in _timings(ctx))

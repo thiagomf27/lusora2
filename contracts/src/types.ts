@@ -523,7 +523,7 @@ export interface ChannelConfig {
   checkpoint_policy?: CheckpointPolicy;
   /** D63: what a cue in subtitles.srt is — read by the transcript stage. */
   transcript?: { granularity?: SrtGranularity };
-  voice: { provider: string; voice_id?: string };
+  voice: { provider: string; voice_id?: string; request_unit?: "sentence" | "paragraph" };
   script?: {
     generator?: string;
     llm?: string;

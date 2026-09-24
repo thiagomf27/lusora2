@@ -26,6 +26,7 @@ const LICENSES: LicenseKind[] = ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd"
 //   LLM providers   → worker/.../providers/llm.py (PROVIDERS + "mock")
 const VOICE_PROVIDERS = ["local", "mock", "ai33"] as const;
 const LOCAL_VOICES = ["kal", "kal16", "awb", "rms", "slt"] as const; // flite voices
+const REQUEST_UNITS = ["sentence", "paragraph"] as const; // D93
 const LLMS = ["deepseek", "openai", "anthropic", "mock"] as const;
 const SCRIPT_GENERATORS = ["simple"] as const;
 const LANGUAGES = [
@@ -337,6 +338,21 @@ export default function ChannelConfigForm({
               </>
             )}
           </label>
+          {provider === "ai33" && (
+            <label className={s.field}>
+              <span className={s.label}>Narration requests</span>
+              <Select
+                value={value.voice.request_unit ?? "sentence"}
+                options={REQUEST_UNITS}
+                onChange={(v) =>
+                  up({ voice: { ...value.voice, request_unit: v as (typeof REQUEST_UNITS)[number] } })
+                }
+              />
+              <span className={s.hint}>
+                paragraph: the voice reads across sentences; timings aligned locally
+              </span>
+            </label>
+          )}
           <label className={s.field}>
             <span className={s.label}>Script generator</span>
             <Select
