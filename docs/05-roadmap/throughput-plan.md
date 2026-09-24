@@ -320,7 +320,27 @@ within 50 ms. **Exit (5d):** listen to one real 20-minute narration in
 paragraph mode against the same script per-sentence, and keep the default at
 `sentence` unless paragraph is clearly better.
 
-## Slice 6 — two workers, one render at a time
+## Slice 6 — two workers, one render at a time — DONE
+
+Built as below, plus the bug it would have walked into: the worker beat its
+heartbeat only BETWEEN stages, and a render or resolve_assets runs far past
+the 60 s after which `reclaim_orphans` calls a video orphaned. With one worker
+that never mattered (reclaim ran only at startup); with two, the second one
+starting would re-queue the first one's live video and both would produce it
+into the same folder. `orchestrator.Pulse` now beats every 15 s from a thread
+for as long as a video is claimed, which also makes it safe to reclaim every
+60 s instead of only at startup — a dead worker's video no longer waits for a
+restart. Slots are `pg_try_advisory_lock(7331, n)` on the worker's own
+connection (verified against Postgres: a closed connection frees its slot).
+An unset/empty `WORKER_ID` is the hostname; compose sets it empty and runs
+`WORKER_REPLICAS` (default 2) with `RENDER_SLOTS` (default 1). Tests:
+`tests/test_workers.py` (the Postgres one runs where `TEST_DATABASE_URL` is
+set, as in CI).
+
+Not yet done: two real workers against one database end to end — that is
+the first thing to watch on the VPS.
+
+The sketch:
 
 After slices 1–5 a video spends most of its non-render time waiting, and one
 worker waits with the CPU idle. The claim is already `FOR UPDATE SKIP LOCKED`

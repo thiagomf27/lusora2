@@ -13,7 +13,10 @@ import math
 import shutil
 import subprocess
 import threading
+import time
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 
 import lusora_contracts
@@ -889,16 +892,47 @@ def finalize_fresh(ctx: StageContext) -> bool:
     return ctx.artifact("metadata.txt").stat().st_mtime >= ctx.artifact("final.mp4").stat().st_mtime
 
 
+# How often a worker waiting for a render slot asks again.
+RENDER_SLOT_POLL_S = 5.0
+
+
+@contextmanager
+def render_slot(ctx: StageContext) -> Iterator[None]:
+    """Hold one of RENDER_SLOTS (default 1) for the length of a render.
+
+    Several workers can overlap everything that waits on the network, but a
+    Remotion render sizes the machine: two at once double its RAM. The slot is
+    a Postgres advisory lock, so it is shared by every worker on the database
+    and released by the database if a worker dies."""
+    slots = parallelism("RENDER_SLOTS", 1)
+    waited_since = None
+    while (slot := ctx.db.try_render_slot(slots)) is None:
+        if waited_since is None:
+            waited_since = time.monotonic()
+            # said once, so the UI shows why a video sits at 'render'
+            ctx.db.event(ctx.video_id, "render", "progress",
+                         f"waiting for a render slot (all {slots} in use)")
+            ctx.log(f"waiting for a render slot (all {slots} in use)")
+        time.sleep(RENDER_SLOT_POLL_S)
+    if waited_since is not None:
+        ctx.log(f"got render slot {slot} after {time.monotonic() - waited_since:.0f}s")
+    try:
+        yield
+    finally:
+        ctx.db.release_render_slot(slot)
+
+
 def run_render(ctx: StageContext) -> None:
     renderer = str(ctx.cfg.get("renderer") or "auto")
     cli = ctx.config.engine_cli
     if not cli.exists():
         raise StageError("render", f"engine CLI not found at {cli} — set ENGINE_CLI")
-    proc = subprocess.run(
-        ["node", "--experimental-strip-types", str(cli),
-         "render", "--video-dir", str(ctx.folder), "--renderer", renderer],
-        capture_output=True, text=True, timeout=1800,
-    )
+    with render_slot(ctx):
+        proc = subprocess.run(
+            ["node", "--experimental-strip-types", str(cli),
+             "render", "--video-dir", str(ctx.folder), "--renderer", renderer],
+            capture_output=True, text=True, timeout=1800,
+        )
     if proc.returncode != 0:
         reason = (proc.stderr or proc.stdout).strip().splitlines()
         raise StageError("render", f"engine failed: {reason[-1] if reason else 'no output'}")

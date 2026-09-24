@@ -5,8 +5,10 @@ folder. Stores no state of its own — resume is 'skip what exists'.
 
 from __future__ import annotations
 
+import threading
 import time
 import traceback
+from typing import Self
 
 from lusora_contracts.pipelines import (
     DEFAULT_PIPELINE,
@@ -161,22 +163,67 @@ def reclaim_orphans(db: Db) -> None:
         db.event(str(row["id"]), "claim", "progress", "orphaned claim re-queued (worker died mid-run)")
 
 
+# A claimed video counts as orphaned after 60 s without its worker's
+# heartbeat (reclaim_orphans), so the pulse beats well inside that.
+HEARTBEAT_S = 15.0
+RECLAIM_EVERY_S = 60.0
+
+
+class Pulse:
+    """Heartbeat from a background thread for as long as a video is claimed.
+
+    The loop used to beat only BETWEEN stages, and a render or a
+    resolve_assets runs for many minutes — past the 60 s after which
+    reclaim_orphans calls a video orphaned. Harmless with one worker, which
+    reclaims only at startup; with two, the second one starting up would
+    re-queue the first one's live video and both would produce it into the
+    same folder (throughput slice 6)."""
+
+    def __init__(self, db: Db, worker_id: str, video_id: str | None, every: float = HEARTBEAT_S):
+        self._db, self._worker, self._video, self._every = db, worker_id, video_id, every
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, name=f"pulse-{worker_id}", daemon=True)
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._every):
+            try:
+                self._db.heartbeat(self._worker, self._video)
+            except Exception as e:  # a missed beat is not a reason to stop the video
+                print(f"[{self._worker}] heartbeat failed: {e}")
+
+    def __enter__(self) -> Self:
+        self._db.heartbeat(self._worker, self._video)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+
 def run_forever(config: WorkerConfig) -> None:
     db = Db(config.database_url)
     print(f"[{config.worker_id}] polling every {config.poll_seconds}s — videos root {config.videos_root}")
     reclaim_orphans(db)
-    last_sweep = 0.0
+    last_reclaim = time.time()  # just ran
+    last_sweep = 0.0  # sweep on the first pass
     while True:
         try:
             db.heartbeat(config.worker_id, None)
             if time.time() - last_sweep > 600:
                 retention_sweep(db, config)
                 last_sweep = time.time()
+            # Safe to run on a schedule now that a live worker beats every
+            # 15 s: another worker's video goes back to the queue only when
+            # that worker has really gone.
+            if time.time() - last_reclaim > RECLAIM_EVERY_S:
+                reclaim_orphans(db)
+                last_reclaim = time.time()
             video = db.claim_next(config.worker_id)
             if video is not None:
                 print(f"[{config.worker_id}] claimed {video['id']}")
-                db.heartbeat(config.worker_id, str(video["id"]))
-                process_video(db, config, video)
+                with Pulse(db, config.worker_id, str(video["id"])):
+                    process_video(db, config, video)
                 db.heartbeat(config.worker_id, None)
                 continue  # drain the queue before sleeping
         except Exception as e:

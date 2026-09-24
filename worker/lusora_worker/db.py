@@ -152,6 +152,25 @@ class Db:
             (video_id, beat_id, source, asset_id, license, provider),
         )
 
+    # Render slots (throughput slice 6): session-level advisory locks in one
+    # namespace, (RENDER_LOCK_CLASS, slot). Held on this worker's connection,
+    # so a worker that dies — or loses its connection — frees its slot with
+    # no cleanup; nothing is written to any table.
+    RENDER_LOCK_CLASS = 7331
+
+    def try_render_slot(self, slots: int) -> int | None:
+        """The first free slot of `slots`, now held by this worker; None if all are taken."""
+        for n in range(slots):
+            row = self.conn.execute(
+                "SELECT pg_try_advisory_lock(%s, %s) AS ok", (self.RENDER_LOCK_CLASS, n)
+            ).fetchone()
+            if row and row["ok"]:
+                return n
+        return None
+
+    def release_render_slot(self, slot: int) -> None:
+        self.conn.execute("SELECT pg_advisory_unlock(%s, %s)", (self.RENDER_LOCK_CLASS, slot))
+
     def heartbeat(self, worker_id: str, current_video_id: str | None) -> None:
         self.conn.execute(
             """

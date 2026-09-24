@@ -111,6 +111,12 @@ class EvalDb:
     def set_status(self, video_id: str, status: str, reason: str | None = None) -> None:
         self.statuses.append((status, reason))
 
+    def try_render_slot(self, slots: int) -> int | None:
+        return 0  # an eval run is one process: the slot is always free
+
+    def release_render_slot(self, slot: int) -> None:
+        pass
+
     def heartbeat(self, worker_id: str, video_id: str) -> None:
         pass
 

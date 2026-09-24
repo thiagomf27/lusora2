@@ -45,6 +45,16 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-lusora}:${POSTGRES_PASSWORD:-lusora}@postgres:5432/${POSTGRES_DB:-lusora}
       VIDEOS_ROOT: /videos-data
       LIBRARY_API_URL: http://library:8321
+      # Empty on purpose: each replica then uses its own hostname. Two workers
+      # sharing one id would share one heartbeat row and keep each other's
+      # videos looking alive (throughput slice 6).
+      WORKER_ID: ""
+      # Workers overlap everything that waits on the network; renders take a
+      # slot (a Postgres advisory lock), because a Remotion render is what
+      # sizes the machine. Raise only once the box has the RAM for two.
+      RENDER_SLOTS: ${RENDER_SLOTS:-1}
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
     volumes:
       - videos-data:/videos-data
     depends_on:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,7 +57,9 @@ class WorkerConfig:
         return WorkerConfig(
             database_url=db,
             videos_root=videos_root(),
-            worker_id=os.environ.get("WORKER_ID", "worker-1"),
+            # unset or empty -> the hostname, which is unique per container, so
+            # `docker compose up --scale worker=N` needs no per-replica config
+            worker_id=os.environ.get("WORKER_ID") or socket.gethostname(),
             poll_seconds=float(os.environ.get("WORKER_POLL_SECONDS", "3")),
             engine_cli=engine_cli,
             library_api_url=os.environ.get("LIBRARY_API_URL", "http://localhost:8321"),
