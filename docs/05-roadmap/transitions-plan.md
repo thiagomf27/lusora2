@@ -225,7 +225,7 @@ transition the plan declared.
   30% share from becoming a whoosh every ten seconds.
 - `docs/03-contracts/sound.md`, `theme-and-style.md`.
 
-## Slice 4 — turn it on in the shipped packs — VALUES SET, RENDER CHECK PENDING
+## Slice 4 — turn it on in the shipped packs — DONE
 
 > **2026-09-25.** The table below is in the five packs (with per-kind
 > durations: fade_to_black 0.8 s in the doc packs, whip 0.3 s, push 0.4 s,
@@ -237,11 +237,19 @@ transition the plan declared.
 > of `vid_ac2fd06b90d3` runs ~95 s and is split into 14 shots, which stay cuts
 > by design (D89) — an oversized beat, not a placement gap.
 >
-> **Not yet done:** a render of real footage per pack. The attempt on
-> `vid_4d5de5a2e04d` (57 s) was OOM-killed on the 7.5 GB laptop with the
-> Next dev server running, and took two VS Code processes with it. Run it with
-> the dev server stopped: every kind was already rendered on synthetic stills
-> (slice 2), so what is left is judging taste on real shots.
+> **Rendered on real footage (same day):** `vid_4d5de5a2e04d` (57 s,
+> Pearl Harbor doc) recompiled under breakdown-blitz (a hand-set
+> fade_to_black, filler zoom_through, filler whip) and under listicle-fast
+> (whip left, push, whip right, whip left), both through Remotion. Every
+> transition reads as intended on real shots; no section break fired because
+> a 57 s video has no mood span past the music floor. The pillarboxed shot in
+> the frames is a 4:3 archival clip, identical in the original render.
+>
+> Rendering on the 7.5 GB laptop with the dev server up needs a cap, or the
+> kernel's OOM killer picks editor processes: `systemd-run --user --scope
+> -p MemoryMax=1500M -p MemorySwapMax=0` with `REMOTION_CONCURRENCY=1` and
+> `REMOTION_OFFTHREADVIDEO_CACHE_BYTES=134217728` rendered 57 s in ~7 min;
+> 1300M was too little (the compositor was killed inside the cap).
 
 The only slice that changes what a production channel renders, so it goes
 last, one pack at a time, each with a rendered check.
