@@ -23,9 +23,22 @@
   "transitions": {
     "allowed": [
       "cut",
-      "crossfade"
+      "crossfade",
+      "zoom_through",
+      "whip",
+      "flash"
     ],
-    "default": "cut"
+    "default": "cut",
+    "animated_share": 0.3,
+    "mix": {
+      "zoom_through": 2,
+      "whip": 1
+    },
+    "section_break": "flash",
+    "durations": {
+      "whip": 0.3,
+      "flash": 0.4
+    }
   },
   "script_persona": "Rapid analyst. One idea per sentence, numbers up front, no wind-up. Every second earns the next.",
   "visual_language": "Tight close-ups, mechanisms and hands, hard cuts between scales; avoid slow establishing drone shots.",
