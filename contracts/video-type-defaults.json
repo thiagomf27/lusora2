@@ -1,8 +1,7 @@
 {
   "defaults": {
     "doc": "doc-slow",
-    "explainer": "explainer-medium",
-    "breakdown": "breakdown-fast",
+    "breakdown": "breakdown-blitz",
     "listicle": "listicle-fast"
   }
 }
