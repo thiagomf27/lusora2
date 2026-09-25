@@ -513,6 +513,11 @@ transitions:
   default: cut
   duration_s: 0.5               # D89 — the PACK owns how long one runs; a beat
                                 # only chooses WHICH, via its transition_out
+  # D95 — all optional; absent, every junction is `default` as before
+  animated_share: 0.15          # target share of junctions that are not a cut
+  mix: {crossfade: 2, fade_to_black: 1}   # filler kinds, by weight; needs a share
+  section_break: fade_to_black  # where the music's mood span changes
+  durations: {fade_to_black: 0.8}         # per-kind length over duration_s
 script_persona: |
   Grave, precise documentary narrator. Short sentences. No exclamations.
 visual_language: |

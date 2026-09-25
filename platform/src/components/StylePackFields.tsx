@@ -10,7 +10,14 @@
  *
  * Option lists mirror style_pack.schema.json — there is no API for them.
  */
-import type { OverlayDensity, StylePack, TransitionType, VideoType } from "@lusora/contracts";
+import type {
+  AnimatedTransitionType,
+  OverlayDensity,
+  StylePack,
+  TransitionType,
+  VideoType,
+} from "@lusora/contracts";
+import { narrowTransitionPlacement, transitionPackProblems } from "@/lib/transitionRules";
 import s from "./form.module.css";
 
 export const VIDEO_TYPES: VideoType[] = ["doc", "explainer", "breakdown", "listicle"];
@@ -55,9 +62,7 @@ export function stylePackProblems(pack: StylePack): string[] {
     if (!Number.isFinite(per) || per < 0) out.push("overlays.density.per_minute must be 0 or more");
   }
   if (pack.transitions.allowed.length === 0) out.push("at least one transition must be allowed");
-  else if (!pack.transitions.allowed.includes(pack.transitions.default)) {
-    out.push(`default transition "${pack.transitions.default}" is not in the allowed list`);
-  }
+  else out.push(...transitionPackProblems(pack.transitions));
   return out;
 }
 
@@ -125,15 +130,36 @@ export default function StylePackFields({
     const next = has
       ? value.transitions.allowed.filter((x) => x !== t)
       : [...value.transitions.allowed, t];
-    onChange({
-      ...value,
-      transitions: {
-        allowed: next,
-        // never leave `default` pointing at a transition the planner may not use
-        default: next.includes(value.transitions.default) ? value.transitions.default : next[0],
-      },
-    });
+    const transitions: StylePack["transitions"] = {
+      ...value.transitions,
+      allowed: next,
+      // never leave `default` pointing at a transition the planner may not use
+      default: next.includes(value.transitions.default) ? value.transitions.default : next[0],
+    };
+    // nor a mix, section break or duration naming one (D95)
+    narrowTransitionPlacement(transitions, next);
+    onChange({ ...value, transitions });
   }
+
+  // D95 placement fields. Cleared values drop out, as upGroup does for sound.
+  const upTransitions = (patch: Partial<StylePack["transitions"]>) => {
+    const merged = { ...value.transitions, ...patch } as Record<string, unknown>;
+    for (const [k, v] of Object.entries(merged)) {
+      const empty = v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0;
+      if (v === undefined || empty) delete merged[k];
+    }
+    onChange({ ...value, transitions: merged as StylePack["transitions"] });
+  };
+  const upKindMap = (key: "mix" | "durations", kind: AnimatedTransitionType, raw: string) => {
+    const map = { ...(value.transitions[key] ?? {}) };
+    const n = optNum(raw);
+    if (n === undefined || n <= 0) delete map[kind];
+    else map[kind] = n;
+    upTransitions({ [key]: map });
+  };
+  const animatedKinds = value.transitions.allowed.filter(
+    (t): t is AnimatedTransitionType => t !== "cut"
+  );
 
   function setRestricted(on: boolean) {
     const overlays = { ...value.overlays };
@@ -349,6 +375,96 @@ export default function StylePackFields({
           ))}
         </select>
       </label>
+
+      {animatedKinds.length > 0 && (
+        <>
+          <div className={s.field}>
+            <span className={s.fieldLabel}>animated_share · section_break</span>
+            <div className={s.triple}>
+              <input
+                name="animated-share"
+                value={value.transitions.animated_share ?? ""}
+                placeholder="0.3"
+                inputMode="decimal"
+                onChange={(e) => upTransitions({ animated_share: optNum(e.target.value) })}
+              />
+              <select
+                name="section-break"
+                value={value.transitions.section_break ?? ""}
+                onChange={(e) =>
+                  upTransitions({
+                    section_break: (e.target.value || undefined) as AnimatedTransitionType | undefined,
+                  })
+                }
+              >
+                <option value="">no section break</option>
+                {animatedKinds.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className={s.hint}>
+              The share of junctions that are not a cut — 0.3 is a 70/30 mix, at most 0.6.
+              The compiler places them: section breaks first (where the music&apos;s mood
+              changes), then filler from the mix below, spread evenly and never side by side.
+              Blank = every junction takes the default.
+            </div>
+          </div>
+
+          <div className={s.field}>
+            <span className={s.fieldLabel}>mix — weight per kind</span>
+            <div className={s.triple}>
+              {animatedKinds.map((t) => (
+                <input
+                  key={t}
+                  name={`mix-${t}`}
+                  aria-label={`mix weight for ${t}`}
+                  value={value.transitions.mix?.[t] ?? ""}
+                  placeholder={t}
+                  inputMode="decimal"
+                  onChange={(e) => upKindMap("mix", t, e.target.value)}
+                />
+              ))}
+            </div>
+            <div className={s.hint}>
+              Relative weights for filler: crossfade 2 and fade_to_black 1 is two crossfades per
+              dip. Blank = that kind is never filler.
+            </div>
+          </div>
+
+          <div className={s.field}>
+            <span className={s.fieldLabel}>length — duration_s, then per kind</span>
+            <div className={s.triple}>
+              <input
+                name="duration-s"
+                aria-label="default transition length"
+                value={value.transitions.duration_s ?? ""}
+                placeholder="0.5"
+                inputMode="decimal"
+                onChange={(e) => upTransitions({ duration_s: optNum(e.target.value) })}
+              />
+              {animatedKinds.map((t) => (
+                <input
+                  key={t}
+                  name={`duration-${t}`}
+                  aria-label={`length of ${t}`}
+                  value={value.transitions.durations?.[t] ?? ""}
+                  placeholder={t}
+                  inputMode="decimal"
+                  onChange={(e) => upKindMap("durations", t, e.target.value)}
+                />
+              ))}
+            </div>
+            <div className={s.hint}>
+              Seconds, at most 2. A transition eats footage from both shots it joins, so the
+              compiler shortens one that does not fit and turns it into a cut when neither
+              shot can spare it.
+            </div>
+          </div>
+        </>
+      )}
 
       <div className={s.formLabel}>LANGUAGE</div>
       <label className={s.field}>

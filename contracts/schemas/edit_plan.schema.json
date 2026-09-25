@@ -112,7 +112,11 @@
       "additionalProperties": false,
       "properties": {
         "type": { "enum": ["cut", "crossfade", "fade", "fade_to_black"] },
-        "duration_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 3, "default": 0.5 }
+        "duration_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 3, "default": 0.5 },
+        "placed_by": {
+          "enum": ["section_break", "filler"],
+          "description": "D95 — the compiler chose this transition from the style pack's `section_break` or `mix`, rather than a beat's `transition_out` or the pack's `default`. Provenance only; renderers ignore it. It is what lets the editor tell a placed transition from a stale human one: a beat that names no transition shows the placed one as-is, and falls back to the default otherwise."
+        }
       },
       "description": "transition OUT of this item; consumes handles, never moves narrative cuts"
     },

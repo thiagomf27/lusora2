@@ -158,6 +158,29 @@
             "fade",
             "fade_to_black"
           ]
+        },
+        "animated_share": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.6,
+          "description": "D95 — the target share of junctions that are NOT a cut, e.g. 0.3 for a 70/30 mix. The compiler places them: section breaks first, then FILLER from `mix`, spread evenly, never two animated junctions side by side. A target, not a promise: a junction whose shots are too short to hold the transition stays a cut, so a fast pack delivers less than it asks (the compile note says how much). Omitted means no filler — every junction is the default, as before. Capped at 0.6 because past that a mix stops being a mix. Requires `mix`."
+        },
+        "mix": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "D95 — which kinds FILLER draws from, as relative weights ({\"crossfade\": 2, \"fade_to_black\": 1} is two crossfades per dip). Each kind must be in `allowed`. The kind at a junction is picked from a hash of the shot's id, so a recompile of the same beats picks the same kinds. Read only when `animated_share` is set.",
+          "propertyNames": { "enum": ["crossfade", "fade", "fade_to_black"] },
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+        },
+        "section_break": {
+          "enum": ["crossfade", "fade", "fade_to_black"],
+          "description": "D95 — the transition where the story changes section. The signal is the MUSIC's: a section starts where the mood span changes (the same spans, and the same `music.min_span_s` floor, that switch the bed), so the picture turns where the score does and a one-beat mood blip is not a section. Must be in `allowed`. Counts toward `animated_share`. Omitted means section changes get no special treatment."
+        },
+        "durations": {
+          "type": "object",
+          "description": "D95 — per-kind length, overriding `duration_s` for that kind: a dip to black wants longer than a crossfade. Same clamping as `duration_s`.",
+          "propertyNames": { "enum": ["crossfade", "fade", "fade_to_black"] },
+          "additionalProperties": { "type": "number", "exclusiveMinimum": 0, "maximum": 2 }
         }
       }
     },

@@ -65,6 +65,30 @@ test("excluding the pack's default transition re-points the default", () => {
   assert.equal(style(s).transitions.default, "crossfade");
 });
 
+test("an excluded kind leaves the placement fields that name it (D95)", () => {
+  const s = snapshot({ exclude: { transitions: ["fade"] } });
+  Object.assign(style(s).transitions, {
+    animated_share: 0.3,
+    mix: { crossfade: 2, fade: 1 },
+    section_break: "fade",
+    durations: { fade: 0.8, crossfade: 0.4 },
+  });
+  assert.deepEqual(applyLook(s), []);
+  const t = style(s).transitions;
+  assert.deepEqual(t.mix, { crossfade: 2 });
+  assert.equal(t.animated_share, 0.3);
+  assert.equal(t.section_break, undefined);
+  assert.deepEqual(t.durations, { crossfade: 0.4 });
+});
+
+test("a mix emptied by an exclusion takes its share with it (D95)", () => {
+  const s = snapshot({ exclude: { transitions: ["fade"] } });
+  Object.assign(style(s).transitions, { animated_share: 0.3, mix: { fade: 1 } });
+  assert.deepEqual(applyLook(s), []);
+  assert.equal(style(s).transitions.mix, undefined);
+  assert.equal(style(s).transitions.animated_share, undefined);
+});
+
 test("excluding every transition is refused", () => {
   const s = snapshot({ exclude: { transitions: ["cut", "crossfade", "fade"] } });
   assert.match(applyLook(s)[0], /no transition allowed/);

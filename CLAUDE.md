@@ -63,6 +63,11 @@ docker-compose.
   ~1.5 h instead of ~5: where the time goes per stage, and the slices that
   parallelise narration, overlays and asset resolution ★ read before touching
   `tts.py`, `resolve_assets` or worker concurrency
+- [Transitions Plan](05-roadmap/transitions-plan.md) — from 100% cuts to a
+  pack-declared mix (animated share, section breaks, overlay-tied
+  transitions) placed by the compiler, plus five new kinds ★ read before
+  touching `transitions` in a style pack, `compiler/core.py` transitions or
+  the renderers' transition code
 - [B-roll Integration](05-roadmap/broll-integration.md) — swapping the
   vendored library snapshot for the live broll-engine repo: the API
   mismatches it exposes and the slice order ★ read before touching

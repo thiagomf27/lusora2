@@ -161,6 +161,22 @@ test("a beat that names none takes the pack's default, at the pack's length", ()
   assert.deepEqual(out.transition, { type: "crossfade", duration_s: 0.8 });
 });
 
+test("a beat that names none keeps a transition the compiler placed (D95)", () => {
+  const plan = planWith([]);
+  const placed = { type: "fade_to_black" as const, duration_s: 0.8, placed_by: "section_break" as const };
+  plan.tracks.visual[0] = { ...plan.tracks.visual[0], transition_out: placed };
+  const out = beatPreview(plan, beat, entry("AnimatedCounter"), { defaultTransition: "cut" });
+  assert.equal(out.transitionDraft, false);
+  assert.deepEqual(out.transition, placed);
+});
+
+test("a stale human transition the form cleared falls back to the default (D95)", () => {
+  const plan = planWith([]);
+  plan.tracks.visual[0] = { ...plan.tracks.visual[0], transition_out: { type: "crossfade", duration_s: 0.5 } };
+  const out = beatPreview(plan, beat, entry("AnimatedCounter"), { defaultTransition: "cut" });
+  assert.deepEqual(out.transition, { type: "cut", duration_s: 0.1 });
+});
+
 test("the play window runs past the cut, by exactly the transition", () => {
   const cut = beatPreview(planWith([]), beat, entry("AnimatedCounter"), { defaultTransition: "cut" });
   assert.deepEqual(cut.playWindow, cut.window, "a cut has nothing to show past it");

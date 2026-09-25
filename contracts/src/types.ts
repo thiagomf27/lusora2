@@ -121,10 +121,14 @@ export interface Motion {
 }
 
 export type TransitionType = "cut" | "crossfade" | "fade" | "fade_to_black";
+/** Every transition that is not a cut — what a mix or a section break can name. */
+export type AnimatedTransitionType = Exclude<TransitionType, "cut">;
 
 export interface Transition {
   type: TransitionType;
   duration_s?: number;
+  /** D95 — the compiler placed it (from the pack's section_break or mix). Renderers ignore it. */
+  placed_by?: "section_break" | "filler";
 }
 
 export interface VisualItem {
@@ -382,6 +386,14 @@ export interface StylePack {
      *  because a transition eats footage from the shots on both sides of it.
      *  Omitted is 0.5s, which is what every transition was before. */
     duration_s?: number;
+    /** D95 — target share of non-cut junctions (0.3 = a 70/30 mix). Requires `mix`. */
+    animated_share?: number;
+    /** D95 — the kinds filler draws from, as relative weights. */
+    mix?: Partial<Record<AnimatedTransitionType, number>>;
+    /** D95 — the transition where the mood span (and so the music bed) changes. */
+    section_break?: AnimatedTransitionType;
+    /** D95 — per-kind length, overriding `duration_s`. */
+    durations?: Partial<Record<AnimatedTransitionType, number>>;
   };
   script_persona?: string;
   visual_language?: string;

@@ -12,6 +12,7 @@ import {
   stylePacksDir,
 } from "@/lib/stylePacks";
 import { validateAgainst } from "@/lib/validate";
+import { transitionPackProblems } from "@/lib/transitionRules";
 
 /** List / create style pack documents. Single-pack update: ./[name]/route.ts */
 
@@ -51,7 +52,7 @@ export const GET = handler(async () => {
       const doc = JSON.parse(readFileSync(join(dir, file), "utf8")) as StylePack;
       const check = validateAgainst("style_pack", doc);
       row.doc = doc;
-      row.errors = check.errors;
+      row.errors = check.ok ? transitionPackProblems(doc.transitions) : check.errors;
     } catch (e) {
       row.errors = [e instanceof Error ? e.message : "unreadable"];
     }
@@ -69,6 +70,9 @@ export const POST = handler(async (req: Request) => {
   }
   const check = validateAgainst("style_pack", pack);
   if (!check.ok) throw new ApiError(400, `style pack invalid: ${check.errors.join("; ")}`);
+  // D95 — the cross-field rules the schema cannot say; the compiler refuses these too
+  const placement = transitionPackProblems(pack.transitions);
+  if (placement.length) throw new ApiError(400, `style pack invalid: ${placement.join("; ")}`);
 
   const path = stylePackPath(pack.name);
   if (existsSync(path)) throw new ApiError(409, `style pack ${pack.name} already exists`);

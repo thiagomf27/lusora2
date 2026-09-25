@@ -10,6 +10,7 @@ import {
   stylePackPath,
 } from "@/lib/stylePacks";
 import { validateAgainst } from "@/lib/validate";
+import { transitionPackProblems } from "@/lib/transitionRules";
 
 type Ctx = { params: Promise<{ name: string }> };
 
@@ -58,6 +59,9 @@ export const PUT = handler(async (req: Request, ctx: Ctx) => {
   }
   const check = validateAgainst("style_pack", pack);
   if (!check.ok) throw new ApiError(400, `style pack invalid: ${check.errors.join("; ")}`);
+  // D95 — the cross-field rules the schema cannot say; the compiler refuses these too
+  const placement = transitionPackProblems(pack.transitions);
+  if (placement.length) throw new ApiError(400, `style pack invalid: ${placement.join("; ")}`);
 
   writeFileSync(path, serializeStylePack(pack));
   return NextResponse.json({ name });

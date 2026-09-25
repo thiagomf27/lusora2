@@ -165,6 +165,15 @@ export default function BeatReviewPage() {
     return map;
   }, [plan]);
 
+  /** beat id -> the transition its LAST shot hands over with, as compiled. */
+  const handoffByBeat = useMemo(() => {
+    const map = new Map<string, EditPlan["tracks"]["visual"][number]["transition_out"]>();
+    for (const item of plan?.tracks?.visual ?? []) {
+      if (item.beat_id) map.set(item.beat_id, item.transition_out);
+    }
+    return map;
+  }, [plan]);
+
   const resolved = beats.filter((b) => !!visualByBeat.get(b.id)?.asset?.path).length;
   const pct = beats.length ? Math.round((resolved / beats.length) * 100) : 0;
 
@@ -460,9 +469,13 @@ export default function BeatReviewPage() {
                         <div className={s.beatCell}>
                           <div className={s.beatCellLabel}>Hands over</div>
                           <div className={s.beatCellValue}>
-                            {TRANSITION_LABEL[b.transition_out ?? transitionDefault] ??
-                              (b.transition_out ?? transitionDefault)}
-                            {b.transition_out ? "" : " (pack)"}
+                            {(() => {
+                              // D95: a beat naming none shows what the compiler placed, if it did
+                              const placed = b.transition_out ? undefined : handoffByBeat.get(b.id);
+                              const kind = b.transition_out ?? (placed?.placed_by ? placed.type : transitionDefault);
+                              const tag = b.transition_out ? "" : placed?.placed_by ? " (auto)" : " (pack)";
+                              return `${TRANSITION_LABEL[kind] ?? kind}${tag}`;
+                            })()}
                           </div>
                         </div>
                         <div className={s.beatCell}>
