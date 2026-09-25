@@ -121,6 +121,8 @@ def _render_candidate(beat: dict[str, Any], menu: list[dict[str, Any]]) -> str:
         hold = (entry.get("duration_hint_s") or {}).get("default")
         held = f", holds ~{hold:g}s" if hold else ""
         lines.append(f"    - {entry['name']} ({takes}{held}): {entry['when_to_use']}")
+        if entry.get("when_not_to_use"):
+            lines.append(f"      not: {entry['when_not_to_use']}")
         props = _hintable_props(entry)
         if props:
             lines.append(f"      props: {json.dumps(props, ensure_ascii=False, separators=(',', ':'))}")

@@ -312,6 +312,18 @@ def test_the_candidate_block_shows_the_anchor_the_component_would_fill():
     assert "AnimatedCounter" in block
 
 
+def test_the_candidate_block_says_when_not_to_use_each_component():
+    """The catalog's `when_not_to_use` is what tells a counter from a rank or a
+    heading. Without it the selector put a counter on every position of a
+    countdown ("Número cinco…"), 5 of 5, run after run (japanese-houses-list)."""
+    beat = _beats()["beats"][1]
+    menu = overlay_agent._candidate_menu(["percentage"], None, False)
+    block = overlay_agent._render_candidate(beat, menu)
+    counter = next(e for e in menu if e["name"] == "AnimatedCounter")
+    assert f"not: {counter['when_not_to_use']}" in block
+    assert block.count("not: ") == sum(1 for e in menu if e.get("when_not_to_use"))
+
+
 # ---------------- validation ----------------
 
 

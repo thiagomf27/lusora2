@@ -1,0 +1,73 @@
+{
+  "_comment": "Frozen from vid_1549eeacea78 (the v3 control of the first directed-edit A/B pair) on DIRECTED_TEST_01: directed-test pack, narrowed to basic's seven components, emphasis on, no practical per-minute cap. The case exists to measure one judgement — a numbered list's positions are headings, not quantities — so the menu that offered TextCounter for them is the menu it must be scored under.",
+  "from_video": "vid_1549eeacea78",
+  "language": "pt-BR",
+  "video_type": "doc",
+  "style_pack": "directed-test",
+  "theme": "standard",
+  "component_pack": "basic",
+  "content_rules": "No direct address to viewer. No exclamations. No sensationalism. Facts stated plainly. Third person only.",
+  "planner": {
+    "llm": "mock"
+  },
+  "style_pack_doc": {
+    "sfx": {
+      "cues": [
+        "entrance"
+      ],
+      "enabled": true,
+      "min_gap_s": 2.5,
+      "max_per_minute": 6
+    },
+    "name": "directed-test",
+    "music": {
+      "enabled": true,
+      "min_span_s": 25,
+      "crossfade_s": 1.5
+    },
+    "pacing": {
+      "arc": "linear",
+      "max_hold": 6,
+      "min_hold": 2,
+      "avg_hold_seconds": 4,
+      "hold_floor_ratio": 1,
+      "hold_ceiling_ratio": 1.5
+    },
+    "script": {
+      "prompt": "doc-grave",
+      "tolerance": 0.25,
+      "target_seconds": 90
+    },
+    "overlays": {
+      "density": {
+        "per_minute": 60
+      },
+      "emphasis": {
+        "enabled": true,
+        "per_minute": 60
+      },
+      "allowed_packs": [
+        "basic"
+      ],
+      "allowed_components": [
+        "TextBanner",
+        "TextCounter",
+        "TextHighlight",
+        "TextName",
+        "TextPlace",
+        "TextTag",
+        "TextTitle"
+      ]
+    },
+    "video_type": "doc",
+    "transitions": {
+      "allowed": [
+        "cut",
+        "crossfade"
+      ],
+      "default": "cut"
+    },
+    "script_persona": "Grave, measured. Third person. Short declarative sentences. Names, dates and places stated plainly. No excitement, no direct address.",
+    "visual_language": "Cinematic stock footage of extreme landscapes and expedition activity, intercut with archival paintings and maps as exhibits with slow ken_burns; avoid modern urban footage, talking heads, and screen recordings."
+  }
+}

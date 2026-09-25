@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "case": "japanese-houses-list",
+  "notes": "L1, self-marked, and NOT blind: marked after the first directed-edit A/B review (2026-09-24), where the user judged the control's counters on the list positions and its '80' without a sign as the two things that lost it. Small on purpose — it measures one judgement (list positions are headings) plus the figure beside it. Marks only what that review settled; the rest of the script is unmarked, so restraint reads n/a.",
+  "marks": [
+    {
+      "id": "m1",
+      "source_words": "Número cinco, o genkan",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "TextTag",
+        "TextTitle",
+        "TextBanner"
+      ],
+      "ideal": "TextTag",
+      "why": "a position in the countdown: a heading the viewer navigates by, not a quantity — a counter counting up to it reads as a figure the script never states"
+    },
+    {
+      "id": "m2",
+      "source_words": "Número quatro",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "TextTag",
+        "TextTitle",
+        "TextBanner"
+      ],
+      "ideal": "TextTag",
+      "why": "a position in the countdown: a heading the viewer navigates by, not a quantity — a counter counting up to it reads as a figure the script never states"
+    },
+    {
+      "id": "m3",
+      "source_words": "Número três, o ofurô",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "TextTag",
+        "TextTitle",
+        "TextBanner"
+      ],
+      "ideal": "TextTag",
+      "why": "a position in the countdown: a heading the viewer navigates by, not a quantity — a counter counting up to it reads as a figure the script never states"
+    },
+    {
+      "id": "m4",
+      "source_words": "Número dois, o assento com ducha",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "TextTag",
+        "TextTitle",
+        "TextBanner"
+      ],
+      "ideal": "TextTag",
+      "why": "a position in the countdown: a heading the viewer navigates by, not a quantity — a counter counting up to it reads as a figure the script never states"
+    },
+    {
+      "id": "m5",
+      "source_words": "Número um",
+      "verdict": "graphic",
+      "class": "emphasis",
+      "acceptable": [
+        "TextTag",
+        "TextTitle",
+        "TextBanner"
+      ],
+      "ideal": "TextTag",
+      "why": "a position in the countdown: a heading the viewer navigates by, not a quantity — a counter counting up to it reads as a figure the script never states"
+    },
+    {
+      "id": "m6",
+      "source_words": "Cerca de oitenta por cento",
+      "verdict": "graphic",
+      "class": "anchor",
+      "acceptable": [
+        "TextCounter"
+      ],
+      "ideal": "TextCounter",
+      "why": "the one real figure in the video, a share the sentence is built on"
+    }
+  ]
+}

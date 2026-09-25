@@ -287,7 +287,7 @@
       "name": "TextCounter",
       "pack": "basic",
       "when_to_use": "the narration lands a single figure worth dwelling on and it should be written onto the shot rather than shown on a card — '$7.9 trillion', '29,000 tanks', '70%'. The number counts up to its value",
-      "when_not_to_use": "the figure belongs on a graphic with a plate and a rule (AnimatedCounter); two figures being compared (ComparisonSplit) or three and more (BarChart); a number already written out as words, which is just text (TextTitle)",
+      "when_not_to_use": "the figure belongs on a graphic with a plate and a rule (AnimatedCounter); two figures being compared (ComparisonSplit) or three and more (BarChart); a number already written out as words, which is just text (TextTitle); a position in a countdown or list ('número cinco', '#3') — it counts nothing, so a count-up reads as a figure the script never states: mark the entry with RankLabel where the menu has it, otherwise as text (TextTag or TextTitle)",
       "anchor_types": [
         "number",
         "percentage"
