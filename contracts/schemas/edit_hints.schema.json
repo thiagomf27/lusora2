@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/edit_hints.schema.json",
+  "title": "EditHints",
+  "description": "The directed-edit block (docs/05-roadmap/directed-edit-test.md): the high-judgment edit decisions for one script, written outside the system by a Claude web pass and pasted under the script between ===LUSORA EDIT v1=== and ===END===. A human-provided artifact, applied by CODE onto the beat sheet — never a script of its own. Phrases (`from`, `at`) are verbatim spans of the script, located with the compiler's textmatch keys; everything derivable (anchor source_words, anchor_ref, overlay role) is deliberately absent so it cannot disagree with what code derives. No sound fields: a model never names a sound (D8/D50).",
+  "type": "object",
+  "required": ["style_pack", "sections", "pins"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "enum": ["1"],
+      "description": "The block format. The paste markers already name it; optional here."
+    },
+    "style_pack": {
+      "type": "string",
+      "minLength": 1,
+      "description": "An ASSERTION, not a choice: must equal the video's resolved style pack, because the component menu and budgets the edit pass was shown depend on it."
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/section" },
+      "description": "In script order. The first starts at the script's first words. A beat takes the mood of the section holding most of its words."
+    },
+    "pins": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pin" }
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["from", "mood"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "description": "the section's opening words, verbatim and unique in the script"
+        },
+        "mood": {
+          "enum": ["neutral", "tense", "somber", "hopeful", "urgent", "triumphant", "reflective", "playful"],
+          "description": "the D50 vocabulary. Stricter than beat.mood (a free string that degrades to neutral) because an attended author can fix a typo"
+        }
+      }
+    },
+    "pin": {
+      "type": "object",
+      "required": ["at"],
+      "additionalProperties": false,
+      "description": "A decision attached to a verbatim phrase: an overlay, a key shot (visual_intent + queries — the 'hero'), or both. Code requires at least one of the two.",
+      "properties": {
+        "at": {
+          "type": "string",
+          "minLength": 1,
+          "description": "verbatim, unique in the script, starting at the words the graphic is about. Code copies the SCRIPT's own words into the anchor's source_words, so this is also where the overlay is timed."
+        },
+        "anchor": {
+          "type": "object",
+          "required": ["type", "value"],
+          "additionalProperties": false,
+          "description": "the fact a fact-carrying overlay shows. No source_words (it is `at`) and no anchor_ref (it is always this anchor).",
+          "properties": {
+            "type": {
+              "enum": ["percentage", "number", "comparison", "place", "date", "name", "quote"]
+            },
+            "value": {
+              "type": ["number", "string", "array", "object"]
+            },
+            "label": { "type": "string" }
+          }
+        },
+        "overlay": {
+          "type": "object",
+          "required": ["component"],
+          "additionalProperties": false,
+          "description": "No role: the catalog derives it (D86) — a component with no anchor types is emphasis whatever anyone says.",
+          "properties": {
+            "component": { "type": "string", "minLength": 1 },
+            "props_hint": { "type": "object" }
+          }
+        },
+        "visual_intent": {
+          "type": "string",
+          "minLength": 3,
+          "description": "scout-style description of the shot this moment needs; replaces the beat planner's on the beat holding `at`"
+        },
+        "queries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": { "type": "string", "minLength": 2, "maxLength": 120 },
+          "description": "2-3 keyword searches for the same shot (D53)"
+        }
+      }
+    }
+  }
+}

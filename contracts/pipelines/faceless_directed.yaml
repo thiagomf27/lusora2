@@ -1,0 +1,113 @@
+name: faceless_directed
+version: "1.0"
+description: >
+  The DIRECTED EDIT test pipeline (D94, docs/05-roadmap/directed-edit-test.md).
+  One Claude web pass, made outside the system, writes the high-judgment edit
+  decisions for a locked script — sections and their mood, overlays attached
+  to verbatim phrases, the key shots — and they arrive as edit_hints.json,
+  pasted under the script on the quote page. Code applies them; DeepSeek keeps
+  the per-beat visuals.
+
+  It is faceless_v3's stage list with two changes, and nothing else, so an
+  A/B against v3 moves exactly one variable — who makes the edit decisions:
+    - `edit_hints` right after `script`: re-validates the block against the
+      script and the CURRENT catalog before narration, so a bad block never
+      reaches paid TTS. It produces nothing new — the block can only be
+      received (the paste), never generated.
+    - no `select_overlays`: the block IS the overlay decision. The pins are
+      written into beats.json by plan_beats, so the editor, locks and the
+      per-beat recompile (D14) treat them like any other overlay; there is no
+      overlays.json to override a human's edit.
+
+  `cut_beats` keeps each pin's phrase inside one beat and gives an emphasis
+  pin its own beat start; `plan_beats` runs the unchanged beatcraft call with
+  no component menu, then applies the block and judges the result with the
+  unchanged validator.
+
+  stability: test and bulk_production_accepted: false — a test mode, pinned by
+  name (`pipeline: faceless_directed`), never chosen by production_style.
+category: faceless
+stability: test
+
+default_checkpoint_policy: auto
+bulk_production_accepted: false
+
+orchestration:
+  mode: mainly_code
+  budget_default_usd: 2.00
+  max_revisions_per_stage: 3
+  max_send_backs: 3
+
+compatible_themes:
+  recommended:
+    - standard
+    - paper-print
+  also_works:
+    - field-manual
+    - bold-editorial
+  custom_allowed: true
+
+stages:
+  - name: script
+    produces: [script.txt]
+    receivable_on_upload: true            # the pasted script — the block was written against it
+    human_approval_on_review_mode: true   # gate after the script in review mode
+
+  # D94 — the edit block, validated before anything is paid for. Receivable only:
+  # the body re-checks what the paste box already checked, against the current
+  # catalog and with the checks only the worker can run (spoken numbers, the
+  # gazetteer), and fails loudly when the block is missing.
+  - name: edit_hints
+    requires: [script.txt]
+    produces: [edit_hints.json]
+    receivable_on_upload: true            # the pasted block
+
+  - name: narration
+    requires: [script.txt]
+    produces: [audio.mp3]
+    receivable_on_upload: true            # bring your own voiceover
+
+  - name: transcript
+    requires: [audio.mp3]
+    produces: [subtitles.srt]
+    receivable_on_upload: true            # bring your own subtitles
+
+  # D88, plus D94: no cut inside a pinned phrase, one graphic per beat, and an
+  # emphasis pin starts its own beat.
+  - name: cut_beats
+    requires: [script.txt, subtitles.srt, edit_hints.json]
+    produces: [beat_cuts.json]
+    receivable_on_upload: true            # hand-cut spans (schema-checked)
+
+  - name: plan_beats
+    requires: [script.txt, subtitles.srt, beat_cuts.json, edit_hints.json]
+    produces: [beats.json]
+    receivable_on_upload: true            # hand-written beat sheet (schema-checked)
+    human_approval_on_review_mode: true   # gate after the beat sheet in review mode
+
+  - name: compile_plan
+    requires: [beats.json]
+    produces: [edit_plan.json]
+    receivable_on_upload: true            # hand-written edit plan (schema-checked)
+
+  - name: resolve_assets
+    requires: [edit_plan.json]
+    produces: [clips/]
+
+  - name: resolve_audio
+    requires: [edit_plan.json]
+    produces: [audio/]
+
+  - name: validate
+    requires: [edit_plan.json]
+
+  - name: render
+    requires: [edit_plan.json]
+    produces: [final.mp4]
+
+  - name: qa
+    requires: [final.mp4]
+
+  - name: finalize
+    requires: [final.mp4]
+    produces: [thumb.jpg, metadata.txt]

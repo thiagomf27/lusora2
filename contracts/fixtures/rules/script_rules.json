@@ -1,0 +1,15 @@
+{
+  "_comment": "What narration may not contain, because the TTS reads the file aloud. The worker's validate_script (validators.py) applies these to a GENERATED script; the platform's paste box (platform/src/lib/editPaste.ts validateScript) applies them to a PASTED one, which skips the script stage. Asserted by worker/tests/test_edit_hints.py and platform/test/editPaste.test.ts. `expect` are substrings of the violations; an empty list means the text must pass.",
+  "cases": [
+    { "name": "plain narration passes", "text": "Número cinco, o genkan. A sujeira da rua fica ali, e não anda pela casa.", "expect": [] },
+    { "name": "an accented word between asterisks is still italics", "text": "O nome dele era *Alcedo*, e ninguém lembrou.", "expect": ["markdown italics — the asterisks are spoken by the TTS — found '*Alcedo*'"] },
+    { "name": "bold", "text": "Isto é **importante** demais.", "expect": ["markdown bold"] },
+    { "name": "a heading", "text": "# Parte um\nO Brasil começou assim.", "expect": ["markdown heading"] },
+    { "name": "a bullet", "text": "Três coisas:\n- a primeira", "expect": ["bullet list"] },
+    { "name": "a speaker label", "text": "Narrator: it began in 1920.", "expect": ["speaker label"] },
+    { "name": "an all-caps label", "text": "INTRO: o começo de tudo.", "expect": ["all-caps label"] },
+    { "name": "a bracketed direction", "text": "E então [pausa dramática] tudo mudou.", "expect": ["bracketed stage direction"] },
+    { "name": "an emoji", "text": "Qual dessas você levaria? 🏠", "expect": ["an emoji"] },
+    { "name": "an empty script", "text": "   ", "expect": ["the script is empty"] }
+  ]
+}

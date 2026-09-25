@@ -67,6 +67,11 @@ docker-compose.
   vendored library snapshot for the live broll-engine repo: the API
   mismatches it exposes and the slice order ★ read before touching
   `library/` or `providers/sources.py`
+- [Directed Edit Test](05-roadmap/directed-edit-test.md) — a test mode where
+  one Claude web pass makes the edit decisions (sections, overlays on
+  verbatim phrases, hook, hero shots) and code applies them; the A/B design
+  and the edit-pass prompt ★ read before touching `cut_beats`, `beatcraft` or
+  the paste flow
 
 ### 07 — Authoring
 - [Authoring Guide](07-authoring.md) — ready-made prompts for adding a

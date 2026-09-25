@@ -54,6 +54,9 @@ STEP_REGISTRY: dict[str, Step] = {
     # anything writes a sentence the audience will hear.
     "research": Step(steps.run_research),
     "script": Step(steps.run_script),
+    # D94 — the directed-edit block, judged before narration. Only
+    # faceless_directed lists it. Done = a stamp of the block/script/catalog judged.
+    "edit_hints": Step(steps.run_edit_hints, steps.edit_hints_checked),
     "narration": Step(steps.run_narration),
     "transcript": Step(steps.run_transcript),
     # D88 — code cuts the script, with the real SRT timings, before the model

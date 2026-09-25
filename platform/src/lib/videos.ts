@@ -3,13 +3,13 @@
  * pre-flight validation, cfg snapshot, enqueue.
  */
 import { copyFileSync, mkdirSync, writeFileSync, existsSync, readFileSync, statSync } from "node:fs";
-import { join, isAbsolute, extname, dirname } from "node:path";
+import { join, extname, dirname } from "node:path";
 import type { ChannelConfig, PipelineManifest } from "@lusora/contracts";
 import { query, one } from "../db/pool.ts";
 import { ApiError } from "./auth.ts";
 import { deepMerge } from "./merge.ts";
 import { validateAgainst } from "./validate.ts";
-import { loadEnv, repoRoot } from "./env.ts";
+import { repoRoot } from "./env.ts";
 import { PROMPT_ROLES, resolvePrompt } from "./prompts.ts";
 import {
   bulkProductionProblem,
@@ -20,15 +20,9 @@ import {
 import { backgroundPath } from "./backgrounds.ts";
 import { applyComponentPack, applyLook } from "./look.ts";
 
-export function videosRoot(): string {
-  loadEnv();
-  const root = process.env.VIDEOS_ROOT ?? join(repoRoot(), "data/videos");
-  return isAbsolute(root) ? root : join(repoRoot(), root);
-}
+import { videoFolder } from "./folders.ts";
 
-export function videoFolder(videoId: string): string {
-  return join(videosRoot(), videoId);
-}
+export { videoFolder, videosRoot } from "./folders.ts";
 
 /** Uploadable artifacts (manual-first): field name -> file name in the folder. */
 export const UPLOADABLE: Record<string, string> = {

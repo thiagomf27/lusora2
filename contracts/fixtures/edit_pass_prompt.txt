@@ -1,0 +1,340 @@
+# Golden file: the edit-pass prompt for descoberta-doc at 20 minutes, with no
+# channel narrowing (core + the pack's own menu).
+#
+# Rendered by renderEditPassPrompt() in platform/src/lib/editPassPrompt.ts and
+# asserted by platform/test/editPassPrompt.test.ts. A diff here means the
+# prompt an edit pass is given has changed — usually because the catalog did.
+# That is allowed; it is not allowed to happen unseen.
+#
+# Regenerate with:
+#   pnpm edit-pass-prompt --write-fixture
+#
+You are the editor of a short documentary video. The narration below is final
+and has already been recorded. Your job is to decide what the viewer SEES on
+top of it: where the mood changes, which lines get text on screen, and which
+moments deserve a specific shot. Another system chooses ordinary footage for
+every other moment; you only mark the moments that need an editor.
+
+You output ONE block in the exact format at the end, and nothing else. Never
+reprint, fix, translate or shorten the script.
+
+HOW TO THINK
+- The hook is the first line of narration. Decide what is on screen while it
+  is spoken: a title, a shot, or both.
+- A graphic earns its place by carrying something the viewer should hold on
+  to: a figure, a name, a place, a line that is the point of the section. A
+  line that merely continues does not need one.
+- Mood is a property of a SECTION (it chooses the background music). Change it
+  only where the story genuinely turns.
+- A key shot ("visual_intent") is for the few moments where generic footage
+  would be wrong: a specific object, place or action the line depends on.
+  Describe it like a location scout: concrete, visual, specific (subject,
+  era, framing, light). Never abstract.
+
+BUDGET
+This video is ~20.0 min of narration. Use at most 54 fact graphics (hard ceiling 61).
+Use at most 10 emphasis graphics (hard ceiling 13), counted
+separately — neither budget can borrow from the other.
+Staying under the first numbers leaves room for narration that runs faster than
+estimated. A budget is a ceiling, not a target.
+Sections shorter than ~25 seconds of speech (~59 words) are absorbed by their
+neighbours, so do not change the mood for less.
+
+PHRASE RULES (checked by code — a mismatch is rejected)
+- "at" and "from" are copied EXACTLY from the script: same words, same order,
+  same spelling, in the script's language.
+- 2 to 8 words, and unique in the script. If the words occur twice, add
+  words until they occur once. Longer only when that is needed to be unique.
+- "at" is where the graphic belongs: start it at the words the graphic is
+  about (for a number, the number itself). The graphic appears when they
+  are spoken.
+- Two pins may not share words.
+- Two graphics in consecutive short sentences crowd each other: each needs a
+  couple of seconds on screen before the next one starts.
+
+MOODS (use exactly one of these words)
+neutral, tense, somber, hopeful, urgent, triumphant, reflective, playful
+
+COMPONENTS (the only ones that exist in this style)
+Fact graphics — need an "anchor" taken from the words in "at":
+- AnimatedCounter [anchor: number | percentage]
+  use: the narration lands a single figure worth dwelling on — a count, a total, a percentage ('29,000 tanks', '70% of factories')
+  not: two or more values being compared (ComparisonSplit for two, BarChart for three or more); a figure that should sit in the corner while the shot continues (StatTag); a position in a ranking (RankLabel)
+  props:
+    label (≤8 words) — what the figure counts. Omit it when the narration names the figure in the same breath — a bare number is a legitimate overlay, and a label that only repeats the voice-over is noise
+    prefix (≤2 words) — e.g. a currency symbol
+    suffix (≤3 words) — e.g. '%', 'tons'
+    decimals (number 0-2)
+    approximate (true/false) — prefixes the settled value with '~'
+    caption (≤12 words) — a qualifying second line under the figure ('at the 13 September count')
+    position = center|left|right
+- BarChart [anchor: comparison]
+  use: the narration compares three to seven named quantities of the same kind ('Germany 12,000; the Soviets 29,000; the Americans 49,000')
+  not: exactly two values, where the split reads better (ComparisonSplit); one value (AnimatedCounter); a quantity changing over time (LineChart); dated events (Timeline)
+  props:
+    title (≤8 words)
+    unit (≤3 words)
+    orientation = vertical|horizontal
+    highlight_index (number 0-6) — index of the one bar that takes the accent
+    source (≤8 words) — credit line along the bottom
+- ComparisonSplit [anchor: comparison]
+  use: the narration sets exactly two quantities of the same kind against each other and the contrast is the point ('eleven ships lost against two')
+  not: three or more values (BarChart); one value (AnimatedCounter); two things compared qualitatively rather than numerically (FactSheet)
+  props:
+    unit (≤3 words)
+    caption (≤10 words)
+- DateStamp [anchor: date]
+  use: establishing when (and optionally where) a shot happens, as a corner slug the narration runs underneath
+  not: several dates in sequence (Timeline); a date that is itself the subject of the beat (AnimatedCounter for a year figure); locating a place (SatelliteLocate)
+  props:
+    place (≤4 words)
+    position = top_left|top_right|bottom_left|bottom_right
+    variant = stamped|typed
+- HighlightedPassage [anchor: quote]
+  use: a passage of quoted text where specific phrases are being picked apart — the marks land on the words as the narration reaches them
+  not: a quote presented whole with no phrase singled out (QuoteBlock); paper documents (DocumentCard); pointing at the footage (CalloutArrow)
+  props:
+    marks ([{phrase ≤6w, style highlight|circle|underline|box|bracket|strike}, …]) — phrases must appear verbatim in `text`; unmatched ones are skipped
+- NamePlate [anchor: name]
+  use: introducing a person by name while the narration continues — role and lifespan optional
+  not: a place (SatelliteLocate); a term (DefinitionCard); a section heading (ChapterCard); quoting what the person said (QuoteBlock)
+  props:
+    role (≤9 words)
+    lifespan (≤2 words) — e.g. '1896–1974'
+    side = left|right|center
+    variant = bar|boxed|underline
+- PieChart [anchor: percentage | comparison]
+  use: the narration splits ONE total into its parts — 'a third of the budget went to the navy', 'two in five never returned'. Values are absolute; the component takes the share
+  not: quantities that are not parts of the same whole, where the sizes are what is compared (BarChart); two values set against each other (ComparisonSplit); one share on its own, with no remainder worth drawing (AnimatedCounter with a '%' suffix, or StatTag); a share changing over time (LineChart)
+  props:
+    title (≤8 words)
+    highlight_index (number 0-5) — index of the one slice the narration is about; it pulls out of the ring and its share fills the hole
+    source (≤8 words) — as above
+- PortraitPlates [anchor: name]
+  use: presenting one or two people or places as framed pictures — a portrait on a mat with the name set beside it, or a pair of plates side by side under one kicker
+  not: one photograph the words are ABOUT, with a sentence of caption under it (FramedExhibit); naming somebody while their footage keeps running, with no picture of your own (NamePlate); treating the running shot itself as archival (ArchivalFrame)
+  props:
+    kicker (≤6 words)
+    label_position = beside|below
+    label_style = plate|bare
+- QuoteBlock [anchor: quote]
+  use: a line someone actually said or wrote, presented whole with attribution
+  not: specific phrases inside the quote are being dissected (HighlightedPassage); the source is a document being shown as paper (DocumentCard); the video's own assertion (HammerStatement)
+  props:
+    attribution (≤6 words)
+    context (≤8 words) — where or when it was said
+    variant = mark|rule|boxed
+    size = standard|large
+    align = left|center
+- RankLabel [anchor: number]
+  use: a countdown or ranked list, marking which entry this is ('#3 of 20')
+  not: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)
+  props:
+    title* (≤7 words)
+    subtitle (≤6 words)
+    total (number ≥1) — renders 'of N'
+- RouteMap [anchor: place]
+  use: a journey or advance between two to six named places, drawn stop by stop
+  not: one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know
+  props:
+    title (≤6 words)
+    mode = march|flight|sea
+- SatelliteLocate [anchor: place]
+  use: the narration names a specific place and the viewer needs to know where it is — a crosshair lands on the coordinate
+  not: a territory's extent (RegionHighlight); a route between places (RouteMap); places mentioned in passing that need no locating; a place already established in the same section
+  props:
+    label (≤6 words)
+    country (≤4 words)
+    zoom = neighbourhood|city|region|country|continent|world — altitude: a few blocks, a city, a region, a country, a continent, the globe
+    framing = full|panel
+- StatTag [anchor: number | percentage]
+  use: a figure that should sit quietly in a corner while the footage carries the shot — a rate, a total, a share
+  not: the number is the point of the beat and deserves the frame (AnimatedCounter); several numbers (BarChart or FactSheet); a rank (RankLabel)
+  props:
+    unit (≤3 words)
+    label* (≤8 words)
+    position = top_left|top_right|bottom_left|bottom_right
+Emphasis graphics — no anchor; "props_hint" carries the text:
+- ArchivalFrame
+  use: presenting the shot itself as archival footage — grain, gate flicker and an optional slate line over a period clip
+  not: a still photograph that should read as an exhibit with a caption (FramedExhibit); a paper document (DocumentCard); any shot where the underlying footage should stay clean
+  props:
+    slate (≤6 words)
+    date (≤4 words)
+    treatment = auto|archival|film|none — 'auto' follows the theme's grain
+    flicker (true/false)
+    sprocket (true/false)
+- BulletList
+  use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence
+  not: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)
+  props:
+    title (≤8 words)
+    items* ([≤15w, …])
+    marker = dot|rule|number|none
+    align = left|center
+- CalloutArrow
+  use: pointing at something already visible in the footage and naming it ('this is the breach in the hull')
+  not: the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)
+  props:
+    text* (≤10 words)
+    target = top_left|top_center|top_right|center_left|center|center_right|bottom_left|bottom_center|bottom_right — which ninth of the frame the arrow points at
+    from = left|right|above|below
+    style = curved|straight|elbow
+- ChapterCard
+  use: a full-screen act break between sections of the video — numbered chapter, title, optional subtitle
+  not: the opening title of the video or a stylised statement (KineticTitle); a heading that should not stop the narration; a person's name (NamePlate)
+  props:
+    chapter_label (≤4 words) — e.g. 'Part', 'Chapter'
+    chapter_number (number 1-99)
+    title* (≤10 words)
+    subtitle (≤7 words)
+    rule = over|under|both|none
+    align = center|left
+- DataTable
+  use: several subjects compared across several attributes — three tanks by weight, gun and crew; four countries by year. Two to four columns, two to six rows, with a header
+  not: label/value rows about ONE subject, or a ranking of one kind of thing (FactSheet, with `numbered` for the ranking); values whose SIZES are the comparison rather than their exact figures (BarChart); two subjects on one attribute (ComparisonSplit); dated events (Timeline)
+  props:
+    title (≤8 words)
+    columns* ([≤3w, …]) — header cells; the first column is the row's SUBJECT
+    rows* ([[≤4w, …], …]) — one array of cells per row, in the same order as `columns`
+    highlight_row (number 0-5) — index of the one row the narration is about; the rest go quiet around it
+    source (≤8 words) — credit line under the table
+- DefinitionCard
+  use: the narration introduces a technical term or piece of jargon the viewer is unlikely to know, and defines it
+  not: a claim or statistic rather than a term (FactCard); a person's name and role (NamePlate); a quoted line (QuoteBlock)
+  props:
+    term* (≤5 words)
+    pronunciation (≤4 words)
+    part_of_speech (≤2 words)
+    definition* (≤28 words)
+    origin (≤10 words)
+- DocumentCard
+  use: reproducing a written source as paper — an order, a telegram, a signed note — while the narration reads or discusses it
+  not: a spoken line (QuoteBlock); marking phrases inside a passage (HighlightedPassage); a photograph (FramedExhibit); a list of the video's own claims (BulletList)
+  props:
+    title (≤6 words)
+    lines* ([≤15w, …])
+    stamp (≤2 words) — e.g. 'SECRET'
+    signature (≤5 words)
+    variant = typed|telegram|handwritten
+- FactCard
+  use: one claim that needs a sentence of explanation and, ideally, a source — the workhorse side panel
+  not: a bare number (AnimatedCounter or StatTag); a defined term (DefinitionCard); several parallel claims (BulletList); a blunt one-line statement (HammerStatement)
+  props:
+    headline* (≤10 words)
+    body* (≤35 words)
+    source (≤8 words)
+    position = left|right|center
+- FactSheet
+  use: two to six label/value rows in one panel: a dossier on one subject (ship, aircraft, person, place), or with `numbered` a RANKING of the same kind of thing (the five deadliest, the ten biggest)
+  not: values compared across subjects, where the SIZES are the point (BarChart, or ComparisonSplit for two); one position in a ranking rather than the list of them (RankLabel); prose claims with no values (BulletList); dated events (Timeline)
+  props:
+    title* (≤8 words)
+    rows* ([{label ≤4w, value ≤6w}, …])
+    numbered (true/false) — number the rows 1..n — the same panel as a RANKING (the ten biggest, the five deadliest)
+    highlight_index (number 0-5) — index of the one row the narration is about; the rest go quiet around it
+    footnote (≤13 words)
+    position = left|right
+- FramedExhibit
+  use: presenting a photograph or artefact as an exhibit, with a caption and optional credit
+  not: treating the whole shot as archival footage (ArchivalFrame); a written document (DocumentCard); a caption over live footage with nothing to frame (FactCard)
+  props:
+    caption* (≤20 words)
+    credit (≤8 words)
+    frame_style = museum|polaroid|hairline
+    orientation = landscape|portrait|square
+- HammerStatement
+  use: one blunt line that is the point of the section, filling the frame — a turn, a verdict, a reveal
+  not: a claim that needs explaining (FactCard); a section heading (ChapterCard); the video's title (KineticTitle); anything someone actually said (QuoteBlock)
+  props:
+    text* (≤15 words)
+    kicker (≤6 words)
+    align = left|center
+- KineticTitle
+  use: the video's opening title or a cold-open line, assembling word by word
+  not: a mid-video section break (ChapterCard); a claim being argued (HammerStatement); a name (NamePlate)
+  props:
+    text* (≤11 words)
+    unit = word|char
+    entrance = rise|mask|scale
+    align = left|center
+    emphasize_last (true/false)
+- LineChart
+  use: a quantity changing across an ordered sequence — production by year, losses by month — for up to three series
+  not: values at one moment (BarChart); a single figure (AnimatedCounter); events rather than measurements (Timeline)
+  props:
+    title (≤8 words)
+    series* ([{name ≤3w, points [{x ≤2w, y number}, …]}, …])
+    y_label (≤3 words)
+    x_label (≤3 words)
+    source (≤8 words) — credit line along the bottom
+- RegionHighlight
+  use: a territory whose EXTENT matters — occupied ground, an empire, a front — outlined and filled on a map
+  not: a single point on the map (SatelliteLocate); a journey between points (RouteMap); a place mentioned in passing. Requires a border polygon supplied by hand — nothing derives one, so this is placed in the editor, never chosen by the planner
+  props:
+    region_name* (≤6 words)
+    polygon ([{lat number -90-90, lng number -180-180}, …]) — border vertices for ONE region; must be supplied — there is no gazetteer of polygons. Use `regions` for more than one
+    regions ([{region_name ≤6w, polygon [{lat number -90-90, lng number -180-180}, …], label ≤6w}, …]) — several outlines in one shot (the Axis powers, the states that seceded); each may name itself. Use INSTEAD of `polygon`, not alongside it
+    label (≤6 words)
+    annotation (≤6 words) — record the source and effective date of a contested border here
+- StepFlow
+  use: two to five stages of a process in order, where each step leads to the next — how a thing was built, decided or executed
+  not: unordered parallel claims (BulletList); events fixed to dates (Timeline); a comparison (BarChart)
+  props:
+    title (≤6 words)
+    steps* ([{label ≤4w, detail ≤9w}, …])
+    direction = horizontal|vertical
+    numbered (true/false)
+- Timeline
+  use: two to six dated events strung in order, where the dates themselves matter — a campaign, an escalation
+  not: one date (DateStamp); stages with no dates (StepFlow); measurements over time (LineChart); unordered claims (BulletList)
+  props:
+    title (≤5 words)
+    events* ([{date ≤3w, label ≤8w}, …])
+    orientation = horizontal|vertical
+    highlight_index (number 0-5)
+(* = required. Leave out any prop you have no reason to set.)
+
+ANCHOR (only with a fact graphic)
+{"type": "number" | "percentage" | "comparison" | "place" | "date" | "name" | "quote", "value": …, "label": "<what it is, ≤8 words>"}
+- number: value is the figure as a number, e.g. 1200
+- percentage: value is the figure as a number, e.g. 70 (not "70%")
+- comparison: value is [{"label": "…", "value": <number>}, …], one per compared quantity
+- place: value is the place as the narration names it
+- date: value is the date as the narration says it
+- name: value is the person's name as the narration says it
+- quote: value is the quoted words, verbatim
+The value must be what the narration says in "at". Never compute or round a new one.
+
+OUTPUT — exactly this, JSON between the markers, nothing before or after:
+===LUSORA EDIT v1===
+{
+  "style_pack": "descoberta-doc",
+  "sections": [
+    {"from": "<the script's first words>", "mood": "<mood>"}
+  ],
+  "pins": [
+    {"at": "<phrase>",
+     "overlay": {"component": "CalloutArrow", "props_hint": {…}},
+     "visual_intent": "<optional: scout description of the key shot>",
+     "queries": ["<optional: 2-4 word search>", "<2-4 words>"]},
+    {"at": "<phrase with the fact>",
+     "anchor": {"type": "number", "value": 70, "label": "…"},
+     "overlay": {"component": "AnimatedCounter", "props_hint": {…}}}
+  ]
+}
+===END===
+A pin needs an "overlay", a "visual_intent" + "queries", or both.
+"queries" are 2-3 keyword searches of 2-4 words (never more than 5), subject
+first, most specific first — stock libraries match words, not meaning.
+Never write "source_words", "anchor_ref" or "role": code derives them.
+
+BEFORE YOU ANSWER, CHECK
+- The first section starts at the script's very first words.
+- Every "at"/"from" is copied exactly and occurs once in the script.
+- No two pins share words.
+- Every fact graphic has an anchor whose value is what the narration says.
+- Every required prop (*) is present, and every text fits its word limit.
+- You did not reprint the script.
+
+THE SCRIPT:

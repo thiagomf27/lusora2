@@ -28,6 +28,7 @@ import {
 } from "@/lib/videoType";
 import scr from "../screen.module.css";
 import s from "./quote.module.css";
+import { EditPasteBox } from "@/components/EditPasteBox";
 
 const TABS = ["Settings & details", "Look", "Safety & sourcing", "Cost & approval"];
 
@@ -81,6 +82,9 @@ function QuoteScreen() {
   }>({ themes: [], stylePacks: [], componentPacks: [], soundPacks: [], pipelines: [], videoTypeDefaults: {} });
   const [spend, setSpend] = useState<{ month: string; usd: number; events: number }[]>([]);
   const [files, setFiles] = useState<Record<string, File>>({});
+  // the directed-edit paste (script + Claude's block) and its round-trip session
+  const [editPaste, setEditPaste] = useState("");
+  const [pasteSession, setPasteSession] = useState("");
   const [busy, setBusy] = useState(false);
   const [problems, setProblems] = useState<string[]>([]);
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -174,6 +178,10 @@ function QuoteScreen() {
         form.set("overrides", JSON.stringify(overrides));
       }
       for (const [field, file] of Object.entries(files)) form.set(field, file);
+      if (editPaste.trim()) {
+        form.set("edit_paste", editPaste);
+        form.set("paste_session", pasteSession || crypto.randomUUID().replace(/-/g, ""));
+      }
 
       const created = await fetch("/api/videos", { method: "POST", body: form });
       const createdBody = await created.json().catch(() => ({}));
@@ -411,6 +419,17 @@ function QuoteScreen() {
                       );
                     })}
                   </div>
+                </div>
+
+                <div className={scr.section}>
+                  <EditPasteBox
+                    channelId={channelId}
+                    overrides={overrides}
+                    value={editPaste}
+                    onChange={setEditPaste}
+                    session={pasteSession}
+                    onSession={setPasteSession}
+                  />
                 </div>
               </div>
             </div>

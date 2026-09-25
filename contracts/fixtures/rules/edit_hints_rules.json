@@ -1,0 +1,168 @@
+{
+  "_comment": "The directed-edit block's rules, which BOTH languages must enforce: worker/lusora_worker/edithints.py (the edit_hints stage) and platform/src/lib/editHints.ts (the paste box). Asserted by worker/tests/test_edit_hints.py and platform/test/editHints.test.ts against the same cases, so the two cannot drift. `base` is the block from the first hand run (slice 0), against its own `script`; each case applies `set` to a copy of it (dotted paths, numeric segments index arrays, null deletes) and `style_set` to a copy of `style`. `expect` / `warn` are substrings that must appear in some error / warning; an empty `expect` means the block must be accepted. `worker_only` cases need Python-side tables (textmatch number runs, the gazetteer) and are skipped by the platform. Duration is estimated from the word count at 142 wpm unless a case gives `duration_s`.",
+  "script": "Cinco coisas das casas japonesas que o Brasil deveria copiar. Olha agora para a porta da sua casa. Quanta sujeira da rua entra aí todo dia, na sola do sapato? Número cinco, o genkan. Na entrada de quase toda casa japonesa existe um degrauzinho, onde todo mundo tira o sapato antes de entrar. A sujeira da rua fica ali, e não anda pela casa. Número quatro, o vaso sanitário fica num cômodo separado do banho. Em vez de tudo junto, cada um no seu canto. Assim, uma pessoa toma banho enquanto a outra usa o vaso, e acaba a fila da manhã. Número três, o ofurô. Primeiro a pessoa se lava sentada, fora da banheira. Só depois entra na água, que continua limpa para o próximo da família. E muitas banheiras têm um painel que reaquece a água sozinha, sem precisar encher tudo de novo. Número dois, o assento com ducha. Cerca de oitenta por cento das casas japonesas já têm um desses. Um painel ao lado controla tudo: a ducha, o assento aquecido e até um secador. Número um, o lixo com dia marcado. O lixo é separado em queimável, não queimável, garrafas PET, latas e vidros, e lixo grande. Cada tipo tem o seu dia de coleta. E em muitas cidades, se o saco vier errado, ele fica na calçada com um adesivo de aviso. Depois da coleta, os recicláveis ainda passam por uma triagem, muitas vezes feita à mão. Genkan, vaso separado, ofurô, assento com ducha e lixo com dia marcado. Qual dessas você levaria para a sua casa?",
+  "style": {
+    "name": "directed-test",
+    "overlays": {
+      "density": { "per_minute": 60 },
+      "allowed_components": ["TextTitle", "TextPlace", "TextName", "TextHighlight", "TextTag", "TextBanner", "TextCounter"],
+      "emphasis": { "enabled": true, "per_minute": 60 }
+    },
+    "music": { "enabled": true, "min_span_s": 25 }
+  },
+  "base_fixture": "edit_hints.json",
+  "cases": [
+    {
+      "name": "the block from the first hand run is accepted, with its two crowded graphics and long phrases named",
+      "expect": [],
+      "warn": ["acaba a fila da manhã", "Número três, o ofurô", "longer than 8 words"]
+    },
+    {
+      "name": "case and diacritics are folded the way the compiler folds them",
+      "set": { "pins.1.at": "numero cinco, o genkan" },
+      "expect": []
+    },
+    {
+      "name": "a phrase the script does not contain",
+      "set": { "pins.1.at": "Número cinco, a genkan" },
+      "expect": ["not in the script", "the script says \"Número cinco, o genkan.\""]
+    },
+    {
+      "name": "a phrase that occurs twice",
+      "set": { "pins.2.at": "sujeira da rua" },
+      "expect": ["appears 2 times"]
+    },
+    {
+      "name": "two pins covering the same words",
+      "set": { "pins.2.at": "genkan. Na entrada de quase toda casa" },
+      "expect": ["share words"]
+    },
+    {
+      "name": "the first section must open the script",
+      "set": { "sections.0.from": "Olha agora para a porta" },
+      "expect": ["section 1 must start"]
+    },
+    {
+      "name": "sections out of order",
+      "set": { "sections.1.from": "Número um, o lixo com dia marcado", "sections.2.from": "Número três, o ofurô" },
+      "expect": ["script order"]
+    },
+    {
+      "name": "a mood outside the vocabulary",
+      "set": { "sections.0.mood": "ominous" },
+      "expect": ["mood"]
+    },
+    {
+      "name": "the block may not carry the script",
+      "set": { "script": "Cinco coisas das casas japonesas" },
+      "expect": ["script"]
+    },
+    {
+      "name": "source_words is derived, never written",
+      "set": { "pins.9.anchor.source_words": "oitenta por cento" },
+      "expect": ["source_words"]
+    },
+    {
+      "name": "the edit pass was generated for another style pack",
+      "set": { "style_pack": "descoberta-doc" },
+      "expect": ["style_pack"]
+    },
+    {
+      "name": "a component outside the style pack",
+      "set": { "pins.0.overlay.component": "HammerStatement" },
+      "expect": ["allowed_components"]
+    },
+    {
+      "name": "a component that does not exist",
+      "set": { "pins.0.overlay.component": "HoloProjector" },
+      "expect": ["not in the catalog"]
+    },
+    {
+      "name": "emphasis graphics on a pack with the class off (D86)",
+      "style_set": { "overlays.emphasis.enabled": false },
+      "expect": ["does not use emphasis"]
+    },
+    {
+      "name": "a fact graphic with no anchor",
+      "set": { "pins.9.anchor": null },
+      "expect": ["needs an anchor"]
+    },
+    {
+      "name": "an anchor on a graphic that carries no fact",
+      "set": { "pins.1.anchor": { "type": "number", "value": 5 } },
+      "expect": ["takes no anchor"]
+    },
+    {
+      "name": "an anchor type the component cannot show",
+      "set": { "pins.9.anchor.type": "date" },
+      "expect": ["cannot attach to anchor type"]
+    },
+    {
+      "name": "a missing required prop",
+      "set": { "pins.0.overlay.props_hint.text": null },
+      "expect": ["required prop 'text'"]
+    },
+    {
+      "name": "props_hint echoing the prop schema",
+      "set": { "pins.1.overlay.props_hint.text": { "type": "string" } },
+      "expect": ["must be a string"]
+    },
+    {
+      "name": "a prop the component does not have",
+      "set": { "pins.1.overlay.props_hint.telepathy": true },
+      "expect": ["unknown"]
+    },
+    {
+      "name": "an enum value the component does not offer",
+      "set": { "pins.4.overlay.props_hint.position": "center" },
+      "expect": ["not in"]
+    },
+    {
+      "name": "text past the component's word limit",
+      "set": { "pins.4.overlay.props_hint.text": "Uma pessoa toma banho enquanto a outra usa o vaso e assim acaba de vez a fila da manhã" },
+      "expect": ["exceeds 14 words"]
+    },
+    {
+      "name": "a pin with neither an overlay nor a shot",
+      "set": { "pins.12.visual_intent": null, "pins.12.queries": null },
+      "expect": ["needs an overlay, a visual_intent, or both"]
+    },
+    {
+      "name": "queries with no visual_intent beside them",
+      "set": { "pins.12.visual_intent": null },
+      "expect": ["queries need a visual_intent"]
+    },
+    {
+      "name": "a keyword query that is a sentence",
+      "set": { "pins.12.queries.0": "a garbage bag with a red warning sticker on the sidewalk" },
+      "expect": ["is 11 words"]
+    },
+    {
+      "name": "over the emphasis budget",
+      "style_set": { "overlays.emphasis.per_minute": 1 },
+      "expect": ["emphasis graphics exceed the budget"]
+    },
+    {
+      "name": "a section too short for the music to change",
+      "set": { "sections.2.from": "Qual dessas você levaria" },
+      "expect": [],
+      "warn": ["shorter than the music's minimum span"]
+    },
+    {
+      "name": "an anchor value that is not the number spoken",
+      "worker_only": true,
+      "set": { "pins.9.anchor.value": 70 },
+      "expect": ["not the number spoken"]
+    },
+    {
+      "name": "a place the gazetteer cannot find",
+      "worker_only": true,
+      "style_set": { "overlays.allowed_components": ["TextTitle", "TextPlace", "TextName", "TextHighlight", "TextTag", "TextBanner", "TextCounter", "SatelliteLocate"] },
+      "set": {
+        "pins.13.overlay": { "component": "SatelliteLocate" },
+        "pins.13.anchor": { "type": "place", "value": "Atlântida" }
+      },
+      "expect": ["cannot geocode"]
+    }
+  ]
+}

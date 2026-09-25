@@ -3,7 +3,9 @@ import type { ChannelConfig } from "@lusora/contracts";
 import { query, one } from "@/db/pool";
 import { handler, requireUser, requireRole, requireChannelAccess, grantedChannelIds, ApiError } from "@/lib/auth";
 import { newId } from "@/lib/ids";
-import { materializeUploads, receivableForChannel } from "@/lib/videos";
+import { materializeUploads, receivableForChannel, videoFolder } from "@/lib/videos";
+import { checkEditPaste, logCheck, materializeEditPaste, type EditPasteCheck } from "@/lib/editPaste";
+import { configForVideo, logPath, sessionId } from "@/lib/editPasteServer";
 
 export const GET = handler(async (req: Request) => {
   const user = await requireUser();
@@ -55,6 +57,37 @@ export const POST = handler(async (req: Request) => {
     }
   }
 
+  // A directed-edit paste (script + block, docs/05-roadmap/directed-edit-test.md)
+  // is judged BEFORE the draft row exists, so a refused paste leaves nothing
+  // behind. It is judged against the merged config because that is where a
+  // pinned pipeline lives — and only a pipeline running the edit_hints stage
+  // may receive the block.
+  const rawPaste = form.get("edit_paste");
+  const editPaste = typeof rawPaste === "string" && rawPaste.trim() ? rawPaste : null;
+  let directed: { check: EditPasteCheck; session: string; config: Record<string, unknown> } | null = null;
+  if (editPaste) {
+    const script = form.get("script");
+    if (script instanceof File && script.size > 0) {
+      throw new ApiError(400, "attach a script file OR paste script + edit block — not both");
+    }
+    const session = sessionId(form.get("paste_session"));
+    const config = await configForVideo(channelId, overrides);
+    const check = checkEditPaste(editPaste, config);
+    if (!check.ok) {
+      const problems = [...check.scriptErrors, ...check.errors];
+      throw new ApiError(400, `the edit paste did not pass the check: ${problems.slice(0, 5).join("; ")}`);
+    }
+    const receivable = receivableForChannel(config as unknown as ChannelConfig);
+    if (receivable && !["script.txt", "edit_hints.json"].every((a) => receivable.has(a))) {
+      throw new ApiError(
+        400,
+        "this video's pipeline does not take a directed edit — pin a pipeline that runs the edit_hints stage"
+      );
+    }
+    logCheck(logPath(), session, channelId, editPaste, check);
+    directed = { check, session, config };
+  }
+
   const id = newId("vid");
   await query(
     `INSERT INTO videos (id, channel_id, title, status, created_by, cfg)
@@ -76,5 +109,18 @@ export const POST = handler(async (req: Request) => {
     [channelId]
   );
   const written = await materializeUploads(id, form, receivableForChannel(channel?.config ?? null));
+  if (directed) {
+    written.push(
+      ...materializeEditPaste(
+        videoFolder(id),
+        logPath(),
+        id,
+        channelId,
+        directed.session,
+        directed.check,
+        receivableForChannel(directed.config as unknown as ChannelConfig)
+      )
+    );
+  }
   return NextResponse.json({ id, uploads: written }, { status: 201 });
 });

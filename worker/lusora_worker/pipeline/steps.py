@@ -8,6 +8,7 @@ deterministic fallbacks so the pipeline runs end to end at $0.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import shutil
@@ -31,7 +32,7 @@ from ..context import StageContext
 from ..errors import StageError
 from ..media import extract_audio, probe_duration, run_ffmpeg
 from ..providers import sources, tts, whisper
-from .. import align, beatphases
+from .. import align, beatphases, edithints
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan
@@ -142,6 +143,76 @@ def run_transcript(ctx: StageContext) -> None:
     ctx.log(f"subtitles transcribed by local whisper ({granularity} cues)")
 
 
+# ---------------- edit_hints (D94) ----------------
+
+
+def run_edit_hints(ctx: StageContext) -> None:
+    """Judge the directed-edit block against the script, before narration.
+
+    The paste box already checked it; this runs again because the catalog may
+    have changed since the paste, and because two checks exist only here (a
+    number anchor against the number actually spoken, a place against the
+    gazetteer). It runs BEFORE narration so a block that no longer fits costs
+    nothing. The file being present is exactly the case that needs judging, so
+    "done" is not presence: it is a stamp of what was judged (see
+    `edit_hints_checked`), written only when the block passes.
+    """
+    if not ctx.has("edit_hints.json"):
+        raise StageError(
+            "edit_hints",
+            "no edit block — this is the directed-edit pipeline: paste the script and the "
+            "edit block together on the quote page (Directed edit), or pin another pipeline",
+        )
+    script = ctx.artifact("script.txt").read_text(encoding="utf-8").strip()
+    hints = ctx.read_json("edit_hints.json")
+    errors, warnings = edithints.validate_edit_hints(hints, script, ctx.cfg)
+    for warning in warnings:
+        ctx.log(f"edit block warning: {warning}")
+    if errors:
+        raise StageError("edit_hints", "the edit block does not fit this script: " + "; ".join(errors[:8]))
+    pins = hints.get("pins") or []
+    ctx.log(
+        f"edit block accepted: {len(hints.get('sections') or [])} sections, {len(pins)} pins "
+        f"({sum(1 for p in pins if p.get('overlay'))} graphics, "
+        f"{sum(1 for p in pins if p.get('visual_intent'))} shots), {len(warnings)} warnings"
+    )
+    ctx.write_json(EDIT_HINTS_STAMP, _edit_hints_judged(ctx))
+
+
+EDIT_HINTS_STAMP = "edit_hints.checked.json"
+
+
+def _edit_hints_judged(ctx: StageContext) -> dict[str, str]:
+    """What a verdict on the block depends on: the block, the script it pins
+    phrases in, and the catalog its components are checked against."""
+    def digest(data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    catalog = json.dumps(lusora_contracts.load_catalog(), sort_keys=True).encode("utf-8")
+    return {
+        "edit_hints": digest(ctx.artifact("edit_hints.json").read_bytes()),
+        "script": digest(ctx.artifact("script.txt").read_bytes()),
+        "catalog": digest(catalog),
+    }
+
+
+def edit_hints_checked(ctx: StageContext) -> bool:
+    """Done when THIS block was judged against THIS script and catalog.
+
+    Not mere presence: the file arrives by paste, so presence is the case that
+    needs judging. Not "never" either: the orchestrator re-asks the done-check
+    after a stage runs, to confirm it produced what it promised, and a check
+    that is never true fails the stage it just passed. A change to any of the
+    three inputs makes the stamp stale, and the block is judged again.
+    """
+    if not (ctx.has(EDIT_HINTS_STAMP) and ctx.has("edit_hints.json") and ctx.has("script.txt")):
+        return False
+    try:
+        return ctx.read_json(EDIT_HINTS_STAMP) == _edit_hints_judged(ctx)
+    except (OSError, ValueError):
+        return False
+
+
 # ---------------- cut_beats (D88) ----------------
 
 
@@ -197,16 +268,59 @@ def _planner_menu_for(ctx: StageContext) -> str:
     stage owns the overlay question (D87), so the two decisions never both pay
     for it."""
     stages = [st.get("name") for st in ((ctx.cfg.get("pipeline_doc") or {}).get("stages") or [])]
-    if "select_overlays" in stages:
+    # D94: on the directed pipeline the edit block owns the overlay question —
+    # there is no select_overlays, and the planner must not be handed the menu
+    # it would otherwise get on a pipeline without that stage.
+    if "select_overlays" in stages or "edit_hints" in stages:
         return ""
     allowed = ((ctx.cfg.get("style_pack_doc") or {}).get("overlays") or {}).get("allowed_components")
     return planner_agent._catalog_menu(allowed)
+
+
+def _directed_hints(ctx: StageContext, script: str, audio_duration: float) -> dict | None:
+    """The edit block, re-judged with the REAL narration length (D94) — or
+    None on every pipeline that does not run it.
+
+    Before any model call: the budgets were estimated from the word count at
+    paste time, and a narration that ran faster than the estimate can push the
+    block over. Failing here costs the TTS already spent and nothing more.
+    """
+    if not edithints.is_directed(ctx.cfg):
+        return None
+    hints = ctx.read_json("edit_hints.json")
+    errors, _warnings = edithints.validate_edit_hints(hints, script, ctx.cfg, duration_s=audio_duration)
+    if errors:
+        raise StageError(
+            "plan_beats",
+            f"the edit block does not fit the narration as recorded ({audio_duration:.0f}s): "
+            + "; ".join(errors[:8])
+            + " — fix the block and re-run from plan_beats",
+        )
+    return hints
+
+
+def _apply_directed(
+    ctx: StageContext, beats_doc: dict, script: str, audio_duration: float, hints: dict
+) -> dict:
+    """Write the block onto the planner's sheet and judge it with the
+    UNCHANGED validator — the same standard any beat sheet is held to."""
+    try:
+        doc = edithints.apply_edit_hints(beats_doc, script, hints)
+    except ValueError as e:
+        raise StageError("plan_beats", f"could not apply the edit block: {e}")
+    violations = validate_beat_sheet(doc, script, ctx.cfg, audio_duration)
+    if violations:
+        raise StageError("plan_beats", "the directed beat sheet failed validation: " + "; ".join(violations[:8]))
+    graphics = sum(1 for b in doc["beats"] if b.get("overlay"))
+    ctx.log(f"edit block applied: {graphics} graphics on {len(doc['beats'])} beats")
+    return doc
 
 
 def run_plan_beats(ctx: StageContext) -> None:
     llm = str(((ctx.cfg.get("planner") or {}).get("llm")) or "mock")
     script = ctx.artifact("script.txt").read_text(encoding="utf-8").strip()
     audio_duration = probe_duration("plan_beats", ctx.artifact("audio.mp3"))
+    hints = _directed_hints(ctx, script, audio_duration)
 
     if llm != "mock":
         # D88: where cut_beats ran, the spans are already decided and the model
@@ -219,6 +333,8 @@ def run_plan_beats(ctx: StageContext) -> None:
                 ctx, cuts, script, audio_duration,
                 menu=_planner_menu_for(ctx),
             )
+            if hints is not None:
+                beats_doc = _apply_directed(ctx, beats_doc, script, audio_duration, hints)
             ctx.write_json("beats.json", beats_doc)
             ctx.log(
                 f"beat sheet crafted by llm '{llm}' over {len(cuts)} code-cut spans "
@@ -237,6 +353,8 @@ def run_plan_beats(ctx: StageContext) -> None:
             "plan_beats",
             "generated beat sheet failed validation: " + "; ".join(violations[:8]),
         )
+    if hints is not None:
+        beats_doc = _apply_directed(ctx, beats_doc, script, audio_duration, hints)
     ctx.write_json("beats.json", beats_doc)
     ctx.log(f"beat sheet planned ({len(beats_doc['beats'])} beats, deterministic fallback planner)")
 
@@ -271,11 +389,106 @@ def cut_script(
     # its ceiling would have them undo each other forever. That pack is
     # incoherent, and the floor wins: a beat below it flashes by and reads as a
     # mistake, while a beat above the ceiling merely sits there.
-    return _under_the_ceiling(
+    parts = _under_the_ceiling(
         beatphases.beat_parts(aligned, min_hold),
         max(max_hold, min_hold) if max_hold else 0.0,
         min_hold,
     )
+    # D94: on the directed pipeline, the edit block's pins shape the last pass.
+    # Every other pipeline returns the parts above untouched.
+    if edithints.is_directed(ctx.cfg) and ctx.has("edit_hints.json"):
+        try:
+            spans = edithints.pin_spans(ctx.read_json("edit_hints.json"), script)
+        except ValueError as e:
+            raise StageError("cut_beats", f"the edit block no longer matches the script: {e}")
+        parts = respect_pins(parts, spans, min_hold)
+    return parts
+
+
+# ---------------- pins (D94) ----------------
+
+
+def _word_starts(parts: list["beatphases.Piece"]) -> list[int]:
+    """The script-word index each piece starts at. Pieces are runs of whole
+    whitespace-words (every splitter here cuts only at spaces), so cumulative
+    word counts are exact."""
+    starts, cursor = [], 0
+    for part in parts:
+        starts.append(cursor)
+        cursor += len(part.text.split())
+    return starts
+
+
+def _join(a: "beatphases.Piece", b: "beatphases.Piece") -> "beatphases.Piece":
+    return beatphases.Piece(f"{a.text} {b.text}", a.start_s, b.end_s)
+
+
+def _split_at(part: "beatphases.Piece", k: int) -> list["beatphases.Piece"]:
+    """Cut a piece before its k-th word, time by character share (the rule
+    `srt_alignment` and the ceiling split already use). No floor here: the
+    caller decides what a short piece is allowed to be."""
+    words = part.text.split()
+    return _apportion(part, [" ".join(words[:k]), " ".join(words[k:])], 0.0)
+
+
+def respect_pins(
+    parts: list["beatphases.Piece"], spans: list[dict], min_hold: float
+) -> list["beatphases.Piece"]:
+    """Reshape the cut so the edit block can land on it (D94).
+
+    Three rules, in this order, each only ever joining or dividing pieces at
+    spaces — so the text stays the script's own, verbatim and in order:
+
+    1. HEAL. A pin's phrase never straddles a cut: the two pieces join.
+    2. EMPHASIS STARTS ITS BEAT. An emphasis graphic has no anchor, so the
+       compiler cannot find when its words are spoken and places it at the
+       beat's start. Cutting there makes that start the phrase's. A remainder
+       left under the floor joins the piece BEFORE it, never the pin's.
+    3. ONE GRAPHIC, ONE SHOT PER BEAT. A piece holding two graphics (or two
+       key shots) is cut at the second one's first word. The floor is waived:
+       the compiler's hold floor (D51) merges visual slots without taking a
+       beat's overlay away.
+
+    The cuts elsewhere are left exactly as they were, which is what keeps an
+    A/B against faceless_v3 about the edit decisions and not about the cut.
+    """
+    parts = list(parts)
+
+    changed = True
+    while changed:  # 1. heal
+        changed = False
+        starts = _word_starts(parts)
+        for i in range(1, len(parts)):
+            if any(s["start"] < starts[i] <= s["end"] for s in spans):
+                parts[i - 1:i + 1] = [_join(parts[i - 1], parts[i])]
+                changed = True
+                break
+
+    for span in (s for s in spans if s["emphasis"]):  # 2. emphasis starts its beat
+        starts = _word_starts(parts)
+        i = max(j for j, start in enumerate(starts) if start <= span["start"])
+        k = span["start"] - starts[i]
+        if k == 0:
+            continue
+        left, right = _split_at(parts[i], k)
+        if i > 0 and left.duration < min_hold:
+            parts[i - 1:i + 1] = [_join(parts[i - 1], left), right]
+        else:
+            parts[i:i + 1] = [left, right]
+
+    for kind in ("graphic", "shot"):  # 3. one of each per beat
+        changed = True
+        while changed:
+            changed = False
+            starts = _word_starts(parts)
+            bounds = starts[1:] + [starts[-1] + len(parts[-1].text.split())]
+            for i, (lo, hi) in enumerate(zip(starts, bounds)):
+                inside = [s for s in spans if s[kind] and lo <= s["start"] < hi]
+                if len(inside) > 1:
+                    parts[i:i + 1] = _split_at(parts[i], inside[1]["start"] - lo)
+                    changed = True
+                    break
+    return parts
 
 
 def _under_the_ceiling(

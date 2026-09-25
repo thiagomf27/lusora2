@@ -1,0 +1,87 @@
+{
+  "style_pack": "directed-test",
+  "sections": [
+    { "from": "Cinco coisas das casas japonesas", "mood": "playful" },
+    { "from": "Número três, o ofurô", "mood": "reflective" },
+    { "from": "Número um, o lixo com dia marcado", "mood": "hopeful" }
+  ],
+  "pins": [
+    {
+      "at": "Cinco coisas das casas japonesas que o Brasil deveria copiar",
+      "overlay": { "component": "TextTitle", "props_hint": { "text": "5 coisas das casas japonesas", "sub": "que o Brasil deveria copiar", "position": "center", "size": "big" } },
+      "visual_intent": "Wide shot of a traditional Japanese house exterior at golden hour, sliding wooden door, tiled roof, small tidy garden, soft warm side light",
+      "queries": ["Japanese house exterior", "Japan traditional home"]
+    },
+    {
+      "at": "Número cinco, o genkan",
+      "overlay": { "component": "TextTag", "props_hint": { "text": "5. Genkan", "label": "a entrada", "position": "top_left", "size": "medium" } },
+      "visual_intent": "Close-up of a Japanese genkan entryway: shoes lined up neatly on the lower step, slippers on the raised wooden floor, natural daylight from the door",
+      "queries": ["Japanese genkan entrance", "shoes at doorway"]
+    },
+    {
+      "at": "a sujeira da rua fica ali",
+      "overlay": { "component": "TextHighlight", "props_hint": { "text": "A sujeira da rua fica ali, e não anda pela casa", "mark": "não anda pela casa", "position": "bottom_left", "size": "medium" } }
+    },
+    {
+      "at": "Número quatro, o vaso sanitário fica num cômodo separado",
+      "overlay": { "component": "TextTag", "props_hint": { "text": "4. Vaso separado", "label": "do banho", "position": "top_left", "size": "medium" } },
+      "visual_intent": "Interior of a small Japanese home toilet room with a tiny wash basin on top of the tank, next to a separate bathroom door, bright clean light",
+      "queries": ["Japanese toilet room", "separate bathroom toilet"]
+    },
+    {
+      "at": "acaba a fila da manhã",
+      "overlay": { "component": "TextBanner", "props_hint": { "text": "Uma toma banho, a outra usa o vaso: acaba a fila da manhã", "position": "bottom_center" } }
+    },
+    {
+      "at": "Número três, o ofurô",
+      "overlay": { "component": "TextTag", "props_hint": { "text": "3. Ofurô", "label": "banho japonês", "position": "top_left", "size": "medium" } },
+      "visual_intent": "Steaming deep Japanese wooden ofuro bathtub beside a small wash stool and bucket, soft warm light, tiled bathroom, no people",
+      "queries": ["Japanese ofuro bath", "Japanese bathtub steam"]
+    },
+    {
+      "at": "Primeiro a pessoa se lava sentada, fora da banheira",
+      "overlay": { "component": "TextHighlight", "props_hint": { "text": "Primeiro se lava sentada, fora da banheira", "mark": "fora da banheira", "position": "bottom_left", "size": "medium" } }
+    },
+    {
+      "at": "um painel que reaquece a água sozinha",
+      "overlay": { "component": "TextTag", "props_hint": { "text": "Reaquece a água sozinha", "position": "bottom_right", "size": "medium" } },
+      "visual_intent": "Close-up of a wall-mounted Japanese bath control panel with buttons and small display, next to a bathtub, bathroom lighting",
+      "queries": ["bath control panel", "Japanese bathroom panel"]
+    },
+    {
+      "at": "Número dois, o assento com ducha",
+      "overlay": { "component": "TextTag", "props_hint": { "text": "2. Assento com ducha", "position": "top_left", "size": "medium" } },
+      "visual_intent": "Modern Japanese washlet toilet seat with a side remote control panel, clean white bathroom, front three-quarter framing",
+      "queries": ["Japanese washlet toilet", "bidet toilet seat"]
+    },
+    {
+      "at": "Cerca de oitenta por cento",
+      "anchor": { "type": "percentage", "value": 80, "label": "das casas japonesas têm assento com ducha" },
+      "overlay": { "component": "TextCounter", "props_hint": { "suffix": "%", "decimals": 0, "position": "center", "size": "big" } }
+    },
+    {
+      "at": "Número um, o lixo com dia marcado",
+      "overlay": { "component": "TextTag", "props_hint": { "text": "1. Lixo com dia marcado", "position": "top_left", "size": "medium" } },
+      "visual_intent": "Japanese residential street with neatly sorted transparent garbage bags stacked at a collection point under a net, morning light",
+      "queries": ["Japan garbage collection", "sorted trash bags"]
+    },
+    {
+      "at": "queimável, não queimável, garrafas PET, latas e vidros, e lixo grande",
+      "overlay": { "component": "TextHighlight", "props_hint": { "text": "Cada tipo de lixo tem o seu dia de coleta", "mark": "o seu dia de coleta", "position": "bottom_left", "size": "medium" } }
+    },
+    {
+      "at": "com um adesivo de aviso",
+      "visual_intent": "Close-up of a garbage bag left on a Japanese sidewalk with a red warning sticker attached, street background out of focus",
+      "queries": ["garbage bag warning sticker", "Japan trash sticker"]
+    },
+    {
+      "at": "muitas vezes feita à mão",
+      "visual_intent": "Workers hand-sorting recyclables on a conveyor belt at a recycling facility, gloves, bottles and cans, industrial lighting",
+      "queries": ["recycling hand sorting", "recycling conveyor belt"]
+    },
+    {
+      "at": "Qual dessas você levaria para a sua casa?",
+      "overlay": { "component": "TextTitle", "props_hint": { "text": "Qual você levaria para a sua casa?", "position": "center", "size": "big" } }
+    }
+  ]
+}
