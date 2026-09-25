@@ -75,6 +75,11 @@ export function transitionPackProblems(transitions: StylePack["transitions"]): s
       problems.push(`transitions.durations names '${kind}', which is not in allowed ${fmt}`);
     }
   }
+  for (const [component, kind] of Object.entries(transitions.per_component ?? {})) {
+    if (!allowed.includes(kind)) {
+      problems.push(`transitions.per_component gives ${component} '${kind}', which is not in allowed ${fmt}`);
+    }
+  }
   return problems;
 }
 
@@ -84,7 +89,8 @@ export function transitionPackProblems(transitions: StylePack["transitions"]): s
  * that NAME it drop it rather than the enqueue being refused. An excluded mix kind leaves the mix;
  * a mix left empty takes the share with it (a share with nothing to fill it is
  * a pack the compiler refuses); an excluded section break means section
- * changes get the default like any other junction. Used by `applyLook` at
+ * changes get the default like any other junction, and an overlay tied to an
+ * excluded kind arrives like any other shot. Used by `applyLook` at
  * enqueue and by the Style Packs form when a kind is unticked.
  */
 export function narrowTransitionPlacement(transitions: Record<string, any>, allowed: string[]): void {
@@ -107,5 +113,11 @@ export function narrowTransitionPlacement(transitions: Record<string, any>, allo
       if (!allowed.includes(kind)) delete transitions.durations[kind];
     }
     if (Object.keys(transitions.durations).length === 0) delete transitions.durations;
+  }
+  if (transitions.per_component) {
+    for (const [component, kind] of Object.entries(transitions.per_component)) {
+      if (!allowed.includes(kind as string)) delete transitions.per_component[component];
+    }
+    if (Object.keys(transitions.per_component).length === 0) delete transitions.per_component;
   }
 }

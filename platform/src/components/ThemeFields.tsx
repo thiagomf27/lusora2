@@ -33,6 +33,11 @@ export const GRAINS = ["none", "archival", "film"] as const;
  */
 export const FONTS = ["Inter", "Oswald", "Playfair Display"] as const;
 
+/** Every transition that is not a cut — the keys sound.per_transition takes. */
+const TRANSITION_KINDS = [
+  "crossfade", "fade", "fade_to_black", "flash", "push", "wipe", "whip", "zoom_through",
+] as const;
+
 export const THEME_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 export function newTheme(): Theme {
@@ -185,7 +190,7 @@ function PerComponentField({
  * over a CLOSED key set (entrance kinds, moods), so an unknown key is a typo
  * worth showing rather than a new entry.
  */
-function MapField({
+export function MapField({
   label,
   keys,
   value,
@@ -411,6 +416,14 @@ export default function ThemeFields({
         placeholder={"typewriter: tick-typing\npop: thud-low"}
         hint="One entrance-kind: cue per line. Applies once the theme has chosen an entrance."
         onChange={(next) => onChange(mergeSoundMap(value, "per_entrance", next))}
+      />
+      <MapField
+        label="per_transition"
+        keys={TRANSITION_KINDS}
+        value={value.sound?.per_transition}
+        placeholder={"whip: whoosh-fast\nflash: click-soft"}
+        hint="One transition-kind: cue per line, over `transition`. `none` silences that kind."
+        onChange={(next) => onChange(mergeSoundMap(value, "per_transition", next))}
       />
       <MapField
         label="mood_beds"

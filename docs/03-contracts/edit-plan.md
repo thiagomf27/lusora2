@@ -29,7 +29,8 @@ the duration always comes from the pack (`transitions.duration_s`).
 Since D95 the compiler may also PLACE a transition where the beat names none:
 the pack's `section_break` where the music's mood span changes, and filler
 from its `mix` until `animated_share` of the junctions are animated. A placed
-transition carries `placed_by` (`section_break` | `filler`). Renderers ignore
+transition carries `placed_by` (`section_break` | `filler` | `overlay`, the
+last from the pack's `per_component`). Renderers ignore
 it; the editor reads it to tell a placed transition from a stale human one, so
 a beat naming none previews what was placed rather than the default. Per-kind
 lengths come from `transitions.durations`, then `duration_s`.

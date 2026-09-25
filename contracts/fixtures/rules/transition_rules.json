@@ -78,6 +78,16 @@
       "expect": ["default transition 'crossfade'"]
     },
     {
+      "name": "an overlay-tied kind the pack allows",
+      "transitions": {"allowed": ["cut", "wipe"], "default": "cut", "per_component": {"ChapterCard": "wipe"}},
+      "expect": []
+    },
+    {
+      "name": "an overlay-tied kind the pack does not allow",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "per_component": {"ChapterCard": "wipe"}},
+      "expect": ["per_component gives ChapterCard 'wipe'"]
+    },
+    {
       "name": "a mix with no share is inert, not wrong",
       "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "mix": {"crossfade": 1}},
       "expect": []

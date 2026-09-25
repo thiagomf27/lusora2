@@ -178,3 +178,24 @@ def test_a_new_kind_the_pack_does_not_allow_is_refused():
         cfg = _cfg(animated_share=0.3, mix={"whip": 1})
         cfg["style_pack_doc"]["transitions"]["allowed"] = ["cut", "push"]
         _compile(cfg)
+
+
+def test_an_overlay_tied_transition_lands_on_the_cut_into_its_shot():
+    """per_component (slice 3): a ChapterCard opens at the compiler's 0.4 s floor
+    into its beat, and the transition INTO that shot becomes the pack's choice."""
+    card = {"overlay": {"component": "ChapterCard", "props_hint": {"title": "Part two"}}}
+    plan = _compile(_cfg(per_component={"ChapterCard": "wipe"}), {30: card})
+    overlays = [o for o in plan["tracks"]["overlays"] if o.get("component") == "ChapterCard"]
+    assert overlays, "the fixture's chapter card compiled"
+    kinds = _kinds(plan)
+    assert kinds[28] == "wipe", "the junction INTO b30's shot is b29's transition_out"
+    assert plan["tracks"]["visual"][28]["transition_out"]["placed_by"] == "overlay"
+    assert sum(k != "cut" for k in kinds) == 1
+
+
+def test_an_overlay_tied_transition_yields_to_a_human_and_skips_the_first_shot():
+    card = {"overlay": {"component": "ChapterCard", "props_hint": {"title": "Part"}}}
+    kinds = _kinds(_compile(_cfg(per_component={"ChapterCard": "wipe"}),
+                            {1: card, 30: card, 29: {"transition_out": "crossfade"}}))
+    assert kinds[28] == "crossfade"
+    assert "wipe" not in kinds, "the first shot has no cut before it"

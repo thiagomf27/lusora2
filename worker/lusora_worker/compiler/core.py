@@ -175,7 +175,7 @@ def compile_plan(
         for beat, (start, end, _s) in aligned
     ]
     transition_rules.place_transitions(
-        visual, {str(b.get("id")): b for b in beats}, beat_times, style, on_note
+        visual, {str(b.get("id")): b for b in beats}, beat_times, style, on_note, overlays
     )
     _fit_transitions(visual)
 

@@ -191,6 +191,12 @@
           "description": "D95 — per-kind length, overriding `duration_s` for that kind: a dip to black wants longer than a crossfade. Same clamping as `duration_s`.",
           "propertyNames": { "enum": ["crossfade", "fade", "fade_to_black", "whip", "zoom_through", "push", "wipe", "flash"] },
           "additionalProperties": { "type": "number", "exclusiveMinimum": 0, "maximum": 2 }
+        },
+        "per_component": {
+          "type": "object",
+          "description": "D95 slice 3 — the transition INTO the shot a given overlay opens on, by catalog component name: {\"ChapterCard\": \"wipe\"} makes every chapter card arrive on a wipe. Applies only when the overlay opens within 0.7 s after its shot starts — the compiler floors an overlay's start at 0.4 s into its beat — since an overlay that opens mid-shot has no cut to arrive on (the compile note says so). A beat's own transition_out still wins. Each kind must be in `allowed`. Counts toward `animated_share`. This is the SHOT transition; how the overlay itself animates in is the theme's `motion.per_component`.",
+          "propertyNames": { "pattern": "^[A-Z][A-Za-z0-9]*$" },
+          "additionalProperties": { "enum": ["crossfade", "fade", "fade_to_black", "whip", "zoom_through", "push", "wipe", "flash"] }
         }
       }
     },

@@ -72,6 +72,7 @@ test("an excluded kind leaves the placement fields that name it (D95)", () => {
     mix: { crossfade: 2, fade: 1 },
     section_break: "fade",
     durations: { fade: 0.8, crossfade: 0.4 },
+    per_component: { ChapterCard: "fade", FactCard: "crossfade" },
   });
   assert.deepEqual(applyLook(s), []);
   const t = style(s).transitions;
@@ -79,6 +80,7 @@ test("an excluded kind leaves the placement fields that name it (D95)", () => {
   assert.equal(t.animated_share, 0.3);
   assert.equal(t.section_break, undefined);
   assert.deepEqual(t.durations, { crossfade: 0.4 });
+  assert.deepEqual(t.per_component, { FactCard: "crossfade" });
 });
 
 test("a mix emptied by an exclusion takes its share with it (D95)", () => {

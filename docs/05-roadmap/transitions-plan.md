@@ -65,7 +65,8 @@ first rule that fires wins:
 1. **Human** — the beat's `transition_out` (D89), on the last shot of that
    beat. Unchanged.
 2. **Overlay-tied** (slice 3) — `per_component` names the component of an
-   overlay that starts at the NEXT shot's start (within 0.3 s). The transition
+   overlay that opens within 0.7 s after the next shot starts (the compiler
+   floors an overlay's start at 0.4 s into its beat). The transition
    INTO a shot is the previous item's `transition_out`, so that is where it is
    written — one owner per junction, as D89 requires.
 3. **Section break** — `section_break`, on the beat-final junction nearest
@@ -205,7 +206,12 @@ transition (not pixel-equal — same shape); `pipeline/qa.py` run on it, since
 than today's 0.5 s — the black-hold check (qa.py ~184) must not fire on a
 transition the plan declared.
 
-## Slice 3 — overlay-tied transitions and per-transition sound
+## Slice 3 — overlay-tied transitions and per-transition sound — DONE
+
+> **DONE 2026-09-25 (D95, extended).** One correction to the rule below: an
+> overlay never opens AT its cut — `_compile_overlay` floors its start at
+> 0.4 s into the beat — so "within 0.3 s of the next shot's start" would have
+> matched nothing. It is "opens within 0.7 s after its shot starts" instead.
 
 - `style_pack.transitions.per_component` (rule 2 above). An overlay that
   starts mid-shot gets nothing and a compiler note says so ("ChapterCard at

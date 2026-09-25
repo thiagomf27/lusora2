@@ -18,6 +18,7 @@ import type {
   VideoType,
 } from "@lusora/contracts";
 import { narrowTransitionPlacement, transitionPackProblems } from "@/lib/transitionRules";
+import { MapField } from "./ThemeFields";
 import s from "./form.module.css";
 
 export const VIDEO_TYPES: VideoType[] = ["doc", "explainer", "breakdown", "listicle"];
@@ -465,6 +466,26 @@ export default function StylePackFields({
               shot can spare it.
             </div>
           </div>
+
+          <MapField
+            label="per_component — transition into an overlay's shot"
+            keys={catalog.map((c) => c.name)}
+            value={value.transitions.per_component}
+            placeholder={"ChapterCard: wipe"}
+            hint={
+              "One component: transition per line. The cut INTO the shot that overlay opens on " +
+              "takes it — when the overlay opens within ~0.7 s of the cut. How the overlay " +
+              "itself animates in is the theme's motion, not this."
+            }
+            onChange={(patch) => {
+              const map: Record<string, string> = { ...(value.transitions.per_component ?? {}) };
+              for (const [k, v] of Object.entries(patch)) {
+                if (v === undefined || v === "") delete map[k];
+                else map[k] = v;
+              }
+              upTransitions({ per_component: map as StylePack["transitions"]["per_component"] });
+            }}
+          />
         </>
       )}
 

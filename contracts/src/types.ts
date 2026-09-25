@@ -141,7 +141,7 @@ export interface Transition {
   /** push / whip / wipe only; absent means `left`. */
   direction?: TransitionDirection;
   /** D95 — the compiler placed it (from the pack's section_break or mix). Renderers ignore it. */
-  placed_by?: "section_break" | "filler";
+  placed_by?: "section_break" | "filler" | "overlay";
 }
 
 export interface VisualItem {
@@ -362,6 +362,8 @@ export interface ThemeSound {
   per_component?: Record<string, CueRef>;
   /** Omitted (the default) means none — a cue per transition is ~15/minute. */
   transition?: CueRef;
+  /** Cue by transition kind, overriding `transition` for that kind. "none" silences one. */
+  per_transition?: Partial<Record<Exclude<TransitionType, "cut">, CueRef>>;
   mood_beds?: Partial<Record<Mood, CueRef>>;
   gain?: { sfx?: number; music_duck?: number; music_lift?: number };
 }
@@ -407,6 +409,8 @@ export interface StylePack {
     section_break?: AnimatedTransitionType;
     /** D95 — per-kind length, overriding `duration_s`. */
     durations?: Partial<Record<AnimatedTransitionType, number>>;
+    /** D95 slice 3 — the transition into the shot an overlay opens on, by component name. */
+    per_component?: Record<string, AnimatedTransitionType>;
   };
   script_persona?: string;
   visual_language?: string;

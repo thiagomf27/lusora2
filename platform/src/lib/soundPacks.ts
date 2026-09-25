@@ -165,7 +165,7 @@ export function soundUsage(): Record<string, Record<string, string[]>> {
     };
     note(sound.entrance);
     note(sound.transition);
-    for (const group of ["per_entrance", "per_component", "mood_beds"] as const) {
+    for (const group of ["per_entrance", "per_component", "per_transition", "mood_beds"] as const) {
       const map = sound[group];
       if (map && typeof map === "object") Object.values(map).forEach(note);
     }

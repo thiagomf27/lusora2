@@ -5,10 +5,12 @@ that fires:
 
   1. human     — a beat's own `transition_out` (D89), on the beat's last shot.
                  Written by `_visual_item`; nothing here overrides it.
-  2. section   — `transitions.section_break`, where the mood span changes.
-  3. filler    — kinds from `transitions.mix` in proportion to their weights,
+  2. overlay   — `transitions.per_component`, into the shot an overlay of that
+                 component opens on (a ChapterCard that always arrives on a wipe).
+  3. section   — `transitions.section_break`, where the mood span changes.
+  4. filler    — kinds from `transitions.mix` in proportion to their weights,
                  until `animated_share` of the junctions are not cuts.
-  4. default   — `transitions.default`, already on every other item.
+  5. default   — `transitions.default`, already on every other item.
 
 Then push and whip get alternating directions, so a run of them does not read
 as a slideshow advancing.
@@ -37,6 +39,15 @@ _SECTION_SNAP_S = 1.0
 # goes where it fits whole, rather than being placed and then shaved.
 _FILLER_MARGIN_S = 0.15
 
+# How late into a shot an overlay may open and still count as arriving WITH it.
+# The compiler never opens an overlay earlier than 0.4 s after its beat starts
+# (`_compile_overlay`'s floor, so the cut lands before the graphic does), and
+# pushes it later when the narration names its subject later. 0.4 s plus 0.3 s
+# of slack is "opened at the floor"; anything later is an overlay mid-shot,
+# which has no cut to arrive on. Cutting the shot at the overlay instead would
+# move shot boundaries (and asset resolution with them), so that is deferred.
+_OVERLAY_OPENS_WITHIN_S = 0.7
+
 
 def pack_problems(transitions: dict[str, Any]) -> list[str]:
     """What is wrong with a style pack's transitions block, beyond the schema.
@@ -61,6 +72,11 @@ def pack_problems(transitions: dict[str, Any]) -> list[str]:
     for kind in transitions.get("durations") or {}:
         if kind not in allowed:
             problems.append(f"transitions.durations names '{kind}', which is not in allowed {allowed}")
+    for component, kind in (transitions.get("per_component") or {}).items():
+        if kind not in allowed:
+            problems.append(
+                f"transitions.per_component gives {component} '{kind}', which is not in allowed {allowed}"
+            )
     return problems
 
 
@@ -70,8 +86,9 @@ def place_transitions(
     beat_times: list[tuple[float, float, str]],
     style: dict[str, Any],
     on_note: Callable[[str], None] | None = None,
+    overlays: list[dict[str, Any]] | None = None,
 ) -> None:
-    """Rewrite `transition_out` on the visual track, in place (rules 2-3).
+    """Rewrite `transition_out` on the visual track, in place (rules 2-4).
 
     Runs before `_fit_transitions`, which then trims whatever this placed
     against both neighbours exactly as it trims a human's choice.
@@ -96,7 +113,32 @@ def place_transitions(
         and (beats_by_id.get(str(visual[i].get("beat_id"))) or {}).get("transition_out")
     }
 
-    # rule 2: section breaks, where the music's mood span changes
+    # rule 2: the transition into the shot an overlay opens on
+    per_component = {str(k): str(v) for k, v in (transitions.get("per_component") or {}).items()}
+    for overlay in overlays or []:
+        kind = per_component.get(str(overlay.get("component") or ""))
+        if not kind:
+            continue
+        opens = float(overlay["start_s"])
+        # the shot the overlay opens IN; shot 0 has no junction before it, so
+        # an overlay on the first shot arrives with the video and needs none
+        j = max((n for n in range(len(visual)) if float(visual[n]["start_s"]) <= opens + 1e-6), default=0)
+        late = opens - float(visual[j]["start_s"])
+        if j == 0:
+            continue
+        if late > _OVERLAY_OPENS_WITHIN_S:
+            if on_note:
+                on_note(
+                    f"transitions: {overlay['component']} at {opens:.1f}s opens {late:.1f}s into "
+                    f"its shot — its per_component {kind} needs a cut to arrive on and was not applied"
+                )
+            continue
+        if j - 1 in fixed:
+            continue
+        visual[j - 1]["transition_out"] = {"type": kind, "duration_s": length(kind), "placed_by": "overlay"}
+        fixed.add(j - 1)
+
+    # rule 3: section breaks, where the music's mood span changes
     sections = 0
     if section:
         min_span = float((style.get("music") or {}).get("min_span_s", 20))
@@ -110,7 +152,7 @@ def place_transitions(
             fixed.add(i)
             sections += 1
 
-    # rule 3: filler, spread evenly over the beat-final junctions still open
+    # rule 4: filler, spread evenly over the beat-final junctions still open
     if share > 0 and mix:
         target = round(share * junctions)
         remaining = target - sum(1 for i in range(junctions) if _animated(visual, i))
