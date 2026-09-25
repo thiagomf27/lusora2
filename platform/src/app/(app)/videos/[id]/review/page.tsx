@@ -57,6 +57,11 @@ const TRANSITION_LABEL: Record<string, string> = {
   crossfade: "Crossfade",
   fade: "Fade",
   fade_to_black: "Fade to black",
+  flash: "Flash",
+  push: "Push",
+  wipe: "Wipe",
+  whip: "Whip",
+  zoom_through: "Zoom through",
 };
 const PACK_DEFAULT = "__default__";
 

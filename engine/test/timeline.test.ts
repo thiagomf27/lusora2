@@ -43,7 +43,7 @@ test("gives a transition its default 0.5s and extends only the outgoing item", (
     item({ start_s: 4.8, end_s: 9.5 }),
   ];
   const [a, b] = buildVisualTimeline(items, [video(6), image()], 30);
-  assert.deepEqual(a!.transitionOut, { kind: "crossfade", durationInFrames: 15 });
+  assert.deepEqual(a!.transitionOut, { kind: "crossfade", durationInFrames: 15, direction: "left" });
   assert.equal(a!.extensionFrames, 15);
   assert.equal(b!.extensionFrames, 0);
 });
@@ -56,6 +56,7 @@ test("honors an explicit transition duration_s", () => {
   assert.deepEqual(buildVisualTimeline(items, [image(), image()], 30)[0]!.transitionOut, {
     kind: "fade_to_black",
     durationInFrames: 30,
+    direction: "left",
   });
 });
 
@@ -162,4 +163,15 @@ test("loop does not change the cut points", () => {
     looped.map((l) => l.narrativeFrames),
     plain.map((l) => l.narrativeFrames),
   );
+});
+
+test("a directional transition carries its direction; absent means left", () => {
+  const items = [
+    item({ start_s: 0, end_s: 4, transition_out: { type: "whip", duration_s: 0.3, direction: "right" } }),
+    item({ start_s: 4, end_s: 8, transition_out: { type: "push" } }),
+    item({ start_s: 8, end_s: 12 }),
+  ];
+  const [a, b] = buildVisualTimeline(items, [image(), image(), image()], 30);
+  assert.deepEqual(a!.transitionOut, { kind: "whip", durationInFrames: 9, direction: "right" });
+  assert.equal(b!.transitionOut!.direction, "left");
 });

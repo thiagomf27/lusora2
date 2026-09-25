@@ -22,7 +22,9 @@ import s from "./form.module.css";
 
 export const VIDEO_TYPES: VideoType[] = ["doc", "explainer", "breakdown", "listicle"];
 export const ARCS: NonNullable<StylePack["pacing"]["arc"]>[] = ["three_act", "linear", "listicle"];
-export const TRANSITIONS: TransitionType[] = ["cut", "crossfade", "fade", "fade_to_black"];
+export const TRANSITIONS: TransitionType[] = [
+  "cut", "crossfade", "fade", "fade_to_black", "flash", "push", "wipe", "whip", "zoom_through",
+];
 export const NAMED_DENSITIES = ["low", "normal", "high"] as const;
 
 export const STYLE_PACK_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;

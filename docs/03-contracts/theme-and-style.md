@@ -509,7 +509,7 @@ overlays:
   density: normal               # low|normal|high or {per_minute: N}
   allowed_packs: [core, archive]  # component PACKS this style draws from
 transitions:
-  allowed: [cut, crossfade, fade_to_black]
+  allowed: [cut, crossfade, fade_to_black]  # also: fade, flash, push, wipe, whip, zoom_through
   default: cut
   duration_s: 0.5               # D89 — the PACK owns how long one runs; a beat
                                 # only chooses WHICH, via its transition_out

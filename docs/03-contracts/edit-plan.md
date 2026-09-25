@@ -34,6 +34,13 @@ it; the editor reads it to tell a placed transition from a stale human one, so
 a beat naming none previews what was placed rather than the default. Per-kind
 lengths come from `transitions.durations`, then `duration_s`.
 
+`push`, `whip` and `wipe` carry an optional `direction` (`left | right | up |
+down`): which way the picture MOVES, so `left` brings the new shot in from the
+right — the same convention as ffmpeg's `slideleft` / `wipeleft`. Absent means
+`left`. The compiler alternates push and whip left/right, counted per kind; a
+wipe keeps the default. `flash` and `fade_to_black` pass through a solid frame
+on purpose, and post-render QA excuses a sampled frame inside one.
+
 ## The audio track (D48)
 
 Three item shapes, all placed by the compiler:

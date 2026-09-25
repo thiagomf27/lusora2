@@ -156,7 +156,18 @@ two animated junctions adjacent; human override beats everything; section
 break on every mood change and nowhere else; recompile of the same input is
 byte-identical; a too-short neighbour never receives filler.
 
-## Slice 2 — five new kinds
+## Slice 2 — five new kinds — DONE
+
+> **DONE 2026-09-25 (D95, extended).** As below, with three findings:
+> the installed `@remotion/transitions` ships `crossZoom` / `linearBlur` /
+> `zoomBlur`, but as WebGL shaders through the experimental HTML-in-canvas
+> path, so `whip`, `zoom_through` and `flash` are CSS instead; QA had to learn
+> that a flash peak is a legitimate flat white frame (`qa.FILL_TRANSITIONS`);
+> and `editor-seed/` is left alone — it is unwired and outside the build.
+> Checked on real renders: every kind through Remotion (a contact sheet at
+> 20/50/80%), and push/wipe/flash/zoom_through through ffmpeg, with a test
+> asserting the flash peaks white. The Style Packs thumbnails were checked in
+> headless Chrome; the running app was not clicked through.
 
 `whip`, `zoom_through`, `push`, `wipe`, `flash`, with an optional
 `direction` (`left | right | up | down`) on the edit plan's transition object.

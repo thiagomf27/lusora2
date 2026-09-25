@@ -23,7 +23,7 @@
     }
   },
   "routing": {
-    "auto": "ffmpeg iff the plan uses only: cuts, crossfade/fade/fade_to_black, Ken Burns / static stills, plain caption preset, audio mix, and no overlay components; otherwise remotion",
+    "auto": "ffmpeg iff the plan uses only: cuts, crossfade/fade/fade_to_black/zoom_through/push/wipe/flash (whip is Remotion-only), Ken Burns / static stills, plain caption preset, audio mix, and no overlay components; otherwise remotion",
     "pin_ffmpeg": "plans requiring more MUST fail with the list of offending items (capability enforcement, not degradation)",
     "pin_remotion": "always remotion"
   }

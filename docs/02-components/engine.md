@@ -16,7 +16,7 @@ The router inspects the validated plan:
 
 | Plan uses only… | Renderer |
 |---|---|
-| cuts, crossfade/fade/fade-to-black, Ken Burns / static stills, plain caption preset, audio mix | **ffmpeg** (fast, near-free CPU) |
+| cuts, crossfade/fade/fade-to-black/flash/zoom-through/push/wipe (whip is Remotion-only), Ken Burns / static stills, plain caption preset, audio mix | **ffmpeg** (fast, near-free CPU) |
 | any catalog component, styled caption presets, non-basic transitions, transforms/PiP | **Remotion** |
 
 - Channel/video config may pin `renderer: remotion` (e.g. brand caption

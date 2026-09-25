@@ -43,7 +43,8 @@ def _cfg(**transitions):
             "name": "test",
             "pacing": {"avg_hold_seconds": 4.0, "min_hold": 2.0, "max_hold": 6.0},
             "overlays": {"density": "normal"},
-            "transitions": {"allowed": ["cut", "crossfade", "fade", "fade_to_black"],
+            "transitions": {"allowed": ["cut", "crossfade", "fade", "fade_to_black", "whip",
+                                        "zoom_through", "push", "wipe", "flash"],
                             "default": "cut", **transitions},
         },
         "theme_doc": {"typography": {"caption_preset": "plain"}},
@@ -158,3 +159,22 @@ def test_the_shared_pack_rules_hold_on_the_python_side():
             assert problems == [], case["name"]
         for needle in case["expect"]:
             assert any(needle in p for p in problems), f"{case['name']}: {problems}"
+
+
+def test_push_and_whip_alternate_direction_per_kind_and_wipe_keeps_the_default():
+    plan = _compile(_cfg(animated_share=0.5, mix={"push": 1, "whip": 1, "wipe": 1}))
+    by_kind: dict[str, list] = {}
+    for item in plan["tracks"]["visual"][:-1]:
+        t = item["transition_out"]
+        if t["type"] != "cut":
+            by_kind.setdefault(t["type"], []).append(t.get("direction"))
+    for kind in ("push", "whip"):
+        assert by_kind[kind] == [("left", "right")[n % 2] for n in range(len(by_kind[kind]))], kind
+    assert set(by_kind["wipe"]) == {None}
+
+
+def test_a_new_kind_the_pack_does_not_allow_is_refused():
+    with pytest.raises(CompileError, match="mix names 'whip'"):
+        cfg = _cfg(animated_share=0.3, mix={"whip": 1})
+        cfg["style_pack_doc"]["transitions"]["allowed"] = ["cut", "push"]
+        _compile(cfg)

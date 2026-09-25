@@ -50,7 +50,7 @@ export const BaseTrack: React.FC<{ plan: EditPlan; assets: VisualAsset[] }> = ({
           nodes.push(
             <TransitionSeries.Transition
               key={`transition-${i}`}
-              presentation={presentationFor(layout.transitionOut.kind)}
+              presentation={presentationFor(layout.transitionOut.kind, layout.transitionOut.direction)}
               timing={linearTiming({ durationInFrames: layout.transitionOut.durationInFrames })}
             />,
           );

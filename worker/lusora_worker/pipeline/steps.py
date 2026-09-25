@@ -1176,7 +1176,7 @@ def run_qa(ctx: StageContext) -> None:
             float(vo.get("start_s", 0)) + float(vo["duration_s"]),
             float(visual[-1]["end_s"]) if visual else 0.0,
         )
-        qa.check(ctx, final, expected, _source_at(ctx, visual))
+        qa.check(ctx, final, expected, _source_at(ctx, visual), _fill_at(visual))
         return
     qa.check(ctx, final, expected)
 
@@ -1201,6 +1201,26 @@ def _source_at(ctx: StageContext, visual: list[dict]) -> qa.SourceAt:
         if length:
             offset = offset % length if item.get("loop") else min(offset, max(length - 0.05, 0.0))
         return source, offset
+
+    return at
+
+
+def _fill_at(visual: list[dict]) -> qa.FillAt:
+    """Which declared flash or dip is on screen at a moment, if any.
+
+    A transition is drawn in the handle after the cut, over [end_s, end_s + d]
+    (timeline.ts), so that is the window a solid frame is expected in. The last
+    item has no junction and carries none.
+    """
+    windows = []
+    for item in visual[:-1]:
+        transition = item.get("transition_out") or {}
+        if transition.get("type") in qa.FILL_TRANSITIONS:
+            start = float(item["end_s"])
+            windows.append((start, start + float(transition.get("duration_s", 0.5)), transition["type"]))
+
+    def at(t: float) -> str | None:
+        return next((kind for start, end, kind in windows if start <= t <= end), None)
 
     return at
 

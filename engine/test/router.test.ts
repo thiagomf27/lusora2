@@ -41,3 +41,22 @@ test("a speed != 1 visual item forces the remotion path", () => {
   assert.equal(r.renderer, "remotion");
   assert.ok(r.reasons.some((reason) => reason.includes("speed")));
 });
+
+test("the slice-2 transitions stay on ffmpeg, except whip", () => {
+  const base: EditPlan = structuredClone(fixture);
+  base.tracks.overlays = [];
+  base.tracks.captions.preset = "plain";
+  base.tracks.visual.forEach((v) => {
+    v.speed = 1;
+  });
+  for (const type of ["push", "wipe", "flash", "zoom_through"] as const) {
+    const plan = structuredClone(base);
+    plan.tracks.visual[0].transition_out = { type, duration_s: 0.5 };
+    assert.equal(routePlan(plan).renderer, "ffmpeg", type);
+  }
+  const whip = structuredClone(base);
+  whip.tracks.visual[0].transition_out = { type: "whip", duration_s: 0.3, direction: "right" };
+  const r = routePlan(whip);
+  assert.equal(r.renderer, "remotion");
+  assert.ok(r.reasons.some((reason) => reason.includes("transition whip")));
+});

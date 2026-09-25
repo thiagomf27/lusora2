@@ -10,6 +10,9 @@ that fires:
                  until `animated_share` of the junctions are not cuts.
   4. default   — `transitions.default`, already on every other item.
 
+Then push and whip get alternating directions, so a run of them does not read
+as a slideshow advancing.
+
 Arithmetic only, like the rest of the compiler: no model chooses a transition
 (D89), and the same beats compile to the same plan. A pack that sets none of
 the D95 fields leaves the track exactly as `_visual_item` wrote it, so a
@@ -148,6 +151,8 @@ def place_transitions(
             if kind in durations:
                 item["transition_out"] = {**transition, "duration_s": durations[kind]}
 
+    _alternate_directions(visual)
+
     if on_note and (share > 0 or section):
         animated = sum(1 for i in range(junctions) if _animated(visual, i))
         asked = f"; the pack asks {share:.0%}" if share > 0 else ""
@@ -155,6 +160,32 @@ def place_transitions(
             f"transitions: {animated} of {junctions} junctions animated "
             f"({animated / junctions:.0%}{asked}), {sections} at section breaks"
         )
+
+
+# Kinds whose motion has a direction the viewer reads as travel. A run of them
+# all going the same way reads as a slideshow advancing, so they alternate.
+# `wipe` is left alone: a wipe's edge is a reveal, not travel, and it keeps the
+# renderer's default.
+_ALTERNATING = ("push", "whip")
+
+
+def _alternate_directions(visual: list[dict[str, Any]]) -> None:
+    """Give each push and whip a direction, left then right then left, in order.
+
+    Counted per kind, so a whip between two pushes does not decide which way
+    the second push goes. A direction already set (a hand-edited plan) is kept.
+    No kind here existed before the slice that added them, so a plan compiled
+    earlier cannot change.
+    """
+    count = {kind: 0 for kind in _ALTERNATING}
+    for item in visual[:-1]:
+        transition = item.get("transition_out") or {}
+        kind = transition.get("type")
+        if kind not in count:
+            continue
+        if "direction" not in transition:
+            item["transition_out"] = {**transition, "direction": ("left", "right")[count[kind] % 2]}
+        count[kind] += 1
 
 
 def _beat_final(visual: list[dict[str, Any]], i: int) -> bool:

@@ -47,6 +47,14 @@ DARK_SOURCE_LUMA_MAX = 0.15
 # where the plan shows no file (a colour card) or the caller has no plan
 SourceAt = Callable[[float], "tuple[Path, float] | None"]
 
+# video time -> the transition kind drawing a SOLID FILL there (the white of a
+# flash, the black of a dip), or None. A declared fill is the plan working, not
+# the render failing, so a sample inside one is excused rather than counted.
+FillAt = Callable[[float], "str | None"]
+
+# The transitions that pass through a solid frame on purpose (transitions plan).
+FILL_TRANSITIONS = ("flash", "fade_to_black")
+
 
 def settings(cfg: dict[str, Any]) -> dict[str, Any]:
     return {**DEFAULTS, **((cfg.get("qa") or {}))}
@@ -129,6 +137,7 @@ def inspect(
     cfg: dict[str, Any],
     source_at: SourceAt | None = None,
     excused: list[str] | None = None,
+    fill_at: FillAt | None = None,
 ) -> list[str]:
     """Every complaint about the finished file. Empty = ship it.
 
@@ -161,7 +170,14 @@ def inspect(
             unreadable.append(at)
             continue
         mean, spread = stats
-        if mean <= float(opts["black_luma_max"]):
+        is_black = mean <= float(opts["black_luma_max"])
+        if is_black or spread <= int(opts["flat_frame_range"]):
+            fill = fill_at(at) if fill_at else None
+            if fill is not None:
+                if excused is not None:
+                    excused.append(f"{at:.1f}s (inside a {fill})")
+                continue
+        if is_black:
             source = source_at(at) if source_at else None
             origin = frame_stats(source[0], source[1]) if source else None
             if origin is not None and origin[0] <= DARK_SOURCE_LUMA_MAX:
@@ -215,17 +231,17 @@ def inspect(
 
 
 def check(ctx, video: Path, expected_duration_s: float | None,
-          source_at: SourceAt | None = None) -> None:
+          source_at: SourceAt | None = None, fill_at: FillAt | None = None) -> None:
     """Raise with ONE actionable reason, or return quietly."""
     opts = settings(ctx.cfg)
     if not opts.get("enabled", True):
         ctx.log("post-render QA disabled for this channel")
         return
     excused: list[str] = []
-    problems = inspect(video, expected_duration_s, ctx.cfg, source_at, excused)
+    problems = inspect(video, expected_duration_s, ctx.cfg, source_at, excused, fill_at)
     if excused:
-        ctx.log(f"QA: {len(excused)} dark frame(s) excused, the footage itself is dark there: "
-                + "; ".join(excused))
+        ctx.log(f"QA: {len(excused)} frame(s) excused — dark footage, or a flash or dip the "
+                "plan declared: " + "; ".join(excused))
     if problems:
         # every complaint is recorded; the STATUS carries one reason (the error
         # model: which stage, which file, why — not a list to triage)

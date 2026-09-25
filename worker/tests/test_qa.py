@@ -165,3 +165,35 @@ def test_where_the_plan_shows_no_file_a_black_frame_is_judged_as_before(tmp_path
     black = render(tmp_path / "final.mp4", video="color=c=black:s=320x180:rate=30",
                    audio=GOOD_AUDIO, seconds=6)
     assert qa.inspect(black, 6.0, {}, lambda t: None)
+
+
+# ---------------- a declared flash or dip is not a failed draw ----------------
+
+
+def test_a_sample_inside_a_declared_flash_is_excused(tmp_path):
+    """A flash is pure white at its peak — a flat fill, which QA otherwise fails
+    a video for on a single sample. Inside a transition the plan declared, it
+    is the plan working."""
+    white = render(tmp_path / "final.mp4", video="color=c=white:s=320x180:rate=30",
+                   audio=GOOD_AUDIO, seconds=6)
+    assert any("flat fill" in p for p in qa.inspect(white, 6.0, {}))
+    excused: list[str] = []
+    assert qa.inspect(white, 6.0, {}, None, excused, lambda _t: "flash") == []
+    assert excused and all("inside a flash" in e for e in excused)
+
+
+def test_fill_windows_cover_only_flash_and_dip_after_their_cut():
+    from lusora_worker.pipeline.steps import _fill_at
+
+    visual = [
+        {"start_s": 0, "end_s": 4, "transition_out": {"type": "flash", "duration_s": 0.6}},
+        {"start_s": 4, "end_s": 8, "transition_out": {"type": "crossfade", "duration_s": 0.5}},
+        {"start_s": 8, "end_s": 12, "transition_out": {"type": "fade_to_black"}},
+        {"start_s": 12, "end_s": 16, "transition_out": {"type": "flash", "duration_s": 0.6}},
+    ]
+    at = _fill_at(visual)
+    assert at(4.3) == "flash"
+    assert at(3.9) is None and at(4.7) is None
+    assert at(8.2) is None, "a crossfade never passes through a solid frame"
+    assert at(12.4) == "fade_to_black", "absent duration is the renderer's 0.5 s"
+    assert at(16.1) is None, "the last item has no junction"

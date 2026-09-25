@@ -120,13 +120,26 @@ export interface Motion {
   strength?: number;
 }
 
-export type TransitionType = "cut" | "crossfade" | "fade" | "fade_to_black";
+export type TransitionType =
+  | "cut"
+  | "crossfade"
+  | "fade"
+  | "fade_to_black"
+  | "whip"
+  | "zoom_through"
+  | "push"
+  | "wipe"
+  | "flash";
+/** Which way the picture MOVES, for push / whip / wipe. `left`: the new shot enters from the right. */
+export type TransitionDirection = "left" | "right" | "up" | "down";
 /** Every transition that is not a cut — what a mix or a section break can name. */
 export type AnimatedTransitionType = Exclude<TransitionType, "cut">;
 
 export interface Transition {
   type: TransitionType;
   duration_s?: number;
+  /** push / whip / wipe only; absent means `left`. */
+  direction?: TransitionDirection;
   /** D95 — the compiler placed it (from the pack's section_break or mix). Renderers ignore it. */
   placed_by?: "section_break" | "filler";
 }
