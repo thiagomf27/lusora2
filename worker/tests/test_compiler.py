@@ -235,6 +235,23 @@ def test_overlay_props_from_anchor_and_defaults():
     assert overlays[0]["end_s"] <= 5.0
 
 
+@pytest.mark.parametrize("component", ["AnimatedCounter", "TextCounter"])
+def test_a_percentage_anchor_puts_its_sign_on_the_counter(component):
+    """vid_1549eeacea78 showed "80" over "das casas japonesas": a share read as a count."""
+    def compiled(hint: dict | None, anchor_type: str = "percentage") -> dict:
+        doc = beats({
+            "id": "b1", "kind": "narration", "script_text": "Nearly 70% converted.",
+            "visual_intent": "factories",
+            "anchors": [{"type": anchor_type, "value": 70, "label": "converted", "source_words": "70%"}],
+            "overlay": {"component": component, "anchor_ref": 0, **({"props_hint": hint} if hint else {})},
+        })
+        return compile_plan(doc, timings(("Nearly 70% converted.", 0.0, 5.0)), CFG, 5.0)["tracks"]["overlays"][0]["props"]
+
+    assert compiled(None)["suffix"] == "%"
+    assert compiled({"suffix": " pts"})["suffix"] == " pts", "an authored suffix wins"
+    assert "suffix" not in compiled(None, "number"), "a count gets no sign"
+
+
 def test_geocode_fills_map_props():
     doc = beats(
         {

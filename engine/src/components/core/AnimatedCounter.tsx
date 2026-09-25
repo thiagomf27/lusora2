@@ -34,6 +34,7 @@ import { fitText } from "@remotion/layout-utils";
 import type { Theme } from "../theme.ts";
 import {
   chartStyle,
+  countedValue,
   composition,
   contrastInk,
   contrastRatio,
@@ -165,7 +166,7 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
           minimumFractionDigits: props.decimals,
           maximumFractionDigits: props.decimals,
         });
-  const shown = figureAt(props.value * progress);
+  const shown = figureAt(countedValue(props.value, progress));
 
   const center = props.position === "center";
   const alignLeft = props.position === "left";

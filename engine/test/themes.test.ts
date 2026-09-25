@@ -36,6 +36,7 @@ import {
   typeScale,
   typeTracking,
   typeWeight,
+  countedValue,
 } from "../src/themes/runtime.ts";
 import { PANEL_ENTRANCES, TEXT_ENTRANCES } from "../src/themes/entrance.ts";
 
@@ -244,6 +245,15 @@ test("compact numbers are compact, and plain ones are not", () => {
   assert.equal(compact(2_000_000), "2M");
   assert.equal(compact(940), "940");
   assert.equal(chartStyle(DEFAULT_THEME).formatNumber(50000), "50,000");
+});
+
+test("a whole-number count-up passes only through whole numbers", () => {
+  const compact = chartStyle(themed({ chart: { number_format: "compact" } })).formatNumber;
+  // "Número cinco" counted up through 2.3 on vid_1549eeacea78's first review.
+  for (let p = 0; p <= 1; p += 0.05) assert.match(compact(countedValue(5, p)), /^\d$/);
+  assert.equal(countedValue(80, 0.5), 40);
+  assert.equal(countedValue(7.9, 0.5), 3.95, "a fractional figure keeps its fraction");
+  assert.equal(compact(countedValue(52_400, 1)), "52.4K");
 });
 
 test("texture is a deterministic style object, not a random one", () => {

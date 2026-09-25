@@ -12,6 +12,7 @@ export {
   capsTracking,
   captionStyle,
   chartStyle,
+  countedValue,
   composition,
   contrastInk,
   contrastRatio,

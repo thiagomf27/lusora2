@@ -14,7 +14,7 @@
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
-import { chartStyle, easingCurve, motionScale, PANEL_ENTRANCES } from "../theme.ts";
+import { chartStyle, countedValue, easingCurve, motionScale, PANEL_ENTRANCES } from "../theme.ts";
 import { POSITION, SIZE, TextLockup } from "./TextLockup.tsx";
 
 export const TextCounterProps = z.object({
@@ -46,7 +46,7 @@ export function TextCounter({ props, theme }: { props: TextCounterProps; theme: 
   // AnimatedCounter: a figure the script asked for to two places is a fact
   // about the claim, not a look. `chart.number_format` speaks only when the
   // author said nothing.
-  const v = props.value * progress;
+  const v = countedValue(props.value, progress);
   const figure =
     props.decimals === 0
       ? chart.formatNumber(v)

@@ -805,6 +805,20 @@ function compactNumber(v: number): string {
 }
 
 /**
+ * The figure a count-up shows at `progress` (0..1) of the way to `target`.
+ *
+ * A whole target counts in whole steps. Left fractional, a small count passes
+ * through 2.3, 3.7… on its way to 5 — and a list position ("número cinco")
+ * read as a decimal figure for a second and a half, because compactNumber
+ * rightly shows the one decimal it is given. A fractional target (7.9) keeps
+ * its fraction all the way.
+ */
+export function countedValue(target: number, progress: number): number {
+  const v = target * progress;
+  return Number.isInteger(target) ? Math.round(v) : v;
+}
+
+/**
  * Chart tokens resolved against the component's own choices. `base` is what the
  * component drew before D66; the theme overrides only what it names.
  */

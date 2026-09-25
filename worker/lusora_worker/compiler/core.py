@@ -995,6 +995,13 @@ def _compile_overlay(
             props[prop_name] = spec["default"]
     if anchor is not None and "label" in entry["props"] and "label" not in props and anchor.get("label"):
         props["label"] = _fit(entry["props"]["label"], anchor["label"])
+    # A percentage anchor carries the bare figure (70, not "70%"), so a counter
+    # filled from it read "80" over "das casas japonesas" — a count, not a
+    # share. The sign is a fact of the anchor's TYPE; a model that wrote its
+    # own suffix keeps it.
+    if (anchor is not None and anchor.get("type") == "percentage"
+            and "suffix" in entry["props"] and "suffix" not in props):
+        props["suffix"] = "%"
 
     # geocode_stops runs AFTER the loop above, not inside it: the list itself
     # comes from the LLM (it names the places), so the prop is already present
