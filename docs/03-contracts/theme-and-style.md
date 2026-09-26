@@ -484,7 +484,8 @@ see D47 for the trigger.
 - **`transition` defaults to none.** At a 4 s hold, a cue on every
   transition is about 15 a minute. That is the single fastest way to make
   a channel sound amateur, so it is opt-in in both the theme and the
-  style pack.
+  style pack. `per_transition` overrides it by kind (`whip: whoosh-fast`),
+  mirroring `per_entrance`.
 - **The gains are ABSOLUTE levels**, applied to the pack's files; the
   channel's `source_policy.music.default_volume` is a *trim* on top
   (1 = as the theme mixed it). Against the shipped packs (beds at
@@ -509,10 +510,16 @@ overlays:
   density: normal               # low|normal|high or {per_minute: N}
   allowed_packs: [core, archive]  # component PACKS this style draws from
 transitions:
-  allowed: [cut, crossfade, fade_to_black]
+  allowed: [cut, crossfade, fade_to_black]  # also: fade, flash, push, wipe, whip, zoom_through
   default: cut
   duration_s: 0.5               # D89 — the PACK owns how long one runs; a beat
                                 # only chooses WHICH, via its transition_out
+  # D95 — all optional; absent, every junction is `default` as before
+  animated_share: 0.15          # target share of junctions that are not a cut
+  mix: {crossfade: 2, fade_to_black: 1}   # filler kinds, by weight; needs a share
+  section_break: fade_to_black  # where the music's mood span changes
+  durations: {fade_to_black: 0.8}         # per-kind length over duration_s
+  per_component: {ChapterCard: wipe}      # the cut INTO an overlay's shot
 script_persona: |
   Grave, precise documentary narrator. Short sentences. No exclamations.
 visual_language: |

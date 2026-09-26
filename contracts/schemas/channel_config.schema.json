@@ -217,7 +217,7 @@
             },
             "transitions": {
               "type": "array",
-              "items": { "enum": ["cut", "crossfade", "fade", "fade_to_black"] },
+              "items": { "enum": ["cut", "crossfade", "fade", "fade_to_black", "whip", "zoom_through", "push", "wipe", "flash"] },
               "description": "kinds removed from style_pack.transitions.allowed"
             },
             "sfx_cues": {

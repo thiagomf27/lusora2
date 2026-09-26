@@ -17,13 +17,13 @@
  * freeze-frame threshold (availableFrames, below) shrinks proportionally.
  */
 
-import type { EditPlan, VisualItem } from "@lusora/contracts";
+import type { EditPlan, TransitionDirection, TransitionType, VisualItem } from "@lusora/contracts";
 
 /** Renderer default when a transition's duration_s is absent (edit_plan v1.0). */
 export const DEFAULT_TRANSITION_SECONDS = 0.5;
 
 /** Transition kinds that overlap two clips (i.e. everything but a hard cut). */
-export type TransitionKind = "crossfade" | "fade" | "fade_to_black";
+export type TransitionKind = Exclude<TransitionType, "cut">;
 
 /** Per-visual-item asset info the composition needs; built node-side by buildAssetManifest. */
 export interface VisualAsset {
@@ -41,7 +41,12 @@ export interface VisualLayout {
   /** Handle frames appended past the cut, consumed by transitionOut. */
   extensionFrames: number;
   /** Transition into the NEXT item, overlapping this item's extension. */
-  transitionOut: { kind: TransitionKind; durationInFrames: number } | null;
+  transitionOut: {
+    kind: TransitionKind;
+    durationInFrames: number;
+    /** push / whip / wipe: which way the picture moves. */
+    direction: TransitionDirection;
+  } | null;
   /**
    * Video only: number of COMPOSITION frames the source can cover before the
    * freeze-frame fallback, accounting for in_offset_s and speed. Null =
@@ -134,5 +139,5 @@ function transitionAfter(
     narrative[i + 1]! - 1,
   );
   if (durationInFrames < 1) return null; // no room to breathe — degrade to a hard cut
-  return { kind: transition.type, durationInFrames };
+  return { kind: transition.type, durationInFrames, direction: transition.direction ?? "left" };
 }

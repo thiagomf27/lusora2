@@ -218,6 +218,11 @@ def visual_stats(arm: Arm, events: list[dict[str, Any]]) -> dict[str, Any]:
         "visual_items": len(visual),
         "distinct_assets": len(assets),
         "fallback_intents": fallback,
+        # D95: the share of junctions the render actually animates — what a
+        # pack's animated_share delivered, after short shots fell back to cuts
+        "animated_junctions": sum(
+            1 for i in visual[:-1] if ((i.get("transition_out") or {}).get("type") or "cut") != "cut"
+        ),
     }
 
 
@@ -476,6 +481,11 @@ def _arm_cells(r: dict[str, Any]) -> dict[str, str]:
     cells["music spans"] = str(s["music_spans"])
     cells["beats / distinct intents"] = f"{v['beats']} / {v['distinct_intents']}"
     cells["visual items / distinct assets"] = f"{v['visual_items']} / {v['distinct_assets']}"
+    junctions = max(v["visual_items"] - 1, 0)
+    cells["animated transitions"] = (
+        f"{v['animated_junctions']} / {junctions} ({v['animated_junctions'] / junctions:.0%})"
+        if junctions else "—"
+    )
     cells["fallback intents"] = str(v["fallback_intents"])
     downstream = {k: x for k, x in t.items() if k not in ("script", "narration", "transcript")}
     for name, secs in downstream.items():

@@ -120,11 +120,28 @@ export interface Motion {
   strength?: number;
 }
 
-export type TransitionType = "cut" | "crossfade" | "fade" | "fade_to_black";
+export type TransitionType =
+  | "cut"
+  | "crossfade"
+  | "fade"
+  | "fade_to_black"
+  | "whip"
+  | "zoom_through"
+  | "push"
+  | "wipe"
+  | "flash";
+/** Which way the picture MOVES, for push / whip / wipe. `left`: the new shot enters from the right. */
+export type TransitionDirection = "left" | "right" | "up" | "down";
+/** Every transition that is not a cut — what a mix or a section break can name. */
+export type AnimatedTransitionType = Exclude<TransitionType, "cut">;
 
 export interface Transition {
   type: TransitionType;
   duration_s?: number;
+  /** push / whip / wipe only; absent means `left`. */
+  direction?: TransitionDirection;
+  /** D95 — the compiler placed it (from the pack's section_break or mix). Renderers ignore it. */
+  placed_by?: "section_break" | "filler" | "overlay";
 }
 
 export interface VisualItem {
@@ -345,6 +362,8 @@ export interface ThemeSound {
   per_component?: Record<string, CueRef>;
   /** Omitted (the default) means none — a cue per transition is ~15/minute. */
   transition?: CueRef;
+  /** Cue by transition kind, overriding `transition` for that kind. "none" silences one. */
+  per_transition?: Partial<Record<Exclude<TransitionType, "cut">, CueRef>>;
   mood_beds?: Partial<Record<Mood, CueRef>>;
   gain?: { sfx?: number; music_duck?: number; music_lift?: number };
 }
@@ -382,6 +401,16 @@ export interface StylePack {
      *  because a transition eats footage from the shots on both sides of it.
      *  Omitted is 0.5s, which is what every transition was before. */
     duration_s?: number;
+    /** D95 — target share of non-cut junctions (0.3 = a 70/30 mix). Requires `mix`. */
+    animated_share?: number;
+    /** D95 — the kinds filler draws from, as relative weights. */
+    mix?: Partial<Record<AnimatedTransitionType, number>>;
+    /** D95 — the transition where the mood span (and so the music bed) changes. */
+    section_break?: AnimatedTransitionType;
+    /** D95 — per-kind length, overriding `duration_s`. */
+    durations?: Partial<Record<AnimatedTransitionType, number>>;
+    /** D95 slice 3 — the transition into the shot an overlay opens on, by component name. */
+    per_component?: Record<string, AnimatedTransitionType>;
   };
   script_persona?: string;
   visual_language?: string;

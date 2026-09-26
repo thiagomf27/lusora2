@@ -356,6 +356,21 @@
             "$ref": "#/$defs/cueRef"
           }
         },
+        "per_transition": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "cue by the transition KIND that plays, overriding `transition` for that kind: a whip wants a whoosh, a flash a click. \"none\" silences one kind. Omitted kinds fall back to `transition`.",
+          "properties": {
+            "crossfade": { "$ref": "#/$defs/cueRef" },
+            "fade": { "$ref": "#/$defs/cueRef" },
+            "fade_to_black": { "$ref": "#/$defs/cueRef" },
+            "whip": { "$ref": "#/$defs/cueRef" },
+            "zoom_through": { "$ref": "#/$defs/cueRef" },
+            "push": { "$ref": "#/$defs/cueRef" },
+            "wipe": { "$ref": "#/$defs/cueRef" },
+            "flash": { "$ref": "#/$defs/cueRef" }
+          }
+        },
         "transition": {
           "$ref": "#/$defs/cueRef",
           "description": "cue for a visual transition. Omitted (the default) means none: at a 4s hold a cue per transition is 15/minute, which is the fastest way to sound amateur."

@@ -151,3 +151,56 @@ test("a looped short clip fills its slot instead of freezing", { timeout: 120_00
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("the slice-2 transitions render through xfade, and a flash is white at its peak", { timeout: 180_000 }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lusora-xfade-"));
+  try {
+    mkdirSync(join(dir, "clips"));
+    const colors = ["darkslategray", "maroon", "navy", "darkgreen", "indigo"];
+    colors.forEach((c, i) =>
+      sh("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", `color=c=${c}:s=320x180`,
+        "-frames:v", "1", join(dir, `clips/${i}.jpg`)])
+    );
+    sh("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=330:duration=10",
+      "-q:a", "9", join(dir, "audio.mp3")]);
+
+    const kinds = [
+      { type: "push", direction: "right", duration_s: 0.5 },
+      { type: "wipe", direction: "up", duration_s: 0.5 },
+      { type: "flash", duration_s: 0.6 },
+      { type: "zoom_through", duration_s: 0.5 },
+    ] as const;
+    const plan: EditPlan = {
+      version: "1.0", video_id: "xfade", fps: 30,
+      resolution: { width: 320, height: 180 },
+      tracks: {
+        visual: colors.map((_c, i) => ({
+          id: `v${i}`, beat_id: `b${i}`, locked: false, start_s: i * 2, end_s: (i + 1) * 2,
+          media_type: "image" as const,
+          asset: { source: "manual" as const, path: `clips/${i}.jpg` },
+          ...(i < kinds.length ? { transition_out: { ...kinds[i] } } : {}),
+        })),
+        overlays: [],
+        captions: { enabled: false, items: [] },
+        audio: { voiceover: { path: "audio.mp3", start_s: 0, duration_s: 10, volume: 1 } },
+      },
+    };
+    assert.equal(routePlan(plan).renderer, "ffmpeg");
+
+    const result = await renderFfmpeg(plan, dir);
+    assert.ok(Math.abs(result.duration_s - 10) < 0.5, `duration ${result.duration_s} ≈ 10s`);
+
+    // mean luma of one frame: scale the frame to a single grey pixel
+    const luma = (t: number) => {
+      const proc = spawnSync("ffmpeg", ["-v", "error", "-ss", t.toFixed(3), "-i", join(dir, "final.mp4"),
+        "-frames:v", "1", "-vf", "scale=1:1,format=gray", "-f", "rawvideo", "-"]);
+      assert.equal(proc.status, 0, String(proc.stderr));
+      return proc.stdout[0]!;
+    };
+    // the flash sits on the third junction (6 s) and runs 0.6 s into the handle
+    assert.ok(luma(6.3) > 200, `flash peak luma ${luma(6.3)} should be near white`);
+    assert.ok(luma(5.5) < 120 && luma(7.2) < 120, "the shots either side are not white");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

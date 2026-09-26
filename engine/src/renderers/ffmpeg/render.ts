@@ -2,7 +2,7 @@
  * ffmpeg renderer v1 (D7: the default, near-free path).
  *
  * Supports exactly the ffmpeg capability profile: cuts, crossfade/fade/
- * fade-to-black, Ken Burns / static stills, plain caption burn-in, audio
+ * fade-to-black/flash/zoom-through/push/wipe (not whip), Ken Burns / static stills, plain caption burn-in, audio
  * mix (voiceover + music). Anything more routes to Remotion (router.ts).
  *
  * Transition semantics: A-side consumes a rendered handle (its motion
@@ -46,7 +46,22 @@ const XFADE_TYPES: Record<string, string> = {
   crossfade: "fade",
   fade: "fade",
   fade_to_black: "fadeblack",
+  flash: "fadewhite",
+  zoom_through: "zoomin",
 };
+
+/**
+ * The xfade name for a transition. push and wipe carry a direction, which is
+ * where the picture MOVES — the same convention as xfade's own slideleft /
+ * wipeleft, so it maps one-to-one. `whip` has no faithful xfade (smoothleft
+ * and hblur read as a smear, not a flick), so the router sends any plan with
+ * one to Remotion; the "fade" fallback is never reached through `auto`.
+ */
+function xfadeType(t: { type: string; direction?: string }): string {
+  if (t.type === "push") return `slide${t.direction ?? "left"}`;
+  if (t.type === "wipe") return `wipe${t.direction ?? "left"}`;
+  return XFADE_TYPES[t.type] ?? "fade";
+}
 
 export async function renderFfmpeg(plan: EditPlan, videoDir: string): Promise<RenderResult> {
   const { fps, resolution } = plan;
@@ -89,7 +104,7 @@ export async function renderFfmpeg(plan: EditPlan, videoDir: string): Promise<Re
       let prevLabel = "0:v";
       for (let i = 1; i < segments.length; i++) {
         const t = visual[i - 1].transition_out ?? { type: "cut" as const, duration_s: 0.1 };
-        const type = XFADE_TYPES[t.type] ?? "fade";
+        const type = xfadeType(t);
         const d = t.type === "cut" ? 0.08 : (t.duration_s ?? 0.5);
         const offset = Math.max(visual[i - 1].end_s - (t.type === "cut" ? 0.08 : 0), 0.01);
         const out = i === segments.length - 1 ? "vout" : `x${i}`;

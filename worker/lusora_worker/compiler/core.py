@@ -17,6 +17,7 @@ from .. import validators
 from ..errors import StageError
 from ..textsplit import split_sentences
 from . import geo, sound
+from . import transitions as transition_rules
 from .textmatch import SKIPPABLE, compare_key, decade_context, is_filler, number_run, tokenize
 
 STAGE = "compile_plan"
@@ -65,11 +66,11 @@ def compile_plan(
     hold_ceiling = max_hold * float(pacing.get("hold_ceiling_ratio", 0) or 0)
     transitions = style.get("transitions") or {}
     default_transition = str(transitions.get("default", "cut"))
-    allowed_transitions = list(transitions.get("allowed", ["cut"]))
-    if default_transition not in allowed_transitions:
-        raise CompileError(
-            f"style pack default transition '{default_transition}' is not in allowed {allowed_transitions}"
-        )
+    transition_problems = transition_rules.pack_problems(
+        {**transitions, "allowed": list(transitions.get("allowed", ["cut"]))}
+    )
+    if transition_problems:
+        raise CompileError("style pack " + "; ".join(transition_problems))
     # D89 — the PACK owns how long a transition runs; a beat only chooses which.
     transition_seconds = float(transitions.get("duration_s", 0.5))
     output = cfg.get("output") or {}
@@ -144,7 +145,6 @@ def compile_plan(
 
     visual.sort(key=lambda v: v["start_s"])
     _make_contiguous(visual, total_end=total_end)
-    _fit_transitions(visual)
 
     # ---- overlays ----
     # captions_enabled is read here, not in the caption block below: it decides
@@ -161,6 +161,23 @@ def compile_plan(
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
     overlays = _trim_overlay_holds(overlays, total_end=total_end, on_note=on_note)
+
+    # ---- transitions (D95) ----
+    # After the overlays, not with the visual track: the placement reads the
+    # finished shot boundaries, and slice 3's overlay-tied transitions will read
+    # where each overlay starts. The fit runs last so a placed transition is
+    # trimmed against its neighbours exactly as a human-chosen one is.
+    beat_times: list[tuple[float, float, str]] = [
+        (start, end, sound.normalize_mood(b.get("mood"))) for b, start, end in placed_timed
+    ]
+    beat_times += [
+        (start, end, sound.normalize_mood(beat.get("mood")))
+        for beat, (start, end, _s) in aligned
+    ]
+    transition_rules.place_transitions(
+        visual, {str(b.get("id")): b for b in beats}, beat_times, style, on_note, overlays
+    )
+    _fit_transitions(visual)
 
     # ---- captions ----
     theme = cfg.get("theme_doc") or {}
@@ -190,13 +207,6 @@ def compile_plan(
         }
     }
 
-    beat_times: list[tuple[float, float, str]] = [
-        (start, end, sound.normalize_mood(b.get("mood"))) for b, start, end in placed_timed
-    ]
-    beat_times += [
-        (start, end, sound.normalize_mood(beat.get("mood")))
-        for beat, (start, end, _s) in aligned
-    ]
     _note_unknown_moods([*placed_timed_beats(placed_timed), *(b for b, _t in aligned)], on_note)
 
     absolute_timings = [

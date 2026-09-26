@@ -107,7 +107,7 @@ const GROUPS = [
     key: "transitions" as const,
     from: "transitions" as const,
     label: "Transitions",
-    note: "Cuts the compiler may place between shots. Excluding the pack's default is allowed — the default moves to a survivor at enqueue. `crossfade` and `fade` are the same dissolve today; `fade_to_black` dips through black.",
+    note: "Cuts the compiler may place between shots. Excluding the pack's default is allowed — the default moves to a survivor at enqueue. `crossfade` and `fade` are the same dissolve today; `fade_to_black` dips through black and `flash` through white; `push` and `whip` alternate left and right.",
   },
   {
     key: "sfx_cues" as const,

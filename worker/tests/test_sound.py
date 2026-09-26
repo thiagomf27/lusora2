@@ -400,3 +400,35 @@ def test_compiled_music_carries_an_envelope():
     env = plan["tracks"]["audio"]["music"][0]["gain_envelope"]
     assert max(p["gain"] for p in env) == pytest.approx(0.22)
     assert min(p["gain"] for p in env) == pytest.approx(0.08)
+
+
+def test_a_transition_cue_is_chosen_by_kind_before_the_default():
+    """per_transition (transitions plan, slice 3): a whip wants a whoosh, a flash
+    a click. A kind with no entry falls back to `transition`; "none" silences
+    one kind even when there is a default."""
+    doc = beats(
+        {"id": "b1", "kind": "narration", "script_text": "One sentence.", "visual_intent": "a",
+         "transition_out": "whip"},
+        {"id": "b2", "kind": "narration", "script_text": "Two sentence.", "visual_intent": "b",
+         "transition_out": "crossfade"},
+        {"id": "b3", "kind": "narration", "script_text": "Three sentence.", "visual_intent": "c",
+         "transition_out": "flash"},
+        {"id": "b4", "kind": "narration", "script_text": "Four sentence.", "visual_intent": "d"},
+    )
+    st = timings(("One sentence.", 0.0, 4.0), ("Two sentence.", 4.0, 8.0),
+                 ("Three sentence.", 8.0, 12.0), ("Four sentence.", 12.0, 16.0))
+    style = {
+        "name": "test",
+        "pacing": {"avg_hold_seconds": 4.0, "min_hold": 2.0, "max_hold": 6.0},
+        "overlays": {"density": "normal"},
+        "transitions": {"allowed": ["cut", "crossfade", "whip", "flash"], "default": "cut"},
+        "sfx": {"enabled": True, "cues": ["transition"], "max_per_minute": 60, "min_gap_s": 0.0},
+        "music": {"enabled": False},
+    }
+    theme = {
+        "typography": {"caption_preset": "plain"},
+        "sound": {"transition": "swoosh", "per_transition": {"whip": "thud", "flash": "none"}},
+    }
+    plan = compile_plan(doc, st, cfg(theme_doc=theme, style_pack_doc=style), 16.0)
+    cues = {c["origin_id"]: c["cue"] for c in plan["tracks"]["audio"]["sfx"]}
+    assert cues == {"v_b1": "thud", "v_b2": "swoosh"}, "flash is silenced; b4 has no junction"

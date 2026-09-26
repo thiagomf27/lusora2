@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Beat, TransitionType } from "@lusora/contracts";
-import { transitionPolicy, validateTransition } from "../src/lib/transitionRules.ts";
+import type { Beat, StylePack, TransitionType } from "@lusora/contracts";
+import { transitionPackProblems, transitionPolicy, validateTransition } from "../src/lib/transitionRules.ts";
 import { repoRoot } from "../src/lib/env.ts";
 
 /**
@@ -21,7 +21,11 @@ interface RuleCase {
 
 const table = JSON.parse(
   readFileSync(join(repoRoot(), "contracts/fixtures/rules/transition_rules.json"), "utf8")
-) as { cases: RuleCase[]; default_allowed: TransitionType[] };
+) as {
+  cases: RuleCase[];
+  default_allowed: TransitionType[];
+  pack_cases: { name: string; transitions: StylePack["transitions"]; expect: string[] }[];
+};
 
 function beatWith(transition?: TransitionType): Beat {
   return {
@@ -59,3 +63,20 @@ for (const c of table.cases) {
 test("a snapshot that names no transitions checks nothing", () => {
   assert.deepEqual(validateTransition(beatWith("fade_to_black"), transitionPolicy({})), []);
 });
+
+// D95 — the pack-level rules; worker/tests/test_transitions.py asserts the same table
+for (const c of table.pack_cases) {
+  test(`shared transition pack rules — ${c.name}`, () => {
+    const problems = transitionPackProblems(c.transitions);
+    if (c.expect.length === 0) {
+      assert.deepEqual(problems, [], c.name);
+      return;
+    }
+    for (const needle of c.expect) {
+      assert.ok(
+        problems.some((p) => p.includes(needle)),
+        `${c.name}: expected a problem containing "${needle}", got ${JSON.stringify(problems)}`
+      );
+    }
+  });
+}

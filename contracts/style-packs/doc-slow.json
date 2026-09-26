@@ -22,7 +22,15 @@
       "crossfade",
       "fade_to_black"
     ],
-    "default": "cut"
+    "default": "cut",
+    "animated_share": 0.15,
+    "mix": {
+      "crossfade": 1
+    },
+    "section_break": "fade_to_black",
+    "durations": {
+      "fade_to_black": 0.8
+    }
   },
   "script_persona": "Grave, precise documentary narrator. Short sentences. No exclamations.",
   "visual_language": "Archival, desaturated, wide establishing shots; avoid modern footage.",

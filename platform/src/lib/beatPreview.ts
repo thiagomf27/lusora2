@@ -90,6 +90,11 @@ function applyTransition(
     return { visual: next, transition: null, changed: true };
   }
 
+  // D95: a beat that names none gets whatever the compiler PLACED there (a
+  // section break or filler), which the preview cannot re-derive — placement
+  // reads the whole track. Anything else on the plan is a stale human choice
+  // the form has since cleared, and falls back to the pack's default.
+  if (!beat.transition_out && was?.placed_by) return { visual, transition: was, changed: false };
   const kind = beat.transition_out ?? fallback;
   const here = visual[last].end_s - visual[last].start_s;
   const after = visual[last + 1].end_s - visual[last + 1].start_s;

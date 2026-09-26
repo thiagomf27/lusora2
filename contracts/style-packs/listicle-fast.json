@@ -21,9 +21,22 @@
     "allowed": [
       "cut",
       "crossfade",
-      "fade_to_black"
+      "fade_to_black",
+      "whip",
+      "push",
+      "wipe"
     ],
-    "default": "cut"
+    "default": "cut",
+    "animated_share": 0.35,
+    "mix": {
+      "whip": 2,
+      "push": 1
+    },
+    "section_break": "wipe",
+    "durations": {
+      "whip": 0.3,
+      "push": 0.4
+    }
   },
   "script_persona": "Upbeat countdown narrator. Each item opens with its rank and a hook.",
   "visual_language": "Punchy hero shots per item; consistent framing between items.",

@@ -111,8 +111,16 @@
       "required": ["type"],
       "additionalProperties": false,
       "properties": {
-        "type": { "enum": ["cut", "crossfade", "fade", "fade_to_black"] },
-        "duration_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 3, "default": 0.5 }
+        "type": { "enum": ["cut", "crossfade", "fade", "fade_to_black", "whip", "zoom_through", "push", "wipe", "flash"] },
+        "direction": {
+          "enum": ["left", "right", "up", "down"],
+          "description": "which way the picture MOVES, for the kinds that have one (push, whip, wipe) — `left` means the incoming shot enters from the right. Ignored by every other kind. Absent means `left`. The compiler alternates push and whip left/right so a run of them does not read as a slideshow."
+        },
+        "duration_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 3, "default": 0.5 },
+        "placed_by": {
+          "enum": ["section_break", "filler", "overlay"],
+          "description": "D95 — the compiler chose this transition from the style pack's `section_break`, `mix` or `per_component` (`overlay`), rather than a beat's `transition_out` or the pack's `default`. Provenance only; renderers ignore it. It is what lets the editor tell a placed transition from a stale human one: a beat that names no transition shows the placed one as-is, and falls back to the default otherwise."
+        }
       },
       "description": "transition OUT of this item; consumes handles, never moves narrative cuts"
     },

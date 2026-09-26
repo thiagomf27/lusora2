@@ -6,7 +6,10 @@
  */
 import type { EditPlan } from "@lusora/contracts";
 
-const FFMPEG_TRANSITIONS = new Set(["cut", "crossfade", "fade", "fade_to_black"]);
+// whip is absent on purpose: xfade has no flick, only smears (transitions plan, slice 2)
+const FFMPEG_TRANSITIONS = new Set([
+  "cut", "crossfade", "fade", "fade_to_black", "flash", "zoom_through", "push", "wipe",
+]);
 const FFMPEG_CAPTION_PRESETS = new Set(["plain"]);
 
 export interface RouteResult {

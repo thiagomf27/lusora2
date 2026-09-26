@@ -25,9 +25,20 @@
   "transitions": {
     "allowed": [
       "cut",
-      "crossfade"
+      "crossfade",
+      "fade_to_black",
+      "push"
     ],
-    "default": "cut"
+    "default": "cut",
+    "animated_share": 0.2,
+    "mix": {
+      "crossfade": 2,
+      "push": 1
+    },
+    "section_break": "fade_to_black",
+    "durations": {
+      "fade_to_black": 0.8
+    }
   },
   "script_persona": "Grave, measured. Third person. Short declarative sentences. Names, dates and places stated plainly. No excitement, no direct address.",
   "visual_language": "Cinematic stock footage of extreme landscapes and expedition activity, intercut with archival paintings and maps as exhibits with slow ken_burns; avoid modern urban footage, talking heads, and screen recordings.",

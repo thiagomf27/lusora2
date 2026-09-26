@@ -39,5 +39,58 @@
       "allowed_transitions": [],
       "expect": []
     }
+  ],
+  "_pack_comment": "D95 — the rules on the style pack's transitions block itself, beyond what the schema can say: every kind a mix, section break or duration names must be allowed, and a share needs a mix to fill it. Each case is a `transitions` block; `expect` is a substring some problem must contain, [] means accepted. Asserted by worker/tests/test_transitions.py and platform/test/transitionRules.test.ts.",
+  "pack_cases": [
+    {
+      "name": "a pack with no D95 fields is what every pack was",
+      "transitions": {"allowed": ["cut"], "default": "cut"},
+      "expect": []
+    },
+    {
+      "name": "a share with an allowed mix",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "animated_share": 0.3, "mix": {"crossfade": 1}},
+      "expect": []
+    },
+    {
+      "name": "a share with nothing to fill it",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "animated_share": 0.3},
+      "expect": ["animated_share needs a mix"]
+    },
+    {
+      "name": "a mix kind the pack does not allow",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "animated_share": 0.3, "mix": {"fade_to_black": 1}},
+      "expect": ["mix names 'fade_to_black'"]
+    },
+    {
+      "name": "a section break the pack does not allow",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "section_break": "fade_to_black"},
+      "expect": ["section_break 'fade_to_black'"]
+    },
+    {
+      "name": "a duration for a kind the pack does not allow",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "durations": {"fade": 0.4}},
+      "expect": ["durations names 'fade'"]
+    },
+    {
+      "name": "the default must still be allowed",
+      "transitions": {"allowed": ["cut"], "default": "crossfade"},
+      "expect": ["default transition 'crossfade'"]
+    },
+    {
+      "name": "an overlay-tied kind the pack allows",
+      "transitions": {"allowed": ["cut", "wipe"], "default": "cut", "per_component": {"ChapterCard": "wipe"}},
+      "expect": []
+    },
+    {
+      "name": "an overlay-tied kind the pack does not allow",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "per_component": {"ChapterCard": "wipe"}},
+      "expect": ["per_component gives ChapterCard 'wipe'"]
+    },
+    {
+      "name": "a mix with no share is inert, not wrong",
+      "transitions": {"allowed": ["cut", "crossfade"], "default": "cut", "mix": {"crossfade": 1}},
+      "expect": []
+    }
   ]
 }

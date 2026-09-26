@@ -17,6 +17,7 @@
  */
 import type { ChannelConfig } from "@lusora/contracts";
 import { loadMergedCatalog } from "./catalog.ts";
+import { narrowTransitionPlacement } from "./transitionRules.ts";
 
 /** Every component name the merged catalog knows — what an exclusion has to
  *  subtract from when the style pack itself allows everything. */
@@ -163,6 +164,7 @@ export function applyLook(snapshot: Record<string, unknown>): string[] {
       style.transitions.default = allowed[0];
     }
     style.transitions.allowed = allowed;
+    narrowTransitionPlacement(style.transitions, allowed);
   }
 
   if (style?.sfx && exclude.sfx_cues?.length) {

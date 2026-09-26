@@ -154,6 +154,18 @@ def _cue(cfg: dict[str, Any], name: str | None) -> tuple[str, dict[str, Any]] | 
 # ---------------- sfx ----------------
 
 
+def _cue_for_transition(cfg: dict[str, Any], kind: str) -> tuple[str, dict[str, Any]] | None:
+    """per_transition (by kind) -> the theme's one transition cue -> none.
+
+    A whip wants a whoosh and a flash a click; one cue for every kind was
+    enough while every transition was a dissolve. "none" in per_transition
+    silences that kind even when a default cue exists.
+    """
+    theme_sound = (cfg.get("theme_doc") or {}).get("sound") or {}
+    by_kind = (theme_sound.get("per_transition") or {}).get(kind)
+    return _cue(cfg, by_kind if by_kind is not None else theme_sound.get("transition"))
+
+
 def _cue_for_overlay(cfg: dict[str, Any], component: str) -> tuple[str, dict[str, Any]] | None:
     """per_component override -> per_entrance (when the kind is known) -> default."""
     theme = cfg.get("theme_doc") or {}
@@ -268,25 +280,26 @@ def compile_sfx(
             )
 
     if "transition" in allowed:
-        resolved = _cue(cfg, ((theme.get("sound") or {}).get("transition")))
-        if resolved is not None:
+        for item in visual:
+            transition = item.get("transition_out") or {}
+            if not transition or transition.get("type") == "cut":
+                continue  # a cut is not an event you can hear
+            resolved = _cue_for_transition(cfg, str(transition["type"]))
+            if resolved is None:
+                continue
             cue_name, cue = resolved
-            for item in visual:
-                transition = item.get("transition_out") or {}
-                if not transition or transition.get("type") == "cut":
-                    continue  # a cut is not an event you can hear
-                candidates.append(
-                    _sfx_item(
-                        f"s_t_{item['id']}",
-                        cue_name,
-                        cue,
-                        float(item["end_s"]),
-                        origin="transition",
-                        origin_id=str(item["id"]),
-                        beat_id=item.get("beat_id"),
-                        base_gain=base_gain,
-                    )
+            candidates.append(
+                _sfx_item(
+                    f"s_t_{item['id']}",
+                    cue_name,
+                    cue,
+                    float(item["end_s"]),
+                    origin="transition",
+                    origin_id=str(item["id"]),
+                    beat_id=item.get("beat_id"),
+                    base_gain=base_gain,
                 )
+            )
 
     kept = _thin_sfx(candidates, style_sfx, total_duration_s, _pack(cfg))
     for item in kept:

@@ -44,9 +44,60 @@
   85%, 100% { opacity: 0; }
 }
 
+/* flash: the swap under a WHITE veil that arrives and leaves fast */
+.flash .tVeil { background: #fff; animation: flashVeil 3s linear infinite; }
+.flash .tB { animation: swapHard 3s steps(1, end) infinite; }
+/* push: B shoves A out of frame, both travelling left */
+.push .tA { animation: pushOut 3s ease-in-out infinite; }
+.push .tB { animation: pushIn 3s ease-in-out infinite; }
+/* whip: the same travel, compressed into the middle and blurred */
+.whip .tA { animation: whipOut 3s linear infinite; }
+.whip .tB { animation: whipIn 3s linear infinite; }
+/* wipe: B is revealed behind an edge sweeping right to left */
+.wipe .tB { animation: wipeIn 3s ease-in-out infinite; }
+/* zoom_through: A punches in and dissolves; B settles from just past full frame */
+.zoom .tA { animation: zoomOut 3s ease-in-out infinite; }
+.zoom .tB { animation: zoomIn 3s ease-in-out infinite; }
+
+@keyframes flashVeil {
+  0%, 38% { opacity: 0; }
+  46%, 54% { opacity: 1; }
+  62%, 100% { opacity: 0; }
+}
+@keyframes pushOut {
+  0%, 35% { transform: translateX(0); }
+  65%, 100% { transform: translateX(-100%); }
+}
+@keyframes pushIn {
+  0%, 35% { transform: translateX(100%); }
+  65%, 100% { transform: translateX(0); }
+}
+@keyframes whipOut {
+  0%, 44% { transform: translateX(0); filter: blur(0); }
+  50% { filter: blur(3px); }
+  56%, 100% { transform: translateX(-100%); filter: blur(0); }
+}
+@keyframes whipIn {
+  0%, 44% { transform: translateX(100%); filter: blur(0); }
+  50% { filter: blur(3px); }
+  56%, 100% { transform: translateX(0); filter: blur(0); }
+}
+@keyframes wipeIn {
+  0%, 35% { clip-path: inset(0 0 0 100%); }
+  65%, 100% { clip-path: inset(0 0 0 0); }
+}
+@keyframes zoomOut {
+  0%, 35% { transform: scale(1); }
+  65%, 100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes zoomIn {
+  0%, 35% { opacity: 0; transform: scale(1.4); }
+  65%, 100% { opacity: 1; transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cut .tB, .dissolve .tB, .dip .tB, .dip .tVeil { animation: none; }
-  .tB { opacity: 0.5; }
+  .tA, .tB, .tVeil { animation: none !important; }
+  .tB { opacity: 0.5; transform: none; clip-path: none; }
 }
 
 /* Sound examples — a play control that doubles as the name. */

@@ -26,6 +26,22 @@ the video over a transition nobody could see. The kind comes from the beat
 (`Beat.transition_out`) when it names one, else from the style pack's default;
 the duration always comes from the pack (`transitions.duration_s`).
 
+Since D95 the compiler may also PLACE a transition where the beat names none:
+the pack's `section_break` where the music's mood span changes, and filler
+from its `mix` until `animated_share` of the junctions are animated. A placed
+transition carries `placed_by` (`section_break` | `filler` | `overlay`, the
+last from the pack's `per_component`). Renderers ignore
+it; the editor reads it to tell a placed transition from a stale human one, so
+a beat naming none previews what was placed rather than the default. Per-kind
+lengths come from `transitions.durations`, then `duration_s`.
+
+`push`, `whip` and `wipe` carry an optional `direction` (`left | right | up |
+down`): which way the picture MOVES, so `left` brings the new shot in from the
+right — the same convention as ffmpeg's `slideleft` / `wipeleft`. Absent means
+`left`. The compiler alternates push and whip left/right, counted per kind; a
+wipe keeps the default. `flash` and `fade_to_black` pass through a solid frame
+on purpose, and post-render QA excuses a sampled frame inside one.
+
 ## The audio track (D48)
 
 Three item shapes, all placed by the compiler:

@@ -77,7 +77,7 @@ export const MOOD_NAMES = [
  */
 export function mergeSoundMap(
   theme: Theme,
-  field: "per_entrance" | "per_component" | "mood_beds" | "gain",
+  field: "per_entrance" | "per_component" | "per_transition" | "mood_beds" | "gain",
   patch: Record<string, string | number | undefined>,
 ): Theme {
   const current = (theme.sound?.[field] ?? {}) as Record<string, unknown>;

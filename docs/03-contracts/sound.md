@@ -91,7 +91,11 @@ bed over the entrance window is the right primitive.
 
 Transitions are opt-in in both the theme (`sound.transition`, default
 none) and the style pack (`sfx.cues`), and a `cut` never fires one — a
-cut is not an event you can hear.
+cut is not an event you can hear. `sound.per_transition` picks the cue by
+the transition's KIND first (a whoosh on `whip`, a click on `flash`), then
+falls back to `sound.transition`; `"none"` there silences one kind even
+when a default exists. With the D95 mix placing ~30% animated junctions,
+this is where `sfx.max_per_minute` earns its keep.
 
 ### Density
 

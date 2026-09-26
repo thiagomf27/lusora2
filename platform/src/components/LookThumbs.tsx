@@ -2,9 +2,9 @@
 /**
  * The small examples on the transition, SFX and music rows.
  *
- * A transition is drawn rather than described: `cut`, `crossfade`, `fade` and
- * `fade_to_black` are four words that mean very little until you see which one
- * dips through black. The animation mirrors what the renderer actually does
+ * A transition is drawn rather than described: `cut`, `crossfade`, `whip` and
+ * `zoom_through` are words that mean very little until you see which one
+ * dips through black or throws the frame sideways. The animation mirrors what the renderer actually does
  * (`engine/src/renderers/remotion/transitions.tsx`) — including the fact that
  * `crossfade` and `fade` are the SAME dissolve today, which the labels say out
  * loud rather than leaving someone to discover it in a render.
@@ -13,15 +13,21 @@
  * "somber-01" stops being a name and becomes a thing you either want or don't.
  */
 import { useEffect, useRef, useState } from "react";
+import type { TransitionType } from "@lusora/contracts";
 import s from "./LookThumbs.module.css";
 
-export type TransitionKind = "cut" | "crossfade" | "fade" | "fade_to_black";
+export type TransitionKind = TransitionType;
 
 const KIND_CLASS: Record<TransitionKind, string> = {
   cut: s.cut,
   crossfade: s.dissolve,
   fade: s.dissolve,
   fade_to_black: s.dip,
+  flash: s.flash,
+  push: s.push,
+  whip: s.whip,
+  wipe: s.wipe,
+  zoom_through: s.zoom,
 };
 
 /** Two shots and the join between them, looping. */
@@ -31,7 +37,7 @@ export function TransitionThumb({ kind }: { kind: string }) {
     <span className={`${s.tBox} ${cls}`} aria-hidden="true">
       <span className={s.tA}>A</span>
       <span className={s.tB}>B</span>
-      {kind === "fade_to_black" && <span className={s.tVeil} />}
+      {(kind === "fade_to_black" || kind === "flash") && <span className={s.tVeil} />}
     </span>
   );
 }

@@ -123,7 +123,12 @@
             "cut",
             "crossfade",
             "fade",
-            "fade_to_black"
+            "fade_to_black",
+            "whip",
+            "zoom_through",
+            "push",
+            "wipe",
+            "flash"
           ],
           "description": "D89 — how this beat HANDS OVER to the next one, overriding style_pack.transitions.default. The boundary belongs to the outgoing beat, the same way the plan's VisualItem.transition_out does, so a junction has exactly one owner. Omitted means the pack's default. Must be in style_pack.transitions.allowed. Ignored on the last beat, which has no junction; on a beat the compiler splits into several shots it applies to the last of them."
         },
