@@ -1,0 +1,19 @@
+{
+  "X": {
+    "overlay_relevance": 4,
+    "overlay_timing": 4,
+    "mood_music": 4,
+    "hook": 4,
+    "broll_key_moments": 4
+  },
+  "Y": {
+    "overlay_relevance": 4,
+    "overlay_timing": 4,
+    "mood_music": 4,
+    "hook": 4,
+    "broll_key_moments": 4
+  },
+  "publish": null,
+  "notes": "Placeholder, 2026-09-26: both arms scored 4 on every item for now, to be revisited. publish left unset on purpose, so the pair does not count toward the verdict yet.",
+  "_help": "each rubric item 1-5; publish is \"X\" or \"Y\". See evals/directed/README.md"
+}
