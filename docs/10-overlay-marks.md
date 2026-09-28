@@ -203,14 +203,14 @@ Every mark names `source_words`: a verbatim, contiguous span copied from
 
 | anchor type it can take | components |
 | --- | --- |
-| `number` | AnimatedCounter, RankLabel, StatTag |
+| `number` | AnimatedCounter, IconArray, RankLabel, StatTag |
 | `percentage` | AnimatedCounter, PieChart, StatTag |
 | `comparison` | BarChart, ComparisonSplit, PieChart |
 | `place` | RouteMap, SatelliteLocate |
 | `date` | DateStamp |
 | `name` | NamePlate, PortraitPlates |
 | `quote` | HighlightedPassage, QuoteBlock |
-| none — carries no anchor, so it is only ever `class: emphasis` | ArchivalFrame, BulletList, CalloutArrow, ChapterCard, DataTable, DefinitionCard, DocumentCard, FactCard, FactSheet, FramedExhibit, HammerStatement, KineticTitle, LineChart, RegionHighlight, StepFlow, Timeline |
+| none — carries no anchor, so it is only ever `class: emphasis` | ArchivalFrame, BulletList, CalloutArrow, ChapterCard, DataTable, DefinitionCard, DocumentCard, FactCard, FactSheet, FramedExhibit, HammerStatement, KineticTitle, LineChart, PhotoRow, RegionHighlight, StepFlow, Timeline |
 
 A component in the bottom row can NEVER be `class: anchor` — it carries no fact
 by construction. If the reference's graphic matches nothing on this list, the
