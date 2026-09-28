@@ -6,7 +6,7 @@ import { copyFileSync, mkdirSync, writeFileSync, existsSync, readFileSync, statS
 import { join, extname, dirname } from "node:path";
 import type { ChannelConfig, PipelineManifest } from "@lusora/contracts";
 import { query, one } from "../db/pool.ts";
-import { ApiError } from "./auth.ts";
+import { ApiError } from "./apiError.ts";
 import { deepMerge } from "./merge.ts";
 import { validateAgainst } from "./validate.ts";
 import { repoRoot } from "./env.ts";

@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { extname, isAbsolute, join, resolve, sep } from "node:path";
 import { loadEnv, repoRoot } from "./env.ts";
-import { ApiError } from "./auth.ts";
+import { ApiError } from "./apiError.ts";
 
 /** Formats both renderers can draw: ffmpeg reads them, Remotion's <Img> does too. */
 export const BACKGROUND_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];

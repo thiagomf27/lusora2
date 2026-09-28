@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import type { UserRole } from "@lusora/contracts";
 import { query, one } from "../db/pool.ts";
 import { sessionUserId } from "./session.ts";
+import { ApiError } from "./apiError.ts";
 
 export interface AuthedUser {
   id: string;
@@ -14,13 +15,7 @@ export interface AuthedUser {
   role: UserRole;
 }
 
-export class ApiError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
+export { ApiError };
 
 export async function currentUser(): Promise<AuthedUser | null> {
   const uid = await sessionUserId();
