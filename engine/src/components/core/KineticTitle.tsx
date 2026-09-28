@@ -5,17 +5,30 @@
  * (slides up out of an overflow-hidden slot), "rise" (fade + lift) and
  * "scale" (pop on the overshoot curve). Splitting by "char" keeps spaces as
  * un-animated gaps so word boundaries stay readable.
+ *
+ * D96: an optional `kicker` chip over the title — the section or series
+ * eyebrow ("CASA POR DENTRO") — set on the accent, and, when the theme asks for
+ * `surface.title_rule: under`, a short accent rule under the last line. With
+ * neither, the tree is exactly the one it always was.
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Entrance, Theme } from "../theme.ts";
 import {
+  labelFace,
+  capsTracking,
+  contrastInk,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  ruleWidth,
+  surfaceStyle,
+  titleOnShot,
+  titleRule,
+  typeCase,
   typeScale,
   typeTracking,
   typeWeight,
@@ -24,10 +37,16 @@ import {
 
 export const KineticTitleProps = z.object({
   text: z.string().max(70),
+  /** A short eyebrow chip over the title: the series, the section. */
+  kicker: z.string().max(32).optional(),
   unit: z.enum(["word", "char"]).default("word"),
   entrance: z.enum(["rise", "mask", "scale"]).default("mask"),
   align: z.enum(["left", "center"]).default("center"),
-  emphasize_last: z.boolean().default(false),
+  /**
+   * The word or phrase that takes the emphasis colour (D97), verbatim from
+   * `text` — any word, not only the last. Unmatched, nothing is emphasised.
+   */
+  emphasize: z.string().max(40).optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type KineticTitleProps = z.infer<typeof KineticTitleProps>;
@@ -54,7 +73,13 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const density = densityScale(theme);
-  const ground = groundStyle(theme, { radius: 12, legible: true });
+  // D96 `title_ground: shot` writes the title on the scrimmed footage in the
+  // theme's lighter colour; otherwise it takes its plate, and its ink is asked
+  // against that plate — `plate: invert` paints it in the theme's own ink.
+  const onShot = titleOnShot(theme);
+  const ground = onShot.onShot ? null : groundStyle(theme, { radius: 12, legible: true });
+  const plateInk = ground?.backgroundColor ? contrastInk(theme, String(ground.backgroundColor).slice(0, 7)) : theme.colors.text;
+  const ink = onShot.onShot ? onShot.ink : plateInk;
   const accent = emphasisColor(theme, props.emphasis);
 
   // Only the frame-level opacity and the resolved kind come from the hook: the
@@ -68,10 +93,27 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
 
   const words = props.text.split(" ").filter(Boolean);
   const tokens = props.unit === "word" ? words : Array.from(props.text);
-  // Which token index counts as "the last one" for emphasize_last.
-  const lastWordIndex = props.unit === "word" ? words.length - 1 : tokens.length - 1;
-  const lastWordStart =
-    props.unit === "word" ? lastWordIndex : props.text.length - (words[words.length - 1]?.length ?? 0);
+  // The emphasised span, as character offsets into `text` (case-insensitive,
+  // so a planner that capitalised differently still lands), and each word's
+  // own offsets so a word token knows whether it falls inside it.
+  const markFrom = props.emphasize ? props.text.toLowerCase().indexOf(props.emphasize.toLowerCase().trim()) : -1;
+  const markTo = markFrom >= 0 ? markFrom + props.emphasize!.trim().length : -1;
+  const wordStarts: number[] = [];
+  {
+    let at = 0;
+    for (const w of words) {
+      const found = props.text.indexOf(w, at);
+      wordStarts.push(found);
+      at = found + w.length;
+    }
+  }
+  const emphasised = (i: number) => {
+    if (markFrom < 0) return false;
+    if (props.unit === "char") return i >= markFrom && i < markTo;
+    const start = wordStarts[i] ?? -1;
+    const end = start + (words[i]?.length ?? 0);
+    return start < markTo && end > markFrom;
+  };
 
   const stagger = Math.min(
     Math.round(fps * (props.unit === "word" ? 0.14 : 0.05) * durationMul),
@@ -79,24 +121,26 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
   );
   const tokenDur = Math.round(fps * 0.5 * durationMul);
   const centered = props.align === "center";
+  // A title written on the shot is set on a narrower measure — a block of two
+  // or three lines in the corner of the picture, not a banner across it — so
+  // it is sized for three lines of that measure rather than one of the frame.
+  const measure = onShot.onShot ? width * 0.6 : width * 0.84;
+  const lines = onShot.onShot ? 3 : 1;
   const size =
     Math.max(
       height * 0.05,
-      Math.min(height * 0.13, (width * 0.84) / Math.max(1, props.text.length * 0.55)),
+      Math.min(onShot.onShot ? height * 0.1 : height * 0.13, (measure * lines) / Math.max(1, props.text.length * 0.55)),
     ) * typeScale(theme, "title");
 
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: centered ? "center" : "flex-start",
-        padding: `0 ${width * 0.08 * density}px`,
-        opacity,
-      }}
-    >
+  const rule = titleRule(theme);
+  const framed = Boolean(props.kicker) || rule;
+  const ornamentIn = interpolate(frame, [tokens.length * stagger, tokens.length * stagger + tokenDur], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.bezier(...easingCurve(theme)),
+  });
+
+  const title = (
       <div
         style={{
           display: "flex",
@@ -105,7 +149,7 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
           justifyContent: centered ? "center" : "flex-start",
           alignItems: "baseline",
           columnGap: props.unit === "word" ? size * 0.26 : 0,
-          maxWidth: width * 0.84,
+          maxWidth: measure,
         }}
       >
         {tokens.map((token, i) => {
@@ -118,9 +162,11 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
             easing:
               kind === "pop" ? Easing.bezier(0.34, 1.56, 0.64, 1) : Easing.bezier(...easingCurve(theme)),
           });
-          const isEmphasized =
-            props.emphasize_last && (props.unit === "word" ? i === lastWordIndex : i >= lastWordStart);
-          const color = isEmphasized ? accent : theme.colors.text;
+          const isEmphasized = emphasised(i);
+          // The chosen word always takes the accent: naming it IS the request
+          // for emphasis, so the `emphasis` prop (which defaults to neutral)
+          // must not turn it grey.
+          const color = isEmphasized ? theme.colors.accent : ink;
 
           if (token === " ") {
             return <span key={i} style={{ display: "inline-block", width: size * 0.28 }} />;
@@ -164,6 +210,58 @@ export function KineticTitle({ props, theme }: { props: KineticTitleProps; theme
           );
         })}
       </div>
+  );
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: centered ? "center" : "flex-start",
+        padding: `0 ${width * 0.08 * density}px`,
+        opacity,
+      }}
+    >
+      {framed ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: centered ? "center" : "flex-start" }}>
+          {props.kicker ? (
+            <div
+              style={{
+                marginBottom: height * 0.022 * density,
+                background: theme.colors.accent,
+                color: contrastInk(theme, theme.colors.accent),
+                borderRadius: surfaceStyle(theme, { radius: 4 }).borderRadius,
+                padding: `${height * 0.006 * density}px ${height * 0.014 * density}px`,
+                fontFamily: labelFace(theme),
+                fontSize: height * 0.022 * typeScale(theme, "kicker"),
+                fontWeight: typeWeight(theme, 700),
+                letterSpacing: capsTracking(theme, 0.08),
+                textTransform: typeCase(theme, "uppercase"),
+                opacity: interpolate(frame, [0, tokenDur], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+              }}
+            >
+              {props.kicker}
+            </div>
+          ) : null}
+          {title}
+          {rule ? (
+            <div
+              style={{
+                marginTop: height * 0.012 * density,
+                width: width * 0.1,
+                height: ruleWidth(theme, Math.max(3, height * 0.005)),
+                background: accent,
+                scale: `${ornamentIn} 1`,
+                transformOrigin: centered ? "center" : "left center",
+              }}
+            />
+          ) : null}
+        </div>
+      ) : (
+        title
+      )}
     </div>
   );
 }

@@ -267,6 +267,36 @@ export function mutedInk(theme: Theme, on: string = surfaceColor(theme), min = 3
 }
 
 /**
+ * The accent (or whatever emphasis colour a component resolved) as INK:
+ * the colour itself when it reads on the ground, else stepped toward the
+ * theme's ink until it does (D96).
+ *
+ * The accent does two jobs, like `neutral` does in `mutedInk`: it is a MARK
+ * (a bar, a rule, a ring, a pin) and it is sometimes TYPE (a kicker, a
+ * highlighted row, the winning figure). A lime that is exactly right as a mark
+ * on paper is 1.2:1 as type on the same paper. Every theme before D96 names an
+ * accent that clears 3:1 on its own page, so for all of them this is the
+ * identity; only a theme whose accent is an ornament colour gets a darker ink
+ * for its type, still carrying the accent's hue.
+ *
+ * 3:1 by default — the floor for the large, bold type accents usually set.
+ */
+export function accentInk(
+  theme: Theme,
+  color: string = theme.colors.accent,
+  on: string = surfaceColor(theme),
+  min = 3
+): string {
+  if (contrastRatio(color, on) >= min) return color;
+  const target = contrastInk(theme, on);
+  for (let step = 1; step <= 16; step += 1) {
+    const candidate = blend(target, color, step * 0.06);
+    if (contrastRatio(candidate, on) >= min) return candidate;
+  }
+  return target;
+}
+
+/**
  * Stock and ink for a component that DEPICTS printed matter — a directive, a
  * telegram, a page torn out of something. The four theme colours do not name
  * "paper", and adding a fifth would leave every theme authored before this
@@ -585,7 +615,7 @@ export function densityScale(theme: Theme): number {
   return DENSITY_SCALE[theme.surface?.density ?? "normal"];
 }
 
-export type Composition = "centered" | "poster";
+export type Composition = "centered" | "poster" | "page";
 
 /**
  * Where an overlay sits in the frame (D70). A CHOICE token — a composition has
@@ -606,6 +636,19 @@ export type Composition = "centered" | "poster";
  */
 export function composition(theme: Theme, own: Composition = "centered"): Composition {
   return theme.layout?.composition ?? own;
+}
+
+/**
+ * Whether the overlay's ground runs edge to edge (D96).
+ *
+ * `poster` and `page` share the ground and differ only in where the content
+ * goes: a poster moves its title to the top-left and fills the rest, a page
+ * keeps the centred lockup on paper. A component that only needs to know
+ * "am I drawing the whole frame" asks this rather than naming either value, so
+ * a third full-bleed composition would not have to find every call site.
+ */
+export function fullBleed(theme: Theme, own: Composition = "centered"): boolean {
+  return composition(theme, own) !== "centered";
 }
 
 const SCRIM_ALPHA: Record<NonNullable<NonNullable<Theme["layout"]>["scrim"]>, number> = {
@@ -644,6 +687,70 @@ export function posterPad(
 ): { x: number; y: number } {
   const d = densityScale(theme);
   return { x: frame.width * 0.03 * d, y: frame.height * 0.052 * d };
+}
+
+/**
+ * The face a DISPLAY figure is set in (D96): a counter's number, a rank
+ * badge's numeral. `body` is the identity — the body face with tabular figures,
+ * which is what every component drew before the token existed. Returned with
+ * the numeric variant, because the reason the body face was chosen (proportional
+ * old-style figures shuffle while a number counts) applies to either face.
+ */
+export function figureFace(theme: Theme): { fontFamily: string; fontVariantNumeric: string } {
+  const display = (theme.typography.figures ?? "body") === "display";
+  return {
+    fontFamily: fontStack(display ? theme.typography.display : theme.typography.body),
+    fontVariantNumeric: display ? "lining-nums tabular-nums" : "tabular-nums",
+  };
+}
+
+/**
+ * The shadow under a PHOTO card (D96), or undefined for `flat` — every theme
+ * before D96, so a component that asks gets exactly what it drew before.
+ *
+ * Black rather than derived from the palette for the reason a scrim is black: a
+ * shadow is lighting, not a surface, and a tinted one reads as a colour cast.
+ * Sized from the frame so a 720p preview and a 1080p render cast the same one.
+ */
+export function elevationShadow(theme: Theme, frameHeight: number): string | undefined {
+  if ((theme.surface?.elevation ?? "flat") === "flat") return undefined;
+  const y = Math.round(frameHeight * 0.012);
+  const blur = Math.round(frameHeight * 0.04);
+  return `0 ${y}px ${blur}px rgba(0,0,0,0.22), 0 ${Math.max(1, Math.round(y / 4))}px ${Math.round(blur / 5)}px rgba(0,0,0,0.12)`;
+}
+
+/** Whether a title lockup draws an accent rule under its last line (D96). */
+export function titleRule(theme: Theme): boolean {
+  return (theme.surface?.title_rule ?? "none") === "under";
+}
+
+/**
+ * The two marks of a VERDICT — right and wrong, do and don't, a checklist's
+ * tick (D96).
+ *
+ * Not theme colours, for the reason `seriesColors` is not: green-for-right and
+ * red-for-wrong are a convention the viewer brings with them, not a preference
+ * the channel expresses, and a theme whose accent happens to be red would
+ * otherwise mark the RIGHT answer red. So the engine owns the hues and picks
+ * the pair by the luminance of the plate they sit on. Both clear 3:1 against
+ * their plate, the floor a non-text mark has to hold; the ✓ and ✗ glyphs
+ * carry the meaning for a viewer who cannot tell the two apart.
+ *
+ * An achromatic theme gets its own ink for both — the same rule the data ramp
+ * follows: a black-and-white channel does not want the engine's green.
+ */
+const VERDICT_ON_LIGHT = { right: "#2e7a4f", wrong: "#c8412f" } as const;
+const VERDICT_ON_DARK = { right: "#5cc98a", wrong: "#ef6b5b" } as const;
+
+export function verdictColors(
+  theme: Theme,
+  on: string = surfaceColor(theme)
+): { right: string; wrong: string } {
+  if (achromatic(theme)) {
+    const ink = contrastInk(theme, on);
+    return { right: ink, wrong: ink };
+  }
+  return luminance(on) > 0.4 ? VERDICT_ON_LIGHT : VERDICT_ON_DARK;
 }
 
 const RULE_SCALE: Record<RuleToken, number> = { hairline: 0.45, normal: 1, heavy: 2.4 };
@@ -697,6 +804,14 @@ export function textureLayer(theme: Theme): CSSProperties | null {
         backgroundSize: "180px 180px",
         backgroundBlendMode: "overlay",
       };
+    case "grid":
+      // Graph paper: a fine square grid in the ink at low strength, so it reads
+      // as a ruled page on either polarity without competing with the type.
+      return {
+        backgroundColor: `${bg}f2`,
+        backgroundImage: `linear-gradient(${theme.colors.text}14 1px, transparent 1px), linear-gradient(90deg, ${theme.colors.text}14 1px, transparent 1px)`,
+        backgroundSize: "28px 28px",
+      };
     default: // scanline
       return {
         backgroundColor: `${bg}e6`,
@@ -747,6 +862,95 @@ export function groundStyle(theme: Theme, opts: GroundOptions = {}): CSSProperti
     ...(invisible ? {} : { backgroundColor: surface.background }),
     ...(texture ?? {}),
   };
+}
+
+/**
+ * The ground of a FULL-BLEED overlay (D96): the theme's page, edge to edge,
+ * with its texture — never the plate.
+ *
+ * `groundStyle` resolves a PANEL, and a panel takes `plateColor`, so under
+ * `plate: invert` it comes back in the theme's ink. That is right for a card
+ * floated over the shot and wrong for the page itself: the type on a page is
+ * the theme's ink, and an inverted page sets it on itself. A full-bleed
+ * composition is the page, so it asks for the page.
+ */
+export function pageGround(theme: Theme): CSSProperties {
+  return { backgroundColor: surfaceColor(theme), ...(textureLayer(theme) ?? {}) };
+}
+
+/**
+ * Where a TITLE lockup sets its type (D96): on its own plate (`plate`, what
+ * every theme drew before the token), or written straight onto the shot
+ * (`shot`) in whichever of the theme's two colours is lighter — the one that
+ * reads over footage the scrim has turned down. A theme asking for `shot`
+ * without a scrim is asking for type over raw footage; that is its call.
+ */
+export function titleOnShot(theme: Theme): { onShot: boolean; ink: string } {
+  const onShot = (theme.surface?.title_ground ?? "plate") === "shot";
+  return { onShot, ink: paperStock(theme).stock };
+}
+
+/**
+ * The colour a CHIP is painted (D97): a tag behind a line of type, a label, a
+ * counter's box, a highlighted date.
+ *
+ * Split from `plateColor` because a chip and a panel are different objects. A
+ * panel is the ground a component sets its content on, and most of the catalog
+ * still sets that content in the theme's own ink — so a panel can only take a
+ * colour that ink reads on. A chip is small and always asks `contrastInk`, so
+ * it can take any colour. Omitted, it follows the plate: every chip drew
+ * `plateColor` before the token existed.
+ */
+export function chipColor(theme: Theme): string {
+  switch (theme.surface?.chip ?? "plate") {
+    case "accent":
+      return theme.colors.accent;
+    case "invert":
+      return theme.colors.text;
+    default:
+      return plateColor(theme);
+  }
+}
+
+/** How a marked phrase is set apart (D97): the rest dims, or it gets an accent chip. */
+export function markStyle(theme: Theme): "dim" | "chip" {
+  return theme.typography.mark ?? "dim";
+}
+
+/** A centred counter's figure: in its box (today), or in an accent ring (D97). */
+export function figureFrame(theme: Theme): "box" | "ring" {
+  return theme.surface?.figure_frame ?? "box";
+}
+
+/**
+ * The mat around a PHOTO card (D97), or null for `none` — every theme before
+ * D97. The mat is the lighter of the theme's two colours: a print's border is
+ * light on any channel, for the reason a document's stock is (`paperStock`).
+ */
+export function photoMat(theme: Theme, frameHeight: number): { color: string; width: number } | null {
+  if ((theme.surface?.photo_frame ?? "none") === "none") return null;
+  return { color: paperStock(theme).stock, width: Math.max(2, Math.round(frameHeight * 0.008)) };
+}
+
+/** Whether a horizontal bar chart numbers its rows '01', '02' (D97). */
+export function rowIndex(theme: Theme): boolean {
+  return (theme.chart?.index ?? "none") === "numbered";
+}
+
+/** Whether a title lockup sets each of its lines on its own chip (D97). */
+export function titleChips(theme: Theme): boolean {
+  return theme.surface?.title_ground === "chip";
+}
+
+/**
+ * The face small CAPS labels are set in (D97): `typography.label`, else the
+ * body face — what every label was set in before the token. A condensed caps
+ * face under a grotesque headline is the documentary lockup ("ARCHAEOLOGIST ·
+ * STUDIED THE ROOM SUITES"), and the body face cannot be both that and the
+ * face of a sentence.
+ */
+export function labelFace(theme: Theme): string {
+  return fontStack(theme.typography.label ?? theme.typography.body);
 }
 
 /** The component's own chart choices — what a theme that says nothing keeps. */

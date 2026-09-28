@@ -286,6 +286,14 @@ export interface Theme {
     case?: "as_written" | "upper" | "sentence";
     /** D66 — em offset on the component's own letterSpacing. */
     tracking?: "tight" | "normal" | "wide";
+    /** D96 — the face a display figure (a counter, a rank numeral) is set in.
+     *  Omitted keeps `body`, what every component drew before D96. */
+    figures?: "body" | "display";
+    /** D97 — the face for small caps labels (kickers, captions, credits).
+     *  Omitted keeps `body`. */
+    label?: string;
+    /** D97 — a marked phrase: the rest dims (default), or the phrase gets an accent chip. */
+    mark?: "dim" | "chip";
   };
   motion_feel?: "slow_heavy" | "neutral" | "fast_light";
   grain?: "none" | "archival" | "film";
@@ -311,13 +319,27 @@ export interface Theme {
     rule?: "hairline" | "normal" | "heavy";
     /** D66 — treatment on the ground an overlay sets type on. Distinct from
      *  top-level `grain`, which is a post-look over the whole frame. */
-    texture?: "none" | "paper" | "grain" | "scanline";
+    texture?: "none" | "paper" | "grain" | "scanline" | "grid";
+    /** D96 — whether a photo card casts a shadow. Omitted keeps `flat`. */
+    elevation?: "flat" | "raised";
+    /** D96 — an accent rule under a title lockup. Omitted keeps `none`. */
+    title_rule?: "none" | "under";
+    /** D96 — a title lockup on its own plate, or written on the (scrimmed)
+     *  shot in the theme's lighter colour. Omitted keeps `plate`. */
+    title_ground?: "plate" | "shot" | "chip";
+    /** D97 — the colour of a CHIP (a tag, a counter box), apart from a panel.
+     *  Omitted follows `plate`, which is what every chip drew before D97. */
+    chip?: "plate" | "accent" | "invert";
+    /** D97 — a centred counter's figure in a box (default) or a ring. */
+    figure_frame?: "box" | "ring";
+    /** D97 — a photo card on a light mat, or to the edge (default). */
+    photo_frame?: "none" | "mat";
   };
   /** D70 — where an overlay sits in the FRAME, as opposed to `surface`, which
    *  is the shape of the panel once it is there. Choice token: omitted keeps
    *  each component's own composition. */
   layout?: {
-    composition?: "centered" | "poster";
+    composition?: "centered" | "poster" | "page";
     /** D79 — a wash over the FRAME while an overlay is on screen, so the shot
      *  stops competing with the type. Timed with the overlay, drawn by the
      *  host. Omitted (`none`) is what every render did before D79. */
@@ -336,6 +358,8 @@ export interface Theme {
     markers?: "none" | "dot";
     stroke?: "hairline" | "normal" | "heavy";
     number_format?: "plain" | "compact";
+    /** D97 — '01', '02' before each row of a horizontal bar chart. */
+    index?: "none" | "numbered";
   };
   /** D46 — how an overlay arrives. Duration scaling stays in motion_feel. */
   motion?: {

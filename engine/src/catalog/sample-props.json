@@ -6,7 +6,7 @@
       "unit": "word",
       "entrance": "mask",
       "align": "center",
-      "emphasize_last": true
+      "emphasize": "Stalingrad"
     },
     "ChapterCard": {
       "chapter_label": "Part",
@@ -454,6 +454,26 @@
       "label": "em socorro emergencial",
       "position": "center",
       "size": "big"
+    },
+    "PhotoRow": {
+      "photos": [
+        {
+          "caption": "Stonehenge"
+        },
+        {
+          "caption": "Teotihuacan"
+        },
+        {
+          "caption": "Machu Picchu"
+        }
+      ]
+    },
+    "IconArray": {
+      "count": 9,
+      "total": 9,
+      "icon": "person",
+      "label": "shared the same rare maternal lineage",
+      "source": "Kennett et al., Nature Communications, 2017"
     }
   }
 }

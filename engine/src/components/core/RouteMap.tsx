@@ -18,6 +18,7 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   easingCurve,
   emphasisColor,
   fontStack,
@@ -54,7 +55,8 @@ export const RouteMapProps = z.object({
     )
     .min(2)
     .max(6),
-  mode: z.enum(["march", "flight", "sea"]).default("march"),
+  /** `none` (D97): the stops alone, in order, with no line between them — a set of places, not a journey. */
+  mode: z.enum(["march", "flight", "sea", "none"]).default("march"),
   plate: plateSchema.optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
@@ -150,6 +152,10 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
 
   const drawStart = Math.round(fps * 0.4 * durationMul);
   const drawDur = Math.round(durationInFrames * 0.48);
+  // With no line to follow (`mode: none`), the stops land in order over the
+  // first 60% of the draw instead of waiting for an invisible line to reach them.
+  const nodeTime = (i: number) =>
+    props.mode === "none" ? (i / Math.max(1, props.stops.length)) * 0.6 : cum[nodeAt[i]] / L;
   const drawn = interpolate(frame, [drawStart, drawStart + drawDur], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -183,6 +189,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
         ) : null}
 
         <svg width={plateW} height={plateH} style={{ position: "absolute", inset: 0 }}>
+          {props.mode === "none" ? null : (
           <path
             d={d}
             fill="none"
@@ -193,6 +200,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
             strokeDasharray={L}
             strokeDashoffset={L * (1 - drawn)}
           />
+          )}
           {/* Sea routes get a marching dash riding on top of the solid line. */}
           {props.mode === "sea" ? (
             <path
@@ -207,7 +215,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
           ) : null}
 
           {nodes.map((node, i) => {
-            const at = cum[nodeAt[i]] / L;
+            const at = nodeTime(i);
             const pop = interpolate(drawn, [at, at + 0.06], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
@@ -223,7 +231,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
         </svg>
 
         {nodes.map((node, i) => {
-          const at = cum[nodeAt[i]] / L;
+          const at = nodeTime(i);
           const labelIn = interpolate(drawn, [at + 0.02, at + 0.1], [0, 1], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -295,7 +303,7 @@ export function RouteMap({ props, theme }: { props: RouteMapProps; theme: Theme 
               position: "absolute",
               right: plateW * 0.02,
               bottom: plateH * 0.02,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: plateH * 0.026 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.14),
               textTransform: typeCase(theme, "uppercase"),

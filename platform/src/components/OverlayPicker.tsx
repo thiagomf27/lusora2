@@ -19,7 +19,7 @@
  */
 import { useMemo, useState } from "react";
 import type { Anchor, Beat, BeatOverlay, CatalogEntry, CatalogPropSpec } from "@lusora/contracts";
-import { Dropdown, TextInput, Toggle } from "@/components/ds";
+import { Button, Dropdown, TextInput, Toggle } from "@/components/ds";
 import scr from "@/app/(app)/screen.module.css";
 import s from "./OverlayPicker.module.css";
 
@@ -137,6 +137,93 @@ function PropField({
           }}
         />
         {help}
+        {note && <div className={s.note}>{note}</div>}
+      </div>
+    );
+  }
+
+  // A list of objects the catalog describes key by key (PhotoRow's photos,
+  // CalloutArrow's callouts, a chart's series) gets a form per item, so an
+  // enum inside an item — a photo's `verdict` — is a dropdown rather than a
+  // key the editor has to know exists. Anything shapeless keeps the JSON box.
+  if (spec.type === "array" && spec.items?.properties) {
+    const list = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+    const itemProps = spec.items.properties;
+    const set = (next: Record<string, unknown>[]) => onChange(next.length ? next : undefined);
+    return (
+      <div className={s.field}>
+        <div className={s.boolLabel}>{label}</div>
+        {help}
+        {list.map((item, i) => (
+          <div key={i} className={s.item}>
+            <div className={s.itemHead}>
+              <span className={s.note}>
+                {name}[{i}]
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={disabled || (spec.min !== undefined && list.length <= spec.min)}
+                onClick={() => set(list.filter((_, j) => j !== i))}
+              >
+                Remove
+              </Button>
+            </div>
+            {Object.entries(itemProps).map(([key, sub]) => (
+              <PropField
+                key={key}
+                name={key}
+                spec={sub}
+                value={(item ?? {})[key]}
+                disabled={disabled}
+                onChange={(v) => {
+                  const nextItem = { ...(item ?? {}) };
+                  if (v === undefined) delete nextItem[key];
+                  else nextItem[key] = v;
+                  set(list.map((x, j) => (j === i ? nextItem : x)));
+                }}
+              />
+            ))}
+          </div>
+        ))}
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={disabled || (spec.max !== undefined && list.length >= spec.max)}
+            onClick={() => set([...list, {}])}
+          >
+            Add {name.replace(/s$/, "")}
+          </Button>
+        </div>
+        {note && <div className={s.note}>{note}</div>}
+      </div>
+    );
+  }
+
+  if (spec.type === "object" && spec.properties) {
+    const obj = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+    return (
+      <div className={s.field}>
+        <div className={s.boolLabel}>{label}</div>
+        {help}
+        <div className={s.item}>
+          {Object.entries(spec.properties).map(([key, sub]) => (
+            <PropField
+              key={key}
+              name={key}
+              spec={sub}
+              value={obj[key]}
+              disabled={disabled}
+              onChange={(v) => {
+                const next = { ...obj };
+                if (v === undefined) delete next[key];
+                else next[key] = v;
+                onChange(Object.keys(next).length ? next : undefined);
+              }}
+            />
+          ))}
+        </div>
         {note && <div className={s.note}>{note}</div>}
       </div>
     );

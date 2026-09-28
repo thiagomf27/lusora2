@@ -9,6 +9,11 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  chipColor,
+  surfaceStyle,
+  plateColor,
+  contrastInk,
+  accentInk,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -159,7 +164,10 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
             easing: curve,
           });
           const isHighlight = props.highlight_index === i;
-          const color = isHighlight ? accent : mutedInk(theme);
+          const color = isHighlight ? accentInk(theme, accent) : mutedInk(theme);
+          // D97: a theme that names its chips sets the highlighted date on one
+          // rather than tinting it. A theme that says nothing keeps the tint.
+          const chip = isHighlight && theme.surface?.chip ? chipColor(theme) : undefined;
           const above = i % 2 === 0;
           const dot = height * 0.022;
 
@@ -182,6 +190,7 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
                   event={event}
                   theme={theme}
                   color={color}
+                  chip={chip}
                   height={height}
                   width={width}
                   opacity={textIn}
@@ -223,6 +232,7 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
                   event={event}
                   theme={theme}
                   color={color}
+                  chip={chip}
                   height={height}
                   width={width}
                   opacity={textIn}
@@ -237,6 +247,7 @@ export function Timeline({ props, theme }: { props: TimelineProps; theme: Theme 
                   event={event}
                   theme={theme}
                   color={color}
+                  chip={chip}
                   height={height}
                   width={width}
                   opacity={textIn}
@@ -258,6 +269,7 @@ function EventText({
   event,
   theme,
   color,
+  chip,
   height,
   width,
   opacity,
@@ -268,6 +280,8 @@ function EventText({
   event: { date: string; label: string };
   theme: Theme;
   color: string;
+  /** Paint the date as a chip in this colour, with whichever ink reads on it. */
+  chip?: string;
   height: number;
   width: number;
   opacity: number;
@@ -298,10 +312,18 @@ function EventText({
           fontWeight: typeWeight(theme, 700),
           fontVariantNumeric: "tabular-nums",
           letterSpacing: typeTracking(theme, 0.06),
-          color,
+          color: chip ? contrastInk(theme, chip) : color,
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
+          ...(chip
+            ? {
+                display: "inline-block",
+                background: chip,
+                padding: `${height * 0.004}px ${height * 0.012}px`,
+                borderRadius: surfaceStyle(theme, { radius: 4 }).borderRadius,
+              }
+            : {}),
         }}
       >
         {event.date}

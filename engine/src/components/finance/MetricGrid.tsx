@@ -17,6 +17,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   densityScale,
   easingCurve,
   fontStack,
@@ -152,7 +153,7 @@ export function MetricGrid({ props, theme }: { props: MetricGridProps; theme: Th
             >
               <div
                 style={{
-                  fontFamily: fontStack(theme.typography.body),
+                  fontFamily: labelFace(theme),
                   fontSize: height * 0.02 * typeScale(theme, "caption"),
                   fontWeight: typeWeight(theme, 500),
                   letterSpacing: typeTracking(theme, 0.1),

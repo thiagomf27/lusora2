@@ -1,0 +1,49 @@
+{
+  "name": "lime-paper",
+  "colors": {
+    "bg": "#efece6",
+    "text": "#1d2230",
+    "accent": "#d6e645",
+    "neutral": "#6f737c"
+  },
+  "typography": {
+    "display": "Playfair Display",
+    "body": "Inter",
+    "caption_preset": "boxed",
+    "scale": "normal",
+    "weight": "regular",
+    "case": "as_written",
+    "tracking": "normal",
+    "figures": "display"
+  },
+  "motion_feel": "neutral",
+  "grain": "none",
+  "surface": {
+    "radius": "rounded",
+    "fill": "solid",
+    "plate": "page",
+    "text_plate": "on",
+    "density": "normal",
+    "rule": "normal",
+    "texture": "none",
+    "elevation": "raised",
+    "title_rule": "under",
+    "title_ground": "shot",
+    "chip": "invert"
+  },
+  "layout": {
+    "composition": "page",
+    "scrim": "soft"
+  },
+  "motion": {
+    "entrance": "rise",
+    "easing": "smooth"
+  },
+  "chart": {
+    "grid": "horizontal",
+    "legend": "inline",
+    "markers": "dot",
+    "stroke": "normal",
+    "number_format": "plain"
+  }
+}

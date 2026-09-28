@@ -10,6 +10,8 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
+  accentInk,
   borderSides,
   densityScale,
   easingCurve,
@@ -126,7 +128,7 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
               fontFamily: fontStack(theme.typography.display),
               fontSize: height * 0.28 * typeScale(theme, "number"),
               lineHeight: 1,
-              color: accent,
+              color: accentInk(theme, accent),
               opacity: 0.16,
               scale: `${interpolate(frame, [0, inDur * 1.4], [0.85, 1], {
                 extrapolateLeft: "clamp",
@@ -166,11 +168,11 @@ export function QuoteBlock({ props, theme }: { props: QuoteBlockProps; theme: Th
           style={{
             marginTop: height * 0.03 * density,
             marginLeft: centered ? 0 : width * 0.026,
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.028 * typeScale(theme, "body"),
             letterSpacing: typeTracking(theme, 0.12),
             textTransform: typeCase(theme, "uppercase"),
-            color: accent,
+            color: accentInk(theme, accent),
             opacity: interpolate(frame, [attrStart, attrStart + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",

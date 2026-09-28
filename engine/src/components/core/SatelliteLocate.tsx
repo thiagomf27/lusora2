@@ -34,6 +34,7 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   easingCurve,
   emphasisColor,
   fontStack,
@@ -303,7 +304,7 @@ export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps;
               position: "absolute",
               right: plateW * 0.02,
               bottom: plateH * 0.02,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: plateH * 0.026,
               letterSpacing: typeTracking(theme, 0.14),
               textTransform: typeCase(theme, "uppercase"),

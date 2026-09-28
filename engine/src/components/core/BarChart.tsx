@@ -32,6 +32,8 @@ import { z } from "zod";
 import { Easing, interpolate, interpolateColors, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
+  rowIndex,
   capsTracking,
   chartStyle,
   composition,
@@ -61,6 +63,8 @@ export const BarChartProps = z.object({
   unit: z.string().max(16).optional(),
   orientation: z.enum(["vertical", "horizontal"]).default("vertical"),
   highlight_index: z.number().int().min(0).max(6).optional(),
+  /** A quiet line under the title: what is being measured (D97). */
+  subtitle: z.string().max(48).optional(),
   /** Credit line along the bottom. Was ArchiveBarGraph's; every chart wants it. */
   source: z.string().max(52).optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
@@ -209,7 +213,7 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
     ),
   );
 
-  const titleBlock = props.title ? (
+  const titleEl = props.title ? (
     <div
       style={{
         // The ground plate is position:absolute, so it paints ABOVE every
@@ -245,6 +249,29 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
       {props.title}
     </div>
   ) : null;
+  // D97: a quiet line under the title — what the bars measure. Only a chart
+  // that has one gets the wrapper, so every other chart keeps its tree.
+  const titleBlock =
+    titleEl && props.subtitle ? (
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: poster ? "flex-start" : "center" }}>
+        {titleEl}
+        <div
+          style={{
+            marginTop: -height * (poster ? 0.03 : 0.04) * density,
+            marginBottom: height * 0.035 * density,
+            fontFamily: labelFace(theme),
+            fontSize: height * 0.022 * typeScale(theme, "caption"),
+            letterSpacing: capsTracking(theme, 0.1),
+            textTransform: typeCase(theme, "uppercase"),
+            color: mutedInk(theme),
+          }}
+        >
+          {props.subtitle}
+        </div>
+      </div>
+    ) : (
+      titleEl
+    );
 
   /**
    * The columns, the gridlines and the baseline all share ONE origin: the
@@ -423,7 +450,7 @@ export function BarChart({ props, theme }: { props: BarChartProps; theme: Theme 
             style={{
               ...columnBox,
               textAlign: "center",
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: labelSize,
               lineHeight: 1.2,
               fontWeight: chart.axisWeight,
@@ -653,12 +680,16 @@ function HorizontalBars({
    *  fraction of the slab, so a taller row is not a tighter one. */
   const inset = poster ? slab * 0.22 * density : width * 0.008 * density;
   const rail = chart.grid !== "none";
+  // `chart.index: numbered` (D97): '01', '02' in a gutter left of each row.
+  const indexed = rowIndex(theme);
+  const indexW = indexed ? height * 0.06 : 0;
 
   return (
     <div
       style={{
         position: "relative",
         width: plotW,
+        paddingLeft: indexW || undefined,
         height: poster ? undefined : height * (props.title ? 0.42 : 0.5),
         flex: poster ? 1 : undefined,
         minHeight: poster ? 0 : undefined,
@@ -706,17 +737,43 @@ function HorizontalBars({
         // name is the half that can ellipsize.
         const roomOutside = plotW - barW - gap * 2 > valueW;
         const fitsInside = barW - gap * 3 - labelW > valueW || !roomOutside;
-        const valueInk = fitsInside ? insideInk : contrastInk(theme, plateColor(theme));
+        // A bar too short to hold even its NAME sets the name just past its
+        // end, with the figure after it (D99). Before this the name was
+        // clipped to the bar's width and simply vanished — "Tom Windes" on a
+        // 100-against-5,000 row drew nothing at all.
+        const nameOutside = barW - gap * 2 < Math.min(labelW, labelFont * 4);
+        const outsideInk = contrastInk(theme, plateColor(theme));
+        const valueInk = fitsInside && !nameOutside ? insideInk : outsideInk;
         return (
           <div
             key={i}
             style={{
+              position: indexed ? "relative" : undefined,
               display: "flex",
               flexDirection: "column",
               justifyContent: "flex-end",
               gap: height * 0.008 * density,
             }}
           >
+            {indexed ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: -indexW,
+                  bottom: 0,
+                  height: slab,
+                  display: "flex",
+                  alignItems: "center",
+                  fontFamily: numeric,
+                  fontSize: height * 0.02 * typeScale(theme, "caption"),
+                  fontVariantNumeric: "tabular-nums",
+                  color: mutedInk(theme),
+                  opacity: labelOpacity,
+                }}
+              >
+                {String(i + 1).padStart(2, "0")}
+              </div>
+            ) : null}
             {inside ? null : (
               <div
                 style={{
@@ -794,20 +851,24 @@ function HorizontalBars({
                   <span
                     style={{
                       position: "absolute",
-                      left: gap,
+                      left: nameOutside ? `calc(${fraction * 100}% + ${gap}px)` : gap,
                       top: 0,
                       bottom: 0,
                       // With the figure inside the bar the name gets what is
-                      // left over; with it outside, the whole bar.
-                      maxWidth: fitsInside
-                        ? `calc(${fraction * 100}% - ${gap * 3 + valueW}px)`
-                        : `calc(${fraction * 100}% - ${gap * 2}px)`,
+                      // left over; with it outside, the whole bar; past the
+                      // bar, the track that is left minus the figure.
+                      maxWidth: nameOutside
+                        ? `calc(${(1 - fraction) * 100}% - ${gap * 3 + valueW}px)`
+                        : fitsInside
+                          ? `calc(${fraction * 100}% - ${gap * 3 + valueW}px)`
+                          : `calc(${fraction * 100}% - ${gap * 2}px)`,
                       display: "flex",
                       alignItems: "center",
                       fontSize: labelFont,
                       // Ink picked against THIS bar, so a muted bar and the
-                      // highlighted one both stay readable.
-                      color: insideInk,
+                      // highlighted one both stay readable — or against the
+                      // plate when the name sits past the bar.
+                      color: nameOutside ? outsideInk : insideInk,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -818,9 +879,9 @@ function HorizontalBars({
                   <span
                     style={{
                       position: "absolute",
-                      left: `${fraction * 100}%`,
-                      translate: fitsInside ? "-100% 0" : "0 0",
-                      marginLeft: fitsInside ? -gap : gap,
+                      left: nameOutside ? `calc(${fraction * 100}% + ${gap * 2 + labelW}px)` : `${fraction * 100}%`,
+                      translate: fitsInside && !nameOutside ? "-100% 0" : "0 0",
+                      marginLeft: nameOutside ? gap : fitsInside ? -gap : gap,
                       top: 0,
                       bottom: 0,
                       display: "flex",

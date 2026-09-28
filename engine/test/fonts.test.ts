@@ -21,6 +21,7 @@ const repoRoot = resolve(engineRoot, "..");
 
 const familyOf = (file: string) =>
   basename(file, ".woff2")
+    .replace(/-\d{3}$/, "") // a static weight file: `BarlowCondensed-600`
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .trim();
 
@@ -28,7 +29,8 @@ test("fonts.generated.ts is in sync with engine/fonts", () => {
   const onDisk = readdirSync(join(engineRoot, "fonts"))
     .filter((f) => f.endsWith(".woff2"))
     .sort()
-    .map(familyOf);
+    .map(familyOf)
+    .filter((f, i, all) => all.indexOf(f) === i);
   assert.deepEqual([...PACKAGED_FAMILIES], onDisk, "run `node scripts/pack-fonts.mjs`");
 
   const before = readFileSync(join(engineRoot, "src/themes/fonts.generated.ts"), "utf8");
@@ -44,9 +46,10 @@ test("every face is inlined, not linked", () => {
   // A render must not need the network, and a face that arrives late renders
   // the first frames in the fallback.
   assert.equal(FONT_FACE_CSS.includes("http"), false, "a @font-face src points off-machine");
+  // One face per FILE: a static family carries one per weight.
   assert.equal(
     (FONT_FACE_CSS.match(/data:font\/woff2;base64,/g) ?? []).length,
-    PACKAGED_FAMILIES.length
+    readdirSync(join(engineRoot, "fonts")).filter((f) => f.endsWith(".woff2")).length
   );
 });
 
@@ -54,7 +57,8 @@ test("every shipped theme names a packaged family", () => {
   const dir = join(repoRoot, "contracts/themes");
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
     const theme = JSON.parse(readFileSync(join(dir, file), "utf8"));
-    for (const role of ["display", "body"] as const) {
+    for (const role of ["display", "body", "label"] as const) {
+      if (role === "label" && theme.typography.label === undefined) continue;
       assert.ok(
         (PACKAGED_FAMILIES as readonly string[]).includes(theme.typography[role]),
         `${file}: typography.${role} is "${theme.typography[role]}", which engine/fonts does not carry — ` +

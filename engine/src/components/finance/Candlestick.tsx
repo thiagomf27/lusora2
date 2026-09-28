@@ -16,6 +16,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   chartStyle,
   densityScale,
   easingCurve,
@@ -173,7 +174,7 @@ export function Candlestick({ props, theme }: { props: CandlestickProps; theme: 
               width: plotW + pad.left * 2,
               paddingLeft: pad.left,
               marginBottom: height * 0.012 * density,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: height * 0.02 * typeScale(theme, "kicker"),
               fontWeight: typeWeight(theme, 500),
               letterSpacing: typeTracking(theme, 0.2),
@@ -338,7 +339,7 @@ export function Candlestick({ props, theme }: { props: CandlestickProps; theme: 
             position: "absolute",
             left: plateInset.x + width * 0.035 * density,
             bottom: plateInset.y + height * 0.03 * density,
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.019 * typeScale(theme, "caption"),
             fontWeight: typeWeight(theme, 400),
             letterSpacing: typeTracking(theme, 0.1),

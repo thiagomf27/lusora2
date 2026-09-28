@@ -16,6 +16,8 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
+  accentInk,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -186,7 +188,7 @@ export function DataTable({ props, theme }: { props: DataTableProps; theme: Them
                         fontWeight: typeWeight(theme, lit && props.highlight_row !== undefined ? 700 : 400),
                         color:
                           lit && props.highlight_row !== undefined
-                            ? accent
+                            ? accentInk(theme, accent)
                             : c === 0
                               ? theme.colors.text
                               : theme.colors.text,
@@ -207,7 +209,7 @@ export function DataTable({ props, theme }: { props: DataTableProps; theme: Them
           <div
             style={{
               marginTop: height * 0.018 * density,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: height * 0.018 * typeScale(theme, "caption"),
               fontWeight: typeWeight(theme, 400),
               letterSpacing: typeTracking(theme, 0.1),

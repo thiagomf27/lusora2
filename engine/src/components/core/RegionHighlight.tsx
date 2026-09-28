@@ -17,6 +17,7 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   contrastInk,
   densityScale,
   easingCurve,
@@ -325,7 +326,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
             <div
               style={{
                 marginTop: plateH * 0.008,
-                fontFamily: fontStack(theme.typography.body),
+                fontFamily: labelFace(theme),
                 fontSize: plateH * 0.028 * typeScale(theme, "body"),
                 letterSpacing: typeTracking(theme, 0.1),
                 textTransform: typeCase(theme, "uppercase"),
@@ -347,7 +348,7 @@ export function RegionHighlight({ props, theme }: { props: RegionHighlightProps;
               position: "absolute",
               right: plateW * 0.02,
               bottom: plateH * 0.02,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: plateH * 0.026 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.14),
               textTransform: typeCase(theme, "uppercase"),

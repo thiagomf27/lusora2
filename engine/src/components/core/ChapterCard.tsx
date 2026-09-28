@@ -13,6 +13,8 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Entrance, Theme } from "../theme.ts";
 import {
+  labelFace,
+  accentInk,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -152,11 +154,11 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
         {props.chapter_label ? (
           <div
             style={{
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: height * 0.026 * typeScale(theme, "kicker"),
               letterSpacing: typeTracking(theme, 0.28),
               textTransform: typeCase(theme, "uppercase"),
-              color: accent,
+              color: accentInk(theme, accent),
               opacity: interpolate(frame, [0, inDur], [0, 1], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",
@@ -213,7 +215,7 @@ export function ChapterCard({ props, theme }: { props: ChapterCardProps; theme: 
         {props.subtitle ? (
           <div
             style={{
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: height * 0.03 * typeScale(theme, "body"),
               letterSpacing: typeTracking(theme, 0.16),
               textTransform: typeCase(theme, "uppercase"),

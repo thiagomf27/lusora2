@@ -15,6 +15,7 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_THEME,
+  accentInk,
   achromatic,
   capsTracking,
   chartStyle,
@@ -469,4 +470,19 @@ test("scrim steps up, and never reaches opaque", () => {
   // A scrim turns the shot DOWN. One that hid it would be a background, and the
   // theme already has `colors.bg` for that.
   assert.ok(heavy <= 0.75, "a scrim that opaque is a backdrop, not a dim");
+});
+
+test("accentInk leaves every readable accent alone and darkens an ornament accent until it reads", () => {
+  // D96: the identity is what keeps every theme before lime-paper byte-identical.
+  const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../contracts/themes");
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+    const theme = JSON.parse(readFileSync(join(dir, file), "utf8")) as Theme;
+    const ink = accentInk(theme);
+    if (contrastRatio(theme.colors.accent, theme.colors.bg) >= 3) {
+      assert.equal(ink, theme.colors.accent, `${file}: accentInk moved a readable accent`);
+    } else {
+      assert.notEqual(ink, theme.colors.accent, `${file}: an unreadable accent was left as type`);
+      assert.ok(contrastRatio(ink, theme.colors.bg) >= 3, `${file}: accentInk still below 3:1`);
+    }
+  }
 });

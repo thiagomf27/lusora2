@@ -12,6 +12,11 @@ import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { fitText } from "@remotion/layout-utils";
 import type { Entrance, Theme } from "../theme.ts";
 import {
+  labelFace,
+  titleChips,
+  contrastInk,
+  chipColor,
+  accentInk,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -43,7 +48,12 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);
   const density = densityScale(theme);
-  const ground = groundStyle(theme, { radius: 12, legible: true });
+  // `title_ground: chip` (D97): each LINE of the statement on its own chip,
+  // no panel and no rule — the stacked-tag statement. The chips are one inline
+  // run with `box-decoration-break: clone`, so the browser breaks the lines and
+  // gives every fragment its own padded, rounded chip.
+  const chips = titleChips(theme);
+  const ground = chips ? null : groundStyle(theme, { radius: 12, legible: true });
   const accent = emphasisColor(theme, props.emphasis);
   const curve = Easing.bezier(...easingCurve(theme));
 
@@ -65,7 +75,11 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
     withinWidth: boxWidth * 1.9, // allow ~2 lines' worth of glyphs
     fontFamily: fontStack(theme.typography.display),
     fontWeight: typeWeight(theme, 700),
-    validateFontIsLoaded: true,
+    // Not validated: <PackagedFonts> holds the CAPTURE until the faces
+    // decode, but not React's first render, and the Player preview does not
+    // wait at all — so the check threw there ("font is not loaded"). The
+    // measure re-runs every frame; by the first captured frame it is exact.
+    validateFontIsLoaded: false,
   });
   // The fitted size is a ratio of the frame, so the scale token multiplies
   // the whole fit rather than only its floor.
@@ -113,11 +127,11 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
       {props.kicker ? (
         <div
           style={{
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.026 * typeScale(theme, "kicker"),
             letterSpacing: typeTracking(theme, 0.22),
             textTransform: typeCase(theme, "uppercase"),
-            color: accent,
+            color: accentInk(theme, accent),
             marginBottom: height * 0.028 * density,
             opacity: interpolate(frame, [kickerIn, kickerIn + fps * 0.4], [0, 1], {
               extrapolateLeft: "clamp",
@@ -129,6 +143,22 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
         </div>
       ) : null}
 
+      {chips ? (
+        <ChipLines
+          words={words}
+          theme={theme}
+          size={size}
+          centered={centered}
+          maxWidth={boxWidth}
+          enterAt={(i) =>
+            interpolate(frame, [wordsStart + i * wordStagger, wordsStart + i * wordStagger + wordDur], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: curve,
+            })
+          }
+        />
+      ) : (
       <div
         style={{
           display: "flex",
@@ -181,11 +211,12 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
           );
         })}
       </div>
+      )}
 
       {/* The bar that slams in under the statement is this component's accent
           rule, so `accent_rule: "none"` takes it away — the same ornament the
           counter's underline and the lower third's stripe already answer to. */}
-      {surfaceStyle(theme, { accentRule: "top" }).accentRule === "none" ? null : (
+      {chips || surfaceStyle(theme, { accentRule: "top" }).accentRule === "none" ? null : (
         <div
           style={{
             marginTop: height * 0.035 * density,
@@ -208,3 +239,51 @@ export function HammerStatement({ props, theme }: { props: HammerStatementProps;
 
 /** Which optional token blocks this component can actually obey (Part 3). */
 HammerStatement.honors = ["typography", "surface", "motion.entrance", "motion.easing"];
+
+/**
+ * The statement as chipped lines. Words fade in on their own clocks; the chip
+ * behind each line is there from the start, so the line reads as a tag being
+ * filled rather than a box growing word by word.
+ */
+function ChipLines({
+  words,
+  theme,
+  size,
+  centered,
+  maxWidth,
+  enterAt,
+}: {
+  words: string[];
+  theme: Theme;
+  size: number;
+  centered: boolean;
+  maxWidth: number;
+  enterAt: (i: number) => number;
+}) {
+  const chip = chipColor(theme);
+  return (
+    <div style={{ maxWidth, textAlign: centered ? "center" : "left", lineHeight: 1.32 }}>
+      <span
+        style={{
+          fontFamily: fontStack(theme.typography.display),
+          fontWeight: typeWeight(theme, 700),
+          fontSize: size,
+          color: contrastInk(theme, chip),
+          background: chip,
+          padding: `${size * 0.02}px ${size * 0.2}px`,
+          borderRadius: surfaceStyle(theme, { radius: 8 }).borderRadius,
+          boxDecorationBreak: "clone",
+          WebkitBoxDecorationBreak: "clone",
+          opacity: enterAt(0) > 0 ? 1 : 0,
+        }}
+      >
+        {words.map((word, i) => (
+          <span key={i} style={{ opacity: enterAt(i) }}>
+            {word}
+            {i < words.length - 1 ? " " : ""}
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}

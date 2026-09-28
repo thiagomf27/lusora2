@@ -57,9 +57,11 @@ import { FactSheet } from "./core/FactSheet.tsx";
 import { FramedExhibit } from "./core/FramedExhibit.tsx";
 import { HammerStatement } from "./core/HammerStatement.tsx";
 import { HighlightedPassage } from "./core/HighlightedPassage.tsx";
+import { IconArray } from "./core/IconArray.tsx";
 import { KineticTitle } from "./core/KineticTitle.tsx";
 import { LineChart } from "./core/LineChart.tsx";
 import { NamePlate } from "./core/NamePlate.tsx";
+import { PhotoRow } from "./core/PhotoRow.tsx";
 import { PortraitPlates } from "./core/PortraitPlates.tsx";
 import { PieChart } from "./core/PieChart.tsx";
 import { QuoteBlock } from "./core/QuoteBlock.tsx";
@@ -96,10 +98,12 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
   HammerStatement,
   HeadlineStack,
   HighlightedPassage,
+  IconArray,
   KineticTitle,
   LineChart,
   MetricGrid,
   NamePlate,
+  PhotoRow,
   PieChart,
   PortraitPlates,
   QuoteBlock,
@@ -141,10 +145,12 @@ export {
   HammerStatement,
   HeadlineStack,
   HighlightedPassage,
+  IconArray,
   KineticTitle,
   LineChart,
   MetricGrid,
   NamePlate,
+  PhotoRow,
   PieChart,
   PortraitPlates,
   QuoteBlock,

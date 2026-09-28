@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -31,6 +32,8 @@ export const DateStampProps = z.object({
   /** Pre-formatted for the language of the video, e.g. "31 January 1943". */
   date: z.string().max(28),
   place: z.string().max(32).optional(),
+  /** A sentence under the slug: what happened then (D97). */
+  caption: z.string().max(90).optional(),
   position: z.enum(["top_left", "top_right", "bottom_left", "bottom_right"]).default("top_left"),
   variant: z.enum(["stamped", "typed"]).default("typed"),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
@@ -107,14 +110,8 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
           letterSpacing: typeTracking(theme, stamped ? 0.16 : 0.02),
           textTransform: typeCase(theme, stamped ? "uppercase" : "none"),
           whiteSpace: "nowrap",
-          // "typed" reveals left-to-right; "stamped" just rises into place.
-          clipPath: stamped
-            ? "inset(0 0 0 0)"
-            : `inset(0 ${interpolate(frame, [ruleDur * 0.5, ruleDur * 0.5 + fps * 0.6], [100, 0], {
-                extrapolateLeft: "clamp",
-                extrapolateRight: "clamp",
-                easing: Easing.bezier(0.45, 0, 0.55, 1),
-              })}% 0 0)`,
+          display: "flex",
+          alignItems: "center",
           translate: `0 ${interpolate(frame, [ruleDur * 0.5, ruleDur * 0.5 + fps * 0.45], [height * 0.014, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
@@ -122,13 +119,13 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
           })}px`,
         }}
       >
-        {props.date}
+        {stamped ? props.date : <Typed text={props.date} start={ruleDur * 0.5} theme={theme} />}
       </div>
       {props.place ? (
         <div
           style={{
             marginTop: height * 0.008 * density,
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.026 * typeScale(theme, "kicker"),
             color: mutedInk(theme),
             letterSpacing: typeTracking(theme, 0.2),
@@ -143,9 +140,69 @@ export function DateStamp({ props, theme }: { props: DateStampProps; theme: Them
           {props.place}
         </div>
       ) : null}
+      {props.caption ? (
+        <div
+          style={{
+            marginTop: height * 0.012 * density,
+            maxWidth: width * 0.56,
+            fontFamily: fontStack(theme.typography.body),
+            fontSize: height * 0.034 * typeScale(theme, "body"),
+            fontWeight: typeWeight(theme, 600),
+            lineHeight: 1.25,
+            color: theme.colors.text,
+            letterSpacing: typeTracking(theme, 0),
+            textAlign: left ? "left" : "right",
+            opacity: interpolate(frame, [ruleDur + fps * 0.2, ruleDur + fps * 0.6], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            }),
+          }}
+        >
+          {props.caption}
+        </div>
+      ) : null}
     </div>
   );
 }
 
 /** Which optional token blocks this component can actually obey (Part 3). */
 DateStamp.honors = ["typography", "surface", "motion.entrance", "motion.easing"];
+
+/**
+ * The typed slug (D97): the date arrives a character at a time behind a block
+ * cursor that keeps blinking for a beat after the last one lands. Every theme
+ * gets it — `typed` is the default variant — because a date being typed onto
+ * the shot is what this slug IS, not a motion preference.
+ */
+function Typed({ text, start, theme }: { text: string; start: number; theme: Theme }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const perChar = Math.max(1, Math.round(fps * 0.07));
+  const chars = Array.from(text);
+  const shown = Math.max(0, Math.min(chars.length, Math.floor((frame - start) / perChar)));
+  const doneAt = start + chars.length * perChar;
+  const cursorOn = frame >= start && frame < doneAt + fps * 1.2 && Math.floor(frame / Math.round(fps * 0.5)) % 2 === 0;
+  return (
+    <>
+      {/* The full string (plus the cursor's width) is laid out invisibly so
+          the box does not grow as it types; the cursor rides right behind the
+          last character that has landed. */}
+      <span style={{ position: "relative", paddingRight: "0.55em" }}>
+        <span style={{ visibility: "hidden" }}>{text}</span>
+        <span style={{ position: "absolute", left: 0, top: 0, display: "flex", alignItems: "center", whiteSpace: "pre" }}>
+          {chars.slice(0, shown).join("")}
+          <span
+            style={{
+              display: "inline-block",
+              width: "0.45em",
+              height: "0.95em",
+              marginLeft: "0.08em",
+              background: theme.colors.text,
+              opacity: cursorOn ? 0.9 : 0,
+            }}
+          />
+        </span>
+      </span>
+    </>
+  );
+}

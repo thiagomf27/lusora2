@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   PANEL_ENTRANCES,
   contrastRatio,
   densityScale,
@@ -217,7 +218,7 @@ export function DocumentCard({ props, theme }: { props: DocumentCardProps; theme
               padding: `${height * 0.012 * density}px ${width * 0.018 * density}px`,
               border: `${ruleWidth(theme, Math.max(3, height * 0.006))}px solid ${stampInk}`,
               borderRadius: surfaceStyle(theme, { radius: 4 }).borderRadius,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: height * 0.04 * typeScale(theme, "kicker"),
               fontWeight: typeWeight(theme, 700),
               letterSpacing: typeTracking(theme, 0.16),

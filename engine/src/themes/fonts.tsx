@@ -30,6 +30,7 @@ export function PackagedFonts() {
     let alive = true;
     const wanted = PACKAGED_FAMILIES.flatMap((family) => [
       document.fonts.load(`300 16px "${family}"`),
+      document.fonts.load(`600 16px "${family}"`),
       document.fonts.load(`700 16px "${family}"`),
       document.fonts.load(`900 16px "${family}"`),
     ]);

@@ -5,29 +5,46 @@
  * stagger is CLAMPED so the last item still lands by ~55% of the shot even at
  * history-dark's durationMul = 1.4. Without the clamp a slow theme leaves the
  * final item entering while the whole block is already fading out.
+ *
+ * D96 added three things, all props of the same list rather than siblings:
+ * `marker: "check"` (a ticked checklist — the tick takes `verdictColors`, not
+ * the accent, because a tick means "yes" in every channel), an `image` set on a
+ * photo card beside the list, and a `footnote` under it. Under a full-bleed
+ * composition the list with a photo sits on the page.
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  accentInk,
   PANEL_ENTRANCES,
+  contrastInk,
   densityScale,
   easingCurve,
   emphasisColor,
   fontStack,
+  fullBleed,
   groundStyle,
   motionScale,
+  mutedInk,
+  pageGround,
   ruleWidth,
   typeScale,
   typeWeight,
   useEntrance,
+  verdictColors,
 } from "../theme.ts";
+import { PhotoCard, VerdictGlyph } from "../parts/PhotoCard.tsx";
 
 export const BulletListProps = z.object({
   title: z.string().max(48).optional(),
   items: z.array(z.string().max(90)).min(2).max(5),
-  marker: z.enum(["dot", "rule", "number", "none"]).default("rule"),
+  marker: z.enum(["dot", "rule", "number", "check", "none"]).default("rule"),
   align: z.enum(["left", "center"]).default("left"),
+  /** Path to a still or clip under the video dir, set on a card beside the list. */
+  image: z.string().max(160).optional(),
+  /** A quiet qualifying line under the list: "(rules vary by city)". */
+  footnote: z.string().max(90).optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type BulletListProps = z.infer<typeof BulletListProps>;
@@ -58,6 +75,12 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
   const firstItem = Math.round(fps * 0.45 * durationMul);
   const centered = props.align === "center";
   const itemDur = Math.round(fps * 0.5 * durationMul);
+  // With a photo the list is the right half of a slide, so it is always
+  // left-set and narrower; the card takes the left.
+  const withPhoto = Boolean(props.image);
+  const bleed = withPhoto && fullBleed(theme);
+  const listGround = bleed ? null : ground;
+  const tick = verdictColors(theme).right;
 
   return (
     <div
@@ -67,17 +90,40 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        alignItems: centered ? "center" : "flex-start",
+        alignItems: centered || withPhoto ? "center" : "flex-start",
         padding: `0 ${width * 0.1 * density}px`,
         opacity,
       }}
     >
+      {bleed ? (
+        <div style={{ position: "absolute", inset: 0, ...pageGround(theme) }} />
+      ) : null}
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          gap: width * 0.05 * density,
+          ...(withPhoto && listGround ? { ...listGround, padding: `${height * 0.05 * density}px ${width * 0.04 * density}px` } : {}),
+        }}
+      >
+      {withPhoto ? (
+        <PhotoCard
+          theme={theme}
+          image={props.image}
+          w={height * 0.52}
+          h={height * 0.7}
+          frameHeight={height}
+          progress={interpolate(frame, [0, inDur * 1.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })}
+          fixtures={0}
+        />
+      ) : null}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: centered ? "center" : "flex-start",
-          ...(ground ? { ...ground, padding: `${height * 0.05 * density}px ${width * 0.045 * density}px` } : {}),
+          alignItems: centered && !withPhoto ? "center" : "flex-start",
+          ...(!withPhoto && ground ? { ...ground, padding: `${height * 0.05 * density}px ${width * 0.045 * density}px` } : {}),
         }}
       >
       {props.title ? (
@@ -88,8 +134,8 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
             fontWeight: typeWeight(theme, 700),
             color: theme.colors.text,
             marginBottom: height * 0.045 * density,
-            maxWidth: width * 0.8,
-            textAlign: centered ? "center" : "left",
+            maxWidth: withPhoto ? width * 0.42 : width * 0.8,
+            textAlign: centered && !withPhoto ? "center" : "left",
             // A single unbroken 48-char title is wider than the frame at this
             // size; break it rather than letting it run off the edge.
             overflowWrap: "anywhere",
@@ -115,7 +161,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
           display: "flex",
           flexDirection: "column",
           gap: height * 0.028 * density,
-          maxWidth: width * 0.78,
+          maxWidth: withPhoto ? width * 0.42 : width * 0.78,
         }}
       >
         {props.items.map((item, i) => {
@@ -130,7 +176,7 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
               key={i}
               style={{
                 display: "flex",
-                alignItems: "baseline",
+                alignItems: props.marker === "check" ? "center" : "baseline",
                 gap: width * 0.016 * density,
                 justifyContent: centered ? "center" : "flex-start",
                 opacity: enter,
@@ -178,13 +224,33 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
                       }}
                     />
                   ) : null}
+                  {props.marker === "check" ? (
+                    <div
+                      style={{
+                        width: height * 0.04,
+                        height: height * 0.04,
+                        borderRadius: "50%",
+                        background: tick,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        scale: `${interpolate(frame, [start, start + Math.round(fps * 0.3 * durationMul)], [0, 1], {
+                          extrapolateLeft: "clamp",
+                          extrapolateRight: "clamp",
+                          easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+                        })}`,
+                      }}
+                    >
+                      <VerdictGlyph verdict="right" size={height * 0.026} color={contrastInk(theme, tick)} />
+                    </div>
+                  ) : null}
                   {props.marker === "number" ? (
                     <span
                       style={{
                         fontFamily: fontStack(theme.typography.body),
                         fontSize: height * 0.028 * typeScale(theme, "caption"),
                         fontWeight: typeWeight(theme, 700),
-                        color: accent,
+                        color: accentInk(theme, accent),
                         fontVariantNumeric: "tabular-nums",
                       }}
                     >
@@ -213,10 +279,37 @@ export function BulletList({ props, theme }: { props: BulletListProps; theme: Th
           );
         })}
       </div>
+      {props.footnote ? (
+        <div
+          style={{
+            marginTop: height * 0.035 * density,
+            maxWidth: withPhoto ? width * 0.42 : width * 0.78,
+            fontFamily: fontStack(theme.typography.body),
+            fontSize: height * 0.022 * typeScale(theme, "caption"),
+            color: mutedInk(theme),
+            opacity: interpolate(
+              frame,
+              [firstItem + props.items.length * stagger, firstItem + props.items.length * stagger + itemDur],
+              [0, 1],
+              { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+            ),
+          }}
+        >
+          {props.footnote}
+        </div>
+      ) : null}
+      </div>
       </div>
     </div>
   );
 }
 
 /** Which optional token blocks this component can actually obey (Part 3). */
-BulletList.honors = ["typography", "surface", "motion.entrance", "motion.easing"];
+BulletList.honors = [
+  "typography",
+  "surface",
+  "surface.elevation",
+  "layout.composition",
+  "motion.entrance",
+  "motion.easing",
+];

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -143,7 +144,7 @@ export function FactCard({ props, theme }: { props: FactCardProps; theme: Theme 
           <div
             style={{
               marginTop: height * 0.026 * density,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: height * 0.022 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.1),
               textTransform: typeCase(theme, "uppercase"),

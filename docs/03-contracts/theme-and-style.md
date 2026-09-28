@@ -16,11 +16,14 @@ colors:
 typography:
   display: "Playfair Display"     # packaged fonts only, by name (engine/fonts)
   body: "Inter"
+  label: "Barlow Condensed"       # D98 — face for small CAPS labels; omitted = body
   caption_preset: "serif-lower-third"   # from the engine's caption presets
   scale: generous                 # D66 compact | normal | generous
   weight: light                   # D66 light | regular | bold
   case: as_written                # D66 as_written | upper | sentence (D70)
   tracking: wide                  # D66 tight | normal | wide
+  figures: body                   # D96 body | display — the face of a big figure (counter, rank numeral)
+  mark: dim                       # D97 dim | chip — a marked phrase: the rest dims, or it gets an accent chip
 motion_feel: slow_heavy           # global duration/easing scale
 grain: archival                   # optional post-look (Remotion path)
 surface:                          # D46 — the SHAPE of an overlay
@@ -31,9 +34,15 @@ surface:                          # D46 — the SHAPE of an overlay
   accent_rule: top                # top | left | none
   density: airy                   # D66 tight | normal | airy
   rule: hairline                  # D66 hairline | normal | heavy
-  texture: paper                  # D66 none | paper | grain | scanline
+  texture: paper                  # D66 none | paper | grain | scanline | grid (D97)
+  elevation: flat                 # D96 flat | raised — does a PHOTO card cast a shadow
+  title_rule: none                # D96 none | under — an accent rule under a title lockup
+  title_ground: plate             # D96 plate | shot | chip (D97) — title on its plate, on the scrimmed shot, or each line on a chip
+  chip: plate                     # D97 plate | accent | invert — the colour of a CHIP (tag, label, counter box), apart from a panel
+  figure_frame: box               # D97 box | ring — a centred counter's figure
+  photo_frame: none               # D97 none | mat — a photo card's light border
 layout:                           # D70 — where an overlay sits in the FRAME
-  composition: poster             # centered | poster
+  composition: poster             # centered | poster | page (D96: poster's ground, centered's lockup)
   scrim: soft                     # D79 none | soft | heavy — the shot turned down
 chart:                            # D66 — how a PLOTTED overlay reads
   grid: horizontal                # none | horizontal | full
@@ -43,6 +52,7 @@ chart:                            # D66 — how a PLOTTED overlay reads
   area: tint                      # D69 none | tint — does a line enclose the space under it
   stroke: hairline                # hairline | normal | heavy
   number_format: plain            # plain | compact  (50,000 vs 50.0K)
+  index: none                     # D97 none | numbered — '01', '02' before horizontal bar rows
 motion:                           # D46 — HOW an overlay arrives
   entrance: slide                 # fade | rise | slide | pop | wipe | typewriter
   easing: smooth                  # smooth | snap | spring | linear

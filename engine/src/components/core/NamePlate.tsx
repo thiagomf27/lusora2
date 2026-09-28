@@ -15,6 +15,8 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  capsTracking,
+  labelFace,
   borderSides,
   captionStyle,
   contrastInk,
@@ -95,6 +97,7 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
 
   const scale = height / 1080;
   const cs = captionStyle(theme, theme.typography.caption_preset);
+  const labelled = theme.typography.label !== undefined;
 
   return (
     <div
@@ -197,8 +200,12 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
             style={{
               marginTop: height * 0.006 * density,
               // captionStyle() is 1080p-referenced — scale every px it returns.
-              fontFamily: cs.fontFamily,
-              fontSize: cs.fontSize * scale * typeScale(theme, "caption"),
+              // A theme that names a label face (D97) sets the role as a
+              // label — condensed caps under the name — rather than in its
+              // caption preset: "ARCHAEOLOGIST · STUDIED THE ROOM SUITES".
+              fontFamily: labelled ? labelFace(theme) : cs.fontFamily,
+              fontWeight: labelled ? typeWeight(theme, 500) : undefined,
+              fontSize: cs.fontSize * scale * typeScale(theme, "caption") * (labelled ? 1.08 : 1),
               // NOT cs.color. captionStyle() resolves type for a caption burned
               // over footage WITH its own background — the `boxed` preset pairs
               // `colors.bg` ink with a `colors.text` plate. Lift the ink out on
@@ -206,8 +213,12 @@ export function NamePlate({ props, theme }: { props: NamePlateProps; theme: Them
               color: plate ? contrastInk(theme, plateColor(theme)) : theme.colors.text,
               textAlign: centred ? "center" : undefined,
               fontStyle: cs.fontStyle,
-              letterSpacing: typeTracking(theme, cs.letterSpacing ? parseFloat(cs.letterSpacing) : 0),
-              textTransform: typeCase(theme, cs.textTransform === "uppercase" ? "uppercase" : "none"),
+              letterSpacing: labelled
+                ? capsTracking(theme, 0.08)
+                : typeTracking(theme, cs.letterSpacing ? parseFloat(cs.letterSpacing) : 0),
+              textTransform: labelled
+                ? typeCase(theme, "uppercase")
+                : typeCase(theme, cs.textTransform === "uppercase" ? "uppercase" : "none"),
               opacity: interpolate(frame, [wipeStart + fps * 0.1, wipeStart + fps * 0.45], [0, 0.9], {
                 extrapolateLeft: "clamp",
                 extrapolateRight: "clamp",

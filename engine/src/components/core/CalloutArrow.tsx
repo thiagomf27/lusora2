@@ -8,6 +8,15 @@
  *
  * All three arrow styles are sampled into the same polyline, so one length sum
  * drives strokeDasharray for every style — no DOM measurement needed.
+ *
+ * `style: "pin"` (D96) draws no arrow: the label hangs from a pin stuck at the
+ * target, a tag on the thing rather than a pointer at it. `from` is ignored
+ * there — a hanging tag only hangs down. `detail` is a quieter second line in
+ * either case.
+ *
+ * `callouts` (D97) draws several labels on one shot instead, each with its own
+ * mark (arrow, circle, box, dot, pin) and position — see parts/Callouts.tsx.
+ * Given, it replaces the single-label props rather than adding to them.
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
@@ -21,14 +30,20 @@ import {
   fontStack,
   motionScale,
   plateColor,
+  mutedInk,
   ruleWidth,
   surfaceStyle,
   typeScale,
   useEntrance,
 } from "../theme.ts";
+import { PinTag } from "../parts/PinTag.tsx";
+import { Callouts } from "../parts/Callouts.tsx";
 
 export const CalloutArrowProps = z.object({
-  text: z.string().max(60),
+  /** The single label. Ignored when `callouts` is given. */
+  text: z.string().max(60).default(""),
+  /** A quieter second line under the label. */
+  detail: z.string().max(60).optional(),
   target: z
     .enum([
       "top_left",
@@ -43,7 +58,26 @@ export const CalloutArrowProps = z.object({
     ])
     .default("center"),
   from: z.enum(["left", "right", "above", "below"]).default("left"),
-  style: z.enum(["curved", "straight", "elbow"]).default("curved"),
+  style: z.enum(["curved", "straight", "elbow", "pin"]).default("curved"),
+  /** Several labels on one shot, each with its own mark and place (D97). */
+  callouts: z
+    .array(
+      z.object({
+        text: z.string().max(40),
+        detail: z.string().max(48).optional(),
+        target: z
+          .enum(["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"])
+          .optional(),
+        /** Fractions of the frame, set in the editor; wins over `target`. */
+        point: z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).optional(),
+        mark: z.enum(["arrow", "circle", "box", "dot", "pin"]).optional(),
+        size: z.enum(["small", "medium", "large"]).optional(),
+        from: z.enum(["left", "right", "above", "below"]).optional(),
+      }),
+    )
+    .min(1)
+    .max(4)
+    .optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type CalloutArrowProps = z.infer<typeof CalloutArrowProps>;
@@ -67,9 +101,42 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
   });
   const { opacity, inDur } = entrance;
 
-  const [rowKey, colKey] = props.target.split("_");
+  const [rowKey, colKey] = (props.target ?? "center").split("_");
   const tx = width * (COL[colKey] ?? 0.5);
   const ty = height * (ROW[rowKey] ?? 0.5);
+
+  if (props.callouts && props.callouts.length > 0) {
+    return (
+      <div style={{ position: "absolute", inset: 0, opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
+        <Callouts callouts={props.callouts} theme={theme} />
+      </div>
+    );
+  }
+
+  if (props.style === "pin") {
+    const hang = interpolate(frame, [0, inDur + fps * 0.5 * durationMul], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+      easing: curve,
+    });
+    // Keep the plate inside the frame: the pin may sit on a column edge, and a
+    // tag hanging off the side of the picture is a tag nobody reads.
+    const px = Math.min(Math.max(tx, width * 0.14), width * 0.86);
+    const py = Math.min(ty, height * 0.7);
+    return (
+      <div style={{ position: "absolute", inset: 0, opacity, translate: entrance.translate, scale: `${entrance.scale}`, clipPath: entrance.clipPath }}>
+        <PinTag
+          title={props.text}
+          detail={props.detail}
+          theme={theme}
+          x={px}
+          y={py}
+          frameHeight={height}
+          progress={hang}
+        />
+      </div>
+    );
+  }
 
   // Label anchor sits away from the target in the requested direction.
   const dx = props.from === "left" ? -width * 0.24 : props.from === "right" ? width * 0.24 : 0;
@@ -226,10 +293,28 @@ export function CalloutArrow({ props, theme }: { props: CalloutArrowProps; theme
         }}
       >
         {props.text}
+        {props.detail ? (
+          <div
+            style={{
+              marginTop: height * 0.006 * density,
+              fontSize: height * 0.022 * typeScale(theme, "caption"),
+              color: mutedInk(theme, plateColor(theme), 4.5),
+            }}
+          >
+            {props.detail}
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
 /** Which optional token blocks this component can actually obey (Part 3). */
-CalloutArrow.honors = ["typography", "surface.density", "surface.rule", "motion.entrance", "motion.easing"];
+CalloutArrow.honors = [
+  "typography",
+  "surface.density",
+  "surface.rule",
+  "surface.elevation",
+  "motion.entrance",
+  "motion.easing",
+];

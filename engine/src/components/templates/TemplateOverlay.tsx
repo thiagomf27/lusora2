@@ -13,6 +13,7 @@
  */
 import type { Theme } from "../theme.ts";
 import {
+  accentInk,
   emphasisColor,
   fontStack,
   mutedInk,
@@ -287,7 +288,7 @@ export function TemplateOverlay({
             alignItems: "baseline",
             gap: width * 0.006,
             fontFamily: display,
-            color: accent,
+            color: accentInk(theme, accent),
             fontWeight: 700,
             lineHeight: 1,
           }}
@@ -382,7 +383,7 @@ export function TemplateOverlay({
                   style={{
                     fontFamily: display,
                     fontSize: height * 0.034,
-                    color: accent,
+                    color: accentInk(theme, accent),
                     minWidth: width * 0.022,
                   }}
                 >
@@ -441,7 +442,7 @@ export function TemplateOverlay({
             fontSize: height * 0.026,
             letterSpacing: "0.22em",
             textTransform: "uppercase",
-            color: accent,
+            color: accentInk(theme, accent),
             marginBottom: height * 0.028,
             opacity: after(0, 0.3),
           }}

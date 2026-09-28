@@ -29,6 +29,7 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   blend,
   chartStyle,
   composition,
@@ -500,7 +501,7 @@ export function PieChart({ props, theme }: { props: PieChartProps; theme: Theme 
             position: "absolute",
             left: (poster ? framePad.x : plateInset.x) + width * 0.035 * density,
             bottom: (poster ? framePad.y : plateInset.y) + height * 0.03 * density,
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.019 * typeScale(theme, "caption"),
             fontWeight: typeWeight(theme, 400),
             letterSpacing: typeTracking(theme, 0.1),

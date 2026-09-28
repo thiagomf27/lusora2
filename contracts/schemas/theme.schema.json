@@ -53,6 +53,10 @@
           "type": "string",
           "description": "packaged fonts only, by name"
         },
+        "label": {
+          "type": "string",
+          "description": "D97 — the face small CAPS labels are set in: kickers, captions under a name, credit lines, chart categories, tag text. Packaged fonts only, by name, like `display` and `body`. Omitted, labels stay in `body`, which is what every component set them in before D97. Only type a component sets in caps takes it; sentences stay in `body`."
+        },
         "body": {
           "type": "string"
         },
@@ -95,6 +99,22 @@
           ],
           "default": "normal",
           "description": "em offset on the component's own letterSpacing, floored at -0.05em. Additive, not multiplicative: a title at 0em has to be reachable by `wide`."
+        },
+        "figures": {
+          "enum": [
+            "body",
+            "display"
+          ],
+          "default": "body",
+          "description": "D96 — which face a DISPLAY figure is set in: the big number of a counter, the numeral of a rank badge. `body` is what every component drew before D96 — the body face with tabular figures, because Playfair's old-style figures shuffle sideways while a number counts. `display` sets the figure in the display face, still tabular and lining: the editorial idiom of a serif '80%' on a page. Small figures — axis labels, table cells — stay in the body face either way."
+        },
+        "mark": {
+          "enum": [
+            "dim",
+            "chip"
+          ],
+          "default": "dim",
+          "description": "D97 — how a MARKED phrase inside a line of text (TextHighlight's `mark`) is set apart. `dim` is today's value: the phrase keeps full strength and the rest of the line drops back. `chip` leaves the line at full strength and sets the phrase on an accent chip — the highlighter idiom."
         }
       }
     },
@@ -186,10 +206,60 @@
             "none",
             "paper",
             "grain",
-            "scanline"
+            "scanline",
+            "grid"
           ],
           "default": "none",
-          "description": "D66 — treatment on the ground an overlay sets type on. `none` is today's value everywhere, so this token is inert until a theme asks for it. Distinct from top-level `grain`, which is a post-look over the whole FRAME; this is the overlay's own plate."
+          "description": "D66 — treatment on the ground an overlay sets type on. `none` is today's value everywhere, so this token is inert until a theme asks for it. Distinct from top-level `grain`, which is a post-look over the whole FRAME; this is the overlay's own plate. D97 added `grid`: fine graph-paper lines, the explainer-diagram ground."
+        },
+        "elevation": {
+          "enum": [
+            "flat",
+            "raised"
+          ],
+          "default": "flat",
+          "description": "D96 — whether a PHOTO card lifts off the ground it sits on. `flat` is today's value (no shadow anywhere); `raised` gives a picture card a soft drop shadow scaled to the frame. Only components that frame a photograph honour it: a type panel is part of the page, a photograph is an object placed on it."
+        },
+        "title_rule": {
+          "enum": [
+            "none",
+            "under"
+          ],
+          "default": "none",
+          "description": "D96 — whether a TITLE lockup (KineticTitle) draws a short accent rule under its last line. `none` is today's value. Distinct from `accent_rule`, which is the bar on a panel's EDGE: this is an ornament under a line of type, and a theme can want one without the other."
+        },
+        "title_ground": {
+          "enum": [
+            "plate",
+            "shot",
+            "chip"
+          ],
+          "default": "plate",
+          "description": "D96 — where a TITLE lockup (KineticTitle) sets its type. `plate` is today's value: the title sits on its own panel, which a dark-ink theme always gets because dark type over unknown footage is unreadable. `shot` writes it straight onto the footage with no panel, in whichever of the theme's two colours is lighter — the opening title of a light editorial channel, set in its paper colour over a shot the scrim has turned down. Pair it with `layout.scrim`. D97 added `chip`: every LINE of the title sits on its own chip (`surface.chip`) — the stacked-tag statement. Components that cannot break a title into line chips treat it as `plate`."
+        },
+        "chip": {
+          "enum": [
+            "plate",
+            "accent",
+            "invert"
+          ],
+          "description": "D97 — which colour a CHIP is painted: the small tag behind a line of type, a label, a counter's box, a highlighted date. Distinct from `plate`, which is a PANEL (a card, a chart's ground): a channel can want dark panels and yellow tags, and before this token the only way to get yellow tags was to turn every panel yellow — which sets every component's light type on yellow. `plate` follows `surface.plate` (what every chip drew before D97, so no default: choice token); `accent` is the tag idiom; `invert` is the theme's ink. Ink on a chip is always asked by contrast."
+        },
+        "figure_frame": {
+          "enum": [
+            "box",
+            "ring"
+          ],
+          "default": "box",
+          "description": "D97 — the shape a centred COUNTER sets its figure in. `box` is today's value (the chip-coloured box); `ring` draws an accent ring around the figure instead, with the figure bare inside it."
+        },
+        "photo_frame": {
+          "enum": [
+            "none",
+            "mat"
+          ],
+          "default": "none",
+          "description": "D97 — whether a PHOTO card is mounted on a light mat (a print's white border) or runs its picture to the card's edge. `none` is today's value."
         }
       }
     },
@@ -210,9 +280,10 @@
         "composition": {
           "enum": [
             "centered",
-            "poster"
+            "poster",
+            "page"
           ],
-          "description": "centered = a card floated over the shot: the component sizes its own content box and the whole stack sits in the middle of the frame, with its title centred above it. poster = the overlay owns the frame: its ground runs edge to edge, its title sits top-left inside the padding box, and its content takes every pixel left over. Height and width are not separate tokens because in a poster they are not separate decisions — the content box IS the frame minus its padding, and `surface.density` scales that padding."
+          "description": "centered = a card floated over the shot: the component sizes its own content box and the whole stack sits in the middle of the frame, with its title centred above it. poster = the overlay owns the frame: its ground runs edge to edge, its title sits top-left inside the padding box, and its content takes every pixel left over. Height and width are not separate tokens because in a poster they are not separate decisions — the content box IS the frame minus its padding, and `surface.density` scales that padding. page (D96) = poster's ground with centered's lockup: the ground runs edge to edge but the content stays stacked in the middle — the editorial slide, a figure or a photo card set on paper. A component with no page branch treats it as centered."
         }
       }
     },
@@ -304,6 +375,14 @@
           ],
           "default": "plain",
           "description": "plain = 50,000; compact = 50.0K. Axis and label figures only — a counter's own `decimals` prop still wins."
+        },
+        "index": {
+          "enum": [
+            "none",
+            "numbered"
+          ],
+          "default": "none",
+          "description": "D97 — whether a chart's rows carry a quiet index ('01', '02') before their label. `none` is today's value. Honoured by horizontal bar charts, where a row IS a line of a list."
         }
       }
     },

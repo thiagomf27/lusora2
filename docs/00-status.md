@@ -482,6 +482,20 @@ for GLM tagging, `YTDLP_PROXY`, `BROLL_CLIP_ROOT` — see gotchas).
 8. ~~`script.model` / `planner.model` missing from the channel config
    schema~~ **DONE (M10)** — both added, alongside `prompt` and
    `script.target_seconds`.
+9. **Overlay photos are not sourced (D96).** `RankLabel.image`,
+   `BulletList.image`, `PhotoRow.photos[].image` (and the older
+   `FramedExhibit`/`PortraitPlates` images) take a path under the video dir,
+   and nothing in `resolve_assets` fills one: without it the card draws a
+   placeholder. Set them in the editor for now. A planner that invents a path
+   errors the render (`staticFile` on a missing file) — the next slice is an
+   image question per overlay in `resolve_assets` plus a compiler guard that
+   drops a path that does not exist.
+10. **Labels on the shot are placed by grid unless a human places them (D97).**
+   `CalloutArrow.callouts[].target` is a ninth of the frame, which is all the
+   planner can say without seeing the footage; an exact spot ("that kiva") is
+   `point`, set in the editor. A vision pass that returns points is the fix.
+   Related: a horizontal `BarChart` under `chart.legend: inline` drops the name
+   of a bar too short to hold it — `bold-editorial` uses `legend: bottom`.
 
 ## Render stability on low-RAM machines (2026-07-19 fixes)
 

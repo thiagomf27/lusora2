@@ -30,6 +30,9 @@ import { z } from "zod";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Entrance, Theme } from "../theme.ts";
 import {
+  titleChips,
+  markStyle,
+  chipColor,
   contrastInk,
   contrastRatio,
   densityScale,
@@ -42,6 +45,7 @@ import {
   surfaceColor,
   surfaceStyle,
   textPlate,
+  titleOnShot,
   typeTracking,
   typeWeight,
   useEntrance,
@@ -159,7 +163,9 @@ export function TextLockup({
   // `background: true` under a `sub` theme therefore gets that theme's caption
   // idiom rather than a second look nobody asked for — the overlay is opting
   // in to plating, not overriding the shape of it.
-  const themePlating = followsThemePlate ? textPlate(theme) : "none";
+  // A title role takes no plate from `text_plate`, but `title_ground: chip`
+  // (D97) asks for exactly that: every line of the title on a chip.
+  const themePlating = followsThemePlate ? textPlate(theme) : titleChips(theme) ? "all" : "none";
   const plating: TextPlating =
     platedProp === undefined
       ? themePlating
@@ -171,19 +177,27 @@ export function TextLockup({
   const leadPlated = plating === "all";
   const subPlated = plating !== "none";
 
-  const leadPlate = plateColor(theme);
+  // A chip, not a panel (D97): omitted `surface.chip` is `plateColor`, as before.
+  const leadPlate = chipColor(theme);
   // Under `all` the sub sits on the quieter chip — the page, under the loud
   // plate above it. Under `sub` there is no plate above it to be quiet
   // against, so the one remaining chip is the loud one.
   const subPlate = plating === "sub" ? leadPlate : surfaceColor(theme);
-  const leadInk = leadPlated ? contrastInk(theme, leadPlate) : theme.colors.text;
-  const subInk = subPlated ? contrastInk(theme, subPlate) : theme.colors.text;
+  // A title role written on the shot follows `surface.title_ground` (D96):
+  // under `shot` its bare type takes the theme's lighter colour, the one that
+  // reads over footage the scrim has turned down — without it a paper theme
+  // sets navy type on a night shot. Every other role, and every theme that
+  // says nothing, keeps the theme's ink.
+  const onShot = titleOnShot(theme);
+  const bareInk = !followsThemePlate && onShot.onShot ? onShot.ink : theme.colors.text;
+  const leadInk = leadPlated ? contrastInk(theme, leadPlate) : bareInk;
+  const subInk = subPlated ? contrastInk(theme, subPlate) : bareInk;
 
   // Bare over unknown footage, the only thing keeping type legible is its own
   // shadow; which way it falls depends on the ink, since a light theme setting
   // dark type needs a light halo rather than a darker one. On a plate the box
   // is already doing that job and a halo only smears the edge.
-  const lightInk = contrastRatio(theme.colors.text, "#000000") > contrastRatio(theme.colors.text, "#ffffff");
+  const lightInk = contrastRatio(bareInk, "#000000") > contrastRatio(bareInk, "#ffffff");
   const halo = lightInk ? "0,0,0" : "255,255,255";
   const shadow = `0 ${height * 0.0015}px ${height * 0.016}px rgba(${halo},0.55), 0 ${height * 0.0008}px ${height * 0.003}px rgba(${halo},0.38)`;
   // Asked per line rather than per lockup, because `sub` plates one and not
@@ -251,7 +265,11 @@ export function TextLockup({
               : null),
           }}
         >
-          {markAt >= 0 ? <Marked text={shown} from={markAt} to={markAt + mark!.length} /> : shown}
+          {markAt >= 0 ? (
+            <Marked text={shown} from={markAt} to={markAt + mark!.length} theme={theme} font={leadFont} />
+          ) : (
+            shown
+          )}
         </div>
         {sub ? (
           <div
@@ -286,7 +304,33 @@ export function TextLockup({
  * Ranges are taken from the FULL line so the emphasis does not slide as the
  * text types on; the slice is what changes, not where the phrase is.
  */
-function Marked({ text, from, to }: { text: string; from: number; to: number }) {
+function Marked({ text, from, to, theme, font }: { text: string; from: number; to: number; theme: Theme; font: number }) {
+  // `typography.mark: chip` (D97): the line keeps full strength and the phrase
+  // goes on an accent chip — the highlighter, rather than the spotlight.
+  if (markStyle(theme) === "chip") {
+    const phrase = text.slice(from, to);
+    return (
+      <>
+        {text.slice(0, from)}
+        {phrase ? (
+          <span
+            style={{
+              background: theme.colors.accent,
+              color: contrastInk(theme, theme.colors.accent),
+              textShadow: "none",
+              padding: `0 ${font * 0.18}px`,
+              borderRadius: surfaceStyle(theme, { radius: 4 }).borderRadius,
+              boxDecorationBreak: "clone",
+              WebkitBoxDecorationBreak: "clone",
+            }}
+          >
+            {phrase}
+          </span>
+        ) : null}
+        {text.slice(to)}
+      </>
+    );
+  }
   return (
     <>
       <span style={{ opacity: 0.62 }}>{text.slice(0, from)}</span>

@@ -20,6 +20,7 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -220,7 +221,7 @@ export function ArchivalFrame({ props, theme }: { props: ArchivalFrameProps; the
           {props.slate ? (
             <div
               style={{
-                fontFamily: fontStack(theme.typography.body),
+                fontFamily: labelFace(theme),
                 fontSize: height * 0.028 * typeScale(theme, "body"),
                 letterSpacing: typeTracking(theme, 0.16),
                 textTransform: typeCase(theme, "uppercase"),

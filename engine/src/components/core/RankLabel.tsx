@@ -3,18 +3,29 @@
  *
  * The numeral counts DOWN from a higher start to the true rank while a ring
  * sweeps around it, then the title wipes in beside it. Numerals use the body
- * face + tabular-nums so the digits don't shuffle sideways as they change.
+ * face + tabular-nums so the digits don't shuffle sideways as they change
+ * (`typography.figures: display` moves them to the display face, D96).
+ *
+ * With an `image` it becomes the listicle item card (D96): the badge, title
+ * and subtitle stacked on the left, the photograph on a card on the right with
+ * an optional pinned `tag`. Same props, same meaning — "this is entry N" — so
+ * it is a prop rather than a sibling. Under a full-bleed composition the pair
+ * sits on the page; otherwise the lockup takes its own ground over the shot.
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   densityScale,
   easingCurve,
+  figureFace,
+  fullBleed,
   emphasisColor,
   fontStack,
   groundStyle,
   motionScale,
+  pageGround,
   mutedInk,
   PANEL_ENTRANCES,
   ruleWidth,
@@ -24,6 +35,7 @@ import {
   typeWeight,
   useEntrance,
 } from "../theme.ts";
+import { PhotoCard } from "../parts/PhotoCard.tsx";
 
 export const RankLabelProps = z.object({
   rank: z.number().int().min(1).max(999),
@@ -31,6 +43,12 @@ export const RankLabelProps = z.object({
   subtitle: z.string().max(36).optional(),
   /** Renders "of 20" and gives the count-down somewhere to start. */
   total: z.number().int().min(1).optional(),
+  /** Set small over the numeral: "Nº", "#". Only drawn with `image` — the item card. */
+  prefix: z.string().max(4).optional(),
+  /** Path to a still or clip under the video dir: turns the label into an item card. */
+  image: z.string().max(160).optional(),
+  /** A short label pinned to the photo's corner. Only drawn with `image`. */
+  tag: z.string().max(24).optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type RankLabelProps = z.infer<typeof RankLabelProps>;
@@ -74,6 +92,27 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
     easing: curve,
   });
   const wipeStart = settleDur * 0.5;
+
+  if (props.image) {
+    return (
+      <ItemCard
+        props={props}
+        theme={theme}
+        shown={shown}
+        sweep={sweep}
+        entrance={entrance}
+        wipe={interpolate(frame, [wipeStart, wipeStart + fps * 0.4 * durationMul], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+          easing: curve,
+        })}
+        fixtures={interpolate(frame, [settleDur, settleDur + fps * 0.6 * durationMul], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })}
+      />
+    );
+  }
 
   return (
     <div
@@ -132,10 +171,9 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontFamily: fontStack(theme.typography.body),
+            ...figureFace(theme),
             fontSize: R * 0.85,
             fontWeight: typeWeight(theme, 700),
-            fontVariantNumeric: "tabular-nums",
             color: theme.colors.text,
           }}
         >
@@ -172,7 +210,7 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
             display: "flex",
             alignItems: "baseline",
             gap: width * 0.012 * density,
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.026 * typeScale(theme, "kicker"),
             color: mutedInk(theme),
             letterSpacing: typeTracking(theme, 0.1),
@@ -189,5 +227,161 @@ export function RankLabel({ props, theme }: { props: RankLabelProps; theme: Them
   );
 }
 
+/**
+ * The item card: badge over title over subtitle, the photo beside them. The
+ * numeral is set bare above its ring rather than inside a small one, because at
+ * this size it is the headline of the slide.
+ */
+function ItemCard({
+  props,
+  theme,
+  shown,
+  sweep,
+  wipe,
+  fixtures,
+  entrance,
+}: {
+  props: RankLabelProps;
+  theme: Theme;
+  shown: number;
+  sweep: number;
+  wipe: number;
+  fixtures: number;
+  entrance: ReturnType<typeof useEntrance>;
+}) {
+  const { width, height } = useVideoConfig();
+  const density = densityScale(theme);
+  const accent = emphasisColor(theme, props.emphasis);
+  const bleed = fullBleed(theme);
+  const ground = groundStyle(theme, { radius: bleed ? 0 : 12, legible: true });
+
+  const R = height * 0.1;
+  const stroke = ruleWidth(theme, Math.max(3, height * 0.006));
+  const C = 2 * Math.PI * R;
+  const cardW = width * 0.42;
+  const cardH = cardW * 0.72;
+
+  const lockup = (
+    <div style={{ display: "flex", alignItems: "center", gap: width * 0.06 * density }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", minWidth: 0, maxWidth: width * 0.36 }}>
+        <div style={{ position: "relative", width: R * 2.3, height: R * 2.3, marginBottom: height * 0.03 * density }}>
+          <svg width={R * 2.3} height={R * 2.3} style={{ position: "absolute", inset: 0 }}>
+            <circle
+              cx={R * 1.15}
+              cy={R * 1.15}
+              r={R}
+              fill="none"
+              stroke={accent}
+              strokeWidth={stroke}
+              strokeDasharray={C}
+              strokeDashoffset={C * (1 - sweep)}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${R * 1.15} ${R * 1.15})`}
+            />
+          </svg>
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              ...figureFace(theme),
+              fontSize: R * 1.25,
+              fontWeight: typeWeight(theme, 600),
+              lineHeight: 1,
+              color: theme.colors.text,
+            }}
+          >
+            {shown}
+          </div>
+          {props.prefix ? (
+            <div
+              style={{
+                position: "absolute",
+                left: -R * 0.35,
+                top: -R * 0.05,
+                ...figureFace(theme),
+                fontSize: R * 0.3,
+                fontWeight: typeWeight(theme, 600),
+                color: theme.colors.text,
+              }}
+            >
+              {props.prefix}
+            </div>
+          ) : null}
+        </div>
+        <div style={{ clipPath: `inset(0 ${(1 - wipe) * 100}% 0 0)` }}>
+          <div
+            style={{
+              fontFamily: fontStack(theme.typography.display),
+              fontSize: height * 0.058 * typeScale(theme, "title"),
+              fontWeight: typeWeight(theme, 700),
+              letterSpacing: typeTracking(theme, 0),
+              lineHeight: 1.1,
+              color: theme.colors.text,
+            }}
+          >
+            {props.title}
+          </div>
+          {props.subtitle || props.total ? (
+            <div
+              style={{
+                marginTop: height * 0.012 * density,
+                fontFamily: fontStack(theme.typography.body),
+                fontSize: height * 0.026 * typeScale(theme, "body"),
+                color: mutedInk(theme),
+                letterSpacing: typeTracking(theme, 0),
+              }}
+            >
+              {[props.total ? `of ${props.total}` : null, props.subtitle].filter(Boolean).join(" · ")}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <PhotoCard
+        theme={theme}
+        image={props.image}
+        w={cardW}
+        h={cardH}
+        frameHeight={height}
+        tag={props.tag}
+        emphasis={props.emphasis}
+        progress={wipe}
+        fixtures={fixtures}
+      />
+    </div>
+  );
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        opacity: entrance.opacity,
+        translate: entrance.translate,
+        scale: `${entrance.scale}`,
+        clipPath: entrance.clipPath,
+      }}
+    >
+      {bleed ? <div style={{ position: "absolute", inset: 0, ...pageGround(theme) }} /> : null}
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {bleed || !ground ? (
+          lockup
+        ) : (
+          <div style={{ ...ground, padding: `${height * 0.05 * density}px ${width * 0.04 * density}px` }}>{lockup}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Which optional token blocks this component can actually obey (Part 3). */
-RankLabel.honors = ["typography", "surface", "motion.entrance", "motion.easing"];
+RankLabel.honors = [
+  "typography",
+  "surface",
+  "surface.elevation",
+  "layout.composition",
+  "motion.entrance",
+  "motion.easing",
+];

@@ -20,7 +20,8 @@
   "surface": {
     "radius": "square",
     "fill": "solid",
-    "plate": "accent",
+    "plate": "page",
+    "chip": "accent",
     "text_plate": "on",
     "accent_rule": "none",
     "density": "tight",

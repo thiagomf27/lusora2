@@ -10,6 +10,8 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
+  accentInk,
   chartStyle,
   densityScale,
   easingCurve,
@@ -99,7 +101,7 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
             }),
           );
           const wins = data.value >= (isLeft ? props.right.value : props.left.value);
-          const color = wins ? accent : mutedInk(theme);
+          const color = wins ? accentInk(theme, accent) : mutedInk(theme);
           return (
             <div
               key={isLeft ? "left" : "right"}
@@ -118,7 +120,7 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
             >
               <div
                 style={{
-                  fontFamily: fontStack(theme.typography.body),
+                  fontFamily: labelFace(theme),
                   fontSize: height * 0.03 * typeScale(theme, "title"),
                   letterSpacing: typeTracking(theme, 0.18),
                   textTransform: typeCase(theme, "uppercase"),
@@ -198,7 +200,7 @@ export function ComparisonSplit({ props, theme }: { props: ComparisonSplitProps;
             // only once a theme made the plate opaque and light.
             bottom: height * 0.145 * density,
             textAlign: "center",
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.024 * typeScale(theme, "caption"),
             letterSpacing: typeTracking(theme, 0.1),
             textTransform: typeCase(theme, "uppercase"),

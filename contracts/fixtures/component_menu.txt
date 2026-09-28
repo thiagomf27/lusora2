@@ -22,10 +22,10 @@
   when to use: the narration compares three to seven named quantities of the same kind ('Germany 12,000; the Soviets 29,000; the Americans 49,000')
   when NOT to use: exactly two values, where the split reads better (ComparisonSplit); one value (AnimatedCounter); a quantity changing over time (LineChart); dated events (Timeline)
 - BulletList (anchor types: none — pure text allowed; holds ~6s)
-  when to use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence
-  when NOT to use: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)
+  when to use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence. `marker: check` makes it a checklist; `image` sets a photo of the subject beside it
+  when NOT to use: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement); two pictures judged against each other (PhotoRow)
 - CalloutArrow (anchor types: none — pure text allowed; holds ~3.5s)
-  when to use: pointing at something already visible in the footage and naming it ('this is the breach in the hull')
+  when to use: pointing at something already visible in the footage and naming it ('this is the breach in the hull'). `style: pin` hangs the label from a pin on the thing instead of drawing an arrow. `callouts` names two to four things in the same shot, each with its own mark (ring, box, dot, arrow, pin)
   when NOT to use: the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)
 - Candlestick (anchor types: none — pure text allowed; holds ~6.5s)
   when to use: a price or index moving over an ordered sequence where the RANGE within each period matters — how far it swung, not just where it closed
@@ -66,6 +66,9 @@
 - HighlightedPassage (anchor types: quote; holds ~6s)
   when to use: a passage of quoted text where specific phrases are being picked apart — the marks land on the words as the narration reaches them
   when NOT to use: a quote presented whole with no phrase singled out (QuoteBlock); paper documents (DocumentCard); pointing at the footage (CalloutArrow)
+- IconArray (anchor types: number; holds ~5s)
+  when to use: a count OUT OF a small whole, where counting the figures is the point — '9 of the 9 skeletons', 'three in ten households', '67%' as 6.7 of 10. Up to twenty icons, `count` of them lit
+  when NOT to use: a bare figure with no whole behind it (AnimatedCounter); a share of a large or abstract total — a budget, a population in millions (PieChart, or AnimatedCounter with '%'); several quantities compared (BarChart)
 - KineticTitle (anchor types: none — pure text allowed; holds ~3.5s)
   when to use: the video's opening title or a cold-open line, assembling word by word
   when NOT to use: a mid-video section break (ChapterCard); a claim being argued (HammerStatement); a name (NamePlate)
@@ -78,6 +81,9 @@
 - NamePlate (anchor types: name; holds ~4s)
   when to use: introducing a person by name while the narration continues — role and lifespan optional
   when NOT to use: a place (SatelliteLocate); a term (DefinitionCard); a section heading (ChapterCard); quoting what the person said (QuoteBlock)
+- PhotoRow (anchor types: none — pure text allowed; holds ~5.5s)
+  when to use: two to four PICTURES side by side and seeing them together is the point — the wrong way and the right way (`verdict`), before and after, three sites that share one idea — each with a short caption
+  when NOT to use: two numbers (ComparisonSplit); one or two people presented by name (PortraitPlates); one photograph with a sentence of caption (FramedExhibit); a qualitative comparison with no pictures (FactSheet)
 - PieChart (anchor types: percentage/comparison; holds ~5s)
   when to use: the narration splits ONE total into its parts — 'a third of the budget went to the navy', 'two in five never returned'. Values are absolute; the component takes the share
   when NOT to use: quantities that are not parts of the same whole, where the sizes are what is compared (BarChart); two values set against each other (ComparisonSplit); one share on its own, with no remainder worth drawing (AnimatedCounter with a '%' suffix, or StatTag); a share changing over time (LineChart)
@@ -88,13 +94,13 @@
   when to use: a line someone actually said or wrote, presented whole with attribution
   when NOT to use: specific phrases inside the quote are being dissected (HighlightedPassage); the source is a document being shown as paper (DocumentCard); the video's own assertion (HammerStatement)
 - RankLabel (anchor types: number; holds ~4s)
-  when to use: a countdown or ranked list, marking which entry this is ('#3 of 20')
-  when NOT to use: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)
+  when to use: a countdown or ranked list, marking which entry this is ('#3 of 20'). With `image` it is the item's title card: the number and name beside a photo of the item
+  when NOT to use: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart, or FactSheet with `numbered`); ordered stages of a process (StepFlow); a section break that is not a ranked entry (ChapterCard)
 - RegionHighlight (anchor types: none — pure text allowed; holds ~6s)
   when to use: a territory whose EXTENT matters — occupied ground, an empire, a front — outlined and filled on a map
   when NOT to use: a single point on the map (SatelliteLocate); a journey between points (RouteMap); a place mentioned in passing. Requires a border polygon supplied by hand — nothing derives one, so this is placed in the editor, never chosen by the planner
 - RouteMap (anchor types: place; holds ~6.5s)
-  when to use: a journey or advance between two to six named places, drawn stop by stop
+  when to use: a journey or advance between two to six named places, drawn stop by stop. `mode: none` marks the places alone, with no line — a set of related sites rather than a route
   when NOT to use: one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know
 - SatelliteLocate (anchor types: place; holds ~5s)
   when to use: the narration names a specific place and the viewer needs to know where it is — a crosshair lands on the coordinate
@@ -142,7 +148,7 @@
 - AnimatedCounter (anchor types: number/percentage; holds ~4s)
   when to use: the narration lands a single figure worth dwelling on — a count, a total, a percentage ('29,000 tanks', '70% of factories')
   when NOT to use: two or more values being compared (ComparisonSplit for two, BarChart for three or more); a figure that should sit in the corner while the shot continues (StatTag); a position in a ranking (RankLabel)
-  props you may hint: {"label":{"type":"string","maxWords":8,"description":"what the figure counts. Omit it when the narration names the figure in the same breath — a bare number is a legitimate overlay, and a label that only repeats the voice-over is noise"},"prefix":{"type":"string","maxWords":2,"description":"e.g. a currency symbol"},"suffix":{"type":"string","maxWords":3,"description":"e.g. '%', 'tons'"},"decimals":{"type":"number","min":0,"max":2},"approximate":{"type":"boolean","description":"prefixes the settled value with '~'"},"caption":{"type":"string","maxWords":12,"description":"a qualifying second line under the figure ('at the 13 September count')"},"position":{"enum":["center","left","right"]}}
+  props you may hint: {"label":{"type":"string","maxWords":8,"description":"what the figure counts. Omit it when the narration names the figure in the same breath — a bare number is a legitimate overlay, and a label that only repeats the voice-over is noise"},"prefix":{"type":"string","maxWords":2,"description":"e.g. a currency symbol"},"suffix":{"type":"string","maxWords":3,"description":"e.g. '%', 'tons'"},"decimals":{"type":"number","min":0,"max":2},"approximate":{"type":"boolean","description":"prefixes the settled value with '~'"},"caption":{"type":"string","maxWords":12,"description":"a qualifying second line under the figure ('at the 13 September count')"},"source":{"type":"string","maxWords":12,"description":"credit line: where the figure comes from"},"position":{"enum":["center","left","right"]}}
 - ArchivalFrame (anchor types: none — pure text allowed; holds ~5s)
   when to use: presenting the shot itself as archival footage — grain, gate flicker and an optional slate line over a period clip
   when NOT to use: a still photograph that should read as an exhibit with a caption (FramedExhibit); a paper document (DocumentCard); any shot where the underlying footage should stay clean
@@ -150,15 +156,15 @@
 - BarChart (anchor types: comparison; holds ~5.5s)
   when to use: the narration compares three to seven named quantities of the same kind ('Germany 12,000; the Soviets 29,000; the Americans 49,000')
   when NOT to use: exactly two values, where the split reads better (ComparisonSplit); one value (AnimatedCounter); a quantity changing over time (LineChart); dated events (Timeline)
-  props you may hint: {"title":{"type":"string","maxWords":8},"unit":{"type":"string","maxWords":3},"orientation":{"enum":["vertical","horizontal"]},"highlight_index":{"type":"number","min":0,"max":6,"description":"index of the one bar that takes the accent"},"source":{"type":"string","maxWords":8,"description":"credit line along the bottom"}}
+  props you may hint: {"title":{"type":"string","maxWords":8},"unit":{"type":"string","maxWords":3},"orientation":{"enum":["vertical","horizontal"]},"highlight_index":{"type":"number","min":0,"max":6,"description":"index of the one bar that takes the accent"},"subtitle":{"type":"string","maxWords":6,"description":"a quiet line under the title: what the bars measure ('estimates of residents')"},"source":{"type":"string","maxWords":8,"description":"credit line along the bottom"}}
 - BulletList (anchor types: none — pure text allowed; holds ~6s)
-  when to use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence
-  when NOT to use: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)
-  props you may hint: {"title":{"type":"string","maxWords":8},"items":{"type":"array","required":true,"min":2,"max":5},"marker":{"enum":["dot","rule","number","none"]},"align":{"enum":["left","center"]}}
+  when to use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence. `marker: check` makes it a checklist; `image` sets a photo of the subject beside it
+  when NOT to use: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement); two pictures judged against each other (PhotoRow)
+  props you may hint: {"title":{"type":"string","maxWords":8},"items":{"type":"array","required":true,"min":2,"max":5},"marker":{"enum":["dot","rule","number","check","none"]},"align":{"enum":["left","center"]},"image":{"type":"string","description":"path to a still or clip under the video dir; leave unset unless a real file exists — a placeholder stands in when absent"},"footnote":{"type":"string","maxWords":14,"description":"a quiet qualifying line under the list ('rules vary by city')"}}
 - CalloutArrow (anchor types: none — pure text allowed; holds ~3.5s)
-  when to use: pointing at something already visible in the footage and naming it ('this is the breach in the hull')
+  when to use: pointing at something already visible in the footage and naming it ('this is the breach in the hull'). `style: pin` hangs the label from a pin on the thing instead of drawing an arrow. `callouts` names two to four things in the same shot, each with its own mark (ring, box, dot, arrow, pin)
   when NOT to use: the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)
-  props you may hint: {"text":{"type":"string","required":true,"maxWords":10},"target":{"enum":["top_left","top_center","top_right","center_left","center","center_right","bottom_left","bottom_center","bottom_right"],"description":"which ninth of the frame the arrow points at"},"from":{"enum":["left","right","above","below"]},"style":{"enum":["curved","straight","elbow"]}}
+  props you may hint: {"text":{"type":"string","maxWords":10,"description":"the single label; required unless `callouts` is given"},"detail":{"type":"string","maxWords":8,"description":"a quieter second line under the label"},"callouts":{"type":"array","min":1,"max":4,"description":"several labels on one shot, INSTEAD of `text`. `target` is the ninth of the frame; `point` ({x, y} fractions) is set in the editor for an exact spot and wins"},"target":{"enum":["top_left","top_center","top_right","center_left","center","center_right","bottom_left","bottom_center","bottom_right"],"description":"which ninth of the frame the arrow points at"},"from":{"enum":["left","right","above","below"]},"style":{"enum":["curved","straight","elbow","pin"],"description":"`pin` draws no arrow: a tag hangs from a pin at the target, and `from` is ignored"}}
 - Candlestick (anchor types: none — pure text allowed; holds ~6.5s)
   when to use: a price or index moving over an ordered sequence where the RANGE within each period matters — how far it swung, not just where it closed
   when NOT to use: a quantity where only the level matters at each point (LineChart); values at one moment (BarChart); how a single total was built up or eroded (WaterfallChart); one figure and its change (MetricGrid)
@@ -178,7 +184,7 @@
 - DateStamp (anchor types: date; holds ~3.5s)
   when to use: establishing when (and optionally where) a shot happens, as a corner slug the narration runs underneath
   when NOT to use: several dates in sequence (Timeline); a date that is itself the subject of the beat (AnimatedCounter for a year figure); locating a place (SatelliteLocate)
-  props you may hint: {"place":{"type":"string","maxWords":4},"position":{"enum":["top_left","top_right","bottom_left","bottom_right"]},"variant":{"enum":["stamped","typed"]}}
+  props you may hint: {"place":{"type":"string","maxWords":4},"caption":{"type":"string","maxWords":14,"description":"a sentence under the slug: what happened then"},"position":{"enum":["top_left","top_right","bottom_left","bottom_right"]},"variant":{"enum":["stamped","typed"]}}
 - DefinitionCard (anchor types: none — pure text allowed; holds ~5s)
   when to use: the narration introduces a technical term or piece of jargon the viewer is unlikely to know, and defines it
   when NOT to use: a claim or statistic rather than a term (FactCard); a person's name and role (NamePlate); a quoted line (QuoteBlock)
@@ -211,10 +217,14 @@
   when to use: a passage of quoted text where specific phrases are being picked apart — the marks land on the words as the narration reaches them
   when NOT to use: a quote presented whole with no phrase singled out (QuoteBlock); paper documents (DocumentCard); pointing at the footage (CalloutArrow)
   props you may hint: {"marks":{"type":"array","max":3,"description":"phrases must appear verbatim in `text`; unmatched ones are skipped"}}
+- IconArray (anchor types: number; holds ~5s)
+  when to use: a count OUT OF a small whole, where counting the figures is the point — '9 of the 9 skeletons', 'three in ten households', '67%' as 6.7 of 10. Up to twenty icons, `count` of them lit
+  when NOT to use: a bare figure with no whole behind it (AnimatedCounter); a share of a large or abstract total — a budget, a population in millions (PieChart, or AnimatedCounter with '%'); several quantities compared (BarChart)
+  props you may hint: {"total":{"type":"number","required":true,"min":2,"max":20,"description":"the whole: how many icons are drawn"},"icon":{"enum":["dot","person","house"],"description":"what is being counted: `person` for people, `house` for homes, `dot` for anything else"},"label":{"type":"string","maxWords":12,"description":"what the lit ones share"},"figure":{"type":"string","maxWords":4,"description":"the line over the label; omit for 'count of total', set it for 'three in ten'"},"source":{"type":"string","maxWords":12,"description":"credit line"}}
 - KineticTitle (anchor types: none — pure text allowed; holds ~3.5s)
   when to use: the video's opening title or a cold-open line, assembling word by word
   when NOT to use: a mid-video section break (ChapterCard); a claim being argued (HammerStatement); a name (NamePlate)
-  props you may hint: {"text":{"type":"string","required":true,"maxWords":11},"unit":{"enum":["word","char"]},"entrance":{"enum":["rise","mask","scale"]},"align":{"enum":["left","center"]},"emphasize_last":{"type":"boolean"}}
+  props you may hint: {"text":{"type":"string","required":true,"maxWords":11},"kicker":{"type":"string","maxWords":4,"description":"a short eyebrow over the title: the series or section ('CASA POR DENTRO')"},"unit":{"enum":["word","char"]},"entrance":{"enum":["rise","mask","scale"]},"align":{"enum":["left","center"]},"emphasize":{"type":"string","maxWords":4,"description":"the word or phrase that takes the emphasis colour, verbatim from `text` — any word, not only the last"}}
 - LineChart (anchor types: none — pure text allowed; holds ~6.5s)
   when to use: a quantity changing across an ordered sequence — production by year, losses by month — for up to three series
   when NOT to use: values at one moment (BarChart); a single figure (AnimatedCounter); events rather than measurements (Timeline)
@@ -227,6 +237,10 @@
   when to use: introducing a person by name while the narration continues — role and lifespan optional
   when NOT to use: a place (SatelliteLocate); a term (DefinitionCard); a section heading (ChapterCard); quoting what the person said (QuoteBlock)
   props you may hint: {"role":{"type":"string","maxWords":9},"lifespan":{"type":"string","maxWords":2,"description":"e.g. '1896–1974'"},"side":{"enum":["left","right","center"]},"variant":{"enum":["bar","boxed","underline"]}}
+- PhotoRow (anchor types: none — pure text allowed; holds ~5.5s)
+  when to use: two to four PICTURES side by side and seeing them together is the point — the wrong way and the right way (`verdict`), before and after, three sites that share one idea — each with a short caption
+  when NOT to use: two numbers (ComparisonSplit); one or two people presented by name (PortraitPlates); one photograph with a sentence of caption (FramedExhibit); a qualitative comparison with no pictures (FactSheet)
+  props you may hint: {"photos":{"type":"array","required":true,"min":2,"max":4,"description":"in reading order, left to right"},"title":{"type":"string","maxWords":8}}
 - PieChart (anchor types: percentage/comparison; holds ~5s)
   when to use: the narration splits ONE total into its parts — 'a third of the budget went to the navy', 'two in five never returned'. Values are absolute; the component takes the share
   when NOT to use: quantities that are not parts of the same whole, where the sizes are what is compared (BarChart); two values set against each other (ComparisonSplit); one share on its own, with no remainder worth drawing (AnimatedCounter with a '%' suffix, or StatTag); a share changing over time (LineChart)
@@ -240,17 +254,17 @@
   when NOT to use: specific phrases inside the quote are being dissected (HighlightedPassage); the source is a document being shown as paper (DocumentCard); the video's own assertion (HammerStatement)
   props you may hint: {"attribution":{"type":"string","maxWords":6},"context":{"type":"string","maxWords":8,"description":"where or when it was said"},"variant":{"enum":["mark","rule","boxed"]},"size":{"enum":["standard","large"]},"align":{"enum":["left","center"]}}
 - RankLabel (anchor types: number; holds ~4s)
-  when to use: a countdown or ranked list, marking which entry this is ('#3 of 20')
-  when NOT to use: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)
-  props you may hint: {"title":{"type":"string","required":true,"maxWords":7},"subtitle":{"type":"string","maxWords":6},"total":{"type":"number","min":1,"description":"renders 'of N'"}}
+  when to use: a countdown or ranked list, marking which entry this is ('#3 of 20'). With `image` it is the item's title card: the number and name beside a photo of the item
+  when NOT to use: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart, or FactSheet with `numbered`); ordered stages of a process (StepFlow); a section break that is not a ranked entry (ChapterCard)
+  props you may hint: {"title":{"type":"string","required":true,"maxWords":7},"subtitle":{"type":"string","maxWords":6},"total":{"type":"number","min":1,"description":"renders 'of N'"},"prefix":{"type":"string","maxWords":1,"description":"set small over the numeral, in the video's language: 'Nº', '#'; only drawn with `image`"},"image":{"type":"string","description":"path to a still or clip under the video dir; leave unset unless a real file exists — a placeholder stands in when absent"},"tag":{"type":"string","maxWords":3,"description":"a short label pinned to the photo's corner; only drawn with `image`"}}
 - RegionHighlight (anchor types: none — pure text allowed; holds ~6s)
   when to use: a territory whose EXTENT matters — occupied ground, an empire, a front — outlined and filled on a map
   when NOT to use: a single point on the map (SatelliteLocate); a journey between points (RouteMap); a place mentioned in passing. Requires a border polygon supplied by hand — nothing derives one, so this is placed in the editor, never chosen by the planner
   props you may hint: {"region_name":{"type":"string","required":true,"maxWords":6},"polygon":{"type":"array","min":3,"max":64,"description":"border vertices for ONE region; must be supplied — there is no gazetteer of polygons. Use `regions` for more than one"},"regions":{"type":"array","min":1,"max":6,"description":"several outlines in one shot (the Axis powers, the states that seceded); each may name itself. Use INSTEAD of `polygon`, not alongside it"},"label":{"type":"string","maxWords":6},"annotation":{"type":"string","maxWords":6,"description":"record the source and effective date of a contested border here"},"plate":{"type":"object","description":"equirectangular map image and its bbox; omitted draws a schematic plate"}}
 - RouteMap (anchor types: place; holds ~6.5s)
-  when to use: a journey or advance between two to six named places, drawn stop by stop
+  when to use: a journey or advance between two to six named places, drawn stop by stop. `mode: none` marks the places alone, with no line — a set of related sites rather than a route
   when NOT to use: one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know
-  props you may hint: {"title":{"type":"string","maxWords":6},"mode":{"enum":["march","flight","sea"]},"plate":{"type":"object","description":"equirectangular map image and its bbox; omitted draws a schematic plate"}}
+  props you may hint: {"title":{"type":"string","maxWords":6},"mode":{"enum":["march","flight","sea","none"]},"plate":{"type":"object","description":"equirectangular map image and its bbox; omitted draws a schematic plate"}}
 - SatelliteLocate (anchor types: place; holds ~5s)
   when to use: the narration names a specific place and the viewer needs to know where it is — a crosshair lands on the coordinate
   when NOT to use: a territory's extent (RegionHighlight); a route between places (RouteMap); places mentioned in passing that need no locating; a place already established in the same section
@@ -266,7 +280,7 @@
 - StepFlow (anchor types: none — pure text allowed; holds ~6s)
   when to use: two to five stages of a process in order, where each step leads to the next — how a thing was built, decided or executed
   when NOT to use: unordered parallel claims (BulletList); events fixed to dates (Timeline); a comparison (BarChart)
-  props you may hint: {"title":{"type":"string","maxWords":6},"steps":{"type":"array","required":true,"min":2,"max":5},"direction":{"enum":["horizontal","vertical"]},"numbered":{"type":"boolean"}}
+  props you may hint: {"title":{"type":"string","maxWords":6},"steps":{"type":"array","required":true,"min":2,"max":5},"direction":{"enum":["horizontal","vertical"]},"numbered":{"type":"boolean"},"highlight_index":{"type":"number","min":0,"max":4,"description":"index of the one step the narration is about; the rest go quiet around it"}}
 - TextBanner (anchor types: none — pure text allowed; holds ~4s)
   when to use: any line worth stating flat across the shot while the footage keeps running — what we are looking at, when it happened, what it cost, who did it. The strip is the channel's idiom: one bar, one claim, no plate to read as a graphic. It wipes open left to right and the line types into it
   when NOT to use: one of the five entries that carry their own meaning and their own placement — a title (TextTitle), a location (TextPlace), a person (TextName), a passage with one phrase lifted out (TextHighlight), a figure worth counting up (TextCounter). Text that should sit quietly in a corner as bare type rather than in a bar (TextTag)

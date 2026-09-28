@@ -27,12 +27,21 @@
  * title does, and the figure takes every pixel underneath, measured rather
  * than guessed at so a seven-digit total and a two-digit one both fill the
  * page without either overflowing it.
+ *
+ * D96 added a third, `page`: the poster's full-bleed ground under the centred
+ * stack — a big figure, its rule and a sentence-case label under it, set on
+ * paper like an editorial slide. There the figure is bare (the page is its
+ * ground; a box on it would be a second one) and `source` sits at the foot of
+ * the frame. `source` is a credit line in every composition.
  */
 import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { fitText } from "@remotion/layout-utils";
 import type { Theme } from "../theme.ts";
 import {
+  figureFrame,
+  chipColor,
+  accentInk,
   chartStyle,
   countedValue,
   composition,
@@ -41,11 +50,13 @@ import {
   densityScale,
   easingCurve,
   emphasisColor,
+  figureFace,
   fontStack,
   groundStyle,
   motionScale,
   mutedInk,
   PANEL_ENTRANCES,
+  pageGround,
   paperStock,
   plateColor,
   posterPad,
@@ -71,6 +82,8 @@ export const AnimatedCounterProps = z.object({
   approximate: z.boolean().default(false),
   /** A second line under the label. Was ArchiveCounter's — the same slot, unnamed. */
   caption: z.string().max(64).optional(),
+  /** Credit line: where the figure comes from. */
+  source: z.string().max(64).optional(),
   position: z.enum(["center", "left", "right"]).default("center"),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
@@ -86,13 +99,14 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
 
   // The two compositions (D70). `centered` is the card; `poster` is the page.
   const poster = composition(theme) === "poster";
+  const page = composition(theme) === "page";
   /**
    * The box is whatever a plate is painted, and its ink is asked against that
    * box rather than assumed — which is what puts black type on the white plate
    * `surface.plate: invert` asks for, and white type on the dark one `page`
    * gives. `emphasis: "accent"` is the opt-in that tints the figure instead.
    */
-  const boxGround = plateColor(theme);
+  const boxGround = chipColor(theme);
   // `emphasis: "accent"` is a REQUEST for the tint, not a guarantee it is
   // legible: an achromatic theme names white as its accent, `plate: invert`
   // paints the box in the ink, and the two meet as a white figure on a white
@@ -122,7 +136,9 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
    * the whole point of that composition.
    */
   const lightInk = paperStock(theme).stock === theme.colors.text;
-  const ground = poster
+  const ground = page
+    ? pageGround(theme)
+    : poster
     ? groundStyle(theme, { radius: 0, legible: true })
     : lightInk
       ? null
@@ -195,9 +211,13 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
         fitText({
           text: settled,
           withinWidth: width - framePad.x * 2,
-          fontFamily: fontStack(theme.typography.body),
+          fontFamily: figureFace(theme).fontFamily,
           fontWeight: typeWeight(theme, 700),
-          validateFontIsLoaded: true,
+          // Not validated: <PackagedFonts> holds the CAPTURE until the faces
+    // decode, but not React's first render, and the Player preview does not
+    // wait at all — so the check threw there ("font is not loaded"). The
+    // measure re-runs every frame; by the first captured frame it is exact.
+    validateFontIsLoaded: false,
         }).fontSize,
         // The scale token moves the HEIGHT budget rather than the fitted size.
         // Multiplying the fit the way HammerStatement does would let `generous`
@@ -208,9 +228,25 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
     // the weight the extra size used to carry, and a 0.16 numeral inside a plate
     // is a slab. The reference sets its box at ~0.13 of the frame and the figure
     // fills it, which is what these two numbers together produce.
-    : height * 0.105 * typeScale(theme, "number");
+    : page
+      ? Math.min(
+          height * 0.2,
+          fitText({
+            text: settled,
+            withinWidth: width * 0.8,
+            fontFamily: figureFace(theme).fontFamily,
+            fontWeight: typeWeight(theme, 700),
+            // Not validated: <PackagedFonts> holds the CAPTURE until the faces
+    // decode, but not React's first render, and the Player preview does not
+    // wait at all — so the check threw there ("font is not loaded"). The
+    // measure re-runs every frame; by the first captured frame it is exact.
+    validateFontIsLoaded: false,
+          }).fontSize,
+        ) * typeScale(theme, "number")
+      : height * 0.105 * typeScale(theme, "number");
   // prefix and suffix keep the ratio they have always had to the figure.
-  const affixSize = poster ? posterNumber * 0.375 : height * 0.06 * typeScale(theme, "kicker");
+  // On a page the affix is part of the figure ("80%"), not a unit beside it.
+  const affixSize = poster ? posterNumber * 0.375 : page ? posterNumber * 0.8 : height * 0.06 * typeScale(theme, "kicker");
 
   const groundIn = interpolate(frame, [0, Math.max(1, inDur)], [0, 1], {
     extrapolateLeft: "clamp",
@@ -223,8 +259,7 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
         display: "flex",
         alignItems: "baseline",
         gap: width * 0.008 * density,
-        fontFamily: fontStack(theme.typography.body),
-        fontVariantNumeric: "tabular-nums",
+        ...figureFace(theme),
         // On a poster the figure is set straight on the page, so it takes the
         // accent when asked for one and the page's ink otherwise. Centred it is
         // standing on the box, and the box decides.
@@ -232,9 +267,9 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
         // lockup when there is not — a poster sets the figure straight on the
         // page, and a redundant box has just been dropped.
         color:
-          poster || boxIsRedundant
+          poster || page || boxIsRedundant || (!poster && !page && figureFrame(theme) === "ring")
             ? props.emphasis === "accent"
-              ? accent
+              ? accentInk(theme, accent, groundPaint ?? surfaceColor(theme))
               : contrastInk(theme, groundPaint ?? surfaceColor(theme))
             : boxInk,
       }}
@@ -251,7 +286,7 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
           // the theme owns how far; the centred figure is small enough that it
           // never had a letterSpacing, and giving it one now would move every
           // existing render for no reason (Principle 7).
-          letterSpacing: poster ? typeTracking(theme, -0.02) : undefined,
+          letterSpacing: poster || page ? typeTracking(theme, -0.02) : undefined,
         }}
       >
         {props.approximate && progress >= 1 ? "~" : ""}
@@ -271,7 +306,32 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
    * Padding is a fraction of the FIGURE, not of the frame, so the box keeps its
    * proportions when `typography.scale` moves the numeral inside it.
    */
-  const box = poster || boxIsRedundant ? (
+  // `surface.figure_frame: ring` (D97): the figure bare inside an accent ring
+  // that sweeps closed as it counts. Sized off the settled lockup so a long
+  // figure gets a wider ring rather than spilling out of it.
+  const ringD = Math.max(posterNumber * 2.3, settled.length * posterNumber * 0.6 + posterNumber * 0.9);
+  const ringStroke = ruleWidth(theme, Math.max(3, height * 0.007));
+  const ringC = Math.PI * (ringD - ringStroke);
+  const ringed = !poster && !page && figureFrame(theme) === "ring";
+  const box = ringed ? (
+    <div style={{ position: "relative", width: ringD, height: ringD, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <svg width={ringD} height={ringD} style={{ position: "absolute", inset: 0 }}>
+        <circle
+          cx={ringD / 2}
+          cy={ringD / 2}
+          r={(ringD - ringStroke) / 2}
+          fill="none"
+          stroke={theme.colors.accent}
+          strokeWidth={ringStroke}
+          strokeDasharray={ringC}
+          strokeDashoffset={ringC * (1 - progress)}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${ringD / 2} ${ringD / 2})`}
+        />
+      </svg>
+      <div style={{ color: props.emphasis === "accent" ? accent : theme.colors.text }}>{figure}</div>
+    </div>
+  ) : poster || page || boxIsRedundant ? (
     figure
   ) : (
     <div
@@ -303,7 +363,7 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
   // the same ornament in a different place, and a theme asking for a figure on
   // the page does not want a stripe under it.
   const rule =
-    surfaceStyle(theme, { accentRule: "top" }).accentRule === "none" ? null : (
+    ringed || surfaceStyle(theme, { accentRule: "top" }).accentRule === "none" ? null : (
       <div
         style={{
           marginTop: height * 0.02 * density,
@@ -316,7 +376,11 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
       />
     );
 
-  const labelSize = poster ? posterLabelSize : height * 0.028 * typeScale(theme, "caption");
+  const labelSize = poster
+    ? posterLabelSize
+    : page
+      ? height * 0.036 * typeScale(theme, "body")
+      : height * 0.028 * typeScale(theme, "caption");
   const label = !props.label ? null : (
     <div
       style={{
@@ -325,17 +389,19 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
         // the display face and the title role — the same slot a chart's title
         // occupies, and the stack above it already spaces it.
         marginTop: poster ? 0 : height * 0.018 * density,
-        maxWidth: poster ? "100%" : width * 0.5,
+        maxWidth: poster ? "100%" : page ? width * 0.7 : width * 0.5,
         textAlign,
         fontFamily: fontStack(poster ? theme.typography.display : theme.typography.body),
         fontSize: labelSize,
-        lineHeight: poster ? 1.08 : undefined,
-        fontWeight: poster ? typeWeight(theme, 600) : undefined,
-        letterSpacing: poster ? typeTracking(theme, -0.01) : typeTracking(theme, 0.08),
-        textTransform: poster ? typeCase(theme) : typeCase(theme, "uppercase"),
+        lineHeight: poster ? 1.08 : page ? 1.25 : undefined,
+        fontWeight: poster || page ? typeWeight(theme, 600) : undefined,
+        // A page label is a sentence under the figure, not a legend: no caps,
+        // no caps tracking.
+        letterSpacing: poster ? typeTracking(theme, -0.01) : page ? typeTracking(theme, 0) : typeTracking(theme, 0.08),
+        textTransform: poster || page ? typeCase(theme) : typeCase(theme, "uppercase"),
         color: theme.colors.text,
         overflowWrap: "anywhere",
-        whiteSpace: poster ? undefined : "nowrap",
+        whiteSpace: poster || page ? undefined : "nowrap",
         opacity: interpolate(frame, [labelStart, labelStart + fps * 0.45], [0, poster ? 1 : 0.9], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
@@ -370,6 +436,71 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
       {props.caption}
     </div>
   ) : null;
+
+  const sourceLine = props.source ? (
+    <div
+      style={{
+        fontFamily: fontStack(theme.typography.body),
+        fontSize: height * 0.018 * typeScale(theme, "caption"),
+        color: mutedInk(theme),
+        letterSpacing: typeTracking(theme, 0),
+        textAlign,
+        opacity: interpolate(frame, [labelStart + fps * 0.3, labelStart + fps * 0.8], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        }),
+      }}
+    >
+      {props.source}
+    </div>
+  ) : null;
+
+  if (page) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity,
+          translate: entrance.translate,
+          scale: `${entrance.scale}`,
+          clipPath: entrance.clipPath,
+        }}
+      >
+        {ground ? <div style={{ position: "absolute", inset: 0, ...ground, opacity: groundIn }} /> : null}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: align,
+            padding: `0 ${width * 0.1 * density}px`,
+          }}
+        >
+          {figure}
+          {rule}
+          {label}
+          {caption}
+        </div>
+        {sourceLine ? (
+          <div
+            style={{
+              position: "absolute",
+              left: framePad.x,
+              right: framePad.x,
+              bottom: framePad.y,
+              display: "flex",
+              justifyContent: align,
+            }}
+          >
+            {sourceLine}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   if (poster) {
     return (
@@ -415,6 +546,7 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
             {rule}
           </div>
           {caption}
+          {sourceLine}
         </div>
       </div>
     );
@@ -448,6 +580,7 @@ export function AnimatedCounter({ props, theme }: { props: AnimatedCounterProps;
         {rule}
         {label}
         {caption}
+        {sourceLine ? <div style={{ marginTop: height * 0.012 * density }}>{sourceLine}</div> : null}
       </div>
     </div>
   );

@@ -27,6 +27,10 @@ and a font that arrives late renders the first frames in the fallback face.
 
 ## Licences
 
-All three are SIL Open Font License 1.1:
+All four are SIL Open Font License 1.1:
 Inter (Rasmus Andersson), Playfair Display (Claus Eggers Sørensen),
-Oswald (Vernon Adams et al.).
+Oswald (Vernon Adams et al.), Barlow Condensed (Jeremy Tribby).
+
+Barlow Condensed has no variable file, so it ships as static weights —
+`BarlowCondensed-500.woff2`, `-600`, `-700` — and the packer reads the weight
+out of the name (D98).

@@ -13,6 +13,7 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -204,7 +205,7 @@ export function FramedExhibit({ props, theme }: { props: FramedExhibitProps; the
           <div
             style={{
               marginTop: height * 0.01 * density,
-              fontFamily: fontStack(theme.typography.body),
+              fontFamily: labelFace(theme),
               fontSize: height * 0.02 * typeScale(theme, "caption"),
               letterSpacing: typeTracking(theme, 0.12),
               textTransform: typeCase(theme, "uppercase"),

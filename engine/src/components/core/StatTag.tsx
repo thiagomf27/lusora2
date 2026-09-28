@@ -10,6 +10,8 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
+  accentInk,
   densityScale,
   easingCurve,
   emphasisColor,
@@ -105,7 +107,7 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
             fontWeight: typeWeight(theme, 700),
             fontVariantNumeric: "tabular-nums",
             lineHeight: 1,
-            color: accent,
+            color: accentInk(theme, accent),
           }}
         >
           {shown.toLocaleString("en-US")}
@@ -126,7 +128,7 @@ export function StatTag({ props, theme }: { props: StatTagProps; theme: Theme })
       <div
         style={{
           marginTop: height * 0.008 * density,
-          fontFamily: fontStack(theme.typography.body),
+          fontFamily: labelFace(theme),
           fontSize: height * 0.026 * typeScale(theme, "caption"),
           color: mutedInk(theme),
           letterSpacing: typeTracking(theme, 0.08),

@@ -1,19 +1,21 @@
 {
   "name": "bold-editorial",
   "colors": {
-    "bg": "#0b0b0c",
-    "text": "#fafafa",
-    "accent": "#f5c518",
-    "neutral": "#6e6e73"
+    "bg": "#141518",
+    "text": "#f6f3ec",
+    "accent": "#f6b92b",
+    "neutral": "#74767c"
   },
   "typography": {
     "display": "Inter",
     "body": "Inter",
+    "label": "Barlow Condensed",
     "caption_preset": "boxed",
     "scale": "compact",
-    "weight": "bold",
+    "weight": "regular",
     "case": "as_written",
-    "tracking": "tight"
+    "tracking": "tight",
+    "mark": "chip"
   },
   "motion_feel": "fast_light",
   "grain": "none",
@@ -23,8 +25,13 @@
     "text_plate": "sub",
     "accent_rule": "top",
     "density": "tight",
-    "rule": "heavy",
-    "texture": "none"
+    "rule": "hairline",
+    "texture": "none",
+    "chip": "accent",
+    "figure_frame": "box",
+    "photo_frame": "mat",
+    "title_ground": "chip",
+    "elevation": "raised"
   },
   "layout": {
     "scrim": "soft"
@@ -45,7 +52,8 @@
     "grid": "none",
     "legend": "inline",
     "markers": "none",
-    "stroke": "heavy",
-    "number_format": "compact"
+    "stroke": "normal",
+    "number_format": "plain",
+    "index": "numbered"
   }
 }

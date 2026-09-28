@@ -67,6 +67,7 @@ Fact graphics — need an "anchor" taken from the words in "at":
     decimals (number 0-2)
     approximate (true/false) — prefixes the settled value with '~'
     caption (≤12 words) — a qualifying second line under the figure ('at the 13 September count')
+    source (≤12 words) — credit line: where the figure comes from
     position = center|left|right
 - BarChart [anchor: comparison]
   use: the narration compares three to seven named quantities of the same kind ('Germany 12,000; the Soviets 29,000; the Americans 49,000')
@@ -76,6 +77,7 @@ Fact graphics — need an "anchor" taken from the words in "at":
     unit (≤3 words)
     orientation = vertical|horizontal
     highlight_index (number 0-6) — index of the one bar that takes the accent
+    subtitle (≤6 words) — a quiet line under the title: what the bars measure ('estimates of residents')
     source (≤8 words) — credit line along the bottom
 - ComparisonSplit [anchor: comparison]
   use: the narration sets exactly two quantities of the same kind against each other and the contrast is the point ('eleven ships lost against two')
@@ -88,6 +90,7 @@ Fact graphics — need an "anchor" taken from the words in "at":
   not: several dates in sequence (Timeline); a date that is itself the subject of the beat (AnimatedCounter for a year figure); locating a place (SatelliteLocate)
   props:
     place (≤4 words)
+    caption (≤14 words) — a sentence under the slug: what happened then
     position = top_left|top_right|bottom_left|bottom_right
     variant = stamped|typed
 - HighlightedPassage [anchor: quote]
@@ -95,6 +98,15 @@ Fact graphics — need an "anchor" taken from the words in "at":
   not: a quote presented whole with no phrase singled out (QuoteBlock); paper documents (DocumentCard); pointing at the footage (CalloutArrow)
   props:
     marks ([{phrase ≤6w, style highlight|circle|underline|box|bracket|strike}, …]) — phrases must appear verbatim in `text`; unmatched ones are skipped
+- IconArray [anchor: number]
+  use: a count OUT OF a small whole, where counting the figures is the point — '9 of the 9 skeletons', 'three in ten households', '67%' as 6.7 of 10. Up to twenty icons, `count` of them lit
+  not: a bare figure with no whole behind it (AnimatedCounter); a share of a large or abstract total — a budget, a population in millions (PieChart, or AnimatedCounter with '%'); several quantities compared (BarChart)
+  props:
+    total* (number 2-20) — the whole: how many icons are drawn
+    icon = dot|person|house — what is being counted: `person` for people, `house` for homes, `dot` for anything else
+    label (≤12 words) — what the lit ones share
+    figure (≤4 words) — the line over the label; omit for 'count of total', set it for 'three in ten'
+    source (≤12 words) — credit line
 - NamePlate [anchor: name]
   use: introducing a person by name while the narration continues — role and lifespan optional
   not: a place (SatelliteLocate); a term (DefinitionCard); a section heading (ChapterCard); quoting what the person said (QuoteBlock)
@@ -109,7 +121,7 @@ Fact graphics — need an "anchor" taken from the words in "at":
   props:
     title (≤8 words)
     highlight_index (number 0-5) — index of the one slice the narration is about; it pulls out of the ring and its share fills the hole
-    source (≤8 words) — as above
+    source (≤8 words) — credit line along the bottom
 - PortraitPlates [anchor: name]
   use: presenting one or two people or places as framed pictures — a portrait on a mat with the name set beside it, or a pair of plates side by side under one kicker
   not: one photograph the words are ABOUT, with a sentence of caption under it (FramedExhibit); naming somebody while their footage keeps running, with no picture of your own (NamePlate); treating the running shot itself as archival (ArchivalFrame)
@@ -127,18 +139,20 @@ Fact graphics — need an "anchor" taken from the words in "at":
     size = standard|large
     align = left|center
 - RankLabel [anchor: number]
-  use: a countdown or ranked list, marking which entry this is ('#3 of 20')
-  not: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)
+  use: a countdown or ranked list, marking which entry this is ('#3 of 20'). With `image` it is the item's title card: the number and name beside a photo of the item
+  not: any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart, or FactSheet with `numbered`); ordered stages of a process (StepFlow); a section break that is not a ranked entry (ChapterCard)
   props:
     title* (≤7 words)
     subtitle (≤6 words)
     total (number ≥1) — renders 'of N'
+    prefix (≤1 word) — set small over the numeral, in the video's language: 'Nº', '#'; only drawn with `image`
+    tag (≤3 words) — a short label pinned to the photo's corner; only drawn with `image`
 - RouteMap [anchor: place]
-  use: a journey or advance between two to six named places, drawn stop by stop
+  use: a journey or advance between two to six named places, drawn stop by stop. `mode: none` marks the places alone, with no line — a set of related sites rather than a route
   not: one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know
   props:
     title (≤6 words)
-    mode = march|flight|sea
+    mode = march|flight|sea|none
 - SatelliteLocate [anchor: place]
   use: the narration names a specific place and the viewer needs to know where it is — a crosshair lands on the coordinate
   not: a territory's extent (RegionHighlight); a route between places (RouteMap); places mentioned in passing that need no locating; a place already established in the same section
@@ -165,21 +179,24 @@ Emphasis graphics — no anchor; "props_hint" carries the text:
     flicker (true/false)
     sprocket (true/false)
 - BulletList
-  use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence
-  not: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)
+  use: the narration enumerates two to five short parallel claims, reasons or consequences in sequence. `marker: check` makes it a checklist; `image` sets a photo of the subject beside it
+  not: stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement); two pictures judged against each other (PhotoRow)
   props:
     title (≤8 words)
     items* ([≤15w, …])
-    marker = dot|rule|number|none
+    marker = dot|rule|number|check|none
     align = left|center
+    footnote (≤14 words) — a quiet qualifying line under the list ('rules vary by city')
 - CalloutArrow
-  use: pointing at something already visible in the footage and naming it ('this is the breach in the hull')
+  use: pointing at something already visible in the footage and naming it ('this is the breach in the hull'). `style: pin` hangs the label from a pin on the thing instead of drawing an arrow. `callouts` names two to four things in the same shot, each with its own mark (ring, box, dot, arrow, pin)
   not: the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)
   props:
-    text* (≤10 words)
+    text (≤10 words) — the single label; required unless `callouts` is given
+    detail (≤8 words) — a quieter second line under the label
+    callouts ([{text ≤5w, detail ≤6w, target top_left|top_center|top_right|center_left|center|center_right|bottom_left|bottom_center|bottom_right, point {x number 0-1, y number 0-1}, mark arrow|circle|box|dot|pin, size small|medium|large, from left|right|above|below}, …]) — several labels on one shot, INSTEAD of `text`. `target` is the ninth of the frame; `point` ({x, y} fractions) is set in the editor for an exact spot and wins
     target = top_left|top_center|top_right|center_left|center|center_right|bottom_left|bottom_center|bottom_right — which ninth of the frame the arrow points at
     from = left|right|above|below
-    style = curved|straight|elbow
+    style = curved|straight|elbow|pin — `pin` draws no arrow: a tag hangs from a pin at the target, and `from` is ignored
 - ChapterCard
   use: a full-screen act break between sections of the video — numbered chapter, title, optional subtitle
   not: the opening title of the video or a stylised statement (KineticTitle); a heading that should not stop the narration; a person's name (NamePlate)
@@ -255,10 +272,11 @@ Emphasis graphics — no anchor; "props_hint" carries the text:
   not: a mid-video section break (ChapterCard); a claim being argued (HammerStatement); a name (NamePlate)
   props:
     text* (≤11 words)
+    kicker (≤4 words) — a short eyebrow over the title: the series or section ('CASA POR DENTRO')
     unit = word|char
     entrance = rise|mask|scale
     align = left|center
-    emphasize_last (true/false)
+    emphasize (≤4 words) — the word or phrase that takes the emphasis colour, verbatim from `text` — any word, not only the last
 - LineChart
   use: a quantity changing across an ordered sequence — production by year, losses by month — for up to three series
   not: values at one moment (BarChart); a single figure (AnimatedCounter); events rather than measurements (Timeline)
@@ -268,6 +286,12 @@ Emphasis graphics — no anchor; "props_hint" carries the text:
     y_label (≤3 words)
     x_label (≤3 words)
     source (≤8 words) — credit line along the bottom
+- PhotoRow
+  use: two to four PICTURES side by side and seeing them together is the point — the wrong way and the right way (`verdict`), before and after, three sites that share one idea — each with a short caption
+  not: two numbers (ComparisonSplit); one or two people presented by name (PortraitPlates); one photograph with a sentence of caption (FramedExhibit); a qualitative comparison with no pictures (FactSheet)
+  props:
+    photos* ([{caption ≤5w, verdict right|wrong}, …]) — in reading order, left to right
+    title (≤8 words)
 - RegionHighlight
   use: a territory whose EXTENT matters — occupied ground, an empire, a front — outlined and filled on a map
   not: a single point on the map (SatelliteLocate); a journey between points (RouteMap); a place mentioned in passing. Requires a border polygon supplied by hand — nothing derives one, so this is placed in the editor, never chosen by the planner
@@ -285,6 +309,7 @@ Emphasis graphics — no anchor; "props_hint" carries the text:
     steps* ([{label ≤4w, detail ≤9w}, …])
     direction = horizontal|vertical
     numbered (true/false)
+    highlight_index (number 0-4) — index of the one step the narration is about; the rest go quiet around it
 - Timeline
   use: two to six dated events strung in order, where the dates themselves matter — a campaign, an escalation
   not: one date (DateStamp); stages with no dates (StepFlow); measurements over time (LineChart); unordered claims (BulletList)
@@ -315,7 +340,7 @@ OUTPUT — exactly this, JSON between the markers, nothing before or after:
   ],
   "pins": [
     {"at": "<phrase>",
-     "overlay": {"component": "CalloutArrow", "props_hint": {…}},
+     "overlay": {"component": "HammerStatement", "props_hint": {…}},
      "visual_intent": "<optional: scout description of the key shot>",
      "queries": ["<optional: 2-4 word search>", "<2-4 words>"]},
     {"at": "<phrase with the fact>",

@@ -16,6 +16,7 @@ import { z } from "zod";
 import { Easing, Img, interpolate, random, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
   contrastInk,
   densityScale,
   emphasisColor,
@@ -145,7 +146,7 @@ export function PortraitPlates({ props, theme }: { props: PortraitPlatesProps; t
             // is tan type on the backdrop, as in a designed full-frame scene.
             background: bare ? "transparent" : accent,
             padding: bare ? 0 : `${height * 0.009}px ${width * 0.014}px`,
-            fontFamily: fontStack(theme.typography.body),
+            fontFamily: labelFace(theme),
             fontSize: height * 0.019 * typeScale(theme, "kicker"),
             fontWeight: typeWeight(theme, 500),
             letterSpacing: typeTracking(theme, 0.2),
@@ -268,7 +269,7 @@ export function PortraitPlates({ props, theme }: { props: PortraitPlatesProps; t
                     style={{
                       position: "relative",
                       padding: bare ? 0 : `${height * 0.008}px ${width * 0.018}px ${height * 0.009}px`,
-                      fontFamily: fontStack(theme.typography.body),
+                      fontFamily: labelFace(theme),
                       fontSize: subSize,
                       fontWeight: bare ? 400 : 600,
                       letterSpacing: typeTracking(theme, 0.14),

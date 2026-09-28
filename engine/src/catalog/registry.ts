@@ -39,6 +39,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       decimals: { type: "number", min: 0, max: 2, default: 0 },
       approximate: { type: "boolean", default: false, description: "prefixes the settled value with '~'" },
       caption: { type: "string", maxWords: 12, description: "a qualifying second line under the figure ('at the 13 September count')" },
+      source: { type: "string", maxWords: 12, description: "credit line: where the figure comes from" },
       position: { enum: ["center", "left", "right"], default: "center" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
@@ -100,6 +101,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       unit: { type: "string", maxWords: 3 },
       orientation: { enum: ["vertical", "horizontal"], default: "vertical" },
       highlight_index: { type: "number", min: 0, max: 6, description: "index of the one bar that takes the accent" },
+      subtitle: { type: "string", maxWords: 6, description: "a quiet line under the title: what the bars measure ('estimates of residents')" },
       source: { type: "string", maxWords: 8, description: "credit line along the bottom" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
@@ -112,9 +114,9 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     name: "BulletList",
     pack: "core",
     when_to_use:
-      "the narration enumerates two to five short parallel claims, reasons or consequences in sequence",
+      "the narration enumerates two to five short parallel claims, reasons or consequences in sequence. `marker: check` makes it a checklist; `image` sets a photo of the subject beside it",
     when_not_to_use:
-      "stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement)",
+      "stages of a process that happen in order (StepFlow); dated events (Timeline); label/value facts about one subject (FactSheet); a single claim (HammerStatement); two pictures judged against each other (PhotoRow)",
     anchor_types: [],
     props: {
       title: { type: "string", maxWords: 8 },
@@ -125,8 +127,14 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
         max: 5,
         items: { type: "string", maxWords: 15 },
       },
-      marker: { enum: ["dot", "rule", "number", "none"], default: "rule" },
+      marker: { enum: ["dot", "rule", "number", "check", "none"], default: "rule" },
       align: { enum: ["left", "center"], default: "left" },
+      image: {
+        type: "string",
+        description:
+          "path to a still or clip under the video dir; leave unset unless a real file exists — a placeholder stands in when absent",
+      },
+      footnote: { type: "string", maxWords: 14, description: "a quiet qualifying line under the list ('rules vary by city')" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     region: { y_min: 0.1, y_max: 0.86 },
@@ -138,12 +146,36 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     name: "CalloutArrow",
     pack: "core",
     when_to_use:
-      "pointing at something already visible in the footage and naming it ('this is the breach in the hull')",
+      "pointing at something already visible in the footage and naming it ('this is the breach in the hull'). `style: pin` hangs the label from a pin on the thing instead of drawing an arrow. `callouts` names two to four things in the same shot, each with its own mark (ring, box, dot, arrow, pin)",
     when_not_to_use:
       "the shot has nothing specific to point at — use a card instead (FactCard); locating a place on a map (SatelliteLocate); marking words in quoted text (HighlightedPassage)",
     anchor_types: [],
     props: {
-      text: { type: "string", maxWords: 10, required: true },
+      text: { type: "string", maxWords: 10, description: "the single label; required unless `callouts` is given" },
+      detail: { type: "string", maxWords: 8, description: "a quieter second line under the label" },
+      callouts: {
+        type: "array",
+        min: 1,
+        max: 4,
+        description: "several labels on one shot, INSTEAD of `text`. `target` is the ninth of the frame; `point` ({x, y} fractions) is set in the editor for an exact spot and wins",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string", maxWords: 5 },
+            detail: { type: "string", maxWords: 6 },
+            target: {
+              enum: ["top_left", "top_center", "top_right", "center_left", "center", "center_right", "bottom_left", "bottom_center", "bottom_right"],
+            },
+            point: {
+              type: "object",
+              properties: { x: { type: "number", min: 0, max: 1 }, y: { type: "number", min: 0, max: 1 } },
+            },
+            mark: { enum: ["arrow", "circle", "box", "dot", "pin"], description: "how the thing is marked: a ring round it, a box on it, a dot, an arrow at it, a pin in it" },
+            size: { enum: ["small", "medium", "large"], description: "how big the ring or box is" },
+            from: { enum: ["left", "right", "above", "below"], description: "where the label sits relative to the mark; omitted picks the open side" },
+          },
+        },
+      },
       target: {
         enum: [
           "top_left",
@@ -160,7 +192,11 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
         description: "which ninth of the frame the arrow points at",
       },
       from: { enum: ["left", "right", "above", "below"], default: "left" },
-      style: { enum: ["curved", "straight", "elbow"], default: "curved" },
+      style: {
+        enum: ["curved", "straight", "elbow", "pin"],
+        default: "curved",
+        description: "`pin` draws no arrow: a tag hangs from a pin at the target, and `from` is ignored",
+      },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     region: { y_min: 0.0, y_max: 0.94 },
@@ -286,6 +322,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
         description: "pre-formatted for the language of the video, e.g. '31 January 1943'",
       },
       place: { type: "string", maxWords: 4 },
+      caption: { type: "string", maxWords: 14, description: "a sentence under the slug: what happened then" },
       position: { enum: ["top_left", "top_right", "bottom_left", "bottom_right"], default: "top_left" },
       variant: { enum: ["stamped", "typed"], default: "typed" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
@@ -483,6 +520,36 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     renderer: "remotion",
   },
   {
+    name: "IconArray",
+    pack: "core",
+    when_to_use:
+      "a count OUT OF a small whole, where counting the figures is the point — '9 of the 9 skeletons', 'three in ten households', '67%' as 6.7 of 10. Up to twenty icons, `count` of them lit",
+    when_not_to_use:
+      "a bare figure with no whole behind it (AnimatedCounter); a share of a large or abstract total — a budget, a population in millions (PieChart, or AnimatedCounter with '%'); several quantities compared (BarChart)",
+    anchor_types: ["number"],
+    props: {
+      count: {
+        type: "number",
+        required: true,
+        from_anchor: "value",
+        min: 0,
+        max: 20,
+        description: "how many are lit; may be fractional — 6.7 of 10 for 67%, the last icon fills that far",
+      },
+      total: { type: "number", required: true, min: 2, max: 20, description: "the whole: how many icons are drawn" },
+      icon: { enum: ["dot", "person", "house"], default: "dot", description: "what is being counted: `person` for people, `house` for homes, `dot` for anything else" },
+      label: { type: "string", maxWords: 12, description: "what the lit ones share" },
+      figure: { type: "string", maxWords: 4, description: "the line over the label; omit for 'count of total', set it for 'three in ten'" },
+      source: { type: "string", maxWords: 12, description: "credit line" },
+      emphasis: { enum: ["accent", "neutral"], default: "accent" },
+    },
+    region: { y_min: 0.12, y_max: 0.88 },
+    duration_hint_s: { min: 3.5, default: 5 },
+    entrance_seconds: 0.4,
+    entrance_support: "panel",
+    renderer: "remotion",
+  },
+  {
     name: "KineticTitle",
     pack: "core",
     when_to_use:
@@ -492,10 +559,15 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     anchor_types: [],
     props: {
       text: { type: "string", maxWords: 11, required: true },
+      kicker: { type: "string", maxWords: 4, description: "a short eyebrow over the title: the series or section ('CASA POR DENTRO')" },
       unit: { enum: ["word", "char"], default: "word" },
       entrance: { enum: ["rise", "mask", "scale"], default: "mask" },
       align: { enum: ["left", "center"], default: "center" },
-      emphasize_last: { type: "boolean", default: false },
+      emphasize: {
+        type: "string",
+        maxWords: 4,
+        description: "the word or phrase that takes the emphasis colour, verbatim from `text` — any word, not only the last",
+      },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     region: { y_min: 0.1, y_max: 0.86 },
@@ -646,6 +718,43 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     renderer: "remotion",
   },
   {
+    name: "PhotoRow",
+    pack: "core",
+    when_to_use:
+      "two to four PICTURES side by side and seeing them together is the point — the wrong way and the right way (`verdict`), before and after, three sites that share one idea — each with a short caption",
+    when_not_to_use:
+      "two numbers (ComparisonSplit); one or two people presented by name (PortraitPlates); one photograph with a sentence of caption (FramedExhibit); a qualitative comparison with no pictures (FactSheet)",
+    anchor_types: [],
+    props: {
+      photos: {
+        type: "array",
+        required: true,
+        min: 2,
+        max: 4,
+        description: "in reading order, left to right",
+        items: {
+          type: "object",
+          properties: {
+            image: {
+              type: "string",
+              description:
+                "path to a still or clip under the video dir; leave unset unless a real file exists — a placeholder stands in when absent",
+            },
+            caption: { type: "string", maxWords: 5 },
+            verdict: { enum: ["right", "wrong"], description: "a ✓ or ✗ on the card; omit for a neutral row" },
+          },
+        },
+      },
+      title: { type: "string", maxWords: 8 },
+      emphasis: { enum: ["accent", "neutral"], default: "neutral" },
+    },
+    region: { y_min: 0.08, y_max: 0.92 },
+    duration_hint_s: { min: 3.5, default: 5.5 },
+    entrance_seconds: 0.45,
+    entrance_support: "panel",
+    renderer: "remotion",
+  },
+  {
     name: "QuoteBlock",
     pack: "core",
     when_to_use:
@@ -672,15 +781,22 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     name: "RankLabel",
     pack: "core",
     when_to_use:
-      "a countdown or ranked list, marking which entry this is ('#3 of 20')",
+      "a countdown or ranked list, marking which entry this is ('#3 of 20'). With `image` it is the item's title card: the number and name beside a photo of the item",
     when_not_to_use:
-      "any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart); ordered stages of a process (StepFlow)",
+      "any number that is not a position in a ranking (AnimatedCounter); the ranked items shown together (BarChart, or FactSheet with `numbered`); ordered stages of a process (StepFlow); a section break that is not a ranked entry (ChapterCard)",
     anchor_types: ["number"],
     props: {
       rank: { type: "number", min: 1, max: 999, required: true, from_anchor: "value" },
       title: { type: "string", maxWords: 7, required: true },
       subtitle: { type: "string", maxWords: 6 },
       total: { type: "number", min: 1, description: "renders 'of N'" },
+      prefix: { type: "string", maxWords: 1, description: "set small over the numeral, in the video's language: 'Nº', '#'; only drawn with `image`" },
+      image: {
+        type: "string",
+        description:
+          "path to a still or clip under the video dir; leave unset unless a real file exists — a placeholder stands in when absent",
+      },
+      tag: { type: "string", maxWords: 3, description: "a short label pinned to the photo's corner; only drawn with `image`" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     region: { y_min: 0.1, y_max: 0.86 },
@@ -760,7 +876,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
     name: "RouteMap",
     pack: "core",
     when_to_use:
-      "a journey or advance between two to six named places, drawn stop by stop",
+      "a journey or advance between two to six named places, drawn stop by stop. `mode: none` marks the places alone, with no line — a set of related sites rather than a route",
     when_not_to_use:
       "one place (SatelliteLocate); an area rather than a path (RegionHighlight); a sequence of events with no geography (Timeline); places the gazetteer does not know",
     anchor_types: ["place"],
@@ -783,7 +899,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
           },
         },
       },
-      mode: { enum: ["march", "flight", "sea"], default: "march" },
+      mode: { enum: ["march", "flight", "sea", "none"], default: "march" },
       plate: {
         type: "object",
         description: "equirectangular map image and its bbox; omitted draws a schematic plate",
@@ -884,6 +1000,7 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
       },
       direction: { enum: ["horizontal", "vertical"], default: "horizontal" },
       numbered: { type: "boolean", default: true },
+      highlight_index: { type: "number", min: 0, max: 4, description: "index of the one step the narration is about; the rest go quiet around it" },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     region: { y_min: 0.1, y_max: 0.86 },

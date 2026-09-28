@@ -25,8 +25,17 @@ const out = join(engineRoot, "src/themes/fonts.generated.ts");
  */
 const familyOf = (file) =>
   basename(file, ".woff2")
+    .replace(/-\d{3}$/, "")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .trim();
+
+/**
+ * A family Google ships only as STATIC files (Barlow Condensed, D97) is one
+ * file per weight, named `<Family>-<weight>.woff2`; the weight in the name is
+ * that face's whole range. A variable family is one file and its range comes
+ * from WEIGHT_RANGE.
+ */
+const staticWeight = (file) => /-(\d{3})\.woff2$/.exec(file)?.[1];
 
 /**
  * The weight axis each variable file actually carries. A `font-weight` range
@@ -49,7 +58,7 @@ if (files.length === 0) {
 
 const faces = files.map((file) => {
   const family = familyOf(file);
-  const range = WEIGHT_RANGE[family];
+  const range = staticWeight(file) ?? WEIGHT_RANGE[family];
   if (!range) {
     console.error(`no weight range declared for "${family}" — add one to pack-fonts.mjs`);
     process.exit(1);
@@ -78,7 +87,7 @@ const body = `/**
 
 /** Families this bundle actually carries, in the order they are declared. */
 export const PACKAGED_FAMILIES = [
-${faces.map((f) => `  ${JSON.stringify(f.family)},`).join("\n")}
+${[...new Set(faces.map((f) => f.family))].map((f) => `  ${JSON.stringify(f)},`).join("\n")}
 ] as const;
 
 export const FONT_FACE_CSS = ${JSON.stringify(css)};
@@ -86,7 +95,7 @@ export const FONT_FACE_CSS = ${JSON.stringify(css)};
 
 writeFileSync(out, body);
 console.log(
-  `packed ${faces.length} families (${faces.map((f) => f.family).join(", ")}) -> ${(
+  `packed ${faces.length} faces (${[...new Set(faces.map((f) => f.family))].join(", ")}) -> ${(
     body.length / 1024
   ).toFixed(0)} KB`
 );

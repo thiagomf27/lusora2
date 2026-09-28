@@ -28,6 +28,8 @@ export const StepFlowProps = z.object({
   steps: z.array(z.object({ label: z.string().max(28), detail: z.string().max(60).optional() })).min(2).max(5),
   direction: z.enum(["horizontal", "vertical"]).default("horizontal"),
   numbered: z.boolean().default(true),
+  /** The one step the narration is about (D97): its box takes an accent border, the rest go quiet. */
+  highlight_index: z.number().int().min(0).max(4).optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type StepFlowProps = z.infer<typeof StepFlowProps>;
@@ -139,6 +141,9 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
             easing: Easing.bezier(0.45, 0, 0.55, 1),
           });
 
+          const lit = props.highlight_index === i;
+          const quiet = props.highlight_index !== undefined && !lit;
+
           return (
             <div
               key={i}
@@ -201,12 +206,14 @@ export function StepFlow({ props, theme }: { props: StepFlowProps; theme: Theme 
                 style={{
                   width: boxW,
                   ...(ground ?? {}),
-                  border: `${ruleWidth(theme, 1)}px solid ${theme.colors.neutral}66`,
+                  border: lit
+                    ? `${ruleWidth(theme, Math.max(2, height * 0.003))}px solid ${accent}`
+                    : `${ruleWidth(theme, 1)}px solid ${theme.colors.neutral}66`,
                   padding: `${height * 0.022 * density}px ${width * 0.014 * density}px`,
                   display: "flex",
                   flexDirection: "column",
                   gap: height * 0.008 * density,
-                  opacity: enter,
+                  opacity: enter * (quiet ? 0.7 : 1),
                   scale: `${interpolate(enter, [0, 1], [0.94, 1])}`,
                 }}
               >

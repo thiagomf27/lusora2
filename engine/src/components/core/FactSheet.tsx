@@ -9,6 +9,8 @@ import { z } from "zod";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Theme } from "../theme.ts";
 import {
+  labelFace,
+  accentInk,
   borderSides,
   densityScale,
   easingCurve,
@@ -160,7 +162,7 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
                       fontSize: height * 0.03 * typeScale(theme, "number"),
                       fontWeight: typeWeight(theme, lit ? 700 : 400),
                       fontVariantNumeric: "tabular-nums",
-                      color: lit ? accent : mutedInk(theme),
+                      color: lit ? accentInk(theme, accent) : mutedInk(theme),
                     }}
                   >
                     {i + 1}
@@ -170,7 +172,7 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
                   style={{
                     flexShrink: 0,
                     maxWidth: "42%",
-                    fontFamily: fontStack(theme.typography.body),
+                    fontFamily: labelFace(theme),
                     fontSize: height * 0.024 * typeScale(theme, "caption"),
                     letterSpacing: typeTracking(theme, 0.1),
                     textTransform: typeCase(theme, "uppercase"),
@@ -188,7 +190,7 @@ export function FactSheet({ props, theme }: { props: FactSheetProps; theme: Them
                     fontSize: height * 0.03 * typeScale(theme, "body"),
                     fontVariantNumeric: "tabular-nums",
                     fontWeight: typeWeight(theme, lit && props.highlight_index !== undefined ? 700 : 400),
-                    color: lit && props.highlight_index !== undefined ? accent : theme.colors.text,
+                    color: lit && props.highlight_index !== undefined ? accentInk(theme, accent) : theme.colors.text,
                     textAlign: "right",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
