@@ -194,14 +194,16 @@ Each slice ends the same way: re-render Centralia on `documentary`, write the
 viewing notes in the comparison folder's `runs/`, add a decision entry, and
 update `00-status.md`.
 
-### Slice 0: benchmark and skeleton (S)
+### Slice 0: benchmark and skeleton (S) ✅ BUILT (`e32fd02`)
 `evals/benchmarks/centralia/` holds `script.txt`, a README pointing at the DP
 render and at run 01, and a viewing-notes template. `documentary.yaml` = the v3
 stage list, `stability: test`. CI's manifest checks and `test_pipelines.py` cover it.
 
-### Slice 1: overlay sounds (S)
-- `theme.sound.per_component` maps every catalog component, not only `Text*`; a
-  cue can carry an offset so it lands on the motion, not the entrance.
+### Slice 1: overlay sounds (S) ✅ BUILT (D101)
+- `theme.sound.per_component` maps every catalog component, not only `Text*`.
+  As built: no new offset field was needed; each cue's `lead_s` comes from its
+  recipe's peak. Run 01's silence was also config: channel `sfx` off and
+  doc-slow `sfx.enabled: false`, so the benchmark enables both (see D101).
 - A generated `synth-doc` sound pack (whoosh, swish, pop, tick, thud, hit,
   riser, typewriter, page...) built by `build.mjs` from a port of `sfx_lib.py`, licence `own`.
 - Fixes the `/sounds` upload forcing beds to mono (`soundPacks.ts:119`).

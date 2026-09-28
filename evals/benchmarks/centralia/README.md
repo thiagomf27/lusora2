@@ -31,11 +31,15 @@ and the voice is the same in every render:
 
 ```bash
 pnpm bench:fork --from vid_ebe08ffcb529 --pipeline documentary \
-  --overrides '{"look":{"exclude":{"components":[]}},"output":{"width":1920,"height":1080}}'
+  --overrides '{"look":{"exclude":{"components":[]}},"output":{"width":1920,"height":1080},"theme":"documentary-dark","style_pack":"documentary","source_policy":{"sfx":{"enabled":true}}}'
 ```
 
-The overrides are the ones the baseline was enqueued with: `AMHIST_EN_01`
-normally excludes 29 components, and outputs at 720p. `bench:fork` enqueues
+The first two overrides are the ones the baseline was enqueued with:
+`AMHIST_EN_01` normally excludes 29 components and outputs at 720p. From
+slice 1 on, the render also uses the preset: the `documentary-dark` theme and
+the `documentary` style pack, with the channel's sfx switch turned on (it is
+off on `AMHIST_EN_01`). `documentary-dark` has default-editorial's look, so
+the picture only changes where a slice changes it. `bench:fork` enqueues
 with a fresh snapshot, so the current themes, packs and prompts are used. For
 an A/B that must move exactly one variable, use `ab:fork` instead.
 

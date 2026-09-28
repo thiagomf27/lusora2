@@ -114,9 +114,13 @@ export function normalizeAudio(file: string, kind: "cue" | "bed"): boolean {
     if (peak === null) return false;
     filter = `volume=${(CUE_PEAK_DBFS - peak).toFixed(2)}dB`;
   }
+  // Cues are mono like every shipped cue (a transient has no stereo image worth
+  // keeping). A bed keeps its channels: an uploaded music track folded to mono
+  // loses its width for nothing.
+  const channels = kind === "cue" ? ["-ac", "1"] : [];
   const proc = spawnSync(
     "ffmpeg",
-    ["-y", "-hide_banner", "-loglevel", "error", "-i", file, "-af", filter, "-ac", "1", tmp],
+    ["-y", "-hide_banner", "-loglevel", "error", "-i", file, "-af", filter, ...channels, tmp],
     { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }
   );
   if (proc.status !== 0 || !existsSync(tmp)) return false;

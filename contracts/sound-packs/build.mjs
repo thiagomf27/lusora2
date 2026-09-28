@@ -16,9 +16,11 @@
  * Usage: node contracts/sound-packs/build.mjs [pack-name ...]
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { RECIPES, render as renderSynth, wavBytes } from "./synth.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -134,6 +136,41 @@ const PACKS = {
       "tick-typing": { kind: "loop", gain: 0.6, fade_out_s: 0.08, recorded: true },
     },
   },
+
+  // D100 slice 1 — every cue is a formula in synth.mjs, so the whole pack is
+  // ours (`own`) and a rebuild is byte-identical. The vocabulary is one sound
+  // per KIND of motion, which is what made Dark Palace's overlays land. lead_s
+  // comes from each recipe's peak unless set here; priority decides which of
+  // two colliding cues survives the min-gap rule (higher wins).
+  "synth-doc": {
+    license: "own",
+    attribution: "Procedurally synthesized by contracts/sound-packs/synth.mjs (cues) and build.mjs (beds)",
+    bedFilter: "lowpass=f=1600,highpass=f=55",
+    bedOptions: { detune: 0.7, bright: false },
+    bedGain: 0.9,
+    cues: {
+      whoosh: { kind: "one_shot", priority: 7, synth: true },
+      swish: { kind: "one_shot", priority: 3, synth: true },
+      slide: { kind: "one_shot", priority: 6, synth: true },
+      pop: { kind: "one_shot", priority: 5, synth: true },
+      tick: { kind: "one_shot", priority: 5, synth: true },
+      blip: { kind: "one_shot", priority: 3, synth: true },
+      thud: { kind: "one_shot", priority: 9, synth: true },
+      hit: { kind: "one_shot", priority: 10, synth: true },
+      riser: { kind: "one_shot", priority: 8, synth: true },
+      rise: { kind: "one_shot", priority: 2, synth: true },
+      marker: { kind: "one_shot", priority: 4, synth: true },
+      pen: { kind: "one_shot", priority: 1, synth: true },
+      zip: { kind: "one_shot", priority: 6, synth: true },
+      count: { kind: "one_shot", priority: 8, gain: 0.8, synth: true },
+      type: { kind: "loop", gain: 0.6, fade_out_s: 0.08, priority: 4, synth: true },
+      page: { kind: "one_shot", priority: 5, synth: true },
+      tear: { kind: "one_shot", priority: 7, synth: true },
+      bell: { kind: "one_shot", priority: 7, gain: 0.8, synth: true },
+      chime: { kind: "one_shot", priority: 5, gain: 0.8, synth: true },
+      static: { kind: "one_shot", priority: 2, gain: 0.7, synth: true },
+    },
+  },
 };
 
 // ---------- generation ----------
@@ -150,11 +187,11 @@ function probeDuration(path) {
   return Number(String(out).trim());
 }
 
-/** Peak of a source, in dBFS. */
-function probePeak(input) {
+/** Peak of a source, in dBFS. `input` is a lavfi graph, or a file path when `isFile`. */
+function probePeak(input, isFile = false) {
   const proc = spawnSync(
     "ffmpeg",
-    ["-hide_banner", "-f", "lavfi", "-i", input, "-af", "volumedetect", "-f", "null", "-"],
+    ["-hide_banner", ...(isFile ? [] : ["-f", "lavfi"]), "-i", input, "-af", "volumedetect", "-f", "null", "-"],
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
   );
   const m = /max_volume:\s*(-?[\d.]+) dB/.exec(proc.stderr);
@@ -191,6 +228,7 @@ function renderCue(packDir, name, spec) {
     }
     return { rel, duration_s: Number(probeDuration(out).toFixed(3)) };
   }
+  if (spec.synth) return renderSynthCue(packDir, name, rel, out);
   const source = `aevalsrc='${spec.expr}':s=${SR}:d=${spec.seconds}`;
   // measure the shaped signal, then apply the one gain that lands the peak
   const measured = probePeak(spec.filter ? `${source},${spec.filter}` : source);
@@ -203,6 +241,20 @@ function renderCue(packDir, name, spec) {
     "-c:a", "libmp3lame", "-q:a", "4",
     out,
   ]);
+  return { rel, duration_s: Number(probeDuration(out).toFixed(3)) };
+}
+
+/** A synth.mjs recipe → WAV → the same -6 dBFS peak every generated cue gets → mp3. */
+function renderSynthCue(packDir, name, rel, out) {
+  const scratch = mkdtempSync(join(tmpdir(), "synth-"));
+  try {
+    const wav = join(scratch, `${name}.wav`);
+    writeFileSync(wav, wavBytes(renderSynth(name)));
+    const trim = (CUE_PEAK_DBFS - probePeak(wav, true)).toFixed(2);
+    ffmpeg(["-i", wav, "-af", `volume=${trim}dB`, "-ac", "1", "-c:a", "libmp3lame", "-q:a", "4", out]);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
   return { rel, duration_s: Number(probeDuration(out).toFixed(3)) };
 }
 
@@ -227,6 +279,12 @@ function renderBed(packDir, mood, pack) {
   return { rel, duration_s: Number(probeDuration(out).toFixed(3)) };
 }
 
+/** A synth cue's lead is its recipe's peak — the instant that should land on the visual. */
+function leadFor(name, spec) {
+  if (spec.lead_s !== undefined) return spec.lead_s;
+  return spec.synth ? Number((RECIPES[name]?.peak ?? 0).toFixed(3)) : 0;
+}
+
 const wanted = process.argv.slice(2);
 const names = wanted.length ? wanted : Object.keys(PACKS);
 
@@ -246,7 +304,7 @@ for (const name of names) {
       file: rel,
       kind: spec.kind,
       duration_s,
-      ...(spec.lead_s ? { lead_s: spec.lead_s } : {}),
+      ...(leadFor(cueName, spec) ? { lead_s: leadFor(cueName, spec) } : {}),
       ...(spec.gain ? { gain: spec.gain } : {}),
       ...(spec.priority ? { priority: spec.priority } : {}),
       ...(spec.fade_out_s ? { fade_out_s: spec.fade_out_s } : {}),

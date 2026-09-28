@@ -1,0 +1,202 @@
+{
+  "name": "synth-doc",
+  "license": "own",
+  "attribution": "Procedurally synthesized by contracts/sound-packs/synth.mjs (cues) and build.mjs (beds)",
+  "cues": {
+    "whoosh": {
+      "file": "sfx/whoosh.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.653,
+      "lead_s": 0.34,
+      "priority": 7
+    },
+    "swish": {
+      "file": "sfx/swish.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.366,
+      "lead_s": 0.14,
+      "priority": 3
+    },
+    "slide": {
+      "file": "sfx/slide.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.549,
+      "lead_s": 0.2,
+      "priority": 6
+    },
+    "pop": {
+      "file": "sfx/pop.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.209,
+      "lead_s": 0.004,
+      "priority": 5
+    },
+    "tick": {
+      "file": "sfx/tick.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.131,
+      "lead_s": 0.002,
+      "priority": 5
+    },
+    "blip": {
+      "file": "sfx/blip.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.209,
+      "lead_s": 0.004,
+      "priority": 3
+    },
+    "thud": {
+      "file": "sfx/thud.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.549,
+      "lead_s": 0.004,
+      "priority": 9
+    },
+    "hit": {
+      "file": "sfx/hit.mp3",
+      "kind": "one_shot",
+      "duration_s": 1.228,
+      "lead_s": 0.004,
+      "priority": 10
+    },
+    "riser": {
+      "file": "sfx/riser.mp3",
+      "kind": "one_shot",
+      "duration_s": 1.829,
+      "lead_s": 1.76,
+      "priority": 8
+    },
+    "rise": {
+      "file": "sfx/rise.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.653,
+      "lead_s": 0.58,
+      "priority": 2
+    },
+    "marker": {
+      "file": "sfx/marker.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.392,
+      "lead_s": 0.03,
+      "priority": 4
+    },
+    "pen": {
+      "file": "sfx/pen.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.549,
+      "lead_s": 0.03,
+      "priority": 1
+    },
+    "zip": {
+      "file": "sfx/zip.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.392,
+      "lead_s": 0.25,
+      "priority": 6
+    },
+    "count": {
+      "file": "sfx/count.mp3",
+      "kind": "one_shot",
+      "duration_s": 1.646,
+      "lead_s": 0.004,
+      "gain": 0.8,
+      "priority": 8
+    },
+    "type": {
+      "file": "sfx/type.mp3",
+      "kind": "loop",
+      "duration_s": 1.228,
+      "gain": 0.6,
+      "priority": 4,
+      "fade_out_s": 0.08
+    },
+    "page": {
+      "file": "sfx/page.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.601,
+      "lead_s": 0.12,
+      "priority": 5
+    },
+    "tear": {
+      "file": "sfx/tear.mp3",
+      "kind": "one_shot",
+      "duration_s": 0.549,
+      "lead_s": 0.05,
+      "priority": 7
+    },
+    "bell": {
+      "file": "sfx/bell.mp3",
+      "kind": "one_shot",
+      "duration_s": 1.437,
+      "lead_s": 0.004,
+      "gain": 0.8,
+      "priority": 7
+    },
+    "chime": {
+      "file": "sfx/chime.mp3",
+      "kind": "one_shot",
+      "duration_s": 1.149,
+      "lead_s": 0.004,
+      "gain": 0.8,
+      "priority": 5
+    },
+    "static": {
+      "file": "sfx/static.mp3",
+      "kind": "one_shot",
+      "duration_s": 1.228,
+      "lead_s": 0.1,
+      "gain": 0.7,
+      "priority": 2
+    }
+  },
+  "beds": {
+    "neutral-01": {
+      "file": "beds/neutral-01.mp3",
+      "mood": "neutral",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "tense-01": {
+      "file": "beds/tense-01.mp3",
+      "mood": "tense",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "somber-01": {
+      "file": "beds/somber-01.mp3",
+      "mood": "somber",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "hopeful-01": {
+      "file": "beds/hopeful-01.mp3",
+      "mood": "hopeful",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "urgent-01": {
+      "file": "beds/urgent-01.mp3",
+      "mood": "urgent",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "triumphant-01": {
+      "file": "beds/triumphant-01.mp3",
+      "mood": "triumphant",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "reflective-01": {
+      "file": "beds/reflective-01.mp3",
+      "mood": "reflective",
+      "duration_s": 48.024,
+      "loopable": true
+    },
+    "playful-01": {
+      "file": "beds/playful-01.mp3",
+      "mood": "playful",
+      "duration_s": 48.024,
+      "loopable": true
+    }
+  }
+}

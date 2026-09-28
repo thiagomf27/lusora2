@@ -33,6 +33,18 @@ exactly what D8 removed from the model's job; the planner's only contribution is
   highlighter, the same typing loop. Beds carry an octave shimmer and open to
   2.6 kHz. Pairs with `breakdown-blitz`, `listicle-fast`.
 
+- **`synth-doc`** (D101) — twenty cues, one per KIND of motion: `whoosh`,
+  `swish`, `slide` for things arriving; `pop`, `tick`, `blip` for small
+  reveals; `thud` and `hit` for things landing; `riser` and `rise` for tension
+  into a moment; `marker`, `pen`, `zip` for strokes and lines; `count` for a
+  rolling number; `type` (a loop) for typewriter reveals; `page`, `tear` for
+  paper; `bell`, `chime` for a key fact; `static` for tape and TV. Every cue is
+  a formula in `synth.mjs` (seeded noise, biquad sweeps, pitched transients,
+  inharmonic partials), so the pack is `own`, offline, and a rebuild is
+  byte-identical. Each cue's `lead_s` is its recipe's peak, so the loudest
+  instant lands on the visual. Pairs with the `documentary-dark` theme, which
+  maps every catalog component to one of them.
+
 The two packs share three cues because the recordings behind them are one kit;
 what still separates the packs is the swoosh and the transient — `woosh` against
 `woosh_intense`, a soft chime against a camera click.
