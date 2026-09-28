@@ -77,6 +77,11 @@ docker-compose.
   verbatim phrases, hook, hero shots) and code applies them; the A/B design
   and the edit-pass prompt ★ read before touching `cut_beats`, `beatcraft` or
   the paste flow
+- [Documentary Pipeline Plan](05-roadmap/documentary-pipeline-plan.md) — every
+  Dark Palace production feature (subjects pass, internet footage, vision shot
+  picking, hook forms, texture, overlay SFX, waveform ducking, subscription
+  providers) as stages and knobs of a new `documentary` pipeline, in slices
+  benchmarked on the Centralia script ★ read before starting any of them
 
 ### 07 — Authoring
 - [Authoring Guide](07-authoring.md) — ready-made prompts for adding a
