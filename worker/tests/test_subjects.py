@@ -250,3 +250,16 @@ def test_without_subjects_resolve_asks_what_it_always_did(tmp_path, monkeypatch)
         sources.ADAPTERS.clear()
         sources.ADAPTERS.update(saved)
     assert [stock.first_query[f"v{i}"] for i in range(3)] == ["abandoned town streets"] * 3
+
+
+def test_every_prompt_role_can_be_snapshotted_into_a_channel_config():
+    """The enqueue snapshot embeds one resolved prompt per role, and the channel
+    schema lists those slots by name. A role added to roles.json without a slot
+    passes every unit test and is refused only when a real video is enqueued —
+    which is how the subjects role first failed (D102)."""
+    import lusora_contracts
+    from lusora_contracts import prompts
+
+    schema = json.loads((lusora_contracts.SCHEMAS_DIR / "channel_config.schema.json")
+                        .read_text(encoding="utf-8"))
+    assert set(schema["properties"]["prompts"]["properties"]) == set(prompts.ROLES)

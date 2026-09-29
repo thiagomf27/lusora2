@@ -468,7 +468,8 @@
         "chat": { "$ref": "#/$defs/resolvedPrompt" },
         "overlay": { "$ref": "#/$defs/resolvedPrompt" },
         "beatcraft": { "$ref": "#/$defs/resolvedPrompt" },
-        "image": { "$ref": "#/$defs/resolvedPrompt" }
+        "image": { "$ref": "#/$defs/resolvedPrompt" },
+        "subjects": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
   },

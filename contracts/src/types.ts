@@ -497,7 +497,9 @@ export type PromptRole =
   /** D87 — the stage that picks the overlays. */
   | "overlay"
   /** D88 — the stage that decorates the cut beats. */
-  | "beatcraft";
+  | "beatcraft"
+  /** D102 — the whole narration read once for its subjects, before beatcraft. */
+  | "subjects";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */
