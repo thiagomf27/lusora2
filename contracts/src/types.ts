@@ -652,6 +652,8 @@ export interface ChannelConfig {
         shots_per_video?: number;
         photos_per_subject?: number;
         safety?: boolean;
+        /** each downloaded video's shots rated once; 1s never enter the pool */
+        screen?: boolean;
         keep_in_library?: boolean;
       };
       /** D103: vision-rated candidates per shot (the pick_shots stage). */
@@ -662,6 +664,8 @@ export interface ChannelConfig {
         candidates_per_shot?: number;
         shots_per_sheet?: number;
         min_rating?: number;
+        /** crop a reported corner logo (off: a small logo is acceptable) */
+        crop_logos?: boolean;
       };
     };
     /** D48: overrides theme.sound.pack. */

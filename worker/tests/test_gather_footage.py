@@ -239,6 +239,71 @@ def test_no_proxy_costs_the_youtube_footage_not_the_video(tmp_path, fake_interne
     assert any("YTDLP_PROXY" in s for s in doc["skipped"])
 
 
+def test_screening_keeps_footage_with_captions_and_effects_out_of_the_pool(tmp_path, fake_internet):
+    """The first render with YouTube footage showed other documentaries' burned-in
+    captions and effects. Each downloaded video's shots are rated once against
+    its subject; a 1 never enters the pool."""
+    write_video(tmp_path)
+    ctx = ctx_for(tmp_path, {"enabled": True, "photos": False}, planner="mock")
+    ctx.cfg["source_policy"]["visual"]["pick"] = {"enabled": True, "llm": "claude_cli"}
+    sheets = []
+
+    def see(provider, model, system, user, images, *_):
+        sheets.append(user)
+        # three shots per video: the middle one carries subtitles
+        return LLMResult(text=json.dumps({"ratings": [
+            {"n": 0, "rating": 4, "desc": "smoke over ground"},
+            {"n": 1, "rating": 1, "desc": "burned-in subtitles"},
+            {"n": 2, "rating": 3, "desc": "empty street"}]}), input_tokens=1, output_tokens=1)
+
+    doc = gf.gather(ctx, see_fn=see)
+    assert len(sheets) == 2, "one screening sheet per downloaded video"
+    assert "found for the subject \"the mine fire\"" in sheets[0] or "found for the subject \"the coal town\"" in sheets[0]
+    for video in doc["videos"]:
+        assert [s["n"] for s in video["shots"]] == [0, 2] and video["dropped"] == 1
+        assert video["shots"][0]["rating"] == 4
+    assert gf.validate_footage(doc) == []
+
+
+def test_without_a_vision_judge_footage_is_not_screened(tmp_path, fake_internet):
+    write_video(tmp_path)
+    ctx = ctx_for(tmp_path, {"enabled": True, "photos": False}, planner="mock")  # pick off
+    doc = gf.gather(ctx, see_fn=lambda *a: pytest.fail("no judge configured"))
+    assert all(len(v["shots"]) == 3 and "dropped" not in v for v in doc["videos"])
+
+
+def test_a_reported_logo_is_left_alone_unless_the_channel_asks(tmp_path, monkeypatch):
+    from lusora_worker.pipeline import steps
+
+    items = write_video(tmp_path, beats_subjects=("s1",))
+    (tmp_path / "clips").mkdir()
+    (tmp_path / "shot_picks.json").write_text(json.dumps({"version": "1.0", "video_id": "vid_f", "enabled": True,
+        "items": {"v0": {"candidates": [{"source": "stock", "provider": "pexels", "id": "7", "query": "q",
+                                         "rating": 4, "logo": "top-right"}]}}}))
+    seen_logos = []
+
+    class Stock:
+        query_kind = "keyword"
+
+        def fetch(self, ctx, item, candidate, source_cfg, ledger=None):
+            seen_logos.append(candidate["logo"])
+            (ctx.folder / "clips" / "v0.jpg").write_bytes(b"x")
+            return sources.Resolution(source="stock", id="7", provider="pexels", license="royalty-free",
+                                      path="clips/v0.jpg", score=None, query="q", media_type="image")
+
+    monkeypatch.setitem(sources.ADAPTERS, "stock", Stock())
+    monkeypatch.setenv("ASSET_PARALLELISM", "1")
+    for crop, expected in ((False, ""), (True, "top-right")):
+        (tmp_path / "clips" / "v0.jpg").unlink(missing_ok=True)
+        (tmp_path / "edit_plan.json").write_text(json.dumps({"tracks": {"visual": [{**items[0], "asset": {}}],
+                                                                        "overlays": []}}))
+        ctx = ctx_for(tmp_path, chain=[{"source": "stock"}])
+        ctx.cfg["source_policy"]["visual"]["pick"] = {"enabled": True, "crop_logos": crop}
+        ctx.db.provider_health = lambda *a, **k: None
+        steps.run_resolve_assets(ctx)
+        assert seen_logos[-1] == expected
+
+
 def test_footage_off_writes_an_empty_pool(tmp_path):
     from lusora_worker.pipeline import steps
 
@@ -344,12 +409,20 @@ def test_credits_name_every_placed_source_once(tmp_path):
     plan = {"tracks": {"visual": [
         {"asset": {"source": "youtube", "id": "a#0"}}, {"asset": {"source": "youtube", "id": "a#3"}},
         {"asset": {"source": "archive", "id": "commons:1"}},
-        {"asset": {"source": "stock", "provider": "pexels", "id": "77", "license": "royalty-free"}},
+        {"asset": {"source": "stock", "provider": "pexels", "id": "77", "license": "royalty-free"},
+         "media_type": "video"},
     ]}}
+    for i, item in enumerate(plan["tracks"]["visual"]):
+        item.update(start_s=3.0 * i, end_s=3.0 * (i + 1))
     text = gf.credits(ctx_for(tmp_path), pool, plan)
     assert text.count("Centralia fire — Geo — YouTube") == 1
     assert "Fire 1962 — A. P. — CC BY 4.0 — https://commons/1" in text
-    assert "pexels #77" in text
+    assert "Pexels video #77 — royalty-free — https://www.pexels.com/video/77/" in text
+    # a windowed render (9-12 s here) credits only what is on screen in it
+    windowed = ctx_for(tmp_path)
+    windowed.cfg["output"] = {"window": {"start_s": 9.0, "end_s": 12.0}}
+    only = gf.credits(windowed, pool, plan)
+    assert "Pexels video #77" in only and "YouTube" not in only and "Fire 1962" not in only
 
 
 def test_every_source_an_adapter_places_is_a_value_the_database_accepts():

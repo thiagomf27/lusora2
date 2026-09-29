@@ -315,6 +315,9 @@ export default function VideoPage() {
     { name: "Captions · SRT", detail: channel?.language ?? "video language", href: `/api/videos/${id}/files/subtitles.srt`, text: true },
     { name: "Config snapshot · JSON", detail: "The immutable cfg this render was locked to", href: `/api/videos/${id}/files/cfg.json`, text: true },
     { name: "Production log · text", detail: "What the worker did, stage by stage", href: `/api/videos/${id}/files/production.log`, text: true },
+    // D104: written by finalize when the video uses footage or photos from
+    // the internet — only what is actually on screen, with links and licences
+    { name: "Credits · text", detail: "Every online source used on screen, with its link and licence", href: playable ? `/api/videos/${id}/files/credits.txt` : null, text: true },
   ];
 
   return (

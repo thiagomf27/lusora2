@@ -24,6 +24,7 @@
           "duration": { "type": "number" },
           "file": { "type": "string", "description": "relative to the video folder, e.g. footage/yt_abc.mp4" },
           "license": { "type": "string", "description": "`youtube`: the uploader's standard licence — a Content ID claim is possible" },
+          "dropped": { "type": "integer", "minimum": 0, "description": "shots the screening judge rated 1 and left out of the pool" },
           "shots": {
             "type": "array",
             "items": {
@@ -34,7 +35,9 @@
                 "n": { "type": "integer", "minimum": 0 },
                 "start": { "type": "number", "minimum": 0 },
                 "dur": { "type": "number", "exclusiveMinimum": 0 },
-                "thumb": { "type": "string", "description": "a middle frame, relative to the video folder" }
+                "thumb": { "type": "string", "description": "a middle frame, relative to the video folder" },
+                "rating": { "type": "integer", "minimum": 1, "maximum": 5, "description": "the screening judge's rating against the video's subject; shots rated 1 are not in the pool at all" },
+                "desc": { "type": "string" }
               }
             }
           }

@@ -1032,6 +1032,9 @@ def run_resolve_assets(ctx: StageContext) -> None:
         if problems:
             raise StageError("resolve_assets", "shot_picks.json invalid: " + "; ".join(problems[:5]))
     min_rating = int(pick_agent.settings(ctx.cfg)["min_rating"])
+    # the judge always reports a corner logo; it is cropped only on request
+    # (the user: a small channel logo does not need cropping)
+    crop_logos = bool(pick_agent.settings(ctx.cfg)["crop_logos"])
 
     def picked(item: dict, snapshot: sources.Ledger) -> sources.Resolution | None:
         found = fetch_first(item, pick_agent.best_candidates(picks, str(item["id"]), min_rating), snapshot)
@@ -1061,7 +1064,8 @@ def run_resolve_assets(ctx: StageContext) -> None:
             adapter = sources.ADAPTERS.get(str(candidate["source"]))
             if source_cfg is None or not hasattr(adapter, "fetch"):
                 continue
-            found = adapter.fetch(ctx, item, candidate, source_cfg, snapshot)
+            chosen = candidate if crop_logos else {**candidate, "logo": ""}
+            found = adapter.fetch(ctx, item, chosen, source_cfg, snapshot)
             if found is not None:
                 return found
         return None

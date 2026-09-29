@@ -364,6 +364,7 @@
                 "shots_per_video": { "type": "integer", "minimum": 4, "maximum": 60 },
                 "photos_per_subject": { "type": "integer", "minimum": 0, "maximum": 12 },
                 "safety": { "type": "boolean", "default": true, "description": "the 18+ word filter on every title and description before anything is downloaded; the shot judge also rates adult content 1 whatever this says" },
+                "screen": { "type": "boolean", "default": true, "description": "each downloaded video's shots are shown to the pick judge once, on one sheet, against the subject it was found for; a shot rated 1 (burned-in captions, heavy effects, graphics, talking heads, another subject) never enters the pool. Needs pick.llm to be a vision provider; skipped with pick off or mock." },
                 "keep_in_library": { "type": "boolean", "default": true, "description": "after the render, hand each YouTube video this video actually used to the b-roll library (POST /uploads), so it is tagged there and the next video can find it. Best effort: a library that is down is logged, never an error." }
               }
             },
@@ -381,7 +382,8 @@
                 "model": { "type": "string", "description": "the provider's model; for claude_cli a CLI alias such as sonnet or haiku. Absent = the provider's default." },
                 "candidates_per_shot": { "type": "integer", "minimum": 2, "maximum": 10, "default": 6 },
                 "shots_per_sheet": { "type": "integer", "minimum": 1, "maximum": 10, "default": 6, "description": "rows on one contact sheet = shots judged in one call" },
-                "min_rating": { "type": "integer", "minimum": 1, "maximum": 5, "default": 3, "description": "a candidate rated below this is never placed; a shot with none left falls back to the plain search" }
+                "min_rating": { "type": "integer", "minimum": 1, "maximum": 5, "default": 3, "description": "a candidate rated below this is never placed; a shot with none left falls back to the plain search" },
+                "crop_logos": { "type": "boolean", "default": false, "description": "crop the corner the judge reports a channel logo in (14% of the frame). Off by default: the user found a small corner logo acceptable and the crop costs resolution; letterbox bars are always removed." }
               }
             },
             "identity": {

@@ -40,7 +40,7 @@ ROLE = "pick_shots"
 MAX_ATTEMPTS = 2
 
 DEFAULTS = {"enabled": False, "llm": "claude_cli", "model": None,
-            "candidates_per_shot": 6, "shots_per_sheet": 6, "min_rating": 3}
+            "candidates_per_shot": 6, "shots_per_sheet": 6, "min_rating": 3, "crop_logos": False}
 
 CELL_W, CELL_H, LABEL_H = 320, 180, 26
 _UA = {"User-Agent": "LUSORA/1.0 (documentary b-roll research; contact sheets)"}
@@ -140,6 +140,7 @@ def _cell(src: Path | None, label: str, dest: Path) -> None:
 
 def build_sheet(
     workdir: Path, rows: list[list[dict]], first_row: int, cols: int, name: str,
+    numbers_only: bool = False,
 ) -> tuple[Path, list[tuple[int, dict]]]:
     """One numbered contact sheet: a row per shot, its candidates left to
     right, each labelled `#n  shot r`. A thumbnail that will not download
@@ -155,7 +156,7 @@ def build_sheet(
             raw = workdir / f"_{name}_raw.jpg"
             if candidate is not None and _thumb(str(candidate["thumb"]), raw):
                 n = len(numbered)
-                _cell(raw, f"#{n}  shot {first_row + r + 1}", cell)
+                _cell(raw, f"#{n}" if numbers_only else f"#{n}  shot {first_row + r + 1}", cell)
                 numbered.append((r, candidate))
             else:
                 _cell(None, "", cell)

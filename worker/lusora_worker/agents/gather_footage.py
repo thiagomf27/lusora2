@@ -49,7 +49,7 @@ def settings(cfg: dict[str, Any]) -> dict[str, Any]:
     raw = (((cfg.get("source_policy") or {}).get("visual") or {}).get("footage")) or {}
     amount = str(raw.get("amount") or "normal")
     conf = {"enabled": False, "amount": amount, "youtube": True, "photos": True, "safety": True,
-            "keep_in_library": True, **PRESETS.get(amount, PRESETS["normal"])}
+            "screen": True, "keep_in_library": True, **PRESETS.get(amount, PRESETS["normal"])}
     conf.update({k: v for k, v in raw.items() if v is not None})
     return conf
 
@@ -192,6 +192,7 @@ def gather(
     ctx: StageContext,
     chat_fn: llm.ChatFn = llm.chat,
     progress: Callable[[str], None] | None = None,
+    see_fn: llm.SeeFn = llm.see,
 ) -> dict[str, Any]:
     conf = settings(ctx.cfg)
     say = progress or (lambda _m: None)
@@ -258,9 +259,15 @@ def gather(
             if not shots:
                 doc["skipped"].append(f"youtube {r['id']}: no shot of 2.3 s or more")
                 return None
-            return {"id": r["id"], "subject": sid, "title": r["title"], "channel": r["channel"], "url": r["url"],
-                    "duration": footage.probe_seconds(ctx.folder / rel), "file": rel, "license": "youtube",
-                    "shots": shots}
+            video = {"id": r["id"], "subject": sid, "title": r["title"], "channel": r["channel"], "url": r["url"],
+                     "duration": footage.probe_seconds(ctx.folder / rel), "file": rel, "license": "youtube",
+                     "shots": shots}
+            if conf["screen"]:
+                video = screen(ctx, video, subjects[sid], see_fn)
+                if not video["shots"]:
+                    doc["skipped"].append(f"youtube {r['id']}: every shot failed screening")
+                    return None
+            return video
 
         # two at a time through one proxy: parallel yt-dlp traffic is the
         # classic bot signature (the library runs one)
@@ -268,8 +275,10 @@ def gather(
             doc["videos"] = [v for v in pool.map(fetch, chosen) if v]
         if chosen:
             ctx.db.provider_health("youtube", bool(doc["videos"]))
+        dropped = sum(int(v.get("dropped") or 0) for v in doc["videos"])
         say(f"youtube: {len(doc['videos'])} of {len(chosen)} chosen videos downloaded, "
-            f"{sum(len(v['shots']) for v in doc['videos'])} shots")
+            f"{sum(len(v['shots']) for v in doc['videos'])} shots"
+            + (f" ({dropped} dropped by screening: captions, effects, graphics, off-subject)" if dropped else ""))
 
     # ---- Commons and archive.org photos ----
     per = int(conf["photos_per_subject"])
@@ -298,6 +307,54 @@ def gather(
         say(f"photos: {len(doc['photos'])} free-licence photos for "
             f"{len({p['subject'] for p in doc['photos']})} subjects")
     return doc
+
+
+def screen(
+    ctx: StageContext,
+    video: dict[str, Any],
+    subject: dict[str, Any],
+    see_fn: llm.SeeFn = llm.see,
+) -> dict[str, Any]:
+    """Show one downloaded video's shots to the pick judge, once, and keep only
+    what could be b-roll for OUR narration (Dark Palace's `escolher_tomadas`).
+
+    Footage cut from someone else's documentary carries that documentary's
+    edit: burned-in captions, their graphics and title cards, zooms and glitch
+    effects, a presenter talking to the camera. The user saw those in the first
+    render with YouTube footage; a shot the judge rates 1 here never enters the
+    pool, so no beat is ever offered it. A judge that cannot answer keeps the
+    shots unscreened — pick_shots still rates each one against its beat."""
+    from . import pick_shots
+
+    conf = pick_shots.settings(ctx.cfg)
+    if not conf["enabled"] or conf["llm"] == "mock" or not video["shots"]:
+        return video
+    cols = 6
+    shots = video["shots"]
+    offers = [{"id": f"{video['id']}#{s['n']}", "thumb": str(ctx.folder / s["thumb"])} for s in shots]
+    rows = [offers[i:i + cols] for i in range(0, len(offers), cols)]
+    sheet, numbered = pick_shots.build_sheet(ctx.folder / "sheets", rows, 0, cols, f"screen_{video['id']}",
+                                             numbers_only=True)
+    if not numbered:
+        return video
+    look = f" — {subject['look']}" if subject.get("look") else ""
+    rows_text = (f"EVERY row is the same shot on this sheet (#0-#{len(numbered) - 1}): moments cut from the YouTube "
+                 f"video \"{video['title']}\" ({video.get('channel') or 'unknown channel'}), found for the subject "
+                 f"\"{subject.get('name', '')}\"{look}. Rate each moment as raw b-roll for that subject.")
+    ratings = pick_shots.judge(ctx, sheet, rows_text, len(numbered), conf, see_fn, f"screen {video['id']}")
+    if ratings is None:
+        return video
+    by_id = {str(cand["id"]): int(n) for n, (_row, cand) in enumerate(numbered)}
+    by_n = {int(r["n"]): r for r in ratings}
+    kept = []
+    for shot, offer in zip(shots, offers):
+        verdict = by_n.get(by_id.get(offer["id"], -1))
+        if verdict is not None and int(verdict["rating"]) <= 1:
+            continue
+        if verdict is not None:
+            shot = {**shot, "rating": int(verdict["rating"]), "desc": str(verdict.get("desc") or "")[:120]}
+        kept.append(shot)
+    return {**video, "shots": kept, "dropped": len(shots) - len(kept)}
 
 
 def keep_in_library(ctx: StageContext, doc: dict[str, Any], used_ids: set[str]) -> str:
@@ -335,9 +392,14 @@ def credits(ctx: StageContext, doc: dict[str, Any] | None, plan: dict[str, Any])
     owed it."""
     videos = {v["id"]: v for v in (doc or {}).get("videos") or []}
     photos = {p["id"]: p for p in (doc or {}).get("photos") or []}
+    # a windowed test render shows one stretch of the timeline: credit only that
+    window = ((ctx.cfg.get("output") or {}).get("window")) or {}
+    lo, hi = float(window.get("start_s", 0.0)), float(window.get("end_s", float("inf")))
     lines: list[str] = []
     seen: set[str] = set()
     for item in plan["tracks"]["visual"]:
+        if float(item.get("end_s", 0.0)) <= lo or float(item.get("start_s", 0.0)) >= hi:
+            continue
         asset = item.get("asset") or {}
         src, aid = asset.get("source"), str(asset.get("id") or "")
         if src == "youtube":
@@ -352,7 +414,10 @@ def credits(ctx: StageContext, doc: dict[str, Any] | None, plan: dict[str, Any])
                 lines.append(f"- {p['title']} — {p.get('author') or 'unknown author'} — {p['license']} — {p.get('page') or p['url']}")
         elif src == "stock" and asset.get("provider") and aid and f"stock:{aid}" not in seen:
             seen.add(f"stock:{aid}")
-            lines.append(f"- {asset.get('provider')} #{aid} — {asset.get('license') or 'royalty-free'}")
+            provider = str(asset.get("provider"))
+            kind = "video" if item.get("media_type") == "video" else "photo"
+            page = f" — https://www.pexels.com/{kind}/{aid}/" if provider == "pexels" else ""
+            lines.append(f"- {provider.capitalize()} {kind} #{aid} — {asset.get('license') or 'royalty-free'}{page}")
     if not lines:
         return ""
     return "Footage and photos used in this video:\n" + "\n".join(lines) + "\n"
