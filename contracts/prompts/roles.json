@@ -330,6 +330,10 @@
         "visual_ledger": {
           "required": false,
           "source": "visual subjects already used by earlier chunks, so the video does not shoot the same image twice; set only when chunked"
+        },
+        "subjects": {
+          "required": false,
+          "source": "derived from subjects.json when the subjects stage ran (D102): the main idea, the visual thread and the numbered subjects; empty otherwise, so a pipeline without the stage composes the same prompt as before"
         }
       }
     },
@@ -363,6 +367,43 @@
         "no_person": {
           "required": false,
           "source": "set when an identity beat fell through to the scene question — the frame stands in for a person the pipeline could not find, so it must not draw one"
+        }
+      }
+    },
+    "subjects": {
+      "description": "D102 — the whole narration, numbered by cut -> subjects.json: the main idea, a visual thread, the subjects with their own searches, and where the hook ends. One call per video, before beat craft, so every beat can be tied to the story rather than read on its own.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "video_id": {
+          "required": true,
+          "source": "the video id"
+        },
+        "cuts": {
+          "required": true,
+          "source": "derived: every cut from beat_cuts.json, numbered, with its held seconds"
+        },
+        "audio_duration_s": {
+          "required": true,
+          "source": "probed audio.mp3 duration"
+        },
+        "cut_count": {
+          "required": true,
+          "source": "derived: number of cuts"
+        },
+        "visual_language": {
+          "required": false,
+          "source": "style_pack.visual_language"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
         }
       }
     }

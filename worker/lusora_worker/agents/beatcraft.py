@@ -70,7 +70,7 @@ LEDGER_ENTRIES = 12
 # chooses well, and D85 measured what happens when a model is shown a field
 # with no taste attached to it: it fills it, every time, on every beat.
 CRAFT_KEYS = ("visual_intent", "queries", "mood", "media_preference", "anchors", "overlay",
-              "notes", "transition_out")
+              "notes", "transition_out", "subject")
 
 
 def render_cuts(cuts: list[dict[str, Any]]) -> str:
@@ -126,8 +126,25 @@ def _build_prompt(
             "chunk_position": chunk_position,
             "carry_forward": carry_forward,
             "visual_ledger": visual_ledger,
+            "subjects": _subjects_block(ctx),
         },
     )
+
+
+def _subjects(ctx: StageContext) -> dict[str, Any] | None:
+    """subjects.json when the subjects stage ran (D102), else None."""
+    return ctx.read_json("subjects.json") if ctx.has("subjects.json") else None
+
+
+def _subjects_block(ctx: StageContext) -> str:
+    """Empty unless the subjects stage ran, so every other pipeline composes
+    exactly the prompt it did before."""
+    doc = _subjects(ctx)
+    if not doc:
+        return ""
+    from .subjects import render_subjects
+
+    return render_subjects(doc)
 
 
 def merge(cuts: list[dict[str, Any]], craft: dict[str, Any], video_id: str) -> dict[str, Any]:
@@ -358,6 +375,7 @@ def _craft_chunk(
             # message worth sending back.
             violations = validate_beat_sheet(doc, script, ctx.cfg, duration)
             violations += _index_violations(cuts, craft)
+            violations += _subject_violations(ctx, cuts, craft)
             _raise_if_structural(violations)
             if not violations:
                 ctx.db.provider_health(f"llm.{provider}", True)
@@ -383,6 +401,33 @@ def _craft_chunk(
         + (f" on {chunk_position}" if chunk_position else "")
         + " — upload beats.json manually or switch planner.llm to 'mock'",
     )
+
+
+def _subject_violations(
+    ctx: StageContext, cuts: list[dict[str, Any]], craft: dict[str, Any]
+) -> list[str]:
+    """Where the subjects stage ran, every answer names one of its subjects.
+
+    D102. A beat without a subject would fall back to reading its span alone,
+    which is the failure the stage exists to remove, so it is repaired here
+    while the model can still fix it rather than guessed at later.
+    """
+    doc = _subjects(ctx)
+    answers = craft.get("beats")
+    if not doc or not isinstance(answers, dict):
+        return []
+    known = {str(s["id"]) for s in doc.get("subjects") or []}
+    out = []
+    for cut in cuts:
+        answer = answers.get(str(cut["index"]), answers.get(cut["index"]))
+        if not isinstance(answer, dict):
+            continue  # a missing index is _index_violations' to report
+        subject = answer.get("subject")
+        if subject is None:
+            out.append(f"cut {cut['index']}: no `subject` — name the subject this span shows ({', '.join(sorted(known))})")
+        elif str(subject) not in known:
+            out.append(f"cut {cut['index']}: subject {subject!r} is not one of {', '.join(sorted(known))}")
+    return out
 
 
 def _index_violations(cuts: list[dict[str, Any]], craft: dict[str, Any]) -> list[str]:

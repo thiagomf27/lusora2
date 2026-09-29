@@ -1,0 +1,8 @@
+Output JSON shape:
+{"version":"1.0","video_id":"{{video_id}}",
+ "main_idea":"…",
+ "visual_thread":["…","…","…"],
+ "subjects":[{"id":"s1","name":"…","look":"…","queries":["…","…","…"],"first_cut":0}],
+ "hook_end_cut":3,
+ "title":"…"}
+Respond with the JSON object only.

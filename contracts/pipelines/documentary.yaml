@@ -1,5 +1,5 @@
 name: documentary
-version: "1.0"
+version: "1.1"
 description: >
   Dark Palace's production on LUSORA's architecture (D100,
   docs/05-roadmap/documentary-pipeline-plan.md). Every DP feature enters as a
@@ -8,7 +8,12 @@ description: >
   service — never as a constant.
 
   v1.0 (slice 0) is faceless_v3's stage list verbatim, so the first Centralia
-  render on it is provably the v3 baseline. Each later slice adds one stage or
+  render on it is provably the v3 baseline.
+
+  v1.1 (slice 2, D102) adds `subjects` between cut_beats and plan_beats: the
+  whole narration read once for its main idea, visual thread and subjects.
+  Beat craft then names a subject per beat, and resolve_assets rotates each
+  shot through its beat's and its subject's searches. Each later slice adds one stage or
   knob and bumps the version; the stages it adds are registry entries, so v3
   can adopt any of them by listing it (D60).
 
@@ -69,8 +74,15 @@ stages:
     produces: [beat_cuts.json]
     receivable_on_upload: true            # hand-cut spans (schema-checked)
 
+  # D102 — the whole narration read once, before any shot is planned: what
+  # the video is about on screen, and the subjects every beat will name.
+  - name: subjects
+    requires: [beat_cuts.json]
+    produces: [subjects.json]
+    receivable_on_upload: true            # hand-written subjects (schema-checked)
+
   - name: plan_beats
-    requires: [script.txt, subtitles.srt, beat_cuts.json]
+    requires: [script.txt, subtitles.srt, beat_cuts.json, subjects.json]
     produces: [beats.json]
     receivable_on_upload: true            # hand-written beat sheet (schema-checked)
     human_approval_on_review_mode: true   # gate after the beat sheet in review mode

@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "video_id": "vid_fixture",
+  "main_idea": "A Pennsylvania coal town emptied by a mine fire that still burns underground.",
+  "visual_thread": ["underground coal fire", "abandoned coal town", "smoke from ground"],
+  "subjects": [
+    { "id": "s1", "name": "the Centralia mine fire", "look": "steam and smoke rising from cracked ground", "queries": ["smoke rising from ground", "underground coal fire", "steam from cracked soil"], "first_cut": 0 },
+    { "id": "s2", "name": "Centralia as a coal town", "queries": ["1890s coal mining town", "anthracite coal miners", "coal mine tunnel"], "first_cut": 4 }
+  ],
+  "hook_end_cut": 3,
+  "title": "The Town That Is Still Burning"
+}

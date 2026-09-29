@@ -62,6 +62,9 @@ STEP_REGISTRY: dict[str, Step] = {
     # D88 — code cuts the script, with the real SRT timings, before the model
     # is asked anything. Only faceless_v3 lists it.
     "cut_beats": Step(steps.run_cut_beats),
+    # D102 — the whole narration read once, before plan_beats: main idea,
+    # visual thread, subjects with their searches. Only documentary lists it.
+    "subjects": Step(steps.run_subjects),
     "plan_beats": Step(steps.run_plan_beats),
     # D87 — the overlay question in its own call. Only faceless_v3 lists it;
     # a manifest without it plans overlays inside plan_beats exactly as before.

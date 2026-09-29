@@ -1,0 +1,7 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. Every query is a keyword search of at most 5 words — that limit is enforced.
+2. visual_thread has 2 to 6 queries; every subject has 2 to 5 queries.
+3. Subject ids are s1, s2, s3 … in the order the narration first reaches them. first_cut is the number of the cut where that happens, and it must be a cut listed below.
+4. hook_end_cut is the number of the LAST cut of the opening hook: the stretch that sets up the promise before the story proper begins. It must be a cut listed below.

@@ -215,7 +215,7 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
   riser, typewriter, page...) built by `build.mjs` from a port of `sfx_lib.py`, licence `own`.
 - Fixes the `/sounds` upload forcing beds to mono (`soundPacks.ts:119`).
 
-### Slice 2: the main idea: `subjects` (M)
+### Slice 2: the main idea: `subjects` (M) ✅ BUILT (D102)
 - New stage `subjects`: one call over the whole narration returns the subjects,
   each with 2–4 queries across angles, the hook end and a title.
 - `plan_beats` and beatcraft answer with a `subject` per beat. Chunks can then run in parallel,
@@ -224,6 +224,9 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
   "×5 same query" failure from run 01 must be gone.
 - `plan_beats` today takes ~152 s serially on a 5-minute video; parallel
   chunks should cut that.
+- As built: the stage, the beatcraft section and `subject` field, the rotation
+  in resolve_assets. Parallel chunks are NOT in this slice (one variable at a
+  time); they are the natural follow-up now that each chunk has the thread.
 
 ### Slice 3: `pick_shots` with vision, on today's sources (M)
 - A `vision` capability on `Provider`, and a vision-capable default (an API

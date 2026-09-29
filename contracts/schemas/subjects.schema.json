@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/subjects.schema.json",
+  "title": "Subjects",
+  "description": "D102 (documentary plan, slice 2) — one pass over the WHOLE narration before any shot is planned: what the video is about on screen, the visual thread every shot should stay on, and the subjects the story returns to, each with its own searches. Written by the `subjects` stage; read by beat craft (each beat names its subject) and by resolve_assets (a shot's searches rotate through its beat's and its subject's queries).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "video_id", "main_idea", "visual_thread", "subjects", "hook_end_cut"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "video_id": { "type": "string" },
+    "main_idea": {
+      "type": "string",
+      "minLength": 1,
+      "description": "one sentence: what the whole video shows, in things a camera can see"
+    },
+    "visual_thread": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 6,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "keyword searches (at most 5 words) that fit almost any shot of this video — the fallback that keeps a generic span on the main idea"
+    },
+    "subjects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 80,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "queries", "first_cut"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^s[0-9]+$" },
+          "name": { "type": "string", "minLength": 1 },
+          "look": { "type": "string", "description": "one line: what this subject looks like on screen" },
+          "queries": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 5,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "keyword searches (at most 5 words), different ANGLES of the subject, most specific first"
+          },
+          "first_cut": { "type": "integer", "minimum": 0, "description": "the first cut index where the narration reaches this subject" }
+        }
+      }
+    },
+    "hook_end_cut": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "the last cut index of the opening hook — read by the hook tier (slice 5)"
+    },
+    "title": { "type": "string", "description": "a working title for the video" }
+  }
+}

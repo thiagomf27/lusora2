@@ -774,6 +774,38 @@ class Ledger:
         self.entries.append((self.key(asset), digest))
 
 
+def shot_queries(
+    beat_queries: list[str],
+    subject_queries: list[str],
+    thread: list[str],
+    shot: int,
+) -> list[str]:
+    """The searches for the `shot`-th shot of a beat, when subjects exist (D102).
+
+    The angles are the beat's own queries and then its subject's; shot k starts
+    at angle k, so the five shots a long beat is split into ask five different
+    questions instead of the same one five times (run 01: "abandoned town
+    grassy streets" x5 — the repeat check only stopped the identical clip, so
+    it returned four near-identical ones). The visual thread comes last, as the
+    fallback that keeps a span naming nothing on the video's main idea.
+    """
+    def dedupe(items: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out = []
+        for q in items:
+            key = str(q).strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                out.append(str(q).strip())
+        return out
+
+    angles = dedupe(list(beat_queries) + list(subject_queries))
+    if angles:
+        k = shot % len(angles)
+        angles = angles[k:] + angles[:k]
+    return dedupe(angles + list(thread))
+
+
 def _queries_for(adapter: SourceAdapter, intent: str, queries: list[str] | None) -> list[str]:
     """What this source should be asked, in order of preference.
 

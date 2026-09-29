@@ -821,3 +821,48 @@ def selections_by_beat(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
             overlay["props_hint"] = sel["props_hint"]
         out[str(sel.get("beat_id"))] = overlay
     return out
+
+
+def validate_subjects(doc: dict[str, Any], cut_count: int) -> list[str]:
+    """Judge a subjects.json (D102) against the cuts it was written for.
+
+    Structure first, then what the schema cannot say: every query is a SHORT
+    keyword search (the same 1-5 word rule beat queries are held to, for the
+    same reason), ids run s1, s2, … in order, and every cut it names exists.
+    """
+    violations = _schema_errors("subjects", doc)
+    if violations:
+        return violations
+
+    def short(query: Any, where: str) -> None:
+        words = str(query).split()
+        if not (1 <= len(words) <= 5):
+            violations.append(
+                f"{where} {str(query)[:50]!r} is {len(words)} words — a keyword search is "
+                "2-4 words and never more than 5, subject first"
+            )
+
+    for i, query in enumerate(doc.get("visual_thread") or []):
+        short(query, f"visual_thread[{i}]")
+
+    seen: set[str] = set()
+    for i, subject in enumerate(doc.get("subjects") or []):
+        sid = str(subject.get("id"))
+        if sid != f"s{i + 1}":
+            violations.append(f"subjects[{i}] is {sid!r} — ids run s1, s2, s3 … in order")
+        if sid in seen:
+            violations.append(f"subject id {sid} is used twice")
+        seen.add(sid)
+        first = int(subject.get("first_cut", -1))
+        if not 0 <= first < cut_count:
+            violations.append(f"subject {sid}: first_cut {first} is not a cut (0-{cut_count - 1})")
+        for j, query in enumerate(subject.get("queries") or []):
+            short(query, f"subject {sid} queries[{j}]")
+        lowered = [str(q).strip().lower() for q in subject.get("queries") or []]
+        if len(set(lowered)) < len(lowered):
+            violations.append(f"subject {sid} repeats a query — each one should be a different angle")
+
+    hook_end = int(doc.get("hook_end_cut", -1))
+    if not 0 <= hook_end < cut_count:
+        violations.append(f"hook_end_cut {hook_end} is not a cut (0-{cut_count - 1})")
+    return violations

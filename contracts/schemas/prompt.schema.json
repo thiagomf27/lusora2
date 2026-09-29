@@ -25,7 +25,8 @@
         "chat",
         "overlay",
         "beatcraft",
-        "image"
+        "image",
+        "subjects"
       ],
       "description": "must match the containing directory; decides the variable set and the welded block"
     },

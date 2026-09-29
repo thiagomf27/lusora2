@@ -22,6 +22,7 @@ all depend on.
 | 2b | Beat planner — spine | `worker/lusora_worker/agents/planner.py` | `prompts/spine/` + `welded/spine.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 4000 tok, one shot | `{arc, sections:[{start_sentence, summary}]}` | arithmetic: first index 0, strictly increasing, in range — anything else falls back to the word-balanced split |
 | 2c | Beat planner — beatcraft | `worker/lusora_worker/agents/beatcraft.py` | `prompts/beatcraft/` + `welded/beatcraft.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 64000 tok, ≤3 attempts, temp 0.2 | `{beats: {"<cut index>": {visual_intent, queries, mood, …}}}` — **never** `script_text` | `validate_beat_sheet` on the MERGED sheet, unchanged, plus an index check |
 | 2d | Overlay selector | `worker/lusora_worker/agents/overlay.py` | `prompts/overlay/` + `welded/overlay.{system,user}.txt` | `channel.overlay.llm` → the planner's → `deepseek` | 32000 tok, ≤3 attempts, temp 0.2 | `{selections[], declined[]}` | `validators.validate_overlay_selection` + `overlay_selection.schema.json` |
+| 2e | Beat planner — subjects (D102) | `worker/lusora_worker/agents/subjects.py` | `prompts/subjects/` + `welded/subjects.{system,user}.txt` | shares `channel.planner.llm` → `deepseek` | 32000 tok, ≤3 attempts, temp 0.2 | `{main_idea, visual_thread[], subjects[{id, name, look, queries[], first_cut}], hook_end_cut, title}` | `validators.validate_subjects` + `subjects.schema.json` |
 | 3 | Editor chat | `platform/src/lib/chatAgent.ts` | `prompts/chat/` + `welded/chat.{system,user}.txt` | `deepseek-v4-flash`, `anthropic` fallback | 12000 tok, one shot | `{explanation, beat_ops, plan_ops}` | `beatEdit`/`planEdit` + `validateBeats` in the chat route |
 | 4 | Library coarse | `library/broll-engine/broll/tagging.py` | `_COARSE_SYSTEM` (in code) | GLM-4.6V (z.ai or local vLLM) | 500 tok | `{score, rough_ranges}` | clamping parser |
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
@@ -29,7 +30,7 @@ all depend on.
 | 7 | AI image | `worker/lusora_worker/providers/sources.py` | `prompts/image/` (no welded half) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
-prompts are data. 2b, 2c and 2d are not further agents: each is a PHASE of
+prompts are data. 2b, 2c, 2d and 2e are not further agents: each is a PHASE of
 the beat planner, sharing its provider and model, and none can change
 control flow.
 
@@ -53,6 +54,16 @@ control flow.
   is a prompt whose budgets stop being legible. Each chunk is told its
   slack-free share of the video's budget (floor, no `+1`), so the shares summed
   stay under the ceiling the merged selection is finally judged against.
+- **2e (subjects, D102)** reads the WHOLE narration once, numbered by cut,
+  before beatcraft runs: the main idea, a visual thread that fits almost any
+  shot, the subjects the story returns to (each with 2-5 searches that are
+  different angles), and where the hook ends. Beatcraft then sees it in a
+  `{{#subjects}}` section and must answer a `subject` per index (repaired like
+  any other violation), and resolve_assets rotates each split shot through its
+  beat's and its subject's searches, with the thread last. `documentary` only;
+  every other pipeline composes the beatcraft prompt byte-identically because
+  the section renders empty. A `mock` planner writes a plain fallback from the
+  title so offline runs still have the artifact.
 
 Row 2's temperature is 0.2 as of D85, and 2b-2d inherit it from their own
 packs; the script agent and the research phase stay at the house default of

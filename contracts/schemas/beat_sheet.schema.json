@@ -97,6 +97,11 @@
           },
           "description": "v1.1 (D53): 2-3 short KEYWORD queries, subject first, for stock libraries that match words rather than meaning. Tried in order; the first that returns an acceptable asset wins. Absent (or v1.0) means keywords are derived from visual_intent instead."
         },
+        "subject": {
+          "type": "string",
+          "pattern": "^s[0-9]+$",
+          "description": "D102 — the subject this beat shows, an id from subjects.json. Only set on pipelines that run the subjects stage; resolve_assets falls back to the subject's queries and rotates them across split shots."
+        },
         "mood": {
           "type": "string",
           "description": "emotional register of this beat, driving background music (D48). Vocabulary: neutral, tense, somber, hopeful, urgent, triumphant, reflective, playful. Deliberately a string and not an enum: an unrecognised mood degrades to neutral in the compiler rather than failing a video over a word choice."

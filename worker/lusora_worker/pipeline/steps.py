@@ -26,6 +26,7 @@ from ..agents import beatcraft as beatcraft_agent
 from ..agents import overlay as overlay_agent
 from ..agents import planner as planner_agent
 from ..agents import script as script_agent
+from ..agents import subjects as subjects_agent
 from ..compiler import compile_plan
 from ..config import parallelism
 from ..context import StageContext
@@ -257,6 +258,27 @@ def run_select_overlays(ctx: StageContext) -> None:
     ctx.log(
         f"{len(doc.get('selections') or [])} overlays selected, "
         f"{len(doc.get('declined') or [])} beats declined"
+    )
+
+
+def run_subjects(ctx: StageContext) -> None:
+    """Read the whole narration once and name what it is about on screen (D102).
+
+    Documentary pipeline only. Beat craft ties every beat to one of these
+    subjects and resolve_assets rotates through their searches, so a span that
+    names nothing is still searched as the story rather than as its own words.
+    """
+    cuts = ctx.read_json("beat_cuts.json")["cuts"]
+    llm_name = str(((ctx.cfg.get("planner") or {}).get("llm")) or "mock")
+    if llm_name == "mock":
+        doc = subjects_agent.fallback_subjects(ctx, cuts)
+    else:
+        audio_duration = probe_duration(subjects_agent.STAGE, ctx.artifact("audio.mp3"))
+        doc = subjects_agent.find_subjects(ctx, cuts, audio_duration)
+    ctx.write_json("subjects.json", doc)
+    ctx.log(
+        f"{len(doc['subjects'])} subjects, hook ends at cut {doc['hook_end_cut']}; "
+        f"main idea: {doc['main_idea'][:120]}"
     )
 
 
@@ -885,11 +907,30 @@ def run_resolve_assets(ctx: StageContext) -> None:
             return False  # human-provided or already resolved
         return item.get("media_type") != "color"  # degraded to a card on an earlier pass
 
+    # D102: where the subjects stage ran, a shot searches its beat's angles and
+    # its subject's, starting at its own position among the beat's shots, with
+    # the video's visual thread as the last resort. Without it, unchanged.
+    subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else None
+    subject_queries = {str(s["id"]): [str(q) for q in s.get("queries") or []]
+                       for s in (subjects_doc or {}).get("subjects") or []}
+    thread = [str(q) for q in (subjects_doc or {}).get("visual_thread") or []]
+    shot_of: dict[str, int] = {}
+    seen_per_beat: dict[str, int] = {}
+    for visual_item in plan["tracks"]["visual"]:
+        beat_key = str(visual_item.get("beat_id"))
+        shot_of[str(visual_item["id"])] = seen_per_beat.get(beat_key, 0)
+        seen_per_beat[beat_key] = shot_of[str(visual_item["id"])] + 1
+
     def question(item: dict) -> tuple[dict, str, list[str], str | None]:
         beat = beats.get(str(item.get("beat_id"))) or {}
         query = str(beat.get("visual_intent") or ctx.video.get("title") or "establishing shot")
         # v1.1 (D53): keyword sources get these instead of the scout sentence
         queries = [str(q) for q in (beat.get("queries") or [])]
+        if subjects_doc is not None:
+            queries = sources.shot_queries(
+                queries, subject_queries.get(str(beat.get("subject")), []), thread,
+                shot_of.get(str(item["id"]), 0),
+            )
         return beat, query, queries, identities.get(str(item.get("beat_id")))
 
     # Throughput slice 4: FETCH in parallel, COMMIT in plan order. A fetch

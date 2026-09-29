@@ -67,6 +67,8 @@ export interface Beat {
   visual_intent: string;
   /** v1.1 (D53): 2-3 short keyword queries for word-matching stock libraries, tried in order. */
   queries?: string[];
+  /** D102: the subject this beat shows (an id from subjects.json), on pipelines that run the subjects stage. */
+  subject?: string;
   /** A Mood in practice; typed loose because unknown values degrade, not fail. */
   mood?: string;
   media_preference?: "video" | "image" | "any";
