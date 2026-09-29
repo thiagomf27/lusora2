@@ -225,6 +225,29 @@ def test_the_judge_rates_every_shot_on_one_sheet_and_the_best_comes_first(tmp_pa
     assert validators.validate_shot_picks(doc) == []
 
 
+def test_a_grayscale_thumbnail_does_not_wipe_the_cells_before_it(tmp_path, monkeypatch):
+    """A black-and-white archival still is a grayscale JPEG. Before every cell
+    was forced to one pixel format, the format change rebuilt ffmpeg's tile
+    filter mid-sequence and the cells before it came out black — on the first
+    Centralia run, two whole rows the judge then rated 'not visible'."""
+    def thumb(url, dest):
+        vf = ["-vf", "format=gray"] if "bw" in url else []
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=white:s=64x36",
+                        *vf, "-frames:v", "1", str(dest)], check=True)
+        return True
+
+    monkeypatch.setattr(pick_shots, "_thumb", thumb)
+    rows = [[{"id": "a", "thumb": "https://x/a.jpg"}], [{"id": "b", "thumb": "https://x/bw.jpg"}]]
+    sheet, numbered = pick_shots.build_sheet(tmp_path / "sheets", rows, 0, 2, "sheet_01")
+    assert len(numbered) == 2
+    for top in (pick_shots.LABEL_H, pick_shots.CELL_H + 2 * pick_shots.LABEL_H):
+        pixel = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(sheet), "-vf",
+             f"crop={pick_shots.CELL_W}:{pick_shots.CELL_H - 20}:0:{top + 10},scale=1:1",
+             "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True, check=True).stdout
+        assert pixel[0] > 200, f"the cell at y={top} is on the sheet, white, not black"
+
+
 def test_a_thumbnail_that_never_arrives_takes_no_number(tmp_path, local_thumbs):
     rows = [[{"id": "a", "thumb": "https://x/a.jpg"}, {"id": "dead", "thumb": "https://x/thumb-dead.jpg"},
              {"id": "c", "thumb": "https://x/c.jpg"}]]
@@ -276,6 +299,65 @@ def test_a_rejected_answer_is_repaired_once(tmp_path, stock, local_thumbs):
     doc = pick_shots.pick(ctx, [(it, {}, ["q"]) for it in items], [{"source": "stock"}], see_fn=see)
     assert "not rated: #1" in users[1]
     assert [c["rating"] for c in doc["items"]["v0"]["candidates"]] == [4, 2]
+
+
+def test_a_last_answer_that_skips_thumbnails_keeps_what_it_rated(tmp_path, stock, local_thumbs):
+    _video(tmp_path, 1)
+    stock(OfferingStock({"v0": ["a", "b"]}))
+    ctx = ctx_for(tmp_path, pick={"enabled": True})
+
+    def see(*_a):
+        return LLMResult(text=json.dumps({"ratings": [{"n": 1, "rating": 4}]}), input_tokens=1, output_tokens=1)
+
+    items = json.loads((tmp_path / "edit_plan.json").read_text())["tracks"]["visual"]
+    doc = pick_shots.pick(ctx, [(it, {}, ["q"]) for it in items], [{"source": "stock"}], see_fn=see)
+    assert [(c["id"], c["rating"]) for c in doc["items"]["v0"]["candidates"]] == [("b", 4)]
+    assert doc["unjudged"] == []
+
+
+class QueryStock(OfferingStock):
+    """Candidates depend on the query asked, like a real search."""
+
+    def __init__(self, by_query: dict[str, list[str]]):
+        super().__init__({})
+        self.by_query = by_query
+        self.asked: list[list[str]] = []
+
+    def candidates(self, ctx, item, queries, source_cfg, limit):
+        self.asked.append(list(queries))
+        out = []
+        for query in queries[:2]:
+            out += [{"source": "stock", "provider": "pexels", "id": cid, "query": query,
+                     "page_size": limit, "thumb": f"https://thumbs/{cid}.jpg"}
+                    for cid in self.by_query.get(query, [])]
+        return out[:limit]
+
+
+def test_a_weak_shot_gets_a_second_round_on_the_searches_it_did_not_ask(tmp_path, stock, local_thumbs):
+    _video(tmp_path, 2)
+    adapter = stock(QueryStock({"beat q": ["sunny"], "subject q": ["suburb"], "thread q": ["coal town"],
+                                "good q": ["mine"]}))
+    ctx = ctx_for(tmp_path, pick={"enabled": True, "min_rating": 3})
+    ratings = iter([
+        # round 1: v0 sees sunny + suburb (both 1); v1 sees mine (5)
+        [{"n": 0, "rating": 1}, {"n": 1, "rating": 1}, {"n": 2, "rating": 5}],
+        # round 2: v0 only, on the thread search
+        [{"n": 0, "rating": 4}],
+    ])
+    sheets = []
+
+    def see(provider, model, system, user, images, *_):
+        sheets.append(user)
+        return LLMResult(text=json.dumps({"ratings": next(ratings)}), input_tokens=1, output_tokens=1)
+
+    items = json.loads((tmp_path / "edit_plan.json").read_text())["tracks"]["visual"]
+    shots = [(items[0], {}, ["beat q", "subject q", "thread q"]), (items[1], {}, ["good q"])]
+    doc = pick_shots.pick(ctx, shots, [{"source": "stock"}], see_fn=see)
+    assert adapter.asked[-1] == ["thread q"], "round 2 asks only what round 1 did not"
+    assert len(sheets) == 2 and "shot 2" not in sheets[1], "the good shot is not judged again"
+    assert [(c["id"], c["rating"]) for c in doc["items"]["v0"]["candidates"]] == [
+        ("coal town", 4), ("sunny", 1), ("suburb", 1)]
+    assert doc["sheets"] == 2
 
 
 def test_the_mock_judge_keeps_the_search_order_without_a_sheet(tmp_path, stock):
@@ -330,11 +412,16 @@ def test_resolve_places_the_best_pick_not_already_on_screen(tmp_path, stock, mon
     assert adapter.searched == [], "every shot had a usable pick"
 
 
-def test_a_shot_with_nothing_usable_asks_the_plain_search(tmp_path, stock, monkeypatch):
+def test_a_weak_pick_beats_the_plain_search_and_an_unusable_one_does_not(tmp_path, stock, monkeypatch):
+    """Nothing at min_rating: a 2 ('right words, wrong picture') is still placed,
+    because the plain search's first hit is one of the candidates the judge
+    already rated no higher. A shot whose candidates are all 1s, or that was
+    never judged, asks the plain search."""
     adapter = stock(OfferingStock({}))
-    placed = _resolve(tmp_path, adapter, {"v0": [("a", 2)], "v1": [("b", 4)]}, monkeypatch, n_items=3)
-    assert [v["asset"]["id"] for v in placed] == ["plain-v0", "b", "plain-v2"]
-    assert adapter.searched == ["v0", "v2"]
+    placed = _resolve(tmp_path, adapter, {"v0": [("a", 1)], "v1": [("b", 4)], "v2": [("c", 2)]},
+                      monkeypatch, n_items=4)
+    assert [v["asset"]["id"] for v in placed] == ["plain-v0", "b", "c", "plain-v3"]
+    assert adapter.searched == ["v0", "v3"]
 
 
 def test_an_uploaded_picks_file_is_checked(tmp_path, stock, monkeypatch):

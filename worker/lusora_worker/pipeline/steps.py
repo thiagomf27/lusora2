@@ -998,7 +998,26 @@ def run_resolve_assets(ctx: StageContext) -> None:
     min_rating = int(pick_agent.settings(ctx.cfg)["min_rating"])
 
     def picked(item: dict, snapshot: sources.Ledger) -> sources.Resolution | None:
-        options = pick_agent.best_candidates(picks, str(item["id"]), min_rating)
+        found = fetch_first(item, pick_agent.best_candidates(picks, str(item["id"]), min_rating), snapshot)
+        if found is not None:
+            return found
+        # nothing at min_rating: the best "right words, wrong picture" still
+        # beats the plain search's first hit, which the judge rated no higher
+        weaker = [c for c in pick_agent.best_candidates(picks, str(item["id"]), pick_agent.LAST_RESORT_RATING)
+                  if int(c["rating"]) < min_rating]
+        found = fetch_first(item, weaker, snapshot)
+        if found is not None:
+            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                         f"beat {item.get('beat_id')}: nothing rated {min_rating}+ — placed a "
+                         f"{weaker[0]['rating']}-rated pick rather than an unjudged first hit")
+            return found
+        if (picks.get("items") or {}).get(str(item["id"])):
+            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                         f"beat {item.get('beat_id')}: no picked candidate could be placed "
+                         "— asking the plain search")
+        return None
+
+    def fetch_first(item: dict, options: list[dict], snapshot: sources.Ledger) -> sources.Resolution | None:
         for candidate in options:
             if snapshot.blocked(str(candidate["source"]), candidate.get("provider"), str(candidate["id"])):
                 continue
@@ -1009,10 +1028,6 @@ def run_resolve_assets(ctx: StageContext) -> None:
             found = adapter.fetch(ctx, item, candidate, source_cfg, snapshot)
             if found is not None:
                 return found
-        if options:
-            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
-                         f"beat {item.get('beat_id')}: no picked candidate could be placed "
-                         "— asking the plain search")
         return None
 
     # Throughput slice 4: FETCH in parallel, COMMIT in plan order. A fetch

@@ -95,8 +95,14 @@ def _thumb(url: str, dest: Path) -> bool:
 
 
 def _cell(src: Path | None, label: str, dest: Path) -> None:
+    # Every cell leaves in ONE pixel format. A black-and-white archival
+    # thumbnail is a grayscale JPEG, and when the format changes mid-sequence
+    # ffmpeg rebuilds the tile filter and drops the cells it had buffered: the
+    # first Centralia sheet with one lost its first two rows, and the judge
+    # honestly rated twelve thumbnails "not visible on sheet".
     box = f"scale={CELL_W}:{CELL_H}:force_original_aspect_ratio=decrease," \
-          f"pad={CELL_W}:{CELL_H + LABEL_H}:(ow-iw)/2:{LABEL_H}+({CELL_H}-ih)/2:color=0x111111"
+          f"pad={CELL_W}:{CELL_H + LABEL_H}:(ow-iw)/2:{LABEL_H}+({CELL_H}-ih)/2:color=0x111111," \
+          "format=yuvj420p,setsar=1"
     text = (f"drawtext=font='DejaVu Sans':fontsize=20:fontcolor=0xffd400:x=6:y=3:text='{label}'"
             if label else "null")
     inputs = ["-i", str(src)] if src else ["-f", "lavfi", "-i", f"color=c=0x111111:s={CELL_W}x{CELL_H}"]
@@ -229,6 +235,12 @@ def judge(
             if not violations:
                 ctx.db.provider_health(f"vision.{provider}", True)
                 return answer["ratings"]
+            if attempt == MAX_ATTEMPTS and all(v.startswith("not rated") for v in violations):
+                # What it did rate is a real answer; the thumbnails it skipped
+                # are simply unjudged, and their shots fall back like any other.
+                ctx.db.event(ctx.video_id, STAGE, "progress",
+                             f"{label}: kept {len(answer['ratings'])} of {count} ratings — {violations[0][:120]}")
+                return answer["ratings"]
         ctx.db.event(ctx.video_id, STAGE, "progress",
                      f"{label}: attempt {attempt} rejected: {'; '.join(violations[:4])}")
         user = (base_user + "\n\nYOUR PREVIOUS ANSWER WAS REJECTED. Fix ALL of these and output the corrected JSON:\n- "
@@ -253,20 +265,63 @@ def pick(
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """shots = (plan item, its beat, its searches) for every item to judge.
-    Returns the shot_picks.json document."""
+    Returns the shot_picks.json document.
+
+    Two rounds. The first judges each shot's first searches. A shot that comes
+    back with nothing at min_rating gets a second round on the searches it has
+    not asked yet (its subject's other angles, the visual thread): on the first
+    Centralia run, half the shots had nothing rated 3+, and falling back to the
+    plain search placed exactly the first hit the judge had just rated 1."""
     conf = settings(ctx.cfg)
     doc: dict[str, Any] = {"version": "1.0", "video_id": ctx.video_id, "enabled": True,
                            "provider": str(conf["llm"]), "model": conf.get("model"),
                            "sheets": 0, "unjudged": [], "items": {}}
     limit = int(conf["candidates_per_shot"])
-    found = gather(ctx, [(item, queries) for item, _beat, queries in shots], chain, limit)
-    judged_shots = [(item, beat) for item, beat, _q in shots if found.get(str(item["id"]))]
-    if progress:
-        total = sum(len(v) for v in found.values())
-        progress(f"{total} candidates for {len(judged_shots)} of {len(shots)} shots")
-
+    min_rating = int(conf["min_rating"])
     subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else {}
     subject_names = {str(s["id"]): str(s.get("name") or "") for s in subjects_doc.get("subjects") or []}
+
+    found = gather(ctx, [(item, queries) for item, _beat, queries in shots], chain, limit)
+    if progress:
+        total = sum(len(v) for v in found.values())
+        progress(f"{total} candidates for {sum(1 for v in found.values() if v)} of {len(shots)} shots")
+    _round(ctx, doc, shots, found, conf, see_fn, subject_names, "")
+
+    # round 2: the searches each weak shot has not asked, minus what it was shown
+    retry = []
+    for item, beat, queries in shots:
+        item_id = str(item["id"])
+        if item_id in doc["unjudged"] or best_candidates(doc, item_id, min_rating):
+            continue  # a judge that is down will not be up in a minute; a good shot is done
+        asked = {str(c["query"]) for c in found.get(item_id) or []}
+        rest = [q for q in queries if q not in asked]
+        if rest:
+            retry.append((item, beat, rest))
+    if retry:
+        again = gather(ctx, [(item, queries) for item, _beat, queries in retry], chain, limit)
+        for item, _beat, _q in retry:
+            shown = {str(c["id"]) for c in found.get(str(item["id"])) or []}
+            again[str(item["id"])] = [c for c in again.get(str(item["id"])) or [] if str(c["id"]) not in shown]
+        if progress:
+            progress(f"round 2: {sum(len(v) for v in again.values())} new candidates for "
+                     f"{len(retry)} shots with nothing rated {min_rating}+")
+        _round(ctx, doc, retry, again, conf, see_fn, subject_names, "r2_")
+    return doc
+
+
+def _round(
+    ctx: StageContext,
+    doc: dict[str, Any],
+    shots: list[tuple[dict, dict, list[str]]],
+    found: dict[str, list[dict]],
+    conf: dict[str, Any],
+    see_fn: llm.SeeFn,
+    subject_names: dict[str, str],
+    prefix: str,
+) -> None:
+    """Judge `found` on sheets and merge the ratings into `doc`."""
+    limit = int(conf["candidates_per_shot"])
+    judged_shots = [(item, beat) for item, beat, _q in shots if found.get(str(item["id"]))]
     per_sheet = int(conf["shots_per_sheet"])
     groups = [judged_shots[i:i + per_sheet] for i in range(0, len(judged_shots), per_sheet)]
     workdir = ctx.folder / "sheets"
@@ -275,11 +330,11 @@ def pick(
         group = groups[g]
         first_row = g * per_sheet
         rows = [found[str(item["id"])] for item, _beat in group]
-        label = f"sheet {g + 1}/{len(groups)}"
+        label = f"{'round 2 ' if prefix else ''}sheet {g + 1}/{len(groups)}"
         if conf["llm"] == "mock":
             numbered = [(r, c) for r, row in enumerate(rows) for c in row]
             return g, numbered, mock_ratings(len(numbered))
-        sheet, numbered = build_sheet(workdir, rows, first_row, limit, f"sheet_{g + 1:02d}")
+        sheet, numbered = build_sheet(workdir, rows, first_row, limit, f"{prefix}sheet_{g + 1:02d}")
         if not numbered:
             return g, numbered, None
         rows_text = render_rows(group, numbered, first_row, subject_names)
@@ -291,12 +346,14 @@ def pick(
     for g, numbered, ratings in results:
         group = groups[g]
         if ratings is None:
-            doc["unjudged"] += [str(item["id"]) for item, _beat in group]
+            doc["unjudged"] += [str(item["id"]) for item, _beat in group
+                                if str(item["id"]) not in doc["items"]]
             continue
         doc["sheets"] += 1
         by_n = {int(r["n"]): r for r in ratings}
         for r, (item, _beat) in enumerate(group):
-            rated = []
+            entry = doc["items"].setdefault(str(item["id"]), {"beat_id": item.get("beat_id"), "candidates": []})
+            rated = entry["candidates"]
             for n, (row, candidate) in enumerate(numbered):
                 if row != r or n not in by_n:
                     continue
@@ -309,10 +366,15 @@ def pick(
                     "logo": str(verdict.get("logo") or "").strip().lower(),
                     "desc": str(verdict.get("desc") or "")[:120],
                 })
-            # best first; the search's own order breaks a tie (sorted is stable)
+            # best first; the search's own order (and round 1 before round 2)
+            # breaks a tie, since sorted is stable
             rated.sort(key=lambda c: -c["rating"])
-            doc["items"][str(item["id"])] = {"beat_id": item.get("beat_id"), "candidates": rated}
-    return doc
+
+
+# A candidate the judge called "right words, wrong picture" is still a better
+# answer than the plain search's first hit, which the judge has usually already
+# rated — and rated no higher. A 1 (unrelated, unusable) never is.
+LAST_RESORT_RATING = 2
 
 
 def best_candidates(doc: dict[str, Any] | None, item_id: str, min_rating: int) -> list[dict]:
