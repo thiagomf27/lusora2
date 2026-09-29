@@ -23,6 +23,14 @@
 .link { margin-left: auto; color: var(--accent-link); }
 .link:hover { color: var(--accent-link-hover); }
 .filter { font-size: 12.5px; color: var(--text-muted); display: flex; gap: 6px; align-items: center; }
+.askBar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: -6px 0 12px; }
+.askHint { font-size: 12px; color: var(--text-muted); }
+.askNote { font-size: 12.5px; color: var(--text-secondary); margin: 0 0 12px; }
+.askRow { display: flex; gap: 6px; margin-top: 8px; }
+.askInput { flex: 1; min-width: 0; padding: 4px 8px; font-size: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-field); background: var(--surface-field); color: var(--text-primary); }
+.askBtn { padding: 4px 10px; border-radius: var(--radius-sm); background: var(--surface-secondary-btn); color: var(--text-secondary); font-size: 12px; white-space: nowrap; border: 0; cursor: pointer; }
+.askBtn:hover:not(:disabled) { color: var(--text-primary); }
+.askBtn:disabled { color: var(--text-faint); cursor: not-allowed; }
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr; }
   .cand { width: calc(50% - 5px); }

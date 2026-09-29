@@ -465,6 +465,52 @@ def screen(
     return {**video, "shots": kept, "dropped": len(shots) - len(kept)}
 
 
+def fetch_one_video(
+    ctx: StageContext,
+    query: str,
+    subject_id: str,
+    see_fn: llm.SeeFn = llm.see,
+) -> dict[str, Any] | None:
+    """One more YouTube video for a search a person typed at the footage gate
+    (D108): the first usable, safe result not already in the pool, downloaded,
+    cut, screened, and added to footage.json under `subject_id`. None when
+    nothing usable came back — the search still reaches stock."""
+    conf = settings(ctx.cfg)
+    if not conf["enabled"] or not conf["youtube"]:
+        return None
+    pool = ctx.read_json("footage.json") if ctx.has("footage.json") else \
+        {"version": "1.0", "video_id": ctx.video_id, "videos": [], "photos": [], "skipped": []}
+    have = {v["id"] for v in pool.get("videos") or []}
+    try:
+        results = footage.youtube_search(query, RESULTS_PER_SEARCH)
+    except footage.ProxyMissing:
+        return None
+    subjects = {str(s["id"]): s for s in (ctx.read_json("subjects.json").get("subjects") or [])} \
+        if ctx.has("subjects.json") else {}
+    for r in results:
+        if r["id"] in have or not footage.usable_result(r, float(conf["max_video_seconds"])):
+            continue
+        if conf["safety"] and not adult_filter.safe(r["title"]):
+            continue
+        rel = f"footage/yt_{r['id']}.mp4"
+        if footage.youtube_download(r["id"], ctx.folder / rel) is None:
+            continue
+        shots = footage.scene_shots(ctx.folder / rel, ctx.folder / "footage" / "thumbs", ctx.folder,
+                                    int(conf["shots_per_video"]))
+        video = {"id": r["id"], "subject": subject_id if subject_id in subjects else (next(iter(subjects), "s1")),
+                 "title": r["title"], "channel": r["channel"], "url": r["url"],
+                 "duration": footage.probe_seconds(ctx.folder / rel), "file": rel, "license": "youtube",
+                 "shots": shots}
+        if conf["screen"] and shots:
+            video = screen(ctx, video, subjects.get(video["subject"], {"name": query}), see_fn)
+        if not video["shots"]:
+            continue
+        pool.setdefault("videos", []).append(video)
+        ctx.write_json("footage.json", pool)
+        return video
+    return None
+
+
 def keep_in_library(ctx: StageContext, doc: dict[str, Any], used_ids: set[str]) -> str:
     """Hand every YouTube video this video used to the b-roll library, so it
     is tagged there and the next video can search it (D104). Best effort."""

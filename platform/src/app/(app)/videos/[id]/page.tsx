@@ -517,7 +517,12 @@ export default function VideoPage() {
             )}
 
             {/* D105: what the shot judge rated, with links — reviewed before a footage gate is approved */}
-            <FootageReview videoId={id} refreshKey={`${video.status}:${video.pending_gate ?? ""}`} />
+            <FootageReview
+              videoId={id}
+              refreshKey={`${video.status}:${video.pending_gate ?? ""}`}
+              canAsk={canReview && video.status === "awaiting_approval" && video.pending_gate === "pick_shots"}
+              onAsked={load}
+            />
 
             <div className={scr.card}>
               <div className={s.configHead}>

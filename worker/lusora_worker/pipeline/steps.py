@@ -1039,6 +1039,31 @@ def run_gather_footage(ctx: StageContext) -> None:
             f"{len(doc['skipped'])} skipped")
 
 
+FOOTAGE_REQUESTS = "footage_requests.json"
+
+
+def _footage_requests(ctx: StageContext) -> list[dict] | None:
+    """Shots a person asked to search more for at the footage gate (D108),
+    written by the platform: {"requests": [{"item_id", "query"?}]}."""
+    if not ctx.has(FOOTAGE_REQUESTS):
+        return None
+    try:
+        doc = ctx.read_json(FOOTAGE_REQUESTS)
+    except StageError:
+        return None
+    wanted = [r for r in doc.get("requests") or [] if isinstance(r, dict) and r.get("item_id")]
+    return wanted or None
+
+
+def _archive_footage_requests(ctx: StageContext, done: list[dict]) -> None:
+    """Answered requests move to footage_requests.done.json, so the stage is
+    fresh again and the history stays in the folder."""
+    history = ctx.read_json("footage_requests.done.json").get("requests", []) \
+        if ctx.has("footage_requests.done.json") else []
+    ctx.write_json("footage_requests.done.json", {"requests": history + done})
+    (ctx.folder / FOOTAGE_REQUESTS).unlink(missing_ok=True)
+
+
 def picks_fresh(ctx: StageContext) -> bool:
     """Judged against the current beats. Anchored on beats.json rather than on
     the plan because resolve_assets rewrites the plan after every item, and a
@@ -1046,6 +1071,8 @@ def picks_fresh(ctx: StageContext) -> bool:
     only ever recompiled from a newer beat sheet (plan_compiled_and_fresh)."""
     if not ctx.has("shot_picks.json"):
         return False
+    if _footage_requests(ctx) is not None:
+        return False  # D108: a person asked for more; the stage answers it
     if not ctx.has("beats.json"):
         return True
     return ctx.artifact("shot_picks.json").stat().st_mtime >= ctx.artifact("beats.json").stat().st_mtime
@@ -1074,6 +1101,28 @@ def run_pick_shots(ctx: StageContext) -> None:
         beat, _query, queries, person = question(item)
         if person is None and queries:
             shots.append((item, beat, queries))
+
+    asked_for_more = _footage_requests(ctx)
+    if asked_for_more is not None and ctx.has("shot_picks.json"):
+        # D108: a person at the footage gate asked for more on some shots —
+        # judge more for those only, keep everything already rated
+        doc = ctx.read_json("shot_picks.json")
+        wanted = {str(r["item_id"]): str(r.get("query") or "").strip() for r in asked_for_more}
+        targets = [(item, beat, queries, wanted[str(item["id"])])
+                   for item, beat, queries in shots if str(item["id"]) in wanted]
+        added = pick_agent.research(ctx, doc, targets, chain, progress=ctx.log)
+        ctx.write_json("shot_picks.json", doc)
+        _archive_footage_requests(ctx, asked_for_more)
+        ctx.log(f"search more: {added} new candidates judged for {len(targets)} shots")
+        ctx.artifact("footage_report.md").write_text(footage_agent.footage_report(ctx), encoding="utf-8")
+        placed = sum(1 for item_id in doc["items"]
+                     if pick_agent.best_candidates(doc, item_id, int(conf["min_rating"])))
+        # the person asked to look: they see the result before any render
+        checkpoints.request(ctx, "pick_shots",
+                            f"searched more for {len(targets)} shots ({added} new candidates); now {placed} of "
+                            f"{len(shots)} shots have a candidate rated {conf['min_rating']}+ — review and approve")
+        return
+
     doc = pick_agent.pick(ctx, shots, chain, progress=ctx.log)
     ctx.write_json("shot_picks.json", doc)
     placed = sum(1 for item_id in doc["items"]

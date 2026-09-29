@@ -32,9 +32,42 @@ interface View {
 
 const SOURCE: Record<string, string> = { youtube: "YouTube", archive: "Archive photo", stock: "Pexels", library: "Library" };
 
-export function FootageReview({ videoId, refreshKey }: { videoId: string; refreshKey?: string }) {
+export function FootageReview({
+  videoId,
+  refreshKey,
+  canAsk = false,
+  onAsked,
+}: {
+  videoId: string;
+  refreshKey?: string;
+  /** D108: the video waits at the footage gate and this user may act on it */
+  canAsk?: boolean;
+  onAsked?: () => void;
+}) {
   const [view, setView] = useState<View | null>(null);
   const [weakOnly, setWeakOnly] = useState(false);
+  const [typed, setTyped] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  // D108: ask the worker for more candidates on some shots, then it stops again
+  async function askMore(itemIds: string[], query = "") {
+    setBusy(true);
+    setNote(null);
+    const res = await fetch(`/api/videos/${videoId}/footage/more`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ item_ids: itemIds, query }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setNote(body.error ?? `could not ask for more (${res.status})`);
+      return;
+    }
+    setNote(`Searching more for ${itemIds.length} shot${itemIds.length === 1 ? "" : "s"} — the video will stop here again with the new candidates.`);
+    onAsked?.();
+  }
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +84,7 @@ export function FootageReview({ videoId, refreshKey }: { videoId: string; refres
   const isWeak = (r: Row) => !r.candidates.some((c) => c.rating >= view.min_rating);
   const weak = view.rows.filter(isWeak).length;
   const rows = weakOnly ? view.rows.filter(isWeak) : view.rows;
+  const weakIds = view.rows.filter(isWeak).map((r) => r.item_id);
 
   return (
     <div className={scr.card}>
@@ -66,6 +100,16 @@ export function FootageReview({ videoId, refreshKey }: { videoId: string; refres
         what was placed. Weak = nothing rated {view.min_rating}+.
         {view.unjudged.length > 0 && ` Not judged: ${view.unjudged.join(", ")}.`}
       </p>
+      {canAsk && (
+        <div className={s.askBar}>
+          <button type="button" className={s.askBtn} disabled={busy || weakIds.length === 0}
+            onClick={() => askMore(weakIds)}>
+            Search more for all {weakIds.length} weak shot{weakIds.length === 1 ? "" : "s"}
+          </button>
+          <span className={s.askHint}>or use a shot&apos;s own button to search with your words</span>
+        </div>
+      )}
+      {note && <div className={s.askNote}>{note}</div>}
       {view.sheets.length > 0 && (
         <div className={s.sheets}>
           Contact sheets:
@@ -85,6 +129,23 @@ export function FootageReview({ videoId, refreshKey }: { videoId: string; refres
               {isWeak(r) && <span className={s.tag}>weak</span>}
             </div>
             <div className={s.narration}>{r.narration}</div>
+            {canAsk && (
+              <div className={s.askRow}>
+                <input
+                  className={s.askInput}
+                  placeholder="search words (optional)"
+                  value={typed[r.item_id] ?? ""}
+                  onChange={(e) => setTyped((t) => ({ ...t, [r.item_id]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !busy) askMore([r.item_id], typed[r.item_id] ?? "");
+                  }}
+                />
+                <button type="button" className={s.askBtn} disabled={busy}
+                  onClick={() => askMore([r.item_id], typed[r.item_id] ?? "")}>
+                  Search more
+                </button>
+              </div>
+            )}
           </div>
           <div className={s.cands}>
             {r.candidates.map((c, k) => (

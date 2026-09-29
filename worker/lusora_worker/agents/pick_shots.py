@@ -405,6 +405,57 @@ def _round(
             rated.sort(key=lambda c: -c["rating"])
 
 
+def research(
+    ctx: StageContext,
+    doc: dict[str, Any],
+    targets: list[tuple[dict, dict, list[str], str]],
+    chain: list[dict],
+    see_fn: llm.SeeFn = llm.see,
+    progress: Callable[[str], None] | None = None,
+) -> int:
+    """More candidates for the shots a person asked about at the footage gate
+    (D108), judged and merged into `doc`. targets = (item, beat, its
+    searches, the words they typed or ""). Typed words are searched as they
+    are — stock and one new YouTube video for the beat's subject; without
+    them the shot is offered what it has not been shown: pool shots and the
+    searches not yet asked. Returns how many new candidates were judged."""
+    from . import gather_footage
+
+    conf = settings(ctx.cfg)
+    limit = int(conf["candidates_per_shot"])
+    subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else {}
+    subject_names = {str(s["id"]): str(s.get("name") or "") for s in subjects_doc.get("subjects") or []}
+    shots, shown = [], {}
+    for item, beat, queries, typed in targets:
+        item_id = str(item["id"])
+        seen = (doc.get("items") or {}).get(item_id, {}).get("candidates") or []
+        shown[item_id] = {str(c["id"]) for c in seen}
+        asked = {str(c.get("query")) for c in seen}
+        if typed:
+            video = gather_footage.fetch_one_video(ctx, typed, str(beat.get("subject") or ""), see_fn)
+            if video and progress:
+                progress(f"search more for {item_id}: '{typed}' brought '{video['title'][:60]}' "
+                         f"({len(video['shots'])} shots)")
+            ask = [typed]
+        else:
+            ask = [q for q in queries if q not in asked] or list(queries)
+        shots.append((item, beat, ask))
+    for source in ("youtube", "archive"):  # a pool that just grew is read again
+        adapter = sources.ADAPTERS.get(source)
+        if hasattr(adapter, "reset"):
+            adapter.reset()
+    found = gather(ctx, [(item, q) for item, _b, q in shots], chain, limit, exclude=shown)
+    shots = [s for s in shots if found.get(str(s[0]["id"]))]
+    if not shots:
+        return 0
+    rounds = sum(1 for p in (ctx.folder / "sheets").glob("more*_sheet_01.jpg")) if (ctx.folder / "sheets").exists() else 0
+    _round(ctx, doc, shots, found, conf, see_fn, subject_names, f"more{rounds + 1}_")
+    for item, _b, _q in shots:
+        if str(item["id"]) in doc["unjudged"] and (doc["items"].get(str(item["id"])) or {}).get("candidates"):
+            doc["unjudged"].remove(str(item["id"]))
+    return sum(len(found.get(str(item["id"])) or []) for item, _b, _q in shots)
+
+
 # A candidate the judge called "right words, wrong picture" is still a better
 # answer than the plain search's first hit, which the judge has usually already
 # rated — and rated no higher. A 1 (unrelated, unusable) never is.

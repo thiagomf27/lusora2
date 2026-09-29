@@ -175,6 +175,80 @@ def test_thin_coverage_after_the_judge_stops_before_the_render(tmp_path, monkeyp
         assert "| b3 | line 3 | 2" in (tmp_path / "footage_report.md").read_text()
 
 
+def test_search_more_judges_new_candidates_for_the_asked_shots_and_stops_again(tmp_path, monkeypatch):
+    """D108: at the footage gate a person asks for more on one shot instead of
+    approving. Only that shot is judged again, on what it has not been shown;
+    everything already rated stays; the video stops again for review."""
+    from lusora_worker.agents import pick_shots
+    from lusora_worker.pipeline import steps
+    from lusora_worker.providers import sources
+
+    from test_pick_shots import QueryStock
+
+    items = write_video(tmp_path, beats_subjects=("s1", "s2"))
+    beats = json.loads((tmp_path / "beats.json").read_text())
+    beats["beats"][0]["queries"] = ["first ask", "second ask"]
+    (tmp_path / "beats.json").write_text(json.dumps(beats))
+    stock = QueryStock({"first ask": ["a"], "second ask": ["b"], "q1": ["c"]})
+    monkeypatch.setitem(sources.ADAPTERS, "stock", stock)
+    monkeypatch.setattr(pick_shots, "_thumb", lambda url, dest: (dest.write_bytes(b""), True)[1])
+    monkeypatch.setattr(pick_shots, "build_sheet", lambda workdir, rows, first, cols, name, numbers_only=False: (
+        tmp_path / "sheet.jpg", [(r, c) for r, row in enumerate(rows) for c in row]))
+    judged = []
+
+    def judge(ctx, sheet, rows_text, count, conf, see_fn, label):
+        judged.append(count)
+        return [{"n": n, "rating": 4} for n in range(count)]
+
+    monkeypatch.setattr(pick_shots, "judge", judge)
+    (tmp_path / "shot_picks.json").write_text(json.dumps({
+        "version": "1.0", "video_id": "vid_f", "enabled": True, "sheets": 1, "unjudged": [],
+        "items": {"v0": {"beat_id": "b0", "candidates": [{"source": "stock", "provider": "pexels", "id": "a",
+                                                          "query": "first ask", "rating": 2}]},
+                  "v1": {"beat_id": "b1", "candidates": [{"source": "stock", "provider": "pexels", "id": "c",
+                                                          "query": "q1", "rating": 5}]}}}))
+    (tmp_path / "footage_requests.json").write_text(json.dumps({"requests": [{"item_id": "v0"}]}))
+    ctx = ctx_for(tmp_path, chain=[{"source": "stock"}])
+    ctx.cfg["source_policy"]["visual"]["pick"] = {"enabled": True}
+    assert not steps.picks_fresh(ctx), "a pending request makes the stage run again"
+    steps.run_pick_shots(ctx)
+    doc = json.loads((tmp_path / "shot_picks.json").read_text())
+    assert [(c["id"], c["rating"]) for c in doc["items"]["v0"]["candidates"]] == [("b", 4), ("a", 2)]
+    assert doc["items"]["v1"]["candidates"][0]["id"] == "c", "a shot nobody asked about is untouched"
+    assert stock.asked[-1][0] == "second ask" and "first ask" not in stock.asked[-1], \
+        "without typed words it asks what the shot was not asked"
+    assert judged == [1]
+    assert not (tmp_path / "footage_requests.json").exists()
+    assert json.loads((tmp_path / "footage_requests.done.json").read_text())["requests"] == [{"item_id": "v0"}]
+    assert checkpoints.requested(ctx, "pick_shots") and "searched more for 1 shots" in \
+        checkpoints.request_reason(ctx, "pick_shots"), "it stops again, even with coverage fine"
+    assert steps.picks_fresh(ctx)
+
+
+def test_typed_words_are_searched_as_typed(tmp_path, monkeypatch):
+    from lusora_worker.agents import gather_footage, pick_shots
+
+    from test_pick_shots import QueryStock
+    from lusora_worker.providers import sources
+
+    items = write_video(tmp_path, beats_subjects=("s1",))
+    stock = QueryStock({"centralia gas station": ["z"]})
+    monkeypatch.setitem(sources.ADAPTERS, "stock", stock)
+    monkeypatch.setattr(pick_shots, "judge", lambda *a: [{"n": 0, "rating": 5}])
+    monkeypatch.setattr(pick_shots, "build_sheet", lambda workdir, rows, first, cols, name, numbers_only=False: (
+        tmp_path / "sheet.jpg", [(r, c) for r, row in enumerate(rows) for c in row]))
+    fetched = []
+    monkeypatch.setattr(gather_footage, "fetch_one_video", lambda ctx, q, sid, see_fn=None: fetched.append((q, sid)))
+    ctx = ctx_for(tmp_path, chain=[{"source": "stock"}])
+    ctx.cfg["source_policy"]["visual"]["pick"] = {"enabled": True}
+    doc = {"version": "1.0", "video_id": "vid_f", "enabled": True, "sheets": 0, "unjudged": ["v0"], "items": {}}
+    beat = {"id": "b0", "subject": "s1"}
+    added = pick_shots.research(ctx, doc, [(items[0], beat, ["q0"], "centralia gas station")], [{"source": "stock"}])
+    assert fetched == [("centralia gas station", "s1")], "one new YouTube video for the beat's subject"
+    assert stock.asked[-1] == ["centralia gas station"] and added == 1
+    assert doc["items"]["v0"]["candidates"][0]["id"] == "z" and doc["unjudged"] == []
+
+
 def test_review_mode_always_stops_after_the_judge():
     from lusora_contracts.pipelines import load_pipeline
 
