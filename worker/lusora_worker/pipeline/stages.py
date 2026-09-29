@@ -65,6 +65,9 @@ STEP_REGISTRY: dict[str, Step] = {
     # D102 — the whole narration read once, before plan_beats: main idea,
     # visual thread, subjects with their searches. Only documentary lists it.
     "subjects": Step(steps.run_subjects),
+    # D105 — does the internet have footage of this story? Stops a thin topic
+    # before it is planned and rendered. Only documentary lists it.
+    "footage_check": Step(steps.run_footage_check),
     "plan_beats": Step(steps.run_plan_beats),
     # D87 — the overlay question in its own call. Only faceless_v3 lists it;
     # a manifest without it plans overlays inside plan_beats exactly as before.

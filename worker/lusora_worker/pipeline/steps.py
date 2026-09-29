@@ -39,7 +39,7 @@ from .. import align, beatphases, edithints
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_plan, validate_shot_picks
-from . import degrade, qa
+from . import checkpoints, degrade, qa
 
 # ---------------- research (D64) ----------------
 
@@ -939,6 +939,25 @@ def footage_fresh(ctx: StageContext) -> bool:
     return anchor is None or ctx.artifact("footage.json").stat().st_mtime >= ctx.artifact(anchor).stat().st_mtime
 
 
+def run_footage_check(ctx: StageContext) -> None:
+    """Is there footage of this story online at all (D105)? Right after the
+    subjects pass, before the beats are planned and the video is rendered: a
+    topic the internet cannot illustrate stops here, with a report, instead of
+    becoming a weak video. Off unless footage is on for the channel."""
+    conf = footage_agent.settings(ctx.cfg)
+    if not conf["enabled"]:
+        ctx.write_json("footage_check.json", {"version": "1.0", "video_id": ctx.video_id, "subjects": {},
+                                              "thin": [], "note": "footage is off for this channel"})
+        ctx.log("footage is off for this channel — no topic check")
+        return
+    doc = footage_agent.check(ctx, progress=ctx.log)
+    ctx.write_json("footage_check.json", doc)
+    reason = footage_agent.check_is_thin(doc, float(conf["check_min_share"]))
+    ctx.artifact("footage_report.md").write_text(footage_agent.footage_report(ctx), encoding="utf-8")
+    if reason:
+        checkpoints.request(ctx, "footage_check", f"thin topic: {reason} — see footage_report.md")
+
+
 def run_gather_footage(ctx: StageContext) -> None:
     """Footage and photos from the open internet, per subject (D104).
     Documentary pipeline only; off unless the channel turns
@@ -1007,6 +1026,14 @@ def run_pick_shots(ctx: StageContext) -> None:
     ctx.log(f"{doc['sheets']} sheets judged by {conf['llm']}; {placed} of {len(shots)} shots have a "
             f"candidate rated {conf['min_rating']}+"
             + (f"; {len(doc['unjudged'])} unjudged, left to the plain search" if doc["unjudged"] else ""))
+    # D105: coverage below the channel's bar stops the video before the render,
+    # whatever its mode, with a report of the weak shots
+    ctx.artifact("footage_report.md").write_text(footage_agent.footage_report(ctx), encoding="utf-8")
+    min_coverage = float(conf["min_coverage"])
+    if shots and min_coverage > 0 and placed / len(shots) < min_coverage:
+        checkpoints.request(ctx, "pick_shots",
+                            f"thin footage: {placed} of {len(shots)} shots have a candidate rated "
+                            f"{conf['min_rating']}+ (the channel asks for {min_coverage:.0%}) — see footage_report.md")
 
 
 def run_resolve_assets(ctx: StageContext) -> None:

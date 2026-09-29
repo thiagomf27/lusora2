@@ -353,37 +353,12 @@ export async function enqueueVideo(
   return { ok: true };
 }
 
-/* ---------------- review-mode checkpoints (D62) ---------------- */
+/* ---------------- review-mode checkpoints (D62, D105) ---------------- */
 
-/** Where an approval lives. The folder is the data plane of record, so a
- *  passed gate is a FILE — the worker's resume ("skip what exists") then
- *  covers checkpoints for free, and an approval survives a worker restart. */
-export function approvalPath(videoId: string, stage: string): string {
-  return join(videoFolder(videoId), "approvals", `${stage}.json`);
-}
-
-/** The stages a video's OWN pipeline snapshot would stop after. Read from
- *  `pipeline_doc`, never from the manifest on disk: editing faceless.yaml must
- *  not move the gates of a video already in flight (Principle 7). */
-export function gatedStages(video: VideoRow): string[] {
-  const doc = (video.cfg as { pipeline_doc?: PipelineManifest } | null)?.pipeline_doc;
-  return (doc?.stages ?? [])
-    .filter((s) => s.human_approval_on_review_mode)
-    .map((s) => s.name);
-}
-
-/**
- * The gate this video is actually stopped at: the first declared gate with no
- * approval file yet. The worker walks stages in order and stops at the first
- * unapproved gate, so "first without a file" is the same answer it reached —
- * derived from the folder rather than tracked in a column that could drift.
- */
-export function pendingGate(video: VideoRow): string | null {
-  for (const stage of gatedStages(video)) {
-    if (!existsSync(approvalPath(video.id, stage))) return stage;
-  }
-  return null;
-}
+// The gate logic reads only the snapshot and the folder, so it lives in a
+// module with no database import (gates.ts) that tests can load directly.
+export { approvalPath, gatedStages, requestPath, gateReason, pendingGate } from "./gates.ts";
+import { approvalPath, gatedStages } from "./gates.ts";
 
 export interface ApprovalResult {
   ok: boolean;

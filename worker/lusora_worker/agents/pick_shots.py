@@ -40,7 +40,8 @@ ROLE = "pick_shots"
 MAX_ATTEMPTS = 2
 
 DEFAULTS = {"enabled": False, "llm": "claude_cli", "model": None,
-            "candidates_per_shot": 6, "shots_per_sheet": 6, "min_rating": 3, "crop_logos": False}
+            "candidates_per_shot": 6, "shots_per_sheet": 6, "min_rating": 3, "crop_logos": False,
+            "min_coverage": 0.8}
 
 CELL_W, CELL_H, LABEL_H = 320, 180, 26
 _UA = {"User-Agent": "LUSORA/1.0 (documentary b-roll research; contact sheets)"}

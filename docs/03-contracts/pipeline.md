@@ -157,7 +157,7 @@ been true; `resolve_assets` onward are machine products and are not.
 | `faceless` | test (production until v3 was promoted) | — | the stage list as it stood before pipelines were data (D60) |
 | `faceless_v2` | test | `research` before `script` (D64) | a research pass has a prompt but no track record |
 | `faceless_v3` | production (promoted 2026-09-05, D84) | `cut_beats` before `plan_beats` (D88), `select_overlays` after it (D87) | the overlay-quality work, isolated from v2 so an eval can attribute what it measures (D84) |
-| `documentary` | test | v1.0 is v3's stage list verbatim; each slice of the [documentary pipeline plan](../05-roadmap/documentary-pipeline-plan.md) adds a stage or knob (D100). v1.1 adds `subjects` (D102), v1.2 `pick_shots` (D103), v1.3 `gather_footage` (D104) | Dark Palace's production brought in without moving the promoted pipeline; benchmarked on `evals/benchmarks/centralia` |
+| `documentary` | test | v1.0 is v3's stage list verbatim; each slice of the [documentary pipeline plan](../05-roadmap/documentary-pipeline-plan.md) adds a stage or knob (D100). v1.1 adds `subjects` (D102), v1.2 `pick_shots` (D103), v1.3 `gather_footage` (D104), v1.4 `footage_check` and the footage gates (D105) | Dark Palace's production brought in without moving the promoted pipeline; benchmarked on `evals/benchmarks/centralia` |
 
 **v3 is not built on v2, and that is the decision rather than an oversight.**
 v2 is the only home of the `research` stage. Putting the overlay work there

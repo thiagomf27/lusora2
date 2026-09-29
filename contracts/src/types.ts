@@ -654,6 +654,8 @@ export interface ChannelConfig {
         safety?: boolean;
         /** each downloaded video's shots rated once; 1s never enter the pool */
         screen?: boolean;
+        /** D105: stop before planning when fewer subjects than this have footage */
+        check_min_share?: number;
         keep_in_library?: boolean;
       };
       /** D103: vision-rated candidates per shot (the pick_shots stage). */
@@ -666,6 +668,8 @@ export interface ChannelConfig {
         min_rating?: number;
         /** crop a reported corner logo (off: a small logo is acceptable) */
         crop_logos?: boolean;
+        /** D105: stop before the render when coverage is below this */
+        min_coverage?: number;
       };
     };
     /** D48: overrides theme.sound.pack. */

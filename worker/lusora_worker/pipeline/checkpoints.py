@@ -75,6 +75,46 @@ def approved(ctx: Any, stage: str) -> bool:
     return ctx.has(approval_name(stage))
 
 
+# ---------------- requested gates (D105) ----------------
+#
+# A review-mode gate is declared by the manifest and fires on every guided
+# video. A REQUESTED gate is raised by a stage about its own output, on any
+# video, auto or guided: gather_footage's topic check and pick_shots' coverage
+# check stop a video whose footage is too thin to be worth rendering unseen.
+# Same two-file shape as an approval — the worker writes the request, only a
+# human writes the approval — and the same approval clears it.
+
+REQUESTS_DIR = "gate_requests"
+
+
+def request_name(stage: str) -> str:
+    return f"{REQUESTS_DIR}/{stage}.json"
+
+
+def request(ctx: Any, stage: str, reason: str) -> None:
+    """Ask for a human before the pipeline goes past `stage`."""
+    (ctx.folder / REQUESTS_DIR).mkdir(exist_ok=True)
+    ctx.write_json(request_name(stage), {"stage": stage, "reason": reason})
+
+
+def requested(ctx: Any, stage: str) -> bool:
+    return ctx.has(request_name(stage))
+
+
+def request_reason(ctx: Any, stage: str) -> str:
+    try:
+        return str(ctx.read_json(request_name(stage)).get("reason") or "")
+    except Exception:
+        return ""
+
+
+def clear_request(ctx: Any, stage: str) -> None:
+    """A stage about to run again judges its NEW output; a request about the
+    old one must not stop the video."""
+    path = ctx.folder / request_name(stage)
+    path.unlink(missing_ok=True)
+
+
 def approval_note(ctx: Any, stage: str) -> str:
     """One line naming who approved and when, for the event log.
 

@@ -282,6 +282,17 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
     - Pixabay: there was no key to test with.
     - archive.org video: its files are feature-length.
     - Portrait framing: moved to slice 7.
+- Follow-up (D105), after the user watched the first render with YouTube
+  footage:
+  - Each downloaded video is screened once by the judge. Shots with burned-in
+    captions, effects, graphics or presenters never enter the pool.
+  - Logos are no longer cropped.
+  - A stage can request a gate on any video:
+    - `footage_check` (documentary v1.4) stops a thin topic after the
+      subjects pass;
+    - `pick_shots` stops a video whose coverage is under `pick.min_coverage`;
+    - in review mode `pick_shots` always stops.
+  - Every stop comes with `footage_report.md`.
 
 ### Slice 5: the hook tier and number truth (M)
 - `style_pack.pacing.hook`: the compiler marks hook items, tightens holds,

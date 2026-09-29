@@ -32,6 +32,8 @@ interface VideoRow {
   review_gates?: string[];
   /** D62 — the one it is stopped at, when it is stopped at all. */
   pending_gate?: string | null;
+  /** D105: why a stage stopped the video on its own, e.g. thin footage */
+  gate_reason?: string | null;
   /** The frozen snapshot this video runs on (Principle 7) — null on a draft. */
   cfg?: {
     theme?: string;
@@ -318,6 +320,8 @@ export default function VideoPage() {
     // D104: written by finalize when the video uses footage or photos from
     // the internet — only what is actually on screen, with links and licences
     { name: "Credits · text", detail: "Every online source used on screen, with its link and licence", href: playable ? `/api/videos/${id}/files/credits.txt` : null, text: true },
+    // D105: what the topic check and the shot judge found — read it at a footage gate
+    { name: "Footage report · text", detail: "Footage found per subject, and the shots with no good candidate", href: `/api/videos/${id}/files/footage_report.md`, text: true },
   ];
 
   return (
@@ -420,13 +424,22 @@ export default function VideoPage() {
               ) : video.status === "awaiting_approval" ? (
                 <div className={s.stage}>
                   <div className={s.stageText}>
-                    Review mode — waiting for approval of <strong>{video.pending_gate ?? "a stage"}</strong>
+                    {video.gate_reason ? "Stopped for a look" : "Review mode"} — waiting for approval of{" "}
+                    <strong>{video.pending_gate ?? "a stage"}</strong>
                   </div>
-                  <div className={s.stageMono}>
-                    Nothing after this stage runs until it is approved, so the video is not rendered
-                    yet. Edit {video.pending_gate === "plan_beats" ? "the beat sheet" : "the script"} below
-                    first if it needs changes — approving re-queues the video from here.
-                  </div>
+                  {video.gate_reason ? (
+                    // D105: the stage stopped the video itself (thin footage)
+                    <div className={s.stageMono}>
+                      {video.gate_reason}. The footage report below lists what was found; approving
+                      continues with it, or cancel the video.
+                    </div>
+                  ) : (
+                    <div className={s.stageMono}>
+                      Nothing after this stage runs until it is approved, so the video is not rendered
+                      yet. Edit {video.pending_gate === "plan_beats" ? "the beat sheet" : "the script"} below
+                      first if it needs changes — approving re-queues the video from here.
+                    </div>
+                  )}
                   {(video.review_gates?.length ?? 0) > 1 && (
                     <div className={s.stageMono}>
                       Gates in this pipeline: {video.review_gates!.join(" → ")}

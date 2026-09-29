@@ -49,7 +49,8 @@ def settings(cfg: dict[str, Any]) -> dict[str, Any]:
     raw = (((cfg.get("source_policy") or {}).get("visual") or {}).get("footage")) or {}
     amount = str(raw.get("amount") or "normal")
     conf = {"enabled": False, "amount": amount, "youtube": True, "photos": True, "safety": True,
-            "screen": True, "keep_in_library": True, **PRESETS.get(amount, PRESETS["normal"])}
+            "screen": True, "keep_in_library": True, "check_min_share": 0.5,
+            **PRESETS.get(amount, PRESETS["normal"])}
     conf.update({k: v for k, v in raw.items() if v is not None})
     return conf
 
@@ -188,6 +189,105 @@ def pick_videos(
 # ---------------- the stage ----------------
 
 
+# ---------------- the early topic check (D105) ----------------
+
+
+def check(ctx: StageContext, progress: Callable[[str], None] | None = None) -> dict[str, Any]:
+    """Before the beats are planned: does the internet have footage of this
+    story at all? Per subject, the YouTube search gather_footage will ask
+    (metadata only) and one Commons search. A subject is COVERED when it has
+    at least two usable YouTube results or one free-licence photo. The raw
+    results are kept, so gather_footage does not search twice."""
+    conf = settings(ctx.cfg)
+    say = progress or (lambda _m: None)
+    subjects_doc = ctx.read_json("subjects.json")
+    subjects = {str(s["id"]): s for s in subjects_doc.get("subjects") or []}
+    anchor = anchor_name(subjects_doc, str(ctx.video.get("title") or ""))
+    safety = bool(conf["safety"])
+    out: dict[str, Any] = {"version": "1.0", "video_id": ctx.video_id, "subjects": {}, "thin": [], "note": ""}
+
+    def one(sid: str) -> tuple[str, dict[str, Any]]:
+        q = youtube_query(subjects[sid], anchor)
+        entry: dict[str, Any] = {"name": subjects[sid].get("name", ""), "query": q, "youtube": 0, "photos": 0,
+                                 "results": []}
+        if conf["youtube"]:
+            try:
+                raw = footage.youtube_search(q, RESULTS_PER_SEARCH)
+            except footage.ProxyMissing as exc:
+                raw, out["note"] = [], str(exc)
+            usable = [r for r in raw if footage.usable_result(r, float(conf["max_video_seconds"]))
+                      and (not safety or adult_filter.safe(r["title"]))]
+            entry["youtube"], entry["results"] = len(usable), usable
+        if conf["photos"]:
+            try:
+                photos, _why = footage.commons_photos(q, 2, safety=safety)
+                entry["photos"] = len(photos)
+            except Exception:  # noqa: BLE001 - a site refusing is not an answer about the topic
+                entry["photos"] = 0
+        return sid, entry
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        out["subjects"] = dict(pool.map(one, list(subjects)))
+    out["thin"] = [sid for sid, e in out["subjects"].items() if e["youtube"] < 2 and e["photos"] < 1]
+    covered = len(subjects) - len(out["thin"])
+    say(f"footage check: {covered} of {len(subjects)} subjects have footage online"
+        + (f"; thin: {', '.join(out['thin'])}" if out["thin"] else ""))
+    return out
+
+
+def check_is_thin(doc: dict[str, Any], min_share: float) -> str:
+    """The reason to stop, or "" when the topic has enough footage."""
+    total = len(doc.get("subjects") or {})
+    if not total:
+        return ""
+    covered = total - len(doc.get("thin") or [])
+    if covered / total >= min_share:
+        return ""
+    names = ", ".join(f"{sid} ({doc['subjects'][sid]['name']})" for sid in doc["thin"][:6])
+    return (f"only {covered} of {total} subjects have footage online (the channel asks for "
+            f"{min_share:.0%}); thin: {names}")
+
+
+def footage_report(ctx: StageContext) -> str:
+    """footage_report.md: what the topic check and the judge found, written
+    for the person deciding whether to approve a paused video."""
+    lines = [f"# Footage report — {ctx.video.get('title') or ctx.video_id}", ""]
+    if ctx.has("footage_check.json"):
+        doc = ctx.read_json("footage_check.json")
+        lines += ["## Topic check (before planning)", "",
+                  "| subject | search | usable YouTube results | photos |", "|---|---|---|---|"]
+        for sid, e in (doc.get("subjects") or {}).items():
+            mark = " ⚠" if sid in (doc.get("thin") or []) else ""
+            lines.append(f"| {sid}{mark} {e.get('name', '')} | {e.get('query', '')} | {e.get('youtube', 0)} | {e.get('photos', 0)} |")
+        if doc.get("note"):
+            lines += ["", f"Note: {doc['note']}"]
+        lines.append("")
+    if ctx.has("shot_picks.json") and ctx.has("beats.json"):
+        from .pick_shots import settings as pick_settings
+
+        picks = ctx.read_json("shot_picks.json")
+        min_rating = int(pick_settings(ctx.cfg)["min_rating"])
+        beats = {b["id"]: b for b in ctx.read_json("beats.json")["beats"]}
+        weak = []
+        for item_id, entry in (picks.get("items") or {}).items():
+            best = (entry.get("candidates") or [{}])[0]
+            if int(best.get("rating") or 0) < min_rating:
+                beat = beats.get(str(entry.get("beat_id")), {})
+                weak.append(f"| {entry.get('beat_id')} | {str(beat.get('script_text') or '')[:90]} | "
+                            f"{best.get('rating', '—')} {best.get('desc', '')[:50]} |")
+        judged = len(picks.get("items") or {})
+        lines += ["## Shot judge (before the render)", "",
+                  f"{judged - len(weak)} of {judged} judged shots have a candidate rated {min_rating}+. "
+                  f"Contact sheets are in `sheets/`.", ""]
+        if weak:
+            lines += ["Weak shots (they will use their best candidate, or the plain search):", "",
+                      "| beat | narration | best candidate |", "|---|---|---|", *weak, ""]
+        if picks.get("unjudged"):
+            lines += [f"Not judged (the judge did not answer): {', '.join(picks['unjudged'])}", ""]
+    lines += ["Approve to continue with what was found, or cancel the video."]
+    return "\n".join(lines) + "\n"
+
+
 def gather(
     ctx: StageContext,
     chat_fn: llm.ChatFn = llm.chat,
@@ -213,10 +313,18 @@ def gather(
     if conf["youtube"] and int(conf["max_videos"]) > 0:
         asked = {sid: youtube_query(subjects[sid], anchor) for sid in order}
         say("youtube searches: " + "; ".join(f"{sid} '{q}'" for sid, q in asked.items()))
+        # the topic check (D105) already asked the same questions
+        checked = (ctx.read_json("footage_check.json").get("subjects") or {}) if ctx.has("footage_check.json") else {}
+
+        def search(sid: str) -> tuple[str, list[dict]]:
+            prior = checked.get(sid) or {}
+            if prior.get("query") == asked[sid] and prior.get("results"):
+                return sid, list(prior["results"])
+            return sid, footage.youtube_search(asked[sid], RESULTS_PER_SEARCH)
+
         try:
             with ThreadPoolExecutor(max_workers=4) as pool:
-                raw = dict(pool.map(lambda sid: (sid, footage.youtube_search(asked[sid], RESULTS_PER_SEARCH)),
-                                    order))
+                raw = dict(pool.map(search, order))
         except footage.ProxyMissing as exc:
             raw = {}
             doc["skipped"].append(f"youtube: {exc}")

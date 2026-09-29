@@ -1,5 +1,5 @@
 name: documentary
-version: "1.3"
+version: "1.4"
 description: >
   Dark Palace's production on LUSORA's architecture (D100,
   docs/05-roadmap/documentary-pipeline-plan.md). Every DP feature enters as a
@@ -27,6 +27,12 @@ description: >
   the video's folder. The chain sources `youtube` and `archive` offer that
   pool; finalize writes credits.txt and hands the used YouTube footage to the
   b-roll library. Off unless source_policy.visual.footage.enabled.
+
+  v1.4 (D105) adds `footage_check` after subjects: a metadata-only probe per
+  subject that STOPS a topic the internet cannot illustrate before it is
+  planned and rendered. pick_shots stops the video too when fewer shots than
+  pick.min_coverage have a good candidate, and in review mode it always
+  stops. Both write footage_report.md; approving the stage continues.
 
   Each later slice adds one stage or knob and bumps the version; the stages it adds are registry entries, so v3
   can adopt any of them by listing it (D60).
@@ -95,6 +101,12 @@ stages:
     produces: [subjects.json]
     receivable_on_upload: true            # hand-written subjects (schema-checked)
 
+  # D105 — is there footage of this story online? A thin topic asks for a
+  # human here (a requested gate), before planning and rendering.
+  - name: footage_check
+    requires: [subjects.json]
+    produces: [footage_check.json]
+
   - name: plan_beats
     requires: [script.txt, subtitles.srt, beat_cuts.json, subjects.json]
     produces: [beats.json]
@@ -127,6 +139,7 @@ stages:
     requires: [edit_plan.json, beats.json]
     produces: [shot_picks.json]
     receivable_on_upload: true            # hand-written picks (schema-checked)
+    human_approval_on_review_mode: true   # D105: review the footage before any render
 
   - name: resolve_assets
     requires: [edit_plan.json]

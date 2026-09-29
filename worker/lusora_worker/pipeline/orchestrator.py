@@ -78,6 +78,7 @@ def process_video(db: Db, config: WorkerConfig, video: dict) -> None:
             else:
                 db.event(video_id, stage.name, "started", None)
                 ctx.log(f"stage {stage.name} started")
+                checkpoints.clear_request(ctx, stage.name)
                 began = time.monotonic()
                 try:
                     stage.run(ctx)
@@ -97,12 +98,18 @@ def process_video(db: Db, config: WorkerConfig, video: dict) -> None:
             # The gate fires whether the stage just ran or was skipped as
             # already-present: on the re-claim after an approval the artifact
             # exists, so only the approval file can tell the loop to carry on.
-            if stage.name in gates:
+            # D105: a stage may also ask for a human about its own output, on
+            # any video — thin footage is worth a look whatever the mode.
+            asked = checkpoints.requested(ctx, stage.name)
+            if stage.name in gates or asked:
                 if not checkpoints.approved(ctx, stage.name):
+                    why = checkpoints.request_reason(ctx, stage.name) if asked else ""
                     db.set_status(video_id, "awaiting_approval")
                     db.event(video_id, stage.name, "progress",
-                             "waiting for human approval (review mode)")
-                    ctx.log(f"stopped after {stage.name} — waiting for approval")
+                             f"waiting for human approval: {why}" if why
+                             else "waiting for human approval (review mode)")
+                    ctx.log(f"stopped after {stage.name} — waiting for approval"
+                            + (f": {why}" if why else ""))
                     return
                 db.event(video_id, stage.name, "done",
                          f"gate passed — {checkpoints.approval_note(ctx, stage.name)}")
