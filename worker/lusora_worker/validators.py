@@ -386,6 +386,20 @@ def validate_beat_sheet(
                         f"beat {b.get('id')}: overlay props_hint {err} — props_hint carries "
                         "concrete values, never the prop schema itself"
                     )
+        # D106: the same number truth as a selection — every figure the graphic
+        # shows is spoken in this beat or a neighbour. A timed beat has no
+        # narration to hold it to.
+        if not structural:
+            k = beats.index(b)
+            nearby = " ".join(str(beats[j].get("script_text") or "")
+                              for j in range(max(0, k - 1), min(len(beats), k + 2)))
+            missing = unspoken_numbers(overlay.get("props_hint") or {}, nearby)
+            if missing:
+                violations.append(
+                    f"beat {b.get('id')}: overlay props_hint shows {', '.join(f'{n:g}' for n in missing[:5])}, "
+                    "which the narration never says here — every number on screen must be spoken "
+                    "(within 2%); remove it or use the spoken figure"
+                )
         ref = overlay.get("anchor_ref")
         anchors = b.get("anchors") or []
         if entry["anchor_types"]:
@@ -616,11 +630,18 @@ def _check_visual_holds(visual: list[dict], cfg: dict) -> list[str]:
     pacing = ((cfg.get("style_pack_doc") or {}).get("pacing")) or {}
     floor = float(pacing.get("min_hold", 0)) * float(pacing.get("hold_floor_ratio", 0) or 0)
     ceiling = float(pacing.get("max_hold", 0)) * float(pacing.get("hold_ceiling_ratio", 0) or 0)
+    # D106: the hook is paced faster on purpose and carries its own floor
+    hook_floor = float((pacing.get("hook") or {}).get("min_hold", 1.5))
     violations: list[str] = []
     for item in visual:
         if item.get("locked"):
             continue
         duration = float(item["end_s"]) - float(item["start_s"])
+        if item.get("hook"):
+            if duration < hook_floor - 0.05:
+                violations.append(f"visual item {item['id']} holds {duration:.2f}s in the hook, under its "
+                                  f"{hook_floor:.2f}s floor (pacing.hook.min_hold)")
+            continue
         if floor > 0 and duration < floor - 0.05:
             violations.append(
                 f"visual item {item['id']} holds {duration:.2f}s, under the {floor:.2f}s floor "
@@ -775,6 +796,23 @@ def validate_overlay_selection(
                         "never the prop schema itself"
                     )
 
+        # D106: every number the graphic shows must be one the narration says,
+        # in this beat or the one either side (a chart often lands a sentence
+        # after the figures it draws). An anchor's value comes from the script
+        # by construction; props_hint is free text, and it is where "91
+        # dampers" came from.
+        order = [str(b.get("id")) for b in beats]
+        k = order.index(beat_id)
+        nearby = " ".join(str(by_id[order[j]].get("script_text") or "")
+                          for j in range(max(0, k - 1), min(len(order), k + 2)))
+        missing = unspoken_numbers(sel.get("props_hint") or {}, nearby)
+        if missing:
+            shown = ", ".join(f"{n:g}" for n in missing[:5])
+            violations.append(
+                f"{where}: props_hint shows {shown}, which the narration never says here — every number "
+                "on screen must be spoken (within 2%); remove it or use the spoken figure"
+            )
+
     for i, declined in enumerate(doc.get("declined") or []):
         beat_id = str(declined.get("beat_id"))
         if beat_id not in by_id:
@@ -802,6 +840,71 @@ def validate_overlay_selection(
                 )
 
     return violations
+
+
+# ---------------- number truth (D106, documentary plan slice 5) ----------------
+
+# Numeric props that are layout, not facts: how many decimals to draw, which
+# chapter this is, a duration. Everything else a graphic shows is a claim.
+_LAYOUT_NUMBERS = {"decimals", "chapter_number", "duration_s", "delay_s", "max_items", "columns", "rows_visible",
+                   "stagger_s", "precision", "step", "font_scale", "zoom"}
+_DIGITS = re.compile(r"(?<![\w.])\d{1,3}(?:,\d{3})+(?:\.\d+)?|(?<![\w.])\d+(?:\.\d+)?")
+
+
+def spoken_numbers(text: str) -> set[float]:
+    """Every value the narration can be heard saying: number runs read the way
+    textmatch reads them ('seventy percent' = 70, '1,000' = 1000) plus the
+    digits as written, so '7.3 billion' offers both 7.3 and 7.3e9."""
+    from .compiler.textmatch import number_run, tokenize
+
+    values: set[float] = set()
+    tokens = tokenize(text)
+    i = 0
+    while i < len(tokens):
+        take, keys = number_run(tokens, i)
+        if take:
+            for key in keys:
+                try:
+                    values.add(float(key))
+                except ValueError:
+                    pass
+            i += take
+        else:
+            i += 1
+    for match in _DIGITS.findall(text):
+        values.add(float(match.replace(",", "")))
+    scaled = {v * f for v in values for f in (1e3, 1e6, 1e9)} | {v / f for v in values for f in (1e3, 1e6, 1e9)}
+    return values | scaled
+
+
+def written_numbers(value: Any, key: str = "") -> list[float]:
+    """Every number a graphic would put on screen: numeric props that are not
+    layout, and the digits inside every piece of text, however deep."""
+    if isinstance(value, bool):
+        return []
+    if isinstance(value, (int, float)):
+        return [] if key in _LAYOUT_NUMBERS else [float(value)]
+    if isinstance(value, str):
+        return [float(m.replace(",", "")) for m in _DIGITS.findall(value)]
+    if isinstance(value, dict):
+        return [n for k, v in value.items() for n in written_numbers(v, str(k))]
+    if isinstance(value, list):
+        return [n for v in value for n in written_numbers(v, key)]
+    return []
+
+
+def unspoken_numbers(hint: dict[str, Any], narration: str, tolerance: float = 0.02) -> list[float]:
+    """Numbers in `hint` the narration never says, within ±2% (Dark Palace's
+    `conferir`). An on-screen number nobody said is the one error a viewer
+    cannot check and a channel cannot take back."""
+    heard = spoken_numbers(narration)
+    missing = []
+    for n in written_numbers(hint):
+        if any(abs(n - h) <= tolerance * max(abs(h), 1e-9) or n == h for h in heard):
+            continue
+        if n not in missing:
+            missing.append(n)
+    return missing
 
 
 def selections_by_beat(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:

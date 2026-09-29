@@ -294,12 +294,25 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
     - in review mode `pick_shots` always stops.
   - Every stop comes with `footage_report.md`.
 
-### Slice 5: the hook tier and number truth (M)
+### Slice 5: the hook tier and number truth (M) ✅ BUILT (D106)
 - `style_pack.pacing.hook`: the compiler marks hook items, tightens holds,
   opens on footage and cuts on word onsets; resolve asks for distinct assets.
   A title card closes the hook with hit + riser cues.
 - The spoken-number check runs on production beat sheets. Fix the overlay prompt's
   worked example that invents "91 dampers" (`contracts/prompts/overlay/default.json`).
+- As built:
+  - The hook ends at the subjects pass's `hook_end_cut`, capped at `max_share`
+    (a quarter of the narration).
+  - Hook shots are marked `hook: true` and held to their own floor.
+  - Resolve gives the first hook shot video, never an archive photo.
+  - The title card's riser and hit are pinned against the sound budget.
+  - Number truth runs in both `validate_overlay_selection` and
+    `validate_beat_sheet`, within ±2%, in the beat or a neighbour. On the last
+    88 real selections it flags none.
+  - Not built: "resolve asks for distinct assets" in the hook. The whole-video
+    ledger already refuses a repeat, so there was nothing left to add.
+  - Evals: the overlay prompt's example changed, so `evals/BASELINE.md` is to
+    be retaken for both arms before any overlay-quality claim.
 
 ### Slice 6: hook forms (L)
 New stage `hook_plan` (DP's `MANCHETES_REGRA`: only what the narration says, no

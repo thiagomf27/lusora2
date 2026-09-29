@@ -7,7 +7,15 @@
     "max_hold": 8.0,
     "arc": "three_act",
     "hold_floor_ratio": 1.0,
-    "hold_ceiling_ratio": 1.5
+    "hold_ceiling_ratio": 1.5,
+    "hook": {
+      "enabled": true,
+      "cut_s": 2.2,
+      "min_hold": 1.5,
+      "max_share": 0.25,
+      "open_on": "footage",
+      "title_card": { "enabled": true, "component": "KineticTitle", "seconds": 2.5, "lead_cue": "riser", "hit_cue": "hit" }
+    }
   },
   "overlays": {
     "density": "normal",

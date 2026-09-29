@@ -169,6 +169,8 @@ export interface VisualItem {
    * now playing under this item's shot. Provenance: they keep their overlays.
    */
   absorbed_beat_ids?: string[];
+  /** D106: a shot in the opening hook, paced by style_pack.pacing.hook. */
+  hook?: boolean;
 }
 
 export interface OverlayItem {
@@ -413,6 +415,21 @@ export interface StylePack {
     /** D55/D58: post-alignment floor and ceiling, as multiples of min/max hold. */
     hold_floor_ratio?: number;
     hold_ceiling_ratio?: number;
+    /** D106: the opening hook's own pacing, title card and cues. */
+    hook?: {
+      enabled?: boolean;
+      cut_s?: number;
+      min_hold?: number;
+      max_share?: number;
+      open_on?: "footage" | "any";
+      title_card?: {
+        enabled?: boolean;
+        component?: string;
+        seconds?: number;
+        lead_cue?: string | null;
+        hit_cue?: string | null;
+      };
+    };
   };
   overlays: {
     density: OverlayDensity;

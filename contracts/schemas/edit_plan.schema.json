@@ -142,6 +142,10 @@
           "default": false,
           "description": "video assets only: repeat the source from its trim start for as long as the item holds, instead of freezing on the last frame when the footage runs out (D55). Both renderers honour it."
         },
+        "hook": {
+          "type": "boolean",
+          "description": "D106 — this shot is in the opening hook, paced by style_pack.pacing.hook (cut every ~cut_s on a word onset, its own hold floor) rather than by the pack's normal holds. The first hook shot opens on footage."
+        },
         "absorbed_beat_ids": {
           "type": "array",
           "items": { "type": "string" },

@@ -65,6 +65,29 @@
           "minimum": 0,
           "default": 0,
           "description": "post-alignment per-beat CEILING, as a multiple of max_hold. A slot holding one long sentence has no boundary to cut at and sits there dead; the compiler divides anything above max_hold * this into equal slots. 0 disables the pass (see hold_floor_ratio). The shipped packs set 1.5."
+        },
+        "hook": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "D106 — the opening hook, from the start of the narration to subjects.json hook_end_cut (a pipeline without the subjects stage has no hook to pace). Dark Palace's hook: faster cuts on word onsets, opening on footage, closing on the video's title with a riser into a hit. Off unless enabled, so a pack that does not set it compiles exactly as before.",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "cut_s": { "type": "number", "minimum": 1, "maximum": 6, "default": 2.2, "description": "target seconds per hook shot; each cut moves to the nearest word onset" },
+            "min_hold": { "type": "number", "minimum": 0.5, "default": 1.5, "description": "the hook's own hold floor, in place of pacing.min_hold x hold_floor_ratio" },
+            "max_share": { "type": "number", "minimum": 0.05, "maximum": 0.5, "default": 0.25, "description": "the hook never runs longer than this share of the narration: a later hook_end_cut is pulled back to the last cut that fits" },
+            "open_on": { "enum": ["footage", "any"], "default": "footage", "description": "footage = no graphic covers the first shot, and that shot is video rather than a still" },
+            "title_card": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean", "default": true },
+                "component": { "type": "string", "default": "KineticTitle", "description": "catalog component whose `text` prop takes the video's title" },
+                "seconds": { "type": "number", "minimum": 1, "default": 2.5 },
+                "lead_cue": { "type": ["string", "null"], "default": "riser", "description": "sound-pack cue leading into the card (its lead_s pulls it earlier)" },
+                "hit_cue": { "type": ["string", "null"], "default": "hit", "description": "sound-pack cue on the card's entrance" }
+              }
+            }
+          }
         }
       }
     },

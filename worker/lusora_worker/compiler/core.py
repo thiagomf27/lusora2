@@ -35,6 +35,7 @@ def compile_plan(
     audio_duration_s: float,
     overlay_selection: dict[str, Any] | None = None,
     on_note: Callable[[str], None] | None = None,
+    hook: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """sentence_timings: [{text, start_s, end_s}] in audio time (from the
     TTS adapter or the SRT), covering the whole narration in order.
@@ -119,10 +120,21 @@ def compile_plan(
             transition_seconds=transition_seconds,
         ))
 
+    # D106: the hook tier. `hook` = {end_s (narration time), title} from the
+    # subjects pass; the style pack decides whether and how it is paced.
+    hook_rules = _hook_rules(pacing, hook)
+    hook_end_abs = vo_start + float(hook["end_s"]) if hook_rules else -1.0
+    onsets = [vo_start + float(w["start_s"]) for w in word_timeline] if hook_rules else []
+
     for slot in _enforce_hold_floor(aligned, hold_floor):
         beat = slot["beat"]
-        spans = _split_for_max_hold(slot["start"], slot["end"], slot["sentences"], min_hold, max_hold)
-        spans = _enforce_hold_ceiling(spans, max_hold, hold_ceiling)
+        in_hook = bool(hook_rules) and slot["end"] <= hook_end_abs + 0.05
+        if in_hook:
+            # the opening cuts on the rhythm of the words, not the sentences
+            spans = _hook_spans(slot["start"], slot["end"], hook_rules, onsets)
+        else:
+            spans = _split_for_max_hold(slot["start"], slot["end"], slot["sentences"], min_hold, max_hold)
+            spans = _enforce_hold_ceiling(spans, max_hold, hold_ceiling)
         for j, (s0, s1) in enumerate(spans):
             # A beat too long for one hold becomes several shots of the SAME
             # beat, and its transition names the junction to the NEXT beat — so
@@ -141,6 +153,8 @@ def compile_plan(
             )
             if slot["absorbed"]:
                 item["absorbed_beat_ids"] = list(slot["absorbed"])
+            if in_hook:
+                item["hook"] = True
             visual.append(item)
 
     visual.sort(key=lambda v: v["start_s"])
@@ -160,6 +174,10 @@ def compile_plan(
         if item:
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
+    pinned_cues: list[tuple[str, float, str]] = []
+    if hook_rules:
+        overlays, pinned_cues = _hook_overlays(
+            overlays, visual, hook_rules, hook_end_abs, str(hook.get("title") or ""), aligned, total_end, on_note)
     overlays = _trim_overlay_holds(overlays, total_end=total_end, on_note=on_note)
 
     # ---- transitions (D95) ----
@@ -217,7 +235,7 @@ def compile_plan(
     music = sound.compile_music(beat_times, absolute_timings, cfg, total_duration_s)
     if music:
         audio["music"] = music
-    sfx = sound.compile_sfx(overlays, visual, cfg, total_duration_s)
+    sfx = sound.compile_sfx(overlays, visual, cfg, total_duration_s, pinned=pinned_cues)
     if sfx:
         audio["sfx"] = sfx
 
@@ -237,6 +255,113 @@ def compile_plan(
         },
     }
     return plan
+
+
+# ---------------- the hook tier (D106) ----------------
+
+
+def _hook_rules(pacing: dict[str, Any], hook: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The style pack's hook settings with their defaults, or None when the
+    pack does not pace a hook or the video has no hook end to pace to."""
+    rules = pacing.get("hook") or {}
+    if not rules.get("enabled") or not hook or float(hook.get("end_s") or 0) <= 0:
+        return None
+    card = rules.get("title_card") or {}
+    return {
+        "cut_s": float(rules.get("cut_s", 2.2)),
+        "min_hold": float(rules.get("min_hold", 1.5)),
+        "open_on": str(rules.get("open_on", "footage")),
+        "card": None if card.get("enabled") is False else {
+            "component": str(card.get("component", "KineticTitle")),
+            "seconds": float(card.get("seconds", 2.5)),
+            "lead_cue": card.get("lead_cue", "riser"),
+            "hit_cue": card.get("hit_cue", "hit"),
+        },
+    }
+
+
+def _hook_spans(start: float, end: float, rules: dict[str, Any], onsets: list[float]) -> list[tuple[float, float]]:
+    """A hook slot cut every ~cut_s, each cut moved to the nearest word onset
+    (Dark Palace's `_cortes`): a cut that lands mid-word reads as a stumble, one
+    on the word reads as intent. A snap that would leave a piece under the hook
+    floor keeps its arithmetic point instead."""
+    duration = end - start
+    parts = max(1, round(duration / rules["cut_s"]))
+    if parts == 1:
+        return [(round(start, 3), round(end, 3))]
+    floor = rules["min_hold"]
+    points = [start]
+    for k in range(1, parts):
+        ideal = start + duration * k / parts
+        near = [t for t in onsets if abs(t - ideal) <= 0.5 and t - points[-1] >= floor and end - t >= floor]
+        cut = min(near, key=lambda t: abs(t - ideal)) if near else ideal
+        if cut - points[-1] >= floor and end - cut >= floor:
+            points.append(cut)
+    points.append(end)
+    return [(round(a, 3), round(b, 3)) for a, b in zip(points, points[1:])]
+
+
+def _hook_overlays(
+    overlays: list[dict[str, Any]],
+    visual: list[dict[str, Any]],
+    rules: dict[str, Any],
+    hook_end_abs: float,
+    title: str,
+    aligned: list[tuple[dict[str, Any], tuple[float, float, Any]]],
+    total_end: float,
+    on_note: Callable[[str], None] | None,
+) -> tuple[list[dict[str, Any]], list[tuple[str, float, str]]]:
+    """The hook opens on footage and closes on the title (Dark Palace's hook).
+
+    Open: no graphic covers the first shot — an overlay that starts on it
+    moves to the shot's end, or goes when too little of it would be left.
+    Close: the video's title as a card at the hook's end, entering on a hit
+    with a riser leading into it; any graphic it would sit on top of moves
+    after it. Returns the overlays and the cues to pin (name, at, origin id)."""
+    hook_items = [v for v in visual if v.get("hook")]
+    out = list(overlays)
+    if rules["open_on"] == "footage" and hook_items:
+        first_end = float(hook_items[0]["end_s"])
+        kept = []
+        for o in out:
+            if float(o["start_s"]) < first_end - 1e-6:
+                if float(o["end_s"]) - first_end >= _readable_minimum(o):
+                    o = {**o, "start_s": round(first_end, 3)}
+                    _moved(on_note, o, "off the hook's opening shot, which opens on footage")
+                else:
+                    _report(on_note, o, "the hook opens on footage, and too little was left after its first shot")
+                    continue
+            kept.append(o)
+        out = kept
+
+    pinned: list[tuple[str, float, str]] = []
+    card = rules["card"]
+    words = title.split()
+    if card and words:
+        start = round(min(hook_end_abs, total_end - card["seconds"]), 3)
+        end = round(start + card["seconds"], 3)
+        beat_id = next((str(b["id"]) for b, (s, e, _x) in aligned if s <= start < e), None)
+        entry = lusora_contracts.catalog_component(card["component"]) or {}
+        cap = int(((entry.get("props") or {}).get("text") or {}).get("maxWords") or 11)
+        title_card = {"id": "o_hook_title", "beat_id": beat_id, "locked": False, "kind": "component",
+                      "component": card["component"], "props": {"text": " ".join(words[:cap])},
+                      "start_s": start, "end_s": end}
+        kept = []
+        for o in out:
+            if float(o["start_s"]) < end and float(o["end_s"]) > start:
+                if float(o["end_s"]) - end >= _readable_minimum(o):
+                    o = {**o, "start_s": end}
+                    _moved(on_note, o, "after the hook's title card")
+                else:
+                    _report(on_note, o, "it would sit under the hook's title card")
+                    continue
+            kept.append(o)
+        out = sorted(kept + [title_card], key=lambda o: o["start_s"])
+        if card["lead_cue"]:
+            pinned.append((str(card["lead_cue"]), start, "o_hook_title"))
+        if card["hit_cue"]:
+            pinned.append((str(card["hit_cue"]), start, "o_hook_title"))
+    return out, pinned
 
 
 # ---------------- helpers ----------------
@@ -795,6 +920,11 @@ def _trim_overlay_holds(
             max(min(float(last["end_s"]), total_end), float(last["start_s"]) + 0.5), 3
         )
     return kept
+
+
+def _moved(on_note: Callable[[str], None] | None, item: dict[str, Any], where: str) -> None:
+    if on_note is not None:
+        on_note(f"overlay {item.get('component', item.get('kind'))} on beat {item.get('beat_id')} was moved {where}")
 
 
 def _report(on_note: Callable[[str], None] | None, item: dict[str, Any], why: str) -> None:

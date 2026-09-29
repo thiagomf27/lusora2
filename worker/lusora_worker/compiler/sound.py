@@ -239,8 +239,13 @@ def compile_sfx(
     visual: list[dict[str, Any]],
     cfg: dict[str, Any],
     total_duration_s: float,
+    pinned: list[tuple[str, float, str]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Place cues against overlay entrances and transitions, then thin them."""
+    """Place cues against overlay entrances and transitions, then thin them.
+
+    `pinned` = (cue, at, origin overlay id) cues the compiler insists on — the
+    hook's riser and hit (D106). They survive thinning, anything colliding with
+    one goes instead, and their overlay takes no entrance cue of its own."""
     if not sound_enabled(cfg, "sfx") or not _pack(cfg):
         return []
 
@@ -252,6 +257,17 @@ def compile_sfx(
     if default_gain is not None:
         base_gain = float(default_gain)
 
+    pinned_items: list[dict[str, Any]] = []
+    for n, (name, at_s, origin_id) in enumerate(pinned or []):
+        resolved = _cue(cfg, name)
+        if resolved is None:
+            continue
+        item = _sfx_item(f"s_pin_{n}_{origin_id}", resolved[0], resolved[1], float(at_s), origin="overlay",
+                         origin_id=origin_id, beat_id=None, base_gain=base_gain)
+        item["_pinned"] = True
+        pinned_items.append(item)
+    pinned_origins = {i["origin_id"] for i in pinned_items}
+
     candidates: list[dict[str, Any]] = []
 
     if "entrance" in allowed:
@@ -259,6 +275,8 @@ def compile_sfx(
             component = overlay.get("component")
             if not component:
                 continue  # media overlays are a PiP box, not an event
+            if str(overlay["id"]) in pinned_origins:
+                continue  # its sound is the pinned one
             resolved = _cue_for_overlay(cfg, str(component))
             if resolved is None:
                 continue
@@ -301,8 +319,15 @@ def compile_sfx(
                 )
             )
 
+    if pinned_items:
+        # a cue near a pinned one is what gives way
+        min_gap = float(style_sfx.get("min_gap_s", 1.2))
+        candidates = [c for c in candidates
+                      if all(abs(c["start_s"] - p["start_s"]) >= min_gap for p in pinned_items)]
     kept = _thin_sfx(candidates, style_sfx, total_duration_s, _pack(cfg))
+    kept = sorted(kept + pinned_items, key=lambda i: (i["start_s"], i["id"]))
     for item in kept:
+        item.pop("_pinned", None)
         item["end_s"] = round(min(item["end_s"], total_duration_s), 3)
     return [i for i in kept if i["end_s"] > i["start_s"]]
 

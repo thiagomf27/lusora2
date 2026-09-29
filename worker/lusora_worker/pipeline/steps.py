@@ -743,9 +743,15 @@ def run_compile_plan(ctx: StageContext) -> None:
     # Absent on every pipeline that does not run that stage, and the compiler
     # then reads beat.overlay exactly as before.
     selection = ctx.read_json("overlays.json") if ctx.has("overlays.json") else None
+    hook = _hook_for(ctx, audio_duration)
     plan = compile_plan(
-        beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration, selection
+        beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration, selection,
+        on_note=ctx.log if hook else None, hook=hook,
     )
+    if hook:
+        hooked = [v for v in plan["tracks"]["visual"] if v.get("hook")]
+        ctx.log(f"hook: {len(hooked)} shots over the first {hook['end_s']:.1f}s, closing on "
+                f"\"{hook['title']}\"")
 
     # per-beat recompile (D14): locked items and still-valid resolutions survive
     if ctx.has("edit_plan.json"):
@@ -764,6 +770,27 @@ def run_compile_plan(ctx: StageContext) -> None:
     ctx.write_json("edit_plan.json", plan)
     ctx.log(f"plan compiled: {len(plan['tracks']['visual'])} visual items, "
             f"{len(plan['tracks']['overlays'])} overlays")
+
+
+def _hook_for(ctx: StageContext, audio_duration: float) -> dict | None:
+    """Where the hook ends and what it closes on (D106): the subjects pass's
+    hook_end_cut, in narration seconds, pulled back to the last cut inside
+    pacing.hook.max_share of the narration (Dark Palace: a hook is at most a
+    quarter of the video). None when the pack paces no hook or the pipeline
+    has no subjects stage."""
+    rules = ((ctx.cfg.get("style_pack_doc") or {}).get("pacing") or {}).get("hook") or {}
+    if not rules.get("enabled") or not ctx.has("subjects.json") or not ctx.has("beat_cuts.json"):
+        return None
+    subjects_doc = ctx.read_json("subjects.json")
+    cuts = ctx.read_json("beat_cuts.json").get("cuts") or []
+    k = int(subjects_doc.get("hook_end_cut", -1))
+    if not cuts or not 0 <= k < len(cuts):
+        return None
+    limit = float(rules.get("max_share", 0.25)) * audio_duration
+    fitting = [c for c in cuts[: k + 1] if float(c["end_s"]) <= limit]
+    end = float((fitting[-1] if fitting else cuts[0])["end_s"])
+    title = str(subjects_doc.get("title") or ctx.video.get("title") or "").strip()
+    return {"end_s": end, "title": title}
 
 
 def _merge_recompiled(old_plan: dict, new_plan: dict, beats_by_id: dict) -> dict:
@@ -1063,6 +1090,11 @@ def run_resolve_assets(ctx: StageContext) -> None:
     # (the user: a small channel logo does not need cropping)
     crop_logos = bool(pick_agent.settings(ctx.cfg)["crop_logos"])
 
+    # D106: the hook opens on footage — its first shot takes video, never a still
+    hook_rules = ((ctx.cfg.get("style_pack_doc") or {}).get("pacing") or {}).get("hook") or {}
+    opening_id = next((str(v["id"]) for v in plan["tracks"]["visual"] if v.get("hook")), None) \
+        if hook_rules.get("enabled") and hook_rules.get("open_on", "footage") == "footage" else None
+
     def picked(item: dict, snapshot: sources.Ledger) -> sources.Resolution | None:
         found = fetch_first(item, pick_agent.best_candidates(picks, str(item["id"]), min_rating), snapshot)
         if found is not None:
@@ -1084,6 +1116,8 @@ def run_resolve_assets(ctx: StageContext) -> None:
         return None
 
     def fetch_first(item: dict, options: list[dict], snapshot: sources.Ledger) -> sources.Resolution | None:
+        if str(item["id"]) == opening_id:
+            options = [c for c in options if c["source"] != "archive"]  # archive = photos
         for candidate in options:
             if snapshot.blocked(str(candidate["source"]), candidate.get("provider"), str(candidate["id"])):
                 continue
