@@ -51,6 +51,7 @@ to the table below and a notes block using the template.
 | Slice | Video | Pipeline | Notes |
 |---|---|---|---|
 | baseline | `vid_ebe08ffcb529` | faceless_v3 v1.2 | run 01; see the comparison folder |
+| 1 | `vid_9b4ac7c35f29` | documentary v1.0 + documentary-dark / documentary / synth-doc | 12 SFX (3 count, 3 whoosh, 2 type, 2 swish, pop, slide); render 22 min capped at 1.5 GB |
 
 ## Viewing-notes template
 
