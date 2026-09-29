@@ -60,6 +60,7 @@ to the table below and a notes block using the template.
 |---|---|---|---|
 | baseline | `vid_ebe08ffcb529` | faceless_v3 v1.2 | run 01; see the comparison folder |
 | 1 | `vid_9b4ac7c35f29` | documentary v1.0 + documentary-dark / documentary / synth-doc | 12 SFX (3 count, 3 whoosh, 2 type, 2 swish, pop, slide); render 22 min capped at 1.5 GB. User: "it is good" (2026-09-28) |
+| 2 | `vid_330487f758a1` | documentary v1.1 (+ subjects) | 11 subjects, hook to cut 5; all 35 beats tied to a subject; 36 Pexels shots, none repeated; 7 overlays; render 19 min 21 s (MemoryMax 3000M, concurrency 2); QA passed; $0.058. User: "The broll choices are better now" (2026-09-28) |
 
 ## Viewing-notes template
 
