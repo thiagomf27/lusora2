@@ -319,13 +319,14 @@ if (existsSync(pipelinesDir)) {
 // 4. price table sanity. An `llm.*` operation is priced per DIRECTION, because
 //    a reasoning model emits several times more output than input and bills its
 //    reasoning as output — one blended rate under-reported real spend by about
-//    an order of magnitude. Everything else keeps one price on its own unit.
+//    an order of magnitude. A `vision.*` call is a model call too (D103) and is
+//    priced the same way. Everything else keeps one price on its own unit.
 const prices = JSON.parse(readFileSync(join(root, "contracts/prices.json"), "utf8"));
 const rateOk = (v) => typeof v === "number" && v >= 0;
 for (const [provider, ops] of Object.entries(prices.prices)) {
   for (const [op, spec] of Object.entries(ops)) {
     if (op === "comment") continue;
-    if (!op.startsWith("llm.")) {
+    if (!op.startsWith("llm.") && !op.startsWith("vision.")) {
       if (!rateOk(spec.unit_price_usd))
         fail(`prices: ${provider}.${op} has invalid unit_price_usd`);
       continue;
@@ -353,7 +354,7 @@ for (const [, provider, model] of llmPy.matchAll(
   const ops = prices.prices[provider];
   if (!ops) continue;
   for (const [op, spec] of Object.entries(ops)) {
-    if (!op.startsWith("llm.") || !spec.by_model) continue;
+    if (!(op.startsWith("llm.") || op.startsWith("vision.")) || !spec.by_model) continue;
     if (!spec.by_model[model])
       fail(`prices: ${provider}.${op} has no rate for its default model '${model}'`);
   }

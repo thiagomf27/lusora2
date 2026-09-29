@@ -406,6 +406,43 @@
           "source": "cfg.overrides.instructions"
         }
       }
+    },
+    "pick_shots": {
+      "description": "D103 — a vision judge. One contact sheet (one row per shot, numbered candidate thumbnails from the stock search) -> a rating per candidate against its shot and the video's main idea, plus a corner logo to crop. Chooses among what a search already returned; a shot it cannot rate falls back to the search's first hit.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "rows": {
+          "required": true,
+          "source": "derived: one line per shot on the sheet — its candidate numbers, the narration it covers, the beat's visual intent and its subject"
+        },
+        "candidate_count": {
+          "required": true,
+          "source": "derived: how many numbered thumbnails the sheet holds"
+        },
+        "main_idea": {
+          "required": false,
+          "source": "subjects.json main_idea, when the subjects stage ran (D102)"
+        },
+        "visual_thread": {
+          "required": false,
+          "source": "subjects.json visual_thread, when the subjects stage ran"
+        },
+        "visual_language": {
+          "required": false,
+          "source": "style_pack.visual_language"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        }
+      }
     }
   }
 }

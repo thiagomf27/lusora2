@@ -345,6 +345,23 @@
               "description": "order = preference; omission = forbidden; replaced wholesale by overrides"
             },
             "max_clip_seconds": { "type": "number", "exclusiveMinimum": 0, "default": 12 },
+            "pick": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "D103 — the pick_shots stage: several candidates per shot, shown to a vision model on contact sheets and rated against the beat and the video's main idea; resolve_assets then fetches the best-rated one that is not already on screen, with a reported corner logo and any letterbox cropped out of the file. Only a pipeline that lists pick_shots reads this. A shot the judge could not rate falls back to today's first-hit search.",
+              "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "llm": {
+                  "enum": ["claude_cli", "anthropic", "openai", "mock"],
+                  "default": "claude_cli",
+                  "description": "a provider that declares vision. claude_cli runs `claude -p` on the operator's own login ($0 in the price table, tokens recorded); mock rates every candidate 3 without looking, for offline runs and tests."
+                },
+                "model": { "type": "string", "description": "the provider's model; for claude_cli a CLI alias such as sonnet or haiku. Absent = the provider's default." },
+                "candidates_per_shot": { "type": "integer", "minimum": 2, "maximum": 10, "default": 6 },
+                "shots_per_sheet": { "type": "integer", "minimum": 1, "maximum": 10, "default": 6, "description": "rows on one contact sheet = shots judged in one call" },
+                "min_rating": { "type": "integer", "minimum": 1, "maximum": 5, "default": 3, "description": "a candidate rated below this is never placed; a shot with none left falls back to the plain search" }
+              }
+            },
             "identity": {
               "type": "object",
               "additionalProperties": false,
@@ -469,7 +486,8 @@
         "overlay": { "$ref": "#/$defs/resolvedPrompt" },
         "beatcraft": { "$ref": "#/$defs/resolvedPrompt" },
         "image": { "$ref": "#/$defs/resolvedPrompt" },
-        "subjects": { "$ref": "#/$defs/resolvedPrompt" }
+        "subjects": { "$ref": "#/$defs/resolvedPrompt" },
+        "pick_shots": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
   },

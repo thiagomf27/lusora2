@@ -101,10 +101,13 @@ test("roles.json declares the three bounded agents, plus their phase roles", () 
   // image model, which the pipeline has always sent and which was until now an
   // f-string in providers/sources.py. Making it data changes who can edit it,
   // not what the system decides — it produces no artifact and cannot influence
-  // control flow, so D2's count is unchanged.
+  // control flow, so D2's count is unchanged. `pick_shots` (D103) is the same
+  // kind of role on the other side of the source: it chooses among candidates
+  // a search already returned, and a shot it cannot rate falls back to the
+  // search's own first hit.
   assert.deepEqual(
     Object.keys(loadRoles()).sort(),
-    ["beatcraft", "chat", "image", "overlay", "planner", "research", "script", "spine", "subjects"]
+    ["beatcraft", "chat", "image", "overlay", "pick_shots", "planner", "research", "script", "spine", "subjects"]
   );
 });
 

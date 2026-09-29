@@ -1,16 +1,26 @@
 """LLM provider adapter — one client, several backends.
 
 Backends are OpenAI-compatible chat APIs (deepseek, openai, and any
-compatible endpoint) plus Anthropic's native messages API. The provider
-name is also the price-table key; usage (tokens) is returned so the
-budget gate records actuals. Missing API key = actionable StageError.
+compatible endpoint), Anthropic's native messages API, and the Claude CLI
+on the operator's own subscription (D103). The provider name is also the
+price-table key; usage (tokens) is returned so the budget gate records
+actuals. Missing API key = actionable StageError.
+
+`chat` answers text; `see` answers text about images, and only a provider
+that declares `vision` may be asked.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import os
+import shutil
+import subprocess
+import tempfile
+import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 import httpx
@@ -33,7 +43,9 @@ class Provider:
     direction: the prompt schema's 0-2 is OpenAI's range and Anthropic's is 1,
     so a pack that legally asks for 1.5 must be clamped by the provider that
     cannot take it rather than rejected by a schema that cannot know which
-    provider a channel picked (D85).
+    provider a channel picked (D85). `vision` is the same kind of declaration
+    (D103): DeepSeek is text-only, and a shot judge pointed at it must be
+    refused by name rather than answer about pictures it never saw.
     """
 
     kind: str
@@ -42,6 +54,7 @@ class Provider:
     env_var: str
     json_mode: bool
     max_temperature: float
+    vision: bool
 
 
 PROVIDERS: dict[str, Provider] = {
@@ -52,18 +65,27 @@ PROVIDERS: dict[str, Provider] = {
         # number — evals/BASELINE.md has the scar from the last time a default
         # model moved under a baseline — so both arms are retaken together.
         "openai", "https://api.deepseek.com/v1", "deepseek-v4-flash", "DEEPSEEK_API_KEY",
-        json_mode=True, max_temperature=2.0,
+        json_mode=True, max_temperature=2.0, vision=False,
     ),
     "openai": Provider(
         "openai", "https://api.openai.com/v1", "gpt-4o-mini", "OPENAI_API_KEY",
-        json_mode=True, max_temperature=2.0,
+        json_mode=True, max_temperature=2.0, vision=True,
     ),
     "anthropic": Provider(
         "anthropic", "https://api.anthropic.com/v1", "claude-haiku-4-5-20251001",
         "ANTHROPIC_API_KEY",
         # the Messages API has no response_format; asking for JSON is a prompt
         # instruction there, which is what the welded half already does
-        json_mode=False, max_temperature=1.0,
+        json_mode=False, max_temperature=1.0, vision=True,
+    ),
+    # D103 — `claude -p` on the operator's own login (Dark Palace's
+    # claude_esp.py). No key: the CLI's login is the credential, and a
+    # subscription call costs $0 in the price table while its tokens are still
+    # recorded. It takes no temperature, so the clamp is moot; 1.0 keeps the
+    # table's invariant. The model is the CLI's alias ("sonnet", "haiku").
+    "claude_cli": Provider(
+        "claude_cli", "", "sonnet", "",
+        json_mode=False, max_temperature=1.0, vision=True,
     ),
 }
 
@@ -110,6 +132,8 @@ def chat(
             f"unknown llm provider '{provider}' — known: {sorted(PROVIDERS)} (or 'mock' for the deterministic fallback)",
         )
     spec = PROVIDERS[provider]
+    if spec.kind == "claude_cli":
+        return _claude_cli(model or spec.default_model, system, user, [])
     kind, base_url, default_model, env_var = spec.kind, spec.base_url, spec.default_model, spec.env_var
     api_key = os.environ.get(env_var)
     if not api_key:
@@ -196,6 +220,146 @@ def chat(
         )
     except httpx.HTTPError as e:
         raise StageError("llm", f"{provider} API unreachable: {e}")
+
+
+# test seam: see(provider, model, system, user, images, max_tokens, temperature) -> LLMResult
+SeeFn = Callable[..., LLMResult]
+
+
+def see(
+    provider: str,
+    model: str | None,
+    system: str,
+    user: str,
+    images: list[Path],
+    max_tokens: int = 4000,
+    temperature: float = HOUSE_TEMPERATURE,
+) -> LLMResult:
+    """One completion about `images` (D103). Refused, by name, on a provider
+    that does not declare `vision`."""
+    spec = PROVIDERS.get(provider)
+    if spec is None:
+        raise StageError("llm", f"unknown llm provider '{provider}' — known: {sorted(PROVIDERS)}")
+    if not spec.vision:
+        able = sorted(n for n, p in PROVIDERS.items() if p.vision)
+        raise StageError("llm", f"provider '{provider}' cannot see images — use one of {able}")
+    model = model or spec.default_model
+    if spec.kind == "claude_cli":
+        return _claude_cli(model, system, user, images)
+    api_key = os.environ.get(spec.env_var)
+    if not api_key:
+        raise StageError("llm", f"provider '{provider}' needs {spec.env_var} in .env")
+    temperature = max(0.0, min(float(temperature), spec.max_temperature))
+    encoded = [(_media_type(p), base64.b64encode(Path(p).read_bytes()).decode()) for p in images]
+    try:
+        if spec.kind == "openai":
+            content: list[dict] = [{"type": "text", "text": user}]
+            content += [{"type": "image_url", "image_url": {"url": f"data:{mt};base64,{b64}"}}
+                        for mt, b64 in encoded]
+            resp = httpx.post(
+                f"{spec.base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={"model": model, "max_tokens": max_tokens, "temperature": temperature,
+                      "messages": [{"role": "system", "content": system},
+                                   {"role": "user", "content": content}]},
+                timeout=300,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            usage = data.get("usage") or {}
+            return LLMResult(text=data["choices"][0]["message"]["content"] or "",
+                             input_tokens=int(usage.get("prompt_tokens", 0)),
+                             output_tokens=int(usage.get("completion_tokens", 0)))
+        blocks: list[dict] = [{"type": "image", "source": {"type": "base64", "media_type": mt, "data": b64}}
+                              for mt, b64 in encoded]
+        blocks.append({"type": "text", "text": user})
+        resp = httpx.post(
+            f"{spec.base_url}/messages",
+            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01"},
+            json={"model": model, "system": system, "max_tokens": max_tokens,
+                  "temperature": temperature, "messages": [{"role": "user", "content": blocks}]},
+            timeout=300,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        usage = data.get("usage") or {}
+        return LLMResult(text="".join(b.get("text", "") for b in data.get("content", [])),
+                         input_tokens=int(usage.get("input_tokens", 0)),
+                         output_tokens=int(usage.get("output_tokens", 0)))
+    except httpx.HTTPStatusError as e:
+        raise StageError("llm", f"{provider} API error {e.response.status_code}: {e.response.text[:200]}")
+    except httpx.HTTPError as e:
+        raise StageError("llm", f"{provider} API unreachable: {e}")
+
+
+def _media_type(path: Path) -> str:
+    return "image/png" if str(path).lower().endswith(".png") else "image/jpeg"
+
+
+# ---------------- the Claude CLI (D103) ----------------
+
+# Each `claude -p` is a Node process of a few hundred MB; on the 7.5 GB laptop
+# two at once is the ceiling that leaves room for everything else.
+_CLI_SLOTS = threading.BoundedSemaphore(max(1, int(os.environ.get("CLAUDE_CLI_CONCURRENCY", "2") or "2")))
+_CLI_TIMEOUT_S = 300
+
+
+def _cli_env() -> dict[str, str]:
+    """The environment minus a parent Claude session's own variables: a worker
+    started from inside Claude Code would otherwise hand the child that
+    session's token, which is not the operator's login (Dark Palace's `_env`)."""
+    env = dict(os.environ)
+    for key in list(env):
+        upper = key.upper()
+        if upper == "CLAUDECODE" or upper.startswith(("CLAUDE_CODE_", "CLAUDE_AGENT_")):
+            env.pop(key, None)
+    return env
+
+
+def _claude_cli(model: str, system: str, user: str, images: list[Path]) -> LLMResult:
+    """`claude -p` in a scratch folder holding only the images, allowed only
+    its Read tool there — the CLI's way of looking at a file. A text-only call
+    gets no tools at all."""
+    binary = os.environ.get("CLAUDE_BIN") or shutil.which("claude")
+    if not binary:
+        raise StageError("llm", "provider 'claude_cli' needs the `claude` CLI on PATH (or CLAUDE_BIN), logged in")
+    with tempfile.TemporaryDirectory(prefix="lusora_cli_") as workdir:
+        names = []
+        for n, image in enumerate(images):
+            name = f"{n:02d}_{Path(image).name}"
+            shutil.copy(image, Path(workdir) / name)
+            names.append(name)
+        if names:
+            prompt = ("Use the Read tool to look at these image files in the current folder, in this order: "
+                      f"{', '.join(names)}. Then answer in a single reply, without any other tool.\n\n")
+            tools = ["--tools", "Read", "--allowedTools", "Read", "--add-dir", workdir]
+        else:
+            prompt = "Answer directly in this single reply, without using any tool.\n\n"
+            tools = ["--tools", ""]
+        prompt += f"{system}\n\n{user}"
+        argv = [binary, "-p", "--output-format", "json", "--model", model, *tools]
+        with _CLI_SLOTS:
+            try:
+                proc = subprocess.run(argv, input=prompt, capture_output=True, text=True, cwd=workdir,
+                                      env=_cli_env(), timeout=_CLI_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                raise StageError("llm", f"claude_cli gave no answer in {_CLI_TIMEOUT_S}s")
+    out = proc.stdout or ""
+    try:
+        data = json.loads(out[out.find("{"):])
+    except ValueError:
+        data = {"is_error": True, "result": out or proc.stderr}
+    text = str(data.get("result") or "")
+    if data.get("is_error") or proc.returncode:
+        raise StageError("llm", f"claude_cli failed: {(text or proc.stderr or out)[:200]}")
+    usage = data.get("usage") or {}
+    return LLMResult(
+        text=text.strip(),
+        # the CLI sends its own (cached) system prompt too; count what was read
+        input_tokens=int(usage.get("input_tokens", 0)) + int(usage.get("cache_read_input_tokens", 0))
+        + int(usage.get("cache_creation_input_tokens", 0)),
+        output_tokens=int(usage.get("output_tokens", 0)),
+    )
 
 
 def extract_json(text: str) -> dict:

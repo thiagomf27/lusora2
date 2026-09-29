@@ -28,6 +28,7 @@ all depend on.
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
 | 6 | Library fine | same file | `_FINE_INSTRUCTIONS` (in code) | GLM-4.6V | 12000 tok | array of `{start,end,tags,caption,confidence}` | `_parse_segments` + truncation salvage |
 | 7 | AI image | `worker/lusora_worker/providers/sources.py` | `prompts/image/` (no welded half) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |
+| 8 | Shot judge (D103) | `worker/lusora_worker/agents/pick_shots.py` | `prompts/pick_shots/` + `welded/pick_shots.{system,user}.txt` | `source_policy.visual.pick.llm` → `claude_cli` (`sonnet`); `anthropic`, `openai` also see | one contact sheet per call, ≤2 attempts, temp 0.2 | `{ratings: [{n, rating 1-5, logo, desc}]}` | `validators.validate_ratings`; the stage's `shot_picks.json` against `shot_picks.schema.json` |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
 prompts are data. 2b, 2c, 2d and 2e are not further agents: each is a PHASE of
@@ -64,6 +65,17 @@ control flow.
   every other pipeline composes the beatcraft prompt byte-identically because
   the section renders empty. A `mock` planner writes a plain fallback from the
   title so offline runs still have the artifact.
+
+**8 (shot judge, D103)** is, like 7, a prompt on the SOURCE side rather than an
+agent: it chooses among candidates a search already returned. Nothing it says
+reaches an artifact except as a rating, and a sheet it cannot rate leaves its
+shots to the plain search. It is the first call that sends images, through
+`llm.see()`, which refuses a provider that does not declare `vision`
+(DeepSeek). Its default provider, `claude_cli`, runs `claude -p` on the
+operator's own login in a scratch folder holding only the sheet, allowed only
+the Read tool. It costs $0 in the price table and its tokens are still
+recorded; it also shares the operator's subscription limits with anything else
+they run on it.
 
 Row 2's temperature is 0.2 as of D85, and 2b-2d inherit it from their own
 packs; the script agent and the research phase stay at the house default of

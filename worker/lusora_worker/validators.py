@@ -866,3 +866,44 @@ def validate_subjects(doc: dict[str, Any], cut_count: int) -> list[str]:
     if not 0 <= hook_end < cut_count:
         violations.append(f"hook_end_cut {hook_end} is not a cut (0-{cut_count - 1})")
     return violations
+
+
+LOGO_CORNERS = ("", "top-left", "top-right", "bottom-left", "bottom-right", "bottom")
+
+
+def validate_ratings(answer: Any, candidate_count: int) -> list[str]:
+    """Judge one contact sheet's answer from the vision judge (D103): every
+    thumbnail 0..count-1 rated exactly once, 1-5, with a known logo corner."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("ratings"), list):
+        return ['the answer must be an object {"ratings": [...]}']
+    violations: list[str] = []
+    seen: set[int] = set()
+    for i, entry in enumerate(answer["ratings"]):
+        if not isinstance(entry, dict):
+            violations.append(f"ratings[{i}] is not an object")
+            continue
+        try:
+            n = int(entry.get("n"))
+        except (TypeError, ValueError):
+            violations.append(f"ratings[{i}]: n {entry.get('n')!r} is not a thumbnail number")
+            continue
+        if not 0 <= n < candidate_count:
+            violations.append(f"ratings[{i}]: #{n} is not on the sheet (0-{candidate_count - 1})")
+            continue
+        if n in seen:
+            violations.append(f"#{n} is rated twice")
+        seen.add(n)
+        rating = entry.get("rating")
+        if not isinstance(rating, int) or isinstance(rating, bool) or not 1 <= rating <= 5:
+            violations.append(f"#{n}: rating {rating!r} is not an integer 1-5")
+        if str(entry.get("logo") or "").strip().lower() not in LOGO_CORNERS:
+            violations.append(f"#{n}: logo {entry.get('logo')!r} is not one of {', '.join(repr(c) for c in LOGO_CORNERS)}")
+    missing = sorted(set(range(candidate_count)) - seen)
+    if missing:
+        violations.append(f"not rated: {', '.join(f'#{n}' for n in missing)} — rate every thumbnail")
+    return violations
+
+
+def validate_shot_picks(doc: dict[str, Any]) -> list[str]:
+    """A shot_picks.json, written by the stage or uploaded by hand (D103)."""
+    return _schema_errors("shot_picks", doc)

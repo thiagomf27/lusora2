@@ -1,5 +1,5 @@
 name: documentary
-version: "1.1"
+version: "1.2"
 description: >
   Dark Palace's production on LUSORA's architecture (D100,
   docs/05-roadmap/documentary-pipeline-plan.md). Every DP feature enters as a
@@ -13,8 +13,15 @@ description: >
   v1.1 (slice 2, D102) adds `subjects` between cut_beats and plan_beats: the
   whole narration read once for its main idea, visual thread and subjects.
   Beat craft then names a subject per beat, and resolve_assets rotates each
-  shot through its beat's and its subject's searches. Each later slice adds one stage or
-  knob and bumps the version; the stages it adds are registry entries, so v3
+  shot through its beat's and its subject's searches.
+
+  v1.2 (slice 3, D103) adds `pick_shots` between compile_plan and
+  resolve_assets: several candidates per shot on numbered contact sheets,
+  rated by a vision judge against the beat and the main idea; resolve_assets
+  fetches the best-rated one and crops a reported logo and any letterbox. Off
+  unless the channel sets source_policy.visual.pick.enabled.
+
+  Each later slice adds one stage or knob and bumps the version; the stages it adds are registry entries, so v3
   can adopt any of them by listing it (D60).
 
   stability: test and bulk_production_accepted: false — pinned by name
@@ -101,6 +108,12 @@ stages:
     requires: [beats.json]
     produces: [edit_plan.json]
     receivable_on_upload: true            # hand-written edit plan (schema-checked)
+
+  # D103 — look before downloading: candidates rated on contact sheets.
+  - name: pick_shots
+    requires: [edit_plan.json, beats.json]
+    produces: [shot_picks.json]
+    receivable_on_upload: true            # hand-written picks (schema-checked)
 
   - name: resolve_assets
     requires: [edit_plan.json]

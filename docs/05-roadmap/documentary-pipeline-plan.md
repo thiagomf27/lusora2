@@ -228,7 +228,7 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
   in resolve_assets. Parallel chunks are NOT in this slice (one variable at a
   time); they are the natural follow-up now that each chunk has the thread.
 
-### Slice 3: `pick_shots` with vision, on today's sources (M)
+### Slice 3: `pick_shots` with vision, on today's sources (M) ✅ BUILT (D103)
 - A `vision` capability on `Provider`, and a vision-capable default (an API
   model; DeepSeek is text-only).
 - Adapters return their top N instead of downloading the first hit.
@@ -238,6 +238,20 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
 - Crop, letterbox strip and portrait framing.
 - Also fixes: try the next hit when one download fails
   (`sources.py:301-303, 425-427`), and fall through on an image error (`:632`).
+- As built:
+  - The default vision provider is `claude_cli`, the Claude CLI on the
+    operator's login. It is the only vision provider this machine has
+    credentials for, so part of slice 11 moved here. `anthropic` and `openai`
+    can see images too, through `llm.see()`.
+  - Only the Pexels adapter offers candidates. The library adapter has no
+    thumbnail endpoint to judge by yet, so library shots keep the plain search.
+  - Crops are baked into the clip file, and the renderers are unchanged.
+  - A shot the judge could not rate falls back to the plain search.
+  - Portrait framing moves to slice 4, where Commons and archive photos arrive.
+    Pexels video is landscape.
+- Knobs: `source_policy.visual.pick {enabled, llm, model,
+  candidates_per_shot, shots_per_sheet, min_rating}`. It is off by default,
+  and the Centralia benchmark turns it on.
 
 ### Slice 4: `gather_footage`, the internet sources (L)
 - Sources `youtube` and `archive`, and `stock` provider `pixabay`, in the

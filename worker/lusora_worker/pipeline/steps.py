@@ -24,6 +24,7 @@ import lusora_contracts
 
 from ..agents import beatcraft as beatcraft_agent
 from ..agents import overlay as overlay_agent
+from ..agents import pick_shots as pick_agent
 from ..agents import planner as planner_agent
 from ..agents import script as script_agent
 from ..agents import subjects as subjects_agent
@@ -36,7 +37,7 @@ from ..providers import sources, tts, whisper
 from .. import align, beatphases, edithints
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
-from ..validators import validate_beat_sheet, validate_plan
+from ..validators import validate_beat_sheet, validate_plan, validate_shot_picks
 from . import degrade, qa
 
 # ---------------- research (D64) ----------------
@@ -886,27 +887,19 @@ def _person_in(props: dict) -> str:
     return ""
 
 
-def run_resolve_assets(ctx: StageContext) -> None:
-    plan = ctx.read_json("edit_plan.json")
-    beats = {b["id"]: b for b in ctx.read_json("beats.json")["beats"]} if ctx.has("beats.json") else {}
-    chain = ((ctx.cfg.get("source_policy") or {}).get("visual") or {}).get("chain") or []
-    if not chain:
-        raise StageError("resolve_assets", "source_policy.visual.chain is empty — nothing can be sourced")
+def _pending(ctx: StageContext, item: dict) -> bool:
+    path = str(item["asset"].get("path", ""))
+    if path and (ctx.folder / path).exists():
+        return False  # human-provided or already resolved
+    return item.get("media_type") != "color"  # degraded to a card on an earlier pass
 
-    (ctx.folder / "clips").mkdir(exist_ok=True)
-    sources.begin_run()
-    # What this video has already put on screen (D54). Rebuilt from the plan,
-    # so a worker killed mid-stage resumes with the ledger it had.
-    ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
-    floor = degrade.source_score_floor(ctx.cfg)
+
+def _shot_questions(ctx: StageContext, plan: dict, beats: dict[str, dict]):
+    """What each visual item asks the sources: (beat, intent, keyword
+    searches, the person it must show or None). Shared by pick_shots and
+    resolve_assets, so the candidates a judge rated are the ones the plain
+    search would have been asked for."""
     identities = identities_in(plan)
-
-    def pending(item: dict) -> bool:
-        path = str(item["asset"].get("path", ""))
-        if path and (ctx.folder / path).exists():
-            return False  # human-provided or already resolved
-        return item.get("media_type") != "color"  # degraded to a card on an earlier pass
-
     # D102: where the subjects stage ran, a shot searches its beat's angles and
     # its subject's, starting at its own position among the beat's shots, with
     # the video's visual thread as the last resort. Without it, unchanged.
@@ -933,6 +926,95 @@ def run_resolve_assets(ctx: StageContext) -> None:
             )
         return beat, query, queries, identities.get(str(item.get("beat_id")))
 
+    return question
+
+
+def picks_fresh(ctx: StageContext) -> bool:
+    """Judged against the current beats. Anchored on beats.json rather than on
+    the plan because resolve_assets rewrites the plan after every item, and a
+    worker restarted mid-resolve must not pay for the sheets twice; a plan is
+    only ever recompiled from a newer beat sheet (plan_compiled_and_fresh)."""
+    if not ctx.has("shot_picks.json"):
+        return False
+    if not ctx.has("beats.json"):
+        return True
+    return ctx.artifact("shot_picks.json").stat().st_mtime >= ctx.artifact("beats.json").stat().st_mtime
+
+
+def run_pick_shots(ctx: StageContext) -> None:
+    """Rate each shot's candidates on contact sheets before anything is
+    downloaded (D103). Documentary pipeline only; off unless the channel turns
+    `source_policy.visual.pick` on. A shot naming a real person is left to
+    resolve_assets' two-question rule (D91): a judge can tell a coal town from
+    a suburb, not one stranger's face from another's."""
+    conf = pick_agent.settings(ctx.cfg)
+    if not conf["enabled"]:
+        ctx.write_json("shot_picks.json", {"version": "1.0", "video_id": ctx.video_id,
+                                           "enabled": False, "items": {}})
+        ctx.log("pick is off for this channel — resolve_assets searches as before")
+        return
+    plan = ctx.read_json("edit_plan.json")
+    beats = {b["id"]: b for b in ctx.read_json("beats.json")["beats"]} if ctx.has("beats.json") else {}
+    chain = ((ctx.cfg.get("source_policy") or {}).get("visual") or {}).get("chain") or []
+    question = _shot_questions(ctx, plan, beats)
+    shots = []
+    for item in plan["tracks"]["visual"]:
+        if not _pending(ctx, item):
+            continue
+        beat, _query, queries, person = question(item)
+        if person is None and queries:
+            shots.append((item, beat, queries))
+    doc = pick_agent.pick(ctx, shots, chain, progress=ctx.log)
+    ctx.write_json("shot_picks.json", doc)
+    placed = sum(1 for item_id in doc["items"]
+                 if pick_agent.best_candidates(doc, item_id, int(conf["min_rating"])))
+    ctx.log(f"{doc['sheets']} sheets judged by {conf['llm']}; {placed} of {len(shots)} shots have a "
+            f"candidate rated {conf['min_rating']}+"
+            + (f"; {len(doc['unjudged'])} unjudged, left to the plain search" if doc["unjudged"] else ""))
+
+
+def run_resolve_assets(ctx: StageContext) -> None:
+    plan = ctx.read_json("edit_plan.json")
+    beats = {b["id"]: b for b in ctx.read_json("beats.json")["beats"]} if ctx.has("beats.json") else {}
+    chain = ((ctx.cfg.get("source_policy") or {}).get("visual") or {}).get("chain") or []
+    if not chain:
+        raise StageError("resolve_assets", "source_policy.visual.chain is empty — nothing can be sourced")
+
+    (ctx.folder / "clips").mkdir(exist_ok=True)
+    sources.begin_run()
+    # What this video has already put on screen (D54). Rebuilt from the plan,
+    # so a worker killed mid-stage resumes with the ledger it had.
+    ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
+    floor = degrade.source_score_floor(ctx.cfg)
+    question = _shot_questions(ctx, plan, beats)
+
+    # D103: where pick_shots ran, the judged candidates come first.
+    picks = ctx.read_json("shot_picks.json") if ctx.has("shot_picks.json") else None
+    if picks is not None:
+        # the stage writes a valid one; this is for the one a human uploaded
+        problems = validate_shot_picks(picks)
+        if problems:
+            raise StageError("resolve_assets", "shot_picks.json invalid: " + "; ".join(problems[:5]))
+    min_rating = int(pick_agent.settings(ctx.cfg)["min_rating"])
+
+    def picked(item: dict, snapshot: sources.Ledger) -> sources.Resolution | None:
+        options = pick_agent.best_candidates(picks, str(item["id"]), min_rating)
+        for candidate in options:
+            if snapshot.blocked(str(candidate["source"]), candidate.get("provider"), str(candidate["id"])):
+                continue
+            source_cfg = next((c for c in chain if str(c.get("source")) == candidate["source"]), None)
+            adapter = sources.ADAPTERS.get(str(candidate["source"]))
+            if source_cfg is None or not hasattr(adapter, "fetch"):
+                continue
+            found = adapter.fetch(ctx, item, candidate, source_cfg, snapshot)
+            if found is not None:
+                return found
+        if options:
+            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                         f"beat {item.get('beat_id')}: no picked candidate could be placed "
+                         "— asking the plain search")
+        return None
+
     # Throughput slice 4: FETCH in parallel, COMMIT in plan order. A fetch
     # searches and downloads against a snapshot of the ledger taken when it
     # starts and writes nothing else; the loop below places each answer in
@@ -948,9 +1030,13 @@ def run_resolve_assets(ctx: StageContext) -> None:
         else:
             with ledger_lock:
                 snapshot = ledger.copy()
+        if picks and person is None:
+            found = picked(item, snapshot)
+            if found is not None:
+                return found
         return sources.find_item(ctx, item, query, chain, queries, snapshot, identity=person)
 
-    todo = [item for item in plan["tracks"]["visual"] if pending(item)]
+    todo = [item for item in plan["tracks"]["visual"] if _pending(ctx, item)]
     workers = min(len(todo), parallelism("ASSET_PARALLELISM", 4))
     pool = ThreadPoolExecutor(max_workers=workers) if workers > 1 else None
     futures = [pool.submit(fetch, item) for item in todo] if pool else []

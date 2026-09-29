@@ -1,0 +1,6 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. Rate EVERY numbered thumbnail on the sheet, each against its OWN row's shot — never against another row.
+2. rating is an integer from 1 to 5. logo is one of "top-left", "top-right", "bottom-left", "bottom-right", "bottom" (a strip of small text along the bottom) or "" (none).
+3. desc says what the thumbnail actually shows, in at most 8 words.

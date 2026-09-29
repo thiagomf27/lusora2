@@ -26,7 +26,8 @@
         "overlay",
         "beatcraft",
         "image",
-        "subjects"
+        "subjects",
+        "pick_shots"
       ],
       "description": "must match the containing directory; decides the variable set and the welded block"
     },

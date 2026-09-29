@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/shot_picks.schema.json",
+  "title": "Shot picks",
+  "description": "D103 (documentary plan, slice 3) — what a vision judge saw. Written by the `pick_shots` stage: for each visual item, the candidates a search returned, each rated 1-5 against its shot and the video's main idea, best first, with any corner logo it reported. Read by resolve_assets, which fetches the best-rated candidate at or above min_rating that is not already on screen, and falls back to the plain search for an item that has none.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "video_id", "enabled", "items"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "video_id": { "type": "string" },
+    "enabled": { "type": "boolean", "description": "false = the channel has pick off; the stage wrote this so a resumed video does not ask again" },
+    "provider": { "type": ["string", "null"] },
+    "model": { "type": ["string", "null"] },
+    "sheets": { "type": "integer", "minimum": 0, "description": "contact sheets judged (= vision calls that answered)" },
+    "unjudged": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "items whose sheet the judge could not rate; resolve_assets asks the plain search for them"
+    },
+    "items": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidates"],
+        "properties": {
+          "beat_id": { "type": ["string", "null"] },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source", "id", "query", "rating"],
+              "properties": {
+                "source": { "enum": ["library", "stock"] },
+                "provider": { "type": ["string", "null"] },
+                "id": { "type": "string" },
+                "query": { "type": "string" },
+                "page_size": { "type": "integer", "minimum": 1, "description": "the search page this candidate came from, so fetching it hits the same cache entry" },
+                "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "logo": { "enum": ["", "top-left", "top-right", "bottom-left", "bottom-right", "bottom"] },
+                "desc": { "type": "string", "description": "what the judge says the thumbnail shows" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

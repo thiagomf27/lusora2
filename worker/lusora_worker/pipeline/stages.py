@@ -70,6 +70,9 @@ STEP_REGISTRY: dict[str, Step] = {
     # a manifest without it plans overlays inside plan_beats exactly as before.
     "select_overlays": Step(steps.run_select_overlays),
     "compile_plan": Step(steps.run_compile_plan, steps.plan_compiled_and_fresh),
+    # D103 — several candidates per shot, rated by a vision judge on contact
+    # sheets; resolve_assets fetches the best one. Only documentary lists it.
+    "pick_shots": Step(steps.run_pick_shots, steps.picks_fresh),
     "resolve_assets": Step(steps.run_resolve_assets, steps.assets_resolved),
     # D48: binds the compiler's cue and bed NAMES to bytes from the sound pack.
     # After resolve_assets so a plan with no audio costs nothing, before

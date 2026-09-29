@@ -91,12 +91,13 @@ def budget_gate(
     Raises StageError (stopping the video with an actionable reason)
     if the estimate would exceed cfg.budget.max_usd_per_video.
 
-    An `llm.*` operation is billed per direction from the recorder's actual
-    input/output split; everything else keeps one price on its own unit. The
-    ESTIMATE cannot know the split, so it prices the reservation at the OUTPUT
-    rate — the expensive side, and the one a reasoning model spends most of.
+    An `llm.*` or `vision.*` operation is billed per direction from the
+    recorder's actual input/output split; everything else keeps one price on
+    its own unit. The ESTIMATE cannot know the split, so it prices the
+    reservation at the OUTPUT rate — the expensive side, and the one a
+    reasoning model spends most of.
     """
-    tokens = operation.startswith("llm.")
+    tokens = operation.startswith(("llm.", "vision."))
     in_rate, out_rate = token_rates(provider, operation, model) if tokens else (0.0, 0.0)
     price = out_rate if tokens else unit_price(provider, operation)
     estimate = estimated_units * price

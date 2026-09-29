@@ -299,8 +299,11 @@ class LibraryAdapter:
                         for chunk in clip.iter_bytes():
                             f.write(chunk)
             except httpx.HTTPError as e:
+                # one segment that will not download is not a library that is
+                # down: the next hit is still a better answer than stock (D103)
                 ctx.db.provider_health("library", False, f"acquire failed for {seg_id}: {e}")
-                return None
+                (ctx.folder / out_rel).unlink(missing_ok=True)
+                continue
             if _too_similar(ctx, ledger, ctx.folder / out_rel, f"library segment {seg_id}"):
                 continue
             ctx.db.provider_health("library", True)
@@ -363,13 +366,34 @@ class PexelsAdapter:
         self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
         ledger: "Ledger | None" = None,
     ) -> Resolution | None:
+        hits = self._search(ctx, query, source_cfg)
+        for hit in hits or []:
+            if ledger is not None and ledger.blocked("stock", "pexels", str(hit.get("id"))):
+                continue
+            if not self._acceptable(hit, source_cfg):
+                continue
+            found = self._download(ctx, item, hit, query, source_cfg, ledger)
+            if found is not None:
+                return found
+        return None
+
+    @staticmethod
+    def _wants_video(source_cfg: dict) -> bool:
+        return "video" in (source_cfg.get("media_types") or ["video"])
+
+    def _search(self, ctx: StageContext, query: str, source_cfg: dict, per_page: int = 5) -> list[dict] | None:
+        """The hits for one query, from the cache when this query was asked
+        before. None = the source could not answer (no key, request failed)."""
         api_key = os.environ.get("PEXELS_API_KEY")
         if not api_key:
             ctx.db.provider_health("stock.pexels", False, "PEXELS_API_KEY not set")
             return None
-        want_video = "video" in (source_cfg.get("media_types") or ["video"])
+        want_video = self._wants_video(source_cfg)
         cache_dir = ctx.config.videos_root.parent / "stock-cache" if ctx.config else None
-        cache_key = hashlib.sha1(f"pexels:{want_video}:{query}".encode()).hexdigest()[:16]
+        # the page size is in the key only when it is not the historical 5, so
+        # every search cached before D103 is still found
+        size = "" if per_page == 5 else f":{per_page}"
+        cache_key = hashlib.sha1(f"pexels:{want_video}:{query}{size}".encode()).hexdigest()[:16]
 
         data = None
         cache_file = cache_dir / f"{cache_key}.json" if cache_dir else None
@@ -379,7 +403,7 @@ class PexelsAdapter:
             url = ("https://api.pexels.com/videos/search" if want_video
                    else "https://api.pexels.com/v1/search")
             try:
-                resp = httpx.get(url, params={"query": query, "per_page": 5,
+                resp = httpx.get(url, params={"query": query, "per_page": per_page,
                                               "orientation": source_cfg.get("orientation", "landscape")},
                                  headers={"Authorization": api_key}, timeout=30)
                 resp.raise_for_status()
@@ -393,50 +417,183 @@ class PexelsAdapter:
             except httpx.HTTPError as e:
                 ctx.db.provider_health("stock.pexels", False, f"search failed: {e}")
                 return None
+        return (data.get("videos") if want_video else data.get("photos")) or []
 
-        hits = (data.get("videos") if want_video else data.get("photos")) or []
-        ext = "mp4" if want_video else "jpg"
-        out_rel = f"clips/{item['id']}.{ext}"
-        for hit in hits:
-            asset_id = str(hit.get("id"))
-            if ledger is not None and ledger.blocked("stock", "pexels", asset_id):
-                continue
-            # A photo carries `alt`; a video carries neither alt nor tags, but
-            # its URL is built from its title, which is the only thing Pexels
-            # says about it.
-            described = hit.get("alt") or _slug_words(hit.get("url") or "")
-            if source_cfg.get("must_name") and not mentions(described, source_cfg["must_name"]):
-                continue
-            if source_cfg.get("no_person") and reads_as_a_person(described):
-                continue
-            try:
-                if want_video:
-                    chosen = pick_video_file(hit["video_files"], ctx.cfg.get("output") or {})
-                    if chosen is None:
-                        continue
-                    dl_url = chosen["link"]
-                else:
-                    dl_url = hit["src"]["large2x"]
-                with httpx.stream("GET", dl_url, timeout=180, follow_redirects=True) as resp:
-                    resp.raise_for_status()
-                    with open(ctx.folder / out_rel, "wb") as f:
-                        for chunk in resp.iter_bytes():
-                            f.write(chunk)
-            except (httpx.HTTPError, KeyError, IndexError) as e:
-                ctx.db.provider_health("stock.pexels", False, f"download failed: {e}")
-                return None
+    @staticmethod
+    def _described(hit: dict) -> str:
+        # A photo carries `alt`; a video carries neither alt nor tags, but its
+        # URL is built from its title, which is the only thing Pexels says about it.
+        return hit.get("alt") or _slug_words(hit.get("url") or "")
 
+    def _acceptable(self, hit: dict, source_cfg: dict) -> bool:
+        described = self._described(hit)
+        if source_cfg.get("must_name") and not mentions(described, source_cfg["must_name"]):
+            return False
+        if source_cfg.get("no_person") and reads_as_a_person(described):
+            return False
+        return True
+
+    def _download(
+        self, ctx: StageContext, item: dict, hit: dict, query: str, source_cfg: dict,
+        ledger: "Ledger | None", logo: str | None = None,
+    ) -> Resolution | None:
+        """One hit, fetched to the item's path. None when THIS hit cannot be
+        used; the caller moves on to the next one. A failed download used to
+        return None for the whole source, so one dead link sent a beat down
+        the chain with four good hits still unread (D103)."""
+        want_video = self._wants_video(source_cfg)
+        asset_id = str(hit.get("id"))
+        out_rel = f"clips/{item['id']}.{'mp4' if want_video else 'jpg'}"
+        try:
             if want_video:
-                normalize_video(ctx, ctx.folder / out_rel)
-            if _too_similar(ctx, ledger, ctx.folder / out_rel, f"pexels {asset_id}"):
-                continue
-            ctx.db.provider_health("stock.pexels", True)
-            return Resolution(
-                source="stock", id=asset_id, provider="pexels", license="royalty-free",
-                path=out_rel, score=None, query=query[:200],
-                media_type="video" if want_video else "image",
-            )
-        return None
+                chosen = pick_video_file(hit["video_files"], ctx.cfg.get("output") or {})
+                if chosen is None:
+                    return None
+                dl_url = chosen["link"]
+            else:
+                dl_url = hit["src"]["large2x"]
+            with httpx.stream("GET", dl_url, timeout=180, follow_redirects=True) as resp:
+                resp.raise_for_status()
+                with open(ctx.folder / out_rel, "wb") as f:
+                    for chunk in resp.iter_bytes():
+                        f.write(chunk)
+        except (httpx.HTTPError, KeyError, IndexError) as e:
+            ctx.db.provider_health("stock.pexels", False, f"download failed for {asset_id}: {e}")
+            (ctx.folder / out_rel).unlink(missing_ok=True)
+            return None
+
+        if want_video:
+            normalize_video(ctx, ctx.folder / out_rel)
+        # only a picked shot is reframed: it was looked at, so a logo can be
+        # named, and every other pipeline keeps the file Pexels sent
+        if logo is not None:
+            reframe(ctx.folder / out_rel, logo)
+        if _too_similar(ctx, ledger, ctx.folder / out_rel, f"pexels {asset_id}"):
+            return None
+        ctx.db.provider_health("stock.pexels", True)
+        return Resolution(
+            source="stock", id=asset_id, provider="pexels", license="royalty-free",
+            path=out_rel, score=None, query=query[:200],
+            media_type="video" if want_video else "image",
+        )
+
+    # ---- the pick_shots side (D103): offer several, fetch the one chosen ----
+
+    def candidates(
+        self, ctx: StageContext, item: dict, queries: list[str], source_cfg: dict, limit: int,
+    ) -> list[dict]:
+        """Up to `limit` hits for this shot, with a thumbnail to judge each by.
+
+        One search per shot, like resolve: the first query asks for a full
+        page, and a second query is asked only when the first came back thin.
+        A 20-minute video has ~250 shots against Pexels' ~200 requests an hour,
+        so a shot may not cost three searches."""
+        out: list[dict] = []
+        seen: set[str] = set()
+        for n, query in enumerate(q for q in queries if str(q).strip()):
+            if n >= 2 or len(out) >= min(3, limit):
+                break
+            with self._slots:
+                hits = self._search(ctx, query, source_cfg, per_page=limit)
+            for hit in hits or []:
+                asset_id = str(hit.get("id"))
+                if asset_id in seen or not self._acceptable(hit, source_cfg):
+                    continue
+                thumb = _pexels_thumb(hit)
+                if not thumb:
+                    continue
+                seen.add(asset_id)
+                out.append({"source": "stock", "provider": "pexels", "id": asset_id,
+                            "query": query, "page_size": limit, "thumb": thumb,
+                            "duration": hit.get("duration"),
+                            "described": self._described(hit)[:120]})
+        return out[:limit]
+
+    def fetch(
+        self, ctx: StageContext, item: dict, candidate: dict, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None:
+        """The candidate pick_shots chose, by id. Its search is in the cache,
+        so this costs a download and no request against the quota."""
+        with self._slots:
+            hits = self._search(ctx, str(candidate["query"]), source_cfg,
+                                per_page=int(candidate.get("page_size") or 5))
+            hit = next((h for h in hits or [] if str(h.get("id")) == str(candidate["id"])), None)
+            if hit is None:
+                return None
+            return self._download(ctx, item, hit, str(candidate["query"]), source_cfg, ledger,
+                                  logo=str(candidate.get("logo") or ""))
+
+
+def _pexels_thumb(hit: dict) -> str:
+    """A frame from the middle of a video (its poster is usually frame one, a
+    fade or a title), or a small rendition of a photo."""
+    pictures = hit.get("video_pictures") or []
+    if pictures:
+        return str(pictures[len(pictures) // 2].get("picture") or hit.get("image") or "")
+    return str(hit.get("image") or (hit.get("src") or {}).get("medium") or "")
+
+
+# A corner logo cropped away keeps the other 86% (Dark Palace's LOGO_CROP).
+LOGO_CROP = {
+    "top-left": "crop=iw*0.86:ih*0.86:iw*0.14:ih*0.14",
+    "top-right": "crop=iw*0.86:ih*0.86:0:ih*0.14",
+    "bottom-left": "crop=iw*0.86:ih*0.86:iw*0.14:0",
+    "bottom-right": "crop=iw*0.86:ih*0.86:0:0",
+    "bottom": "crop=iw*0.84:ih*0.84:iw*0.08:0",
+}
+
+
+def letterbox_crop(path: Any) -> str:
+    """The crop that removes black bars baked into the picture, or "".
+
+    ffmpeg's cropdetect over a few seconds; bars thinner than 3% of a side are
+    left alone, since a crop that small costs more sharpness than it saves."""
+    import subprocess
+
+    window = ["-ss", "1", "-t", "3"] if str(path).lower().endswith(".mp4") else []
+    probe = subprocess.run(
+        ["ffmpeg", "-v", "info", *window, "-i", str(path),
+         "-vf", "cropdetect=24:2:0", "-f", "null", "-"],
+        capture_output=True, text=True, errors="replace",
+    )
+    found = re.findall(r"crop=(\d+):(\d+):(\d+):(\d+)", probe.stderr)
+    size = re.search(r"Video:.*?, (\d{2,5})x(\d{2,5})\b", probe.stderr)
+    if not found or not size:
+        return ""
+    w, h, x, y = (int(v) for v in found[-1])
+    iw, ih = int(size.group(1)), int(size.group(2))
+    if w <= 0 or h <= 0 or (w >= iw * 0.97 and h >= ih * 0.97):
+        return ""
+    return f"crop={w}:{h}:{x}:{y}"
+
+
+def reframe(path: Any, logo: str = "") -> str:
+    """Crop the letterbox and a reported corner logo out of the FILE (D103).
+
+    Baked into the clip rather than carried in the plan, so every renderer
+    shows the cropped picture without knowing a crop exists; both renderers
+    already cover-fit whatever size they are given. Returns the filter it
+    applied ("" = the file is untouched)."""
+    import subprocess
+    from pathlib import Path
+
+    path = Path(path)
+    filters = [f for f in (letterbox_crop(path), LOGO_CROP.get(logo.strip().lower(), "")) if f]
+    if not filters:
+        return ""
+    vf = ",".join(filters)
+    is_video = path.suffix.lower() == ".mp4"
+    tmp = path.with_name(f"{path.stem}.reframe{path.suffix}")
+    args = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(path), "-vf", vf]
+    args += (["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+              "-an", "-movflags", "+faststart"] if is_video else ["-q:v", "2"])
+    proc = subprocess.run([*args, str(tmp)], capture_output=True, text=True)
+    if proc.returncode != 0:
+        tmp.unlink(missing_ok=True)
+        return ""  # the uncropped picture is still a picture
+    tmp.replace(path)
+    return vf
 
 
 def pick_video_file(files: list[dict], output: dict) -> dict | None:
@@ -571,6 +728,10 @@ def image_prompt(ctx: StageContext, query: str, source_cfg: dict) -> str:
     return "\n\n".join(part for part in (shot.strip(), house.strip()) if part)
 
 
+class _ImageRefused(Exception):
+    """The image API answered, with a refusal."""
+
+
 class AiImageAdapter:
     # A generator wants the whole description; it is a prompt, not a search.
     query_kind = "semantic"
@@ -616,23 +777,29 @@ class AiImageAdapter:
         if not api_key:
             ctx.db.provider_health("ai_image.openai", False, "OPENAI_API_KEY not set")
             return None
-        with budget_gate(ctx, stage=STAGE, provider="openai", operation="image.generate",
-                         estimated_units=1, details={"prompt": prompt[:200]}):
-            import base64
-            resp = httpx.post(
-                "https://api.openai.com/v1/images/generations",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json={"model": "gpt-image-1", "prompt": prompt,
-                      "size": _IMAGE_SIZES[image_aspect(ctx.cfg)], "n": 1},
-                timeout=300,
-            )
-            if resp.status_code != 200:
-                ctx.db.provider_health("ai_image.openai", False,
-                                       f"{resp.status_code}: {resp.text[:150]}")
-                raise StageError(STAGE, f"openai image generation failed: {resp.text[:200]}")
-            b64 = resp.json()["data"][0]["b64_json"]
-            out_rel = f"clips/{item['id']}.png"
-            (ctx.folder / out_rel).write_bytes(base64.b64decode(b64))
+        try:
+            with budget_gate(ctx, stage=STAGE, provider="openai", operation="image.generate",
+                             estimated_units=1, details={"prompt": prompt[:200]}):
+                import base64
+                resp = httpx.post(
+                    "https://api.openai.com/v1/images/generations",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    json={"model": "gpt-image-1", "prompt": prompt,
+                          "size": _IMAGE_SIZES[image_aspect(ctx.cfg)], "n": 1},
+                    timeout=300,
+                )
+                if resp.status_code != 200:
+                    raise _ImageRefused(f"{resp.status_code}: {resp.text[:150]}")
+                b64 = resp.json()["data"][0]["b64_json"]
+                out_rel = f"clips/{item['id']}.png"
+                (ctx.folder / out_rel).write_bytes(base64.b64decode(b64))
+        except (_ImageRefused, httpx.HTTPError) as e:
+            # One refused prompt (a content filter, a timeout) is this beat's
+            # problem, not the video's: the gate has already recorded it as a
+            # failed spend, and the chain may still have a source after this
+            # one (D103). Exhausting the chain still fails loud.
+            ctx.db.provider_health("ai_image.openai", False, str(e)[:200])
+            return None
         ctx.db.provider_health("ai_image.openai", True)
         return Resolution(source="ai", id=None, provider="openai", license="own",
                           path=out_rel, score=None, query=query[:200], media_type="image")

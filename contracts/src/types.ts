@@ -499,7 +499,9 @@ export type PromptRole =
   /** D88 — the stage that decorates the cut beats. */
   | "beatcraft"
   /** D102 — the whole narration read once for its subjects, before beatcraft. */
-  | "subjects";
+  | "subjects"
+  /** D103 — the vision judge that rates b-roll candidates on contact sheets. */
+  | "pick_shots";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */
@@ -633,6 +635,15 @@ export interface ChannelConfig {
       short_clip_fallback?: ("loop" | "slow" | "freeze")[];
       /** D54: how hard this channel works not to show the same shot twice. */
       dedup?: { reuse_window_items?: number; min_hamming_distance?: number };
+      /** D103: vision-rated candidates per shot (the pick_shots stage). */
+      pick?: {
+        enabled?: boolean;
+        llm?: "claude_cli" | "anthropic" | "openai" | "mock";
+        model?: string;
+        candidates_per_shot?: number;
+        shots_per_sheet?: number;
+        min_rating?: number;
+      };
     };
     /** D48: overrides theme.sound.pack. */
     sound_pack?: string;
