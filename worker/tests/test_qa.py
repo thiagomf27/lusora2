@@ -197,3 +197,53 @@ def test_fill_windows_cover_only_flash_and_dip_after_their_cut():
     assert at(8.2) is None, "a crossfade never passes through a solid frame"
     assert at(12.4) == "fade_to_black", "absent duration is the renderer's 0.5 s"
     assert at(16.1) is None, "the last item has no junction"
+
+
+# ---------------- windowed test renders (documentary plan, bench renders) ----------------
+
+
+def _windowed_ctx(tmp_path, window):
+    import json
+
+    (tmp_path / "edit_plan.json").write_text(json.dumps({
+        "tracks": {
+            "audio": {"voiceover": {"path": "audio.mp3", "start_s": 0, "duration_s": 9.0}},
+            "visual": [{"id": "v1", "start_s": 0, "end_s": 9.0, "media_type": "color"}],
+        }
+    }))
+    ctx = make_ctx(tmp_path)
+    ctx.cfg["output"] = {"window": window}
+    return ctx
+
+
+def test_render_window_reads_output_window():
+    from lusora_worker.pipeline.steps import render_window
+
+    assert render_window({}) is None
+    assert render_window({"output": {"fps": 30}}) is None
+    assert render_window({"output": {"window": {"end_s": 75}}}) == (0.0, 75.0)
+    assert render_window({"output": {"window": {"start_s": 10, "end_s": 40}}}) == (10.0, 40.0)
+
+
+def test_a_windowed_render_is_judged_by_the_window_not_the_voiceover(tmp_path):
+    """A 4 s file cut from 2-6 s of a 9 s plan is exactly what was asked for;
+    against the whole voiceover it would read as 'cut short'."""
+    from lusora_worker.pipeline.steps import run_qa
+
+    render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=4)
+    run_qa(_windowed_ctx(tmp_path, {"start_s": 2, "end_s": 6}))  # passes: no StageError
+
+
+def test_a_window_past_the_end_expects_only_what_the_plan_has(tmp_path):
+    from lusora_worker.pipeline.steps import run_qa
+
+    render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=3)
+    run_qa(_windowed_ctx(tmp_path, {"start_s": 6, "end_s": 60}))  # 6-9 s of the plan
+
+
+def test_a_windowed_render_that_came_out_short_still_fails(tmp_path):
+    from lusora_worker.pipeline.steps import run_qa
+
+    render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=2)
+    with pytest.raises(StageError, match="runs 2"):
+        run_qa(_windowed_ctx(tmp_path, {"start_s": 0, "end_s": 6}))

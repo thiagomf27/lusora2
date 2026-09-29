@@ -1135,17 +1135,29 @@ def render_slot(ctx: StageContext) -> Iterator[None]:
         ctx.db.release_render_slot(slot)
 
 
+def render_window(cfg: dict) -> tuple[float, float] | None:
+    """`output.window` as (start_s, end_s) in plan seconds, or None for the whole
+    video. A test knob for benchmark renders: every stage still works on the
+    whole timeline, only render draws less (engine/src/window.ts)."""
+    window = (cfg.get("output") or {}).get("window")
+    if not window:
+        return None
+    return float(window.get("start_s", 0) or 0), float(window["end_s"])
+
+
 def run_render(ctx: StageContext) -> None:
     renderer = str(ctx.cfg.get("renderer") or "auto")
     cli = ctx.config.engine_cli
     if not cli.exists():
         raise StageError("render", f"engine CLI not found at {cli} — set ENGINE_CLI")
+    args = ["node", "--experimental-strip-types", str(cli),
+            "render", "--video-dir", str(ctx.folder), "--renderer", renderer]
+    window = render_window(ctx.cfg)
+    if window:
+        args += ["--window", f"{window[0]:g}-{window[1]:g}"]
+        ctx.log(f"WINDOWED render {window[0]:g}-{window[1]:g}s — a test render, not a deliverable")
     with render_slot(ctx):
-        proc = subprocess.run(
-            ["node", "--experimental-strip-types", str(cli),
-             "render", "--video-dir", str(ctx.folder), "--renderer", renderer],
-            capture_output=True, text=True, timeout=1800,
-        )
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=1800)
     if proc.returncode != 0:
         reason = (proc.stderr or proc.stdout).strip().splitlines()
         raise StageError("render", f"engine failed: {reason[-1] if reason else 'no output'}")
@@ -1176,7 +1188,21 @@ def run_qa(ctx: StageContext) -> None:
             float(vo.get("start_s", 0)) + float(vo["duration_s"]),
             float(visual[-1]["end_s"]) if visual else 0.0,
         )
-        qa.check(ctx, final, expected, _source_at(ctx, visual), _fill_at(visual))
+        source_at, fill_at = _source_at(ctx, visual), _fill_at(visual)
+        window = render_window(ctx.cfg)
+        if window:
+            # the file's t=0 is the window's start: check the window's length,
+            # and look up what the PLAN has at t + start
+            start, end = window
+            expected = min(end, expected) - start
+            plan_source, plan_fill = source_at, fill_at
+
+            def source_at(t: float) -> tuple[Path, float] | None:
+                return plan_source(t + start)
+
+            def fill_at(t: float) -> str | None:
+                return plan_fill(t + start)
+        qa.check(ctx, final, expected, source_at, fill_at)
         return
     qa.check(ctx, final, expected)
 

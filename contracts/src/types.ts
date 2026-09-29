@@ -607,7 +607,13 @@ export interface ChannelConfig {
       moods?: Mood[];
     };
   };
-  output?: { fps?: number; width?: number; height?: number };
+  output?: {
+    fps?: number;
+    width?: number;
+    height?: number;
+    /** Test-only: render just this stretch, in plan seconds (bench renders). */
+    window?: { start_s?: number; end_s: number };
+  };
   budget?: { max_usd_per_video: number };
   retention?: { clips?: "on_render" | "on_posted" | "keep"; final_mp4_days_after_posted?: number };
   content_rules?: string;

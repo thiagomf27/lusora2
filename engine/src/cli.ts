@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * engine CLI — the renderer interface contract:
- *   engine render --video-dir <folder> --renderer auto|ffmpeg|remotion
+ *   engine render --video-dir <folder> --renderer auto|ffmpeg|remotion [--window <start>-<end>]
  * Writes final.mp4 atomically; exit 0 = success, non-zero = ONE actionable
  * reason on stderr. Files-only: no network, no DB.
  */
@@ -10,6 +10,7 @@ import { join } from "node:path";
 import type { EditPlan } from "@lusora/contracts";
 import { routePlan } from "./router.ts";
 import { renderFfmpeg } from "./renderers/ffmpeg/render.ts";
+import { parseWindow, trimToWindow, type RenderWindow } from "./window.ts";
 
 function fail(reason: string): never {
   console.error(reason);
@@ -38,6 +39,23 @@ async function main() {
   if (!existsSync(planPath)) fail(`edit_plan.json not found in ${videoDir}`);
   const plan: EditPlan = JSON.parse(readFileSync(planPath, "utf8"));
 
+  // --window: a test render of one stretch (plan seconds). Parsed against the
+  // plan's own length, so a window past the end fails here, not mid-render.
+  let window: RenderWindow | undefined;
+  if (args["window"] !== undefined) {
+    const vo = plan.tracks.audio.voiceover;
+    const visual = plan.tracks.visual;
+    const planDuration = Math.max(
+      visual.length ? visual[visual.length - 1].end_s : 0,
+      (vo.start_s ?? 0) + vo.duration_s
+    );
+    try {
+      window = parseWindow(args["window"], planDuration);
+    } catch (e) {
+      fail(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   const route = routePlan(plan);
   let renderer: "ffmpeg" | "remotion";
   if (requested === "auto") {
@@ -53,11 +71,16 @@ async function main() {
     renderer = "remotion";
   }
 
-  const result =
+  let result =
     renderer === "remotion"
-      ? await (await import("./renderers/remotion/render.ts")).renderRemotion(plan, videoDir)
+      ? await (await import("./renderers/remotion/render.ts")).renderRemotion(plan, videoDir, window)
       : await renderFfmpeg(plan, videoDir);
-  console.log(JSON.stringify({ renderer, duration_s: result.duration_s, ok: true }));
+  if (window && renderer === "ffmpeg") {
+    // ffmpeg draws the timeline as one graph; cutting the result is the honest way
+    trimToWindow(join(videoDir, "final.mp4"), window);
+    result = { duration_s: window.end_s - window.start_s };
+  }
+  console.log(JSON.stringify({ renderer, duration_s: result.duration_s, window: window ?? null, ok: true }));
 }
 
 main().catch((e) => fail(e instanceof Error ? e.message : String(e)));

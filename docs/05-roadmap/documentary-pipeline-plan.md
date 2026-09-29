@@ -199,6 +199,13 @@ update `00-status.md`.
 render and at run 01, and a viewing-notes template. `documentary.yaml` = the v3
 stage list, `stability: test`. CI's manifest checks and `test_pipelines.py` cover it.
 
+### Tooling: the render window ✅ BUILT
+`output.window: {start_s, end_s}` (a per-video override) renders one stretch
+of the timeline: `engine render --window`, Remotion `frameRange`, ffmpeg cut
+after the fact, QA judged against the window. Every stage before render still
+sees the whole video. Benchmark checks of slices that change what is drawn or
+heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
+
 ### Slice 1: overlay sounds (S) ✅ BUILT (D101)
 - `theme.sound.per_component` maps every catalog component, not only `Text*`.
   As built: no new offset field was needed; each cue's `lead_s` comes from its

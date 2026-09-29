@@ -240,7 +240,17 @@
       "properties": {
         "fps": { "type": "integer", "minimum": 1, "maximum": 120, "default": 30 },
         "width": { "type": "integer", "minimum": 16, "default": 1920 },
-        "height": { "type": "integer", "minimum": 16, "default": 1080 }
+        "height": { "type": "integer", "minimum": 16, "default": 1080 },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["end_s"],
+          "description": "Render only this stretch of the timeline, in plan seconds. A TEST knob for benchmark and slice checks (documentary plan), never for a deliverable: every stage still plans, sources and compiles the whole video, only render draws less, and QA checks the window. Omitted = the whole video.",
+          "properties": {
+            "start_s": { "type": "number", "minimum": 0, "default": 0 },
+            "end_s": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        }
       }
     },
     "budget": {

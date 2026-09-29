@@ -5,6 +5,7 @@ worker as a subprocess:
 
 ```
 engine render --video-dir <folder> --renderer auto|ffmpeg|remotion
+              [--window <start>-<end>]   # test renders only: one stretch, plan seconds
               [--outputs mp4]        # future: otio, shotlist
 ```
 
@@ -16,6 +17,12 @@ engine render --video-dir <folder> --renderer auto|ffmpeg|remotion
 - `--renderer auto` applies the routing table
   (see [Engine](../02-components/engine.md)); the chosen renderer is
   reported on stdout and recorded as a video_event.
+- `--window` (documentary plan, benchmark renders) draws only that stretch
+  of the timeline; the file's t=0 is the window's start. Remotion renders the
+  frame range natively; ffmpeg draws the whole graph and cuts the result. A
+  window past the plan's end is clamped; an empty one fails. The worker passes
+  it from the video's `output.window` and QA checks the window's length. It is
+  never for a deliverable.
 - Capability profiles: `--renderer ffmpeg` on a plan needing more MUST
   fail with the list of offending items (validation, not degradation).
 - Contract test (CI): synthetic fixture rendered by BOTH paths, ffprobe

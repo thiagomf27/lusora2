@@ -43,6 +43,14 @@ the picture only changes where a slice changes it. `bench:fork` enqueues
 with a fresh snapshot, so the current themes, packs and prompts are used. For
 an A/B that must move exactly one variable, use `ab:fork` instead.
 
+**Shorter test renders.** Add `"window":{"end_s":75}` inside `output` in the
+overrides to render only the first 75 s (the hook, the counters, the date
+stamps, the 1800s passage and the 1962 turn). Every stage still works on the
+whole script; only render draws less, about 10 min instead of ~25 capped. Use it
+for slices that change what is drawn or heard (1, 5, 7, 8, 9); render the whole
+video for the b-roll slices (2-4), where following the main idea only shows
+across the story, and for every comparison with DP.
+
 Then run the worker (`cd worker && uv run python -m lusora_worker`). Add a row
 to the table below and a notes block using the template.
 

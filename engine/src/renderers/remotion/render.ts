@@ -9,6 +9,7 @@ import type { EditPlan, Theme } from "@lusora/contracts";
 import { DEFAULT_THEME } from "../../themes/runtime.ts";
 import { normalizeLoudness } from "../loudness.ts";
 import { buildAssetManifest } from "./manifest.ts";
+import { frameRange, type RenderWindow } from "../../window.ts";
 
 export interface RenderResult {
   duration_s: number;
@@ -35,7 +36,11 @@ export function loadTheme(videoDir: string): Theme {
   return DEFAULT_THEME;
 }
 
-export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<RenderResult> {
+export async function renderRemotion(
+  plan: EditPlan,
+  videoDir: string,
+  window?: RenderWindow
+): Promise<RenderResult> {
   const { bundle } = await import("@remotion/bundler");
   const { renderMedia, selectComposition } = await import("@remotion/renderer");
 
@@ -89,6 +94,8 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
     ),
     // large stock clips can take far longer than the 28s default to seek/decode
     timeoutInMilliseconds: 180000,
+    // a benchmark window draws only its own frames; the audio follows them
+    ...(window ? { frameRange: frameRange(window, composition.fps) } : {}),
   });
   // D48: Remotion mixes the audio itself, so the loudness pass is a separate
   // remux here rather than a filter in the mux chain. Runs on the tmp file so
@@ -96,6 +103,7 @@ export async function renderRemotion(plan: EditPlan, videoDir: string): Promise<
   normalizeLoudness(tmpOut);
   renameSync(tmpOut, join(videoDir, "final.mp4"));
 
+  if (window) return { duration_s: window.end_s - window.start_s };
   const vo = plan.tracks.audio.voiceover;
   const visualEnd = plan.tracks.visual.length
     ? plan.tracks.visual[plan.tracks.visual.length - 1].end_s
