@@ -28,8 +28,10 @@ SUBJECTS = {
     "version": "1.0", "video_id": "vid_f", "main_idea": "A coal town emptied by a mine fire.",
     "visual_thread": ["coal town", "mine fire"], "hook_end_cut": 0,
     "subjects": [
-        {"id": "s1", "name": "the mine fire", "queries": ["Centralia mine fire", "smoke from ground"], "first_cut": 0},
-        {"id": "s2", "name": "the coal town", "queries": ["Centralia 1890s", "anthracite town"], "first_cut": 1},
+        {"id": "s1", "name": "the mine fire", "queries": ["smoke from ground", "burning ground"],
+         "youtube": "Centralia mine fire", "first_cut": 0},
+        {"id": "s2", "name": "the coal town", "queries": ["anthracite town", "coal town 1890s"],
+         "youtube": "Centralia 1890s", "first_cut": 1},
     ],
 }
 
@@ -100,6 +102,24 @@ def test_a_result_must_be_downloadable_footage():
     assert not footage.usable_result({**base, "duration": 12}, 1500), "too short to hold footage"
     assert not footage.usable_result({**base, "title": "I spent 24h in Centralia (vlog)"}, 1500)
     assert not footage.usable_result({**base, "channel": "Shutterstock Footage"}, 1500)
+    assert not footage.usable_result(
+        {**base, "title": "Burning garbage at dump ground releasing toxic smoke | stock", "channel": "Cinefootage"},
+        1500), "a stock agency's watermarked preview reel"
+    assert footage.usable_result({**base, "title": "Livestock on a Pennsylvania farm"}, 1500)
+
+
+def test_youtube_searches_name_the_place():
+    """The first Centralia run searched YouTube with the stock queries and got
+    Old Faithful for 'steam cracks in ground': one video in eleven was of
+    Centralia. A search must name the place."""
+    anchor = gf.anchor_name({"title": "Centralia: The Town Burning From Below", "subjects": [
+        {"name": "Centralia's burning ground"}, {"name": "The 1962 dump fire"}, {"name": "Centralia today"}]})
+    assert anchor == "Centralia"
+    assert gf.youtube_query({"name": "The 1962 dump fire", "queries": ["town dump"]}, anchor) == "Centralia 1962 dump fire"
+    assert gf.youtube_query({"name": "Centralia today"}, anchor) == "Centralia today"
+    assert gf.youtube_query({"name": "x", "youtube": "Todd Domboski sinkhole 1981"}, anchor) == \
+        "Todd Domboski sinkhole 1981", "the subjects pass's own search wins"
+    assert gf.anchor_name({"subjects": [{"name": "Anthracite coal mining"}]}) == "", "one mention is not an anchor"
 
 
 def test_youtube_is_never_reached_without_a_proxy(monkeypatch):

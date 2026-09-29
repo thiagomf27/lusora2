@@ -79,6 +79,15 @@ def test_what_the_schema_cannot_say_is_still_refused(change, expected):
     assert any(expected in p for p in problems), problems
 
 
+def test_a_youtube_search_is_optional_but_short_when_present():
+    ok = good_doc()
+    ok["subjects"][0]["youtube"] = "Centralia mine fire 1962"
+    assert validators.validate_subjects(ok, len(CUTS)) == []
+    long = good_doc()
+    long["subjects"][0]["youtube"] = "the most famous underground coal mine fire in the whole United States"
+    assert any("youtube" in p and "1-8 words" in p for p in validators.validate_subjects(long, len(CUTS)))
+
+
 def test_the_shape_is_checked_before_the_content():
     problems = validators.validate_subjects({"version": "1.0"}, len(CUTS))
     assert problems and all("hook_end_cut" not in p or "required" in p for p in problems)

@@ -858,6 +858,9 @@ def validate_subjects(doc: dict[str, Any], cut_count: int) -> list[str]:
             violations.append(f"subject {sid}: first_cut {first} is not a cut (0-{cut_count - 1})")
         for j, query in enumerate(subject.get("queries") or []):
             short(query, f"subject {sid} queries[{j}]")
+        if "youtube" in subject and not 1 <= len(str(subject["youtube"]).split()) <= 8:
+            violations.append(f"subject {sid} youtube {str(subject['youtube'])[:50]!r} must be 1-8 words, "
+                              "naming the real place, event or person")
         lowered = [str(q).strip().lower() for q in subject.get("queries") or []]
         if len(set(lowered)) < len(lowered):
             violations.append(f"subject {sid} repeats a query — each one should be a different angle")

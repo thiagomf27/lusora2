@@ -20,6 +20,7 @@ against its beat, and to resolve_assets.
 from __future__ import annotations
 
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
@@ -51,6 +52,43 @@ def settings(cfg: dict[str, Any]) -> dict[str, Any]:
             "keep_in_library": True, **PRESETS.get(amount, PRESETS["normal"])}
     conf.update({k: v for k, v in raw.items() if v is not None})
     return conf
+
+
+_NOT_A_NAME = {"the", "a", "an", "and", "of", "in", "on", "to", "for", "with", "from", "how", "why", "what",
+               "when", "who", "its", "it", "this", "that", "town", "city", "fire", "today"}
+
+
+def anchor_name(subjects_doc: dict[str, Any], video_title: str = "") -> str:
+    """The proper noun this video keeps returning to ("Centralia"), or "".
+
+    Counted over the subject names, the working title and the video's own
+    title: a capitalised word that is not a sentence word. It stands in for the
+    `youtube` search a subjects.json written before D104 does not have."""
+    texts = [str(s.get("name") or "") for s in subjects_doc.get("subjects") or []]
+    texts += [str(subjects_doc.get("title") or ""), video_title]
+    counts: dict[str, int] = {}
+    for text in texts:
+        for word in re.findall(r"\b[A-Z][a-zA-Z]{2,}\b", text):
+            key = word.lower()
+            if key not in _NOT_A_NAME:
+                counts[word] = counts.get(word, 0) + 1
+    best = sorted(counts.items(), key=lambda kv: -kv[1])
+    return best[0][0] if best and best[0][1] >= 2 else ""
+
+
+def youtube_query(subject: dict[str, Any], anchor: str) -> str:
+    """What to ask YouTube for one subject (D104).
+
+    YouTube's worth is real footage of THE place, so the search must name it.
+    The first Centralia run searched the stock queries instead — 'steam cracks
+    in ground' — and got Old Faithful, a Hampshire church and a Los Angeles
+    trench rescue: one video in eleven was of Centralia."""
+    if str(subject.get("youtube") or "").strip():
+        return str(subject["youtube"]).strip()
+    name = re.sub(r"^(the|a|an)\s+", "", str(subject.get("name") or ""), flags=re.I).strip()
+    if anchor and anchor.lower() not in name.lower():
+        return f"{anchor} {name}".strip()
+    return name or str((subject.get("queries") or [""])[0])
 
 
 def subject_usage(subjects_doc: dict[str, Any], beats: list[dict[str, Any]]) -> list[str]:
@@ -168,11 +206,15 @@ def gather(
         queries = subjects[sid].get("queries") or []
         return str(queries[0] if queries else subjects[sid].get("name") or sid)
 
+    anchor = anchor_name(subjects_doc, str(ctx.video.get("title") or ""))
+
     # ---- YouTube ----
     if conf["youtube"] and int(conf["max_videos"]) > 0:
+        asked = {sid: youtube_query(subjects[sid], anchor) for sid in order}
+        say("youtube searches: " + "; ".join(f"{sid} '{q}'" for sid, q in asked.items()))
         try:
             with ThreadPoolExecutor(max_workers=4) as pool:
-                raw = dict(pool.map(lambda sid: (sid, footage.youtube_search(first_query(sid), RESULTS_PER_SEARCH)),
+                raw = dict(pool.map(lambda sid: (sid, footage.youtube_search(asked[sid], RESULTS_PER_SEARCH)),
                                     order))
         except footage.ProxyMissing as exc:
             raw = {}
@@ -233,16 +275,20 @@ def gather(
     per = int(conf["photos_per_subject"])
     if conf["photos"] and per > 0:
         def photos(sid: str) -> tuple[str, list[dict], list[str]]:
-            q = first_query(sid)
+            # archives hold real, NAMED things: ask for the place first, and
+            # only fall back to the generic stock words when that finds nothing
             got, skipped = [], []
-            for fetcher, n in ((footage.commons_photos, per), (footage.archive_photos, max(1, per // 2))):
-                try:
-                    found, why = fetcher(q, n, safety=safety)
-                except Exception as exc:  # noqa: BLE001 - one site refusing costs its photos, not the video
-                    skipped.append(f"{fetcher.__name__} '{q}': {type(exc).__name__}")
-                    continue
-                got += found
-                skipped += why
+            for q in dict.fromkeys([youtube_query(subjects[sid], anchor), first_query(sid)]):
+                for fetcher, n in ((footage.commons_photos, per), (footage.archive_photos, max(1, per // 2))):
+                    try:
+                        found, why = fetcher(q, n, safety=safety)
+                    except Exception as exc:  # noqa: BLE001 - one site refusing costs its photos, not the video
+                        skipped.append(f"{fetcher.__name__} '{q}': {type(exc).__name__}")
+                        continue
+                    got += [p for p in found if p["id"] not in {g["id"] for g in got}]
+                    skipped += why
+                if got:
+                    break
             return sid, got[:per], skipped
 
         with ThreadPoolExecutor(max_workers=4) as pool:

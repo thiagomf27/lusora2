@@ -41,7 +41,11 @@ UA = {"User-Agent": "LUSORA/1.0 (documentary b-roll research; free-licence archi
 FORMAT_720 = "bv*[height<=720][ext=mp4]/bv*[height<=720]/18"
 VETO_TITLE = ("vlog", "reaction", "reacts", "challenge", "podcast", "interview", "i spent", "asmr", "gameplay",
               "#shorts", "unboxing", "prank", "tier list")
-STOCK_SITES = re.compile(r"shutterstock|pond5|getty|storyblocks|envato|artgrid|dreamstime", re.I)
+# A stock agency's preview reel is watermarked across the whole frame, which no
+# crop removes: "Burning garbage at dump ground | stock | Cinefootage Visuals"
+# was chosen on the first Centralia run and the judge had to catch it.
+STOCK_SITES = re.compile(r"shutterstock|pond5|getty|storyblocks|envato|artgrid|dreamstime|cinefootage|"
+                         r"videoblocks|\bstock\s*(footage|video|clip)s?\b|\|\s*stock\b|\bstock\s*\|", re.I)
 JUNK = re.compile(r"\b(die-?cast|scale model|model kit|replica|toy|lego|funko|poster|t-?shirt|mug|sticker|decal|"
                   r"for sale|logo|icon|coat of arms|flag of|signature|stamp|coin|banknote|screenshot)\b", re.I)
 
@@ -240,9 +244,11 @@ def commons_photos(query: str, n: int = 4, min_width: int = 1000, safety: bool =
         if safety and not adult_filter.safe(title, *about):
             skipped.append(f"commons '{title[:50]}': 18+ filter ({adult_filter.reason(title, *about)})")
             continue
-        thumb = str(info.get("thumburl") or info.get("url"))
+        url = str(info.get("thumburl") or info.get("url"))
+        # the sheet needs a cell, not a 1920 px file: Commons serves any width
+        thumb = url.replace("/1920px-", "/480px-") if "/1920px-" in url else url
         out.append({"id": f"commons:{p.get('pageid')}", "provider": "commons", "title": title[:200],
-                    "url": thumb, "thumb": thumb, "width": info.get("width"), "height": info.get("height"),
+                    "url": url, "thumb": thumb, "width": info.get("width"), "height": info.get("height"),
                     "license": lic, "author": _strip_html((meta.get("Artist") or {}).get("value"))[:80],
                     "page": str(info.get("descriptionurl") or "")})
         if len(out) >= n:

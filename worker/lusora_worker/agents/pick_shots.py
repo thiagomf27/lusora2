@@ -43,6 +43,7 @@ DEFAULTS = {"enabled": False, "llm": "claude_cli", "model": None,
             "candidates_per_shot": 6, "shots_per_sheet": 6, "min_rating": 3}
 
 CELL_W, CELL_H, LABEL_H = 320, 180, 26
+_UA = {"User-Agent": "LUSORA/1.0 (documentary b-roll research; contact sheets)"}
 
 
 def settings(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -106,9 +107,11 @@ def _thumb(url: str, dest: Path) -> bool:
             return True
         except OSError:
             return False
-    small = url if "?" in url else f"{url}?auto=compress&cs=tinysrgb&w=480"
+    small = url if "?" in url or "pexels.com" not in url else f"{url}?auto=compress&cs=tinysrgb&w=480"
     try:
-        with httpx.stream("GET", small, timeout=30, follow_redirects=True) as resp:
+        # Wikimedia refuses a request with no User-Agent: on the first run with
+        # archive photos, not one Commons thumbnail reached a sheet
+        with httpx.stream("GET", small, headers=_UA, timeout=30, follow_redirects=True) as resp:
             resp.raise_for_status()
             with open(dest, "wb") as f:
                 for chunk in resp.iter_bytes():

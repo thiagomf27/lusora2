@@ -40,7 +40,12 @@
             "items": { "type": "string", "minLength": 1 },
             "description": "keyword searches (at most 5 words), different ANGLES of the subject, most specific first"
           },
-          "first_cut": { "type": "integer", "minimum": 0, "description": "the first cut index where the narration reaches this subject" }
+          "first_cut": { "type": "integer", "minimum": 0, "description": "the first cut index where the narration reaches this subject" },
+          "youtube": {
+            "type": "string",
+            "minLength": 1,
+            "description": "D104 — one search for a video platform, where real footage of the actual place, event or person exists: it NAMES them ('Centralia mine fire 1962'), unlike `queries`, which are written for stock libraries that match generic words. Optional: gather_footage builds one from the video's recurring proper noun and the subject's name when it is absent."
+          }
         }
       }
     },
