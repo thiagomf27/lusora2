@@ -805,10 +805,173 @@ class AiImageAdapter:
                           path=out_rel, score=None, query=query[:200], media_type="image")
 
 
+# ---------------- footage gathered from the internet (D104) ----------------
+
+
+class FootageAdapter:
+    """`youtube` or `archive`: the pool gather_footage put in this video's
+    folder (footage.json), offered per shot.
+
+    A shot is offered its OWN subject's footage first — interleaved across that
+    subject's videos, and rotated by the shot's place among the subject's
+    shots, so six beats about one subject are offered six different slices of
+    it — then the other subjects', as the Dark Palace teaser rule allows: the
+    judge decides whether a street from the 1981 footage fits a 1962 line.
+    """
+
+    # the pool is not searched, so the keyword/semantic split does not apply;
+    # "keyword" keeps _queries_for from inventing a question it would ignore
+    query_kind = "keyword"
+    # pick_shots passes what a shot was already shown, so a second round is
+    # offered the next slice of the pool rather than the same one
+    wants_exclude = True
+
+    def __init__(self, kind: str) -> None:
+        self.kind = kind
+        self._lock = threading.Lock()
+        self.reset()
+
+    def reset(self) -> None:
+        self._key: tuple | None = None
+        self._state: dict[str, Any] | None = None
+
+    def _load(self, ctx: StageContext) -> dict[str, Any] | None:
+        path = ctx.folder / "footage.json"
+        if not path.exists():
+            return None
+        key = (str(ctx.folder), path.stat().st_mtime)
+        with self._lock:
+            if self._key == key and self._state is not None:
+                return self._state
+            pool = json.loads(path.read_text(encoding="utf-8"))
+            beats = (json.loads((ctx.folder / "beats.json").read_text(encoding="utf-8"))["beats"]
+                     if (ctx.folder / "beats.json").exists() else [])
+            subject_of = {str(b.get("id")): str(b.get("subject") or "") for b in beats}
+            rank: dict[str, int] = {}
+            if (ctx.folder / "edit_plan.json").exists():
+                seen: dict[str, int] = {}
+                plan = json.loads((ctx.folder / "edit_plan.json").read_text(encoding="utf-8"))
+                for it in plan["tracks"]["visual"]:
+                    sid = subject_of.get(str(it.get("beat_id")), "")
+                    rank[str(it["id"])] = seen.get(sid, 0)
+                    seen[sid] = rank[str(it["id"])] + 1
+            self._key, self._state = key, {"pool": pool, "subject_of": subject_of, "rank": rank}
+            return self._state
+
+    def _offers(self, ctx: StageContext, item: dict, limit: int) -> list[dict]:
+        state = self._load(ctx)
+        if state is None:
+            return []
+        sid = state["subject_of"].get(str(item.get("beat_id")), "")
+        if self.kind == "youtube":
+            def interleave(videos: list[dict]) -> list[dict]:
+                rows = [[{"source": "youtube", "provider": "youtube", "id": f"{v['id']}#{s['n']}",
+                          "query": str(v.get("title") or "")[:120], "thumb": str(ctx.folder / s["thumb"]),
+                          "duration": s["dur"]} for s in v["shots"]] for v in videos]
+                out = []
+                for k in range(max((len(r) for r in rows), default=0)):
+                    out += [r[k] for r in rows if k < len(r)]
+                return out
+            videos = state["pool"].get("videos") or []
+            own = interleave([v for v in videos if v["subject"] == sid])
+            rest = interleave([v for v in videos if v["subject"] != sid])
+        else:
+            def offer(p: dict) -> dict:
+                return {"source": "archive", "provider": p["provider"], "id": p["id"],
+                        "query": str(p.get("title") or "")[:120], "thumb": p["thumb"]}
+            photos = state["pool"].get("photos") or []
+            own = [offer(p) for p in photos if p["subject"] == sid]
+            rest = [offer(p) for p in photos if p["subject"] != sid]
+        if own:
+            start = (state["rank"].get(str(item["id"]), 0) * max(1, limit)) % len(own)
+            own = own[start:] + own[:start]
+        return own + rest
+
+    def candidates(
+        self, ctx: StageContext, item: dict, queries: list[str], source_cfg: dict, limit: int,
+        exclude: Any = (),
+    ) -> list[dict]:
+        shown = set(exclude or ())
+        return [c for c in self._offers(ctx, item, limit) if c["id"] not in shown][:limit]
+
+    def fetch(
+        self, ctx: StageContext, item: dict, candidate: dict, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None:
+        state = self._load(ctx)
+        if state is None:
+            return None
+        logo = str(candidate.get("logo") or "")
+        if self.kind == "youtube":
+            video_id, _, n = str(candidate["id"]).partition("#")
+            video = next((v for v in state["pool"].get("videos") or [] if v["id"] == video_id), None)
+            shot = next((s for s in (video or {}).get("shots") or [] if str(s["n"]) == n), None)
+            if video is None or shot is None:
+                return None
+            out_rel = f"clips/{item['id']}.mp4"
+            slot = float(item.get("end_s", 0)) - float(item.get("start_s", 0))
+            take = min(float(shot["dur"]), max(slot + 0.5, 1.0))
+            height = int(((ctx.cfg.get("output") or {}).get("height")) or 1080)
+            import subprocess
+
+            proc = subprocess.run(
+                ["ffmpeg", "-v", "error", "-y", "-ss", f"{float(shot['start']):.2f}", "-i", str(ctx.folder / video["file"]),
+                 "-t", f"{take:.2f}", "-vf", f"scale=-2:'min(ih,{height})'", "-an", "-c:v", "libx264",
+                 "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+                 str(ctx.folder / out_rel)], capture_output=True, text=True)
+            if proc.returncode != 0:
+                (ctx.folder / out_rel).unlink(missing_ok=True)
+                return None
+            reframe(ctx.folder / out_rel, logo)
+            if _too_similar(ctx, ledger, ctx.folder / out_rel, f"youtube {candidate['id']}"):
+                return None
+            ctx.db.provider_health("youtube", True)
+            return Resolution(source="youtube", id=str(candidate["id"]), provider="youtube", license="youtube",
+                              path=out_rel, score=None, query=str(video.get("title") or "")[:200],
+                              media_type="video")
+        photo = next((p for p in state["pool"].get("photos") or [] if p["id"] == candidate["id"]), None)
+        if photo is None:
+            return None
+        out_rel = f"clips/{item['id']}.jpg"
+        from .footage import UA
+
+        try:
+            with httpx.stream("GET", photo["url"], headers=UA, timeout=120, follow_redirects=True) as resp:
+                resp.raise_for_status()
+                with open(ctx.folder / out_rel, "wb") as f:
+                    for chunk in resp.iter_bytes():
+                        f.write(chunk)
+        except httpx.HTTPError as e:
+            ctx.db.provider_health(f"archive.{photo['provider']}", False, f"download failed: {e}")
+            (ctx.folder / out_rel).unlink(missing_ok=True)
+            return None
+        reframe(ctx.folder / out_rel, logo)
+        if _too_similar(ctx, ledger, ctx.folder / out_rel, f"{photo['provider']} {photo['id']}"):
+            return None
+        ctx.db.provider_health(f"archive.{photo['provider']}", True)
+        return Resolution(source="archive", id=photo["id"], provider=photo["provider"], license=photo["license"],
+                          path=out_rel, score=None, query=str(photo.get("title") or "")[:200], media_type="image")
+
+    def resolve(
+        self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
+        ledger: "Ledger | None" = None,
+    ) -> Resolution | None:
+        """Without a judge: the first offer not already on screen."""
+        for candidate in self._offers(ctx, item, 6):
+            if ledger is not None and ledger.blocked(candidate["source"], candidate["provider"], candidate["id"]):
+                continue
+            found = self.fetch(ctx, item, candidate, source_cfg, ledger)
+            if found is not None:
+                return found
+        return None
+
+
 ADAPTERS: dict[str, SourceAdapter] = {
     "library": LibraryAdapter(),
     "stock": PexelsAdapter(),
     "ai_image": AiImageAdapter(),
+    "youtube": FootageAdapter("youtube"),
+    "archive": FootageAdapter("archive"),
 }
 
 

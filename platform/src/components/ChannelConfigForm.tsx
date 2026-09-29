@@ -17,7 +17,7 @@ const PRODUCTION_STYLES = [
 const RENDERERS = ["auto", "ffmpeg", "remotion"] as const;
 const CLIP_RETENTION = ["on_render", "on_posted", "keep"] as const;
 const ORIENTATIONS = ["landscape", "portrait", "square"] as const;
-const VISUAL_SOURCE_KINDS = ["library", "stock", "ai_image"] as const;
+const VISUAL_SOURCE_KINDS = ["library", "stock", "ai_image", "youtube", "archive"] as const;
 const MEDIA_TYPES = ["video_clip", "image", "video"] as const;
 const LICENSES: LicenseKind[] = ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc", "royalty-free", "licensed", "own", "unknown"];
 

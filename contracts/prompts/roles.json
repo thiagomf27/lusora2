@@ -443,6 +443,31 @@
           "source": "cfg.overrides.instructions"
         }
       }
+    },
+    "pick_videos": {
+      "description": "D104 — YouTube search results per subject (title, channel, length, views) -> which to download, from their words alone. Nothing is downloaded before this answer; what it picks is then cut into shots that the pick_shots judge LOOKS at. Shares the planner's provider and model.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "results": {
+          "required": true,
+          "source": "derived: per subject, its id, name and how many videos it may take, then its numbered search results"
+        },
+        "main_idea": {
+          "required": false,
+          "source": "subjects.json main_idea (D102)"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        }
+      }
     }
   }
 }

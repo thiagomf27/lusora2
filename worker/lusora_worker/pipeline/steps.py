@@ -23,6 +23,7 @@ from pathlib import Path
 import lusora_contracts
 
 from ..agents import beatcraft as beatcraft_agent
+from ..agents import gather_footage as footage_agent
 from ..agents import overlay as overlay_agent
 from ..agents import pick_shots as pick_agent
 from ..agents import planner as planner_agent
@@ -929,6 +930,41 @@ def _shot_questions(ctx: StageContext, plan: dict, beats: dict[str, dict]):
     return question
 
 
+def footage_fresh(ctx: StageContext) -> bool:
+    """Gathered for the current subjects; anchored like picks_fresh, on the
+    artifacts it was gathered FROM, never on the plan resolve rewrites."""
+    if not ctx.has("footage.json"):
+        return False
+    anchor = "subjects.json" if ctx.has("subjects.json") else None
+    return anchor is None or ctx.artifact("footage.json").stat().st_mtime >= ctx.artifact(anchor).stat().st_mtime
+
+
+def run_gather_footage(ctx: StageContext) -> None:
+    """Footage and photos from the open internet, per subject (D104).
+    Documentary pipeline only; off unless the channel turns
+    `source_policy.visual.footage` on. Needs subjects.json: the pool is
+    organised by subject, and a video without subjects has nothing to ask."""
+    conf = footage_agent.settings(ctx.cfg)
+    empty = {"version": "1.0", "video_id": ctx.video_id, "videos": [], "photos": [], "skipped": []}
+    if not conf["enabled"]:
+        ctx.write_json("footage.json", {**empty, "skipped": ["footage is off for this channel"]})
+        ctx.log("footage is off for this channel — only the configured stock sources answer")
+        return
+    if not ctx.has("subjects.json"):
+        raise StageError("gather_footage", "subjects.json is missing — gather_footage asks per subject, so the "
+                                           "subjects stage must run before it")
+    doc = footage_agent.gather(ctx, progress=ctx.log)
+    problems = footage_agent.validate_footage(doc)
+    if problems:
+        raise StageError("gather_footage", "footage.json invalid: " + "; ".join(problems[:5]))
+    ctx.write_json("footage.json", doc)
+    for reason in doc["skipped"][:12]:
+        ctx.db.event(ctx.video_id, "gather_footage", "progress", f"skipped {reason}"[:300])
+    ctx.log(f"footage pool: {len(doc['videos'])} videos "
+            f"({sum(len(v['shots']) for v in doc['videos'])} shots), {len(doc['photos'])} photos; "
+            f"{len(doc['skipped'])} skipped")
+
+
 def picks_fresh(ctx: StageContext) -> bool:
     """Judged against the current beats. Anchored on beats.json rather than on
     the plan because resolve_assets rewrites the plan after every item, and a
@@ -1410,6 +1446,19 @@ def run_finalize(ctx: StageContext) -> None:
     )
     ctx.db.set_size(ctx.video_id, final.stat().st_size)
 
+    # D104: who the footage belongs to, and the library's copy of what was used.
+    # Both before retention, which may delete the downloaded videos.
+    plan = ctx.read_json("edit_plan.json") if ctx.has("edit_plan.json") else {"tracks": {"visual": []}}
+    pool = ctx.read_json("footage.json") if ctx.has("footage.json") else None
+    credits = footage_agent.credits(ctx, pool, plan)
+    if credits:
+        ctx.artifact("credits.txt").write_text(credits, encoding="utf-8")
+        ctx.log(f"credits.txt: {credits.count(chr(10)) - 1} sources")
+    if pool and footage_agent.settings(ctx.cfg)["keep_in_library"]:
+        used = {str((it.get("asset") or {}).get("id") or "").split("#")[0]
+                for it in plan["tracks"]["visual"] if (it.get("asset") or {}).get("source") == "youtube"}
+        ctx.log(footage_agent.keep_in_library(ctx, pool, used))
+
     # retention (D19): clips/ deleted after render if configured
     retention = ctx.cfg.get("retention") or {}
     if str(retention.get("clips", "on_render")) == "on_render":
@@ -1419,3 +1468,10 @@ def run_finalize(ctx: StageContext) -> None:
                 f.unlink()
             clips.rmdir()
             ctx.log("retention: clips/ removed after render")
+        # the downloaded sources are clips too, and much larger; footage.json
+        # and the thumbnails stay, so credits and the picks can still be read
+        downloads = sorted((ctx.folder / "footage").glob("*.mp4")) if (ctx.folder / "footage").is_dir() else []
+        for f in downloads:
+            f.unlink()
+        if downloads:
+            ctx.log(f"retention: {len(downloads)} downloaded videos removed from footage/")

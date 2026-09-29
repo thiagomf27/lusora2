@@ -40,8 +40,20 @@ const SOURCE_META: Record<string, { name: string; desc: string; risk: string; ri
     risk: "Low risk",
     riskClass: s.riskLow,
   },
+  youtube: {
+    name: "YouTube footage",
+    desc: "Shots cut from YouTube videos gather_footage downloaded for this video's subjects. Needs the documentary pipeline with footage on.",
+    risk: "High risk — Content ID claims possible",
+    riskClass: s.riskHigh,
+  },
+  archive: {
+    name: "Archive photos",
+    desc: "Public-domain and CC photos from Wikimedia Commons and archive.org, fetched per subject by gather_footage.",
+    risk: "Low risk — CC BY needs a credit",
+    riskClass: s.riskLow,
+  },
 };
-const ALL_SOURCES = ["library", "stock", "ai_image"] as const;
+const ALL_SOURCES = ["library", "stock", "ai_image", "youtube", "archive"] as const;
 
 /** `media_types` omitted means the source is not narrowed at all, which is
  *  not the same as narrowed to nothing — the fixture's ai_image entry relies

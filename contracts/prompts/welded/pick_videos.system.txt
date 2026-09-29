@@ -1,0 +1,6 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. Answer with the subject ids exactly as listed, each with a list of result numbers from THAT subject's own list, best first.
+2. Never pick more results for a subject than the number it may take.
+3. An empty list is a valid answer: an unrelated video is worse than none.

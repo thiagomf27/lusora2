@@ -345,6 +345,28 @@
               "description": "order = preference; omission = forbidden; replaced wholesale by overrides"
             },
             "max_clip_seconds": { "type": "number", "exclusiveMinimum": 0, "default": 12 },
+            "footage": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "D104 — the gather_footage stage: footage and photos from the open internet, per subject of subjects.json, into the video's own folder (footage.json + footage/). YouTube videos are found by a metadata search through $YTDLP_PROXY, chosen from their titles by the planner's model, downloaded whole (video only, at most 720p) and cut into shots at scene changes; Commons and archive.org photos pass a licence allow-list, a junk-title filter, a size floor and the 18+ word filter. The chain sources `youtube` and `archive` then offer that pool to pick_shots and resolve_assets. Only a pipeline that lists gather_footage reads this.",
+              "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "amount": {
+                  "enum": ["much", "normal", "little"],
+                  "default": "normal",
+                  "description": "Dark Palace's `muita / normal / pouca`: how many YouTube videos, how long each may be, how many shots are cut from each. Any field below overrides its preset value."
+                },
+                "youtube": { "type": "boolean", "default": true, "description": "search and download YouTube footage. Footage on YouTube belongs to its channel: a Content ID claim is possible on any of it." },
+                "photos": { "type": "boolean", "default": true, "description": "Commons and archive.org photos under a free licence (public domain, CC0, CC BY, CC BY-SA)" },
+                "max_videos": { "type": "integer", "minimum": 0, "maximum": 60 },
+                "videos_per_subject": { "type": "integer", "minimum": 1, "maximum": 3 },
+                "max_video_seconds": { "type": "number", "minimum": 30, "description": "a longer result is never downloaded" },
+                "shots_per_video": { "type": "integer", "minimum": 4, "maximum": 60 },
+                "photos_per_subject": { "type": "integer", "minimum": 0, "maximum": 12 },
+                "safety": { "type": "boolean", "default": true, "description": "the 18+ word filter on every title and description before anything is downloaded; the shot judge also rates adult content 1 whatever this says" },
+                "keep_in_library": { "type": "boolean", "default": true, "description": "after the render, hand each YouTube video this video actually used to the b-roll library (POST /uploads), so it is tagged there and the next video can find it. Best effort: a library that is down is logged, never an error." }
+              }
+            },
             "pick": {
               "type": "object",
               "additionalProperties": false,
@@ -487,7 +509,8 @@
         "beatcraft": { "$ref": "#/$defs/resolvedPrompt" },
         "image": { "$ref": "#/$defs/resolvedPrompt" },
         "subjects": { "$ref": "#/$defs/resolvedPrompt" },
-        "pick_shots": { "$ref": "#/$defs/resolvedPrompt" }
+        "pick_shots": { "$ref": "#/$defs/resolvedPrompt" },
+        "pick_videos": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
   },
@@ -517,7 +540,10 @@
       "required": ["source"],
       "additionalProperties": false,
       "properties": {
-        "source": { "enum": ["library", "stock", "ai_image"] },
+        "source": {
+          "enum": ["library", "stock", "ai_image", "youtube", "archive"],
+          "description": "`youtube` and `archive` (D104) answer from the pool gather_footage put in the video's folder: YouTube shots, and Commons / archive.org photos. They answer nothing on a pipeline without that stage."
+        },
         "media_types": {
           "type": "array",
           "items": { "enum": ["video_clip", "image", "video"] },

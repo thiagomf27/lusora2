@@ -253,7 +253,7 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
   candidates_per_shot, shots_per_sheet, min_rating}`. It is off by default,
   and the Centralia benchmark turns it on.
 
-### Slice 4: `gather_footage`, the internet sources (L)
+### Slice 4: `gather_footage`, the internet sources (L) ✅ BUILT (D104)
 - Sources `youtube` and `archive`, and `stock` provider `pixabay`, in the
   channel-config schema. All go through the library's ingest (`POST /jobs`)
   so the library keeps what it fetches and every video makes the next one
@@ -263,6 +263,25 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
 - `finalize` writes `credits.txt`.
 - Needs `YTDLP_PROXY` (the library already refuses to run without it).
 - Open: the library ingests serially, so this may need a batch ingest endpoint.
+- As built (D104):
+  - The user chose to fetch directly and copy to the library. The worker
+    downloads into the video's folder, and after the render `finalize` hands
+    the YouTube videos actually used to the library (`POST /uploads`, best
+    effort). No video waits on the library's serial GLM queue.
+  - YouTube videos are downloaded whole: video only, 720p at most, up to
+    `max_video_seconds`. Section downloads go through ffmpeg, which bypasses
+    the SOCKS proxy.
+  - The pool is offered through chain sources `youtube` and `archive`.
+    `pick_shots` deals candidates round-robin across every offering source.
+  - The 18+ filter has two layers: Dark Palace's word lists before any
+    download, then a welded judge rule.
+  - Knobs: `source_policy.visual.footage {enabled, amount, youtube, photos,
+    max_videos, videos_per_subject, max_video_seconds, shots_per_video,
+    photos_per_subject, safety, keep_in_library}`.
+  - Not built:
+    - Pixabay: there was no key to test with.
+    - archive.org video: its files are feature-length.
+    - Portrait framing: moved to slice 7.
 
 ### Slice 5: the hook tier and number truth (M)
 - `style_pack.pacing.hook`: the compiler marks hook items, tightens holds,

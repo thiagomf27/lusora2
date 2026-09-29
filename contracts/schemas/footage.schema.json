@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/footage.schema.json",
+  "title": "Footage pool",
+  "description": "D104 (documentary plan, slice 4) — what gather_footage fetched from the open internet for this video, per subject of subjects.json: YouTube videos downloaded whole into footage/ and cut into shots at scene changes, and Commons / archive.org photos known by URL. The chain sources `youtube` and `archive` offer this pool to pick_shots and resolve_assets; finalize reads it for credits.txt and for the library copy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "video_id", "videos", "photos"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "video_id": { "type": "string" },
+    "videos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "subject", "title", "url", "file", "shots"],
+        "properties": {
+          "id": { "type": "string", "description": "the YouTube video id" },
+          "subject": { "type": "string", "pattern": "^s[0-9]+$" },
+          "title": { "type": "string" },
+          "channel": { "type": "string" },
+          "url": { "type": "string" },
+          "duration": { "type": "number" },
+          "file": { "type": "string", "description": "relative to the video folder, e.g. footage/yt_abc.mp4" },
+          "license": { "type": "string", "description": "`youtube`: the uploader's standard licence — a Content ID claim is possible" },
+          "shots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["n", "start", "dur", "thumb"],
+              "properties": {
+                "n": { "type": "integer", "minimum": 0 },
+                "start": { "type": "number", "minimum": 0 },
+                "dur": { "type": "number", "exclusiveMinimum": 0 },
+                "thumb": { "type": "string", "description": "a middle frame, relative to the video folder" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "provider", "subject", "title", "url", "thumb", "license"],
+        "properties": {
+          "id": { "type": "string" },
+          "provider": { "enum": ["commons", "archive_org"] },
+          "subject": { "type": "string", "pattern": "^s[0-9]+$" },
+          "title": { "type": "string" },
+          "url": { "type": "string", "description": "the file to place (at most ~1920 px wide)" },
+          "thumb": { "type": "string" },
+          "width": { "type": ["integer", "null"] },
+          "height": { "type": ["integer", "null"] },
+          "license": { "type": "string" },
+          "author": { "type": "string" },
+          "page": { "type": "string" }
+        }
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "what was left out and why (a failed download, the 18+ filter, a licence), for the log"
+    }
+  }
+}

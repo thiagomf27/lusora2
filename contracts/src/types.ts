@@ -103,7 +103,9 @@ export interface BeatSheet {
 
 // ---------- edit plan ----------
 
-export type AssetSourceKind = "library" | "stock" | "ai" | "upload" | "manual";
+/** `youtube` and `archive` (D104): footage and photos gather_footage fetched
+ *  into the video's own folder. */
+export type AssetSourceKind = "library" | "stock" | "ai" | "upload" | "manual" | "youtube" | "archive";
 
 export interface AssetProvenance {
   source: AssetSourceKind;
@@ -501,7 +503,9 @@ export type PromptRole =
   /** D102 — the whole narration read once for its subjects, before beatcraft. */
   | "subjects"
   /** D103 — the vision judge that rates b-roll candidates on contact sheets. */
-  | "pick_shots";
+  | "pick_shots"
+  /** D104 — chooses YouTube videos worth downloading, from their titles. */
+  | "pick_videos";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */
@@ -544,7 +548,8 @@ export type LicenseKind =
   | "unknown";
 
 export interface VisualSource {
-  source: "library" | "stock" | "ai_image";
+  /** `youtube` / `archive` answer from gather_footage's pool (D104). */
+  source: "library" | "stock" | "ai_image" | "youtube" | "archive";
   media_types?: ("video_clip" | "image" | "video")[];
   profile?: string;
   include_global?: boolean;
@@ -635,6 +640,20 @@ export interface ChannelConfig {
       short_clip_fallback?: ("loop" | "slow" | "freeze")[];
       /** D54: how hard this channel works not to show the same shot twice. */
       dedup?: { reuse_window_items?: number; min_hamming_distance?: number };
+      /** D104: internet footage and photos per subject (the gather_footage stage). */
+      footage?: {
+        enabled?: boolean;
+        amount?: "much" | "normal" | "little";
+        youtube?: boolean;
+        photos?: boolean;
+        max_videos?: number;
+        videos_per_subject?: number;
+        max_video_seconds?: number;
+        shots_per_video?: number;
+        photos_per_subject?: number;
+        safety?: boolean;
+        keep_in_library?: boolean;
+      };
       /** D103: vision-rated candidates per shot (the pick_shots stage). */
       pick?: {
         enabled?: boolean;

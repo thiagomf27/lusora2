@@ -19,6 +19,7 @@ video.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -57,20 +58,37 @@ def gather(
     shots: list[tuple[dict, list[str]]],
     chain: list[dict],
     limit: int,
+    exclude: dict[str, set[str]] | None = None,
 ) -> dict[str, list[dict]]:
-    """Candidates per item id, from the first source in the chain that offers
-    any. A source without a `candidates` method (the generator, today's
-    library adapter) is skipped here and still answers in resolve_assets."""
+    """Candidates per item id from EVERY source in the chain that offers any,
+    dealt round-robin in chain order (D104): a row of six with YouTube, the
+    archives and Pexels in the chain is two of each, so the judge compares
+    real footage with stock instead of seeing only the first source. A source
+    without a `candidates` method (the generator, the library adapter) is
+    skipped here and still answers in resolve_assets. `exclude` = what each
+    shot was already shown; the pool sources honour it, a search is simply
+    filtered."""
     offering = [(c, sources.ADAPTERS[str(c.get("source"))]) for c in chain
                 if hasattr(sources.ADAPTERS.get(str(c.get("source"))), "candidates")]
 
     def one(shot: tuple[dict, list[str]]) -> tuple[str, list[dict]]:
         item, queries = shot
+        shown = (exclude or {}).get(str(item["id"]), set())
+        lists = []
         for source_cfg, adapter in offering:
-            found = adapter.candidates(ctx, item, queries, source_cfg, limit)
-            if found:
-                return str(item["id"]), found
-        return str(item["id"]), []
+            if getattr(adapter, "wants_exclude", False):
+                found = adapter.candidates(ctx, item, queries, source_cfg, limit, exclude=shown)
+            else:
+                found = adapter.candidates(ctx, item, queries, source_cfg, limit)
+            lists.append([c for c in found if str(c["id"]) not in shown])
+        dealt: list[dict] = []
+        seen: set[str] = set()
+        for k in range(limit):
+            for found in lists:
+                if k < len(found) and len(dealt) < limit and str(found[k]["id"]) not in seen:
+                    seen.add(str(found[k]["id"]))
+                    dealt.append(found[k])
+        return str(item["id"]), dealt
 
     workers = max(1, min(len(shots), parallelism("ASSET_PARALLELISM", 4)))
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -81,6 +99,13 @@ def gather(
 
 
 def _thumb(url: str, dest: Path) -> bool:
+    if not url.startswith(("http://", "https://")):
+        # a pool shot's middle frame, already on disk (D104)
+        try:
+            shutil.copyfile(url, dest)
+            return True
+        except OSError:
+            return False
     small = url if "?" in url else f"{url}?auto=compress&cs=tinysrgb&w=480"
     try:
         with httpx.stream("GET", small, timeout=30, follow_redirects=True) as resp:
@@ -287,21 +312,21 @@ def pick(
         progress(f"{total} candidates for {sum(1 for v in found.values() if v)} of {len(shots)} shots")
     _round(ctx, doc, shots, found, conf, see_fn, subject_names, "")
 
-    # round 2: the searches each weak shot has not asked, minus what it was shown
+    # round 2: the searches each weak shot has not asked and the pool shots it
+    # has not seen (D104), minus everything it was shown
     retry = []
+    shown: dict[str, set[str]] = {}
     for item, beat, queries in shots:
         item_id = str(item["id"])
         if item_id in doc["unjudged"] or best_candidates(doc, item_id, min_rating):
             continue  # a judge that is down will not be up in a minute; a good shot is done
         asked = {str(c["query"]) for c in found.get(item_id) or []}
-        rest = [q for q in queries if q not in asked]
-        if rest:
-            retry.append((item, beat, rest))
+        shown[item_id] = {str(c["id"]) for c in found.get(item_id) or []}
+        retry.append((item, beat, [q for q in queries if q not in asked]))
     if retry:
-        again = gather(ctx, [(item, queries) for item, _beat, queries in retry], chain, limit)
-        for item, _beat, _q in retry:
-            shown = {str(c["id"]) for c in found.get(str(item["id"])) or []}
-            again[str(item["id"])] = [c for c in again.get(str(item["id"])) or [] if str(c["id"]) not in shown]
+        again = gather(ctx, [(item, queries) for item, _beat, queries in retry], chain, limit, exclude=shown)
+        retry = [shot for shot in retry if again.get(str(shot[0]["id"]))]
+    if retry:
         if progress:
             progress(f"round 2: {sum(len(v) for v in again.values())} new candidates for "
                      f"{len(retry)} shots with nothing rated {min_rating}+")

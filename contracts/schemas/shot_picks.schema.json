@@ -33,7 +33,7 @@
               "additionalProperties": false,
               "required": ["source", "id", "query", "rating"],
               "properties": {
-                "source": { "enum": ["library", "stock"] },
+                "source": { "enum": ["library", "stock", "youtube", "archive"] },
                 "provider": { "type": ["string", "null"] },
                 "id": { "type": "string" },
                 "query": { "type": "string" },

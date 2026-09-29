@@ -75,7 +75,7 @@
       "required": ["source", "path"],
       "additionalProperties": false,
       "properties": {
-        "source": { "enum": ["library", "stock", "ai", "upload", "manual"] },
+        "source": { "enum": ["library", "stock", "ai", "upload", "manual", "youtube", "archive"] },
         "id": { "type": ["string", "null"] },
         "provider": { "type": ["string", "null"] },
         "license": { "type": ["string", "null"] },

@@ -28,6 +28,7 @@ all depend on.
 | 5 | Library image | same file | `_IMAGE_INSTRUCTIONS` (in code) | GLM-4.6V | — | `{tags, caption, confidence}` | field-alias parser |
 | 6 | Library fine | same file | `_FINE_INSTRUCTIONS` (in code) | GLM-4.6V | 12000 tok | array of `{start,end,tags,caption,confidence}` | `_parse_segments` + truncation salvage |
 | 7 | AI image | `worker/lusora_worker/providers/sources.py` | `prompts/image/` (no welded half) | `gpt-image-1` | 1 image | image bytes | `validate` (file exists, plan-shaped) |
+| 2f | Beat planner — video pick (D104) | `worker/lusora_worker/agents/gather_footage.py` | `prompts/pick_videos/` + `welded/pick_videos.{system,user}.txt` | shares `channel.planner.llm` → `deepseek`; `mock` takes each subject's first result | 16000 tok, ≤2 attempts, temp 0.2 | `{picks: {"<subject id>": [result numbers]}}` | `gather_footage.validate_picks`; nothing is downloaded before it answers |
 | 8 | Shot judge (D103) | `worker/lusora_worker/agents/pick_shots.py` | `prompts/pick_shots/` + `welded/pick_shots.{system,user}.txt` | `source_policy.visual.pick.llm` → `claude_cli` (`sonnet`); `anthropic`, `openai` also see | one contact sheet per call, ≤2 attempts, temp 0.2 | `{ratings: [{n, rating 1-5, logo, desc}]}` | `validators.validate_ratings`; the stage's `shot_picks.json` against `shot_picks.schema.json` |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
