@@ -88,10 +88,13 @@ def check(
             drop(m, "the beat already carries a graphic")
             continue
         index = order.index(beat_id)
-        if index + 1 < len(order) and order[index + 1] in graphic:
-            # a moment holds ~3.5 s, into the next beat: on the first 6a run
-            # the CENTRALIA card pushed the "1,000 -> 5" split off the screen
-            drop(m, "the next beat carries a graphic, and a moment would run into it")
+        neighbours = [order[j] for j in (index - 1, index + 1) if 0 <= j < len(order)]
+        if any(n in graphic for n in neighbours):
+            # graphics hold ~3.5-6 s, across beat lines, and two on screen at
+            # once is one too many: on the first 6a runs a CENTRALIA card
+            # pushed the next beat's "1,000 -> 5" split off, and a headline was
+            # trimmed away under the previous beat's counter
+            drop(m, "a neighbouring beat carries a graphic, and the two would collide")
             continue
         if beat_id in used_beats:
             drop(m, "the beat already has a moment")
