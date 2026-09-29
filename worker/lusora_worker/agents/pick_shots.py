@@ -395,6 +395,10 @@ def _round(
                     "rating": int(verdict["rating"]),
                     "logo": str(verdict.get("logo") or "").strip().lower(),
                     "desc": str(verdict.get("desc") or "")[:120],
+                    # for the footage review on the video page (a pool shot's
+                    # frame is found there from footage.json instead)
+                    **({"thumb": str(candidate["thumb"])}
+                       if str(candidate.get("thumb") or "").startswith("http") else {}),
                 })
             # best first; the search's own order (and round 1 before round 2)
             # breaks a tie, since sorted is stable

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Button, StatusBadge, TextInput, type Tone } from "@/components/ds";
+import { FootageReview } from "@/components/FootageReview";
 import scr from "../../screen.module.css";
 import s from "./video.module.css";
 
@@ -514,6 +515,9 @@ export default function VideoPage() {
                 )}
               </div>
             )}
+
+            {/* D105: what the shot judge rated, with links — reviewed before a footage gate is approved */}
+            <FootageReview videoId={id} refreshKey={`${video.status}:${video.pending_gate ?? ""}`} />
 
             <div className={scr.card}>
               <div className={s.configHead}>
