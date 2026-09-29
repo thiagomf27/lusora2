@@ -61,6 +61,7 @@ to the table below and a notes block using the template.
 | baseline | `vid_ebe08ffcb529` | faceless_v3 v1.2 | run 01; see the comparison folder |
 | 1 | `vid_9b4ac7c35f29` | documentary v1.0 + documentary-dark / documentary / synth-doc | 12 SFX (3 count, 3 whoosh, 2 type, 2 swish, pop, slide); render 22 min capped at 1.5 GB. User: "it is good" (2026-09-28) |
 | 2 | `vid_330487f758a1` | documentary v1.1 (+ subjects) | 11 subjects, hook to cut 5; all 35 beats tied to a subject; 36 Pexels shots, none repeated; 7 overlays; render 19 min 21 s (MemoryMax 3000M, concurrency 2); QA passed; $0.058. User: "The broll choices are better now" (2026-09-28) |
+| 3 | `vid_d70d9c6757b8` | documentary v1.2 (+ pick_shots, claude_cli sonnet) | slice 2's cuts, subjects, beats and overlays copied in, so only the picking differs from `vid_330487f758a1`. 210 candidates, 8 sheets (6 + a 2-sheet second round for 9 weak shots), 74 s; 30 of 35 judged shots have a 3+. Placed: 22×3, 5×4, 1×5, 7×2, 1 identity scene; none repeated. Render 19 min 34 s; QA passed; $0 (subscription). An earlier run, `vid_3f48e5c44d19`, was stopped on a contact-sheet bug (fixed in `90a0e45`) |
 
 ## Viewing-notes template
 
