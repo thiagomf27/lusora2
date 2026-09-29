@@ -352,6 +352,24 @@ def test_credits_name_every_placed_source_once(tmp_path):
     assert "pexels #77" in text
 
 
+def test_every_source_an_adapter_places_is_a_value_the_database_accepts():
+    """asset_usage.source is a Postgres enum, and the fake database the unit
+    tests use accepts anything — which is how the first real v1.3 run died in
+    resolve_assets on its first YouTube shot. The enum is the union of every
+    migration's CREATE TYPE and ADD VALUE."""
+    import re
+
+    import lusora_contracts
+
+    sql = "\n".join(p.read_text(encoding="utf-8")
+                    for p in sorted((lusora_contracts.CONTRACTS_ROOT / "db").glob("*.sql")))
+    created = re.search(r"CREATE TYPE asset_source AS ENUM \(([^)]*)\)", sql).group(1)
+    values = set(re.findall(r"'([a-z_]+)'", created))
+    values |= set(re.findall(r"ALTER TYPE asset_source ADD VALUE IF NOT EXISTS '([a-z_]+)'", sql))
+    placed = {"library", "stock", "ai", *(k for k in sources.ADAPTERS if k in ("youtube", "archive"))}
+    assert placed <= values, f"missing from asset_source: {sorted(placed - values)}"
+
+
 def test_the_library_copy_is_best_effort(tmp_path):
     pool = pool_for(tmp_path)
     ctx = ctx_for(tmp_path)
