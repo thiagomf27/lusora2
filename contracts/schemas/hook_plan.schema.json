@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/hook_plan.schema.json",
+  "title": "Hook plan",
+  "description": "D107 (documentary plan, slice 6a) — the moments of the hook put on screen in the 'headlines' hook mode, each already checked against its beat and mapped to a catalog component. Written by the hook_plan stage; compile_plan merges them into the overlay selection for beats that carry no graphic of their own.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "video_id", "mode", "moments"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "video_id": { "type": "string" },
+    "mode": { "enum": ["classic", "headlines"] },
+    "moments": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["beat_id", "form", "says", "component", "props"],
+        "properties": {
+          "beat_id": { "type": "string" },
+          "form": { "enum": ["headline", "word", "phrase", "cards"] },
+          "says": { "type": "string", "description": "1-3 words copied from the beat: where the moment lands" },
+          "component": { "type": "string" },
+          "props": { "type": "object" },
+          "quote": { "type": "string", "description": "phrase form: the verbatim span the compiler adds to the beat as a quote anchor" }
+        }
+      }
+    },
+    "dropped": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "moments the model proposed that broke a rule, with the rule — for the log"
+    }
+  }
+}

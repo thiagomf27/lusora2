@@ -106,9 +106,13 @@ test("roles.json declares the three bounded agents, plus their phase roles", () 
   // a search already returned, and a shot it cannot rate falls back to the
   // search's own first hit. `pick_videos` (D104) is its twin one step
   // earlier: it chooses which search results are worth downloading at all.
+  // `hook_plan` (D107) is a phase of the overlay decision for the opening only:
+  // it puts two to five hook moments on screen in forms the overlay pass never
+  // chooses (a headline, one giant word), and never on a beat that already
+  // carries a graphic.
   assert.deepEqual(
     Object.keys(loadRoles()).sort(),
-    ["beatcraft", "chat", "image", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects"]
+    ["beatcraft", "chat", "hook_plan", "image", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects"]
   );
 });
 

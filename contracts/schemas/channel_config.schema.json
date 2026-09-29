@@ -514,7 +514,8 @@
         "image": { "$ref": "#/$defs/resolvedPrompt" },
         "subjects": { "$ref": "#/$defs/resolvedPrompt" },
         "pick_shots": { "$ref": "#/$defs/resolvedPrompt" },
-        "pick_videos": { "$ref": "#/$defs/resolvedPrompt" }
+        "pick_videos": { "$ref": "#/$defs/resolvedPrompt" },
+        "hook_plan": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
   },

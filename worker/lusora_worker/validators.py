@@ -900,7 +900,10 @@ def unspoken_numbers(hint: dict[str, Any], narration: str, tolerance: float = 0.
     heard = spoken_numbers(narration)
     missing = []
     for n in written_numbers(hint):
-        if any(abs(n - h) <= tolerance * max(abs(h), 1e-9) or n == h for h in heard):
+        # a year is exact: within 2% of 1962 is 1923-2001, and "MAY 1963" over
+        # a line that says 1962 is a wrong date, not a rounded figure
+        is_year = float(n).is_integer() and 1000 <= n <= 2100
+        if n in heard or (not is_year and any(abs(n - h) <= tolerance * max(abs(h), 1e-9) for h in heard)):
             continue
         if n not in missing:
             missing.append(n)

@@ -319,6 +319,18 @@ New stage `hook_plan` (DP's `MANCHETES_REGRA`: only what the narration says, no
 unspoken number). New `PaperCard` and `MatchCut` components, a GIBS imagery
 resolver for `SatelliteLocate`, and an online geocoder behind `geo.lookup`.
 
+Split in three, each benchmarked on its own:
+- **6a ✅ BUILT (D107):** `hook_plan` with the headline, word, phrase and cards
+  forms, `pacing.hook.mode: headlines`. No `PaperCard` component: each paper
+  card is an existing component (HammerStatement, HighlightedPassage,
+  FactSheet), so the paper look is a theme decision, per the overlay-authoring
+  rule. The place tag waits for 6b.
+- **6b:** the satellite dive. It needs NASA GIBS imagery for `SatelliteLocate`
+  and an online geocoder behind `geo.lookup`.
+- **6c:** the match cut: Commons photos of one kind of place, with
+  vision-marked alignment points. It needs a `MatchCut` component, the one
+  new geometry of this slice.
+
 ### Slice 7: texture (M)
 New stage `narrative_marks` (one cheap call; with no answer, turns fall back to paragraph starts).
 A `light_leak` transition kind, placed on turns and at D95 section breaks. `theme.texture`

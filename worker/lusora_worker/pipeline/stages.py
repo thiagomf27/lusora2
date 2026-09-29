@@ -72,6 +72,8 @@ STEP_REGISTRY: dict[str, Step] = {
     # D87 — the overlay question in its own call. Only faceless_v3 lists it;
     # a manifest without it plans overlays inside plan_beats exactly as before.
     "select_overlays": Step(steps.run_select_overlays),
+    # D107 — the hook's moments on screen (headlines mode). Only documentary lists it.
+    "hook_plan": Step(steps.run_hook_plan),
     "compile_plan": Step(steps.run_compile_plan, steps.plan_compiled_and_fresh),
     # D104 — YouTube footage and free-licence photos per subject, into the
     # video's folder, for the `youtube` and `archive` chain sources.

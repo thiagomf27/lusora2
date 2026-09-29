@@ -418,6 +418,8 @@ export interface StylePack {
     /** D106: the opening hook's own pacing, title card and cues. */
     hook?: {
       enabled?: boolean;
+      /** D107: headlines = the hook_plan stage puts 2-5 moments on screen */
+      mode?: "classic" | "headlines";
       cut_s?: number;
       min_hold?: number;
       max_share?: number;
@@ -522,7 +524,9 @@ export type PromptRole =
   /** D103 — the vision judge that rates b-roll candidates on contact sheets. */
   | "pick_shots"
   /** D104 — chooses YouTube videos worth downloading, from their titles. */
-  | "pick_videos";
+  | "pick_videos"
+  /** D107 — picks the hook's moments and the form each goes on screen in. */
+  | "hook_plan";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */

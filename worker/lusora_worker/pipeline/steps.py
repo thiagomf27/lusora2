@@ -24,6 +24,7 @@ import lusora_contracts
 
 from ..agents import beatcraft as beatcraft_agent
 from ..agents import gather_footage as footage_agent
+from ..agents import hook_plan as hook_agent
 from ..agents import overlay as overlay_agent
 from ..agents import pick_shots as pick_agent
 from ..agents import planner as planner_agent
@@ -743,6 +744,10 @@ def run_compile_plan(ctx: StageContext) -> None:
     # Absent on every pipeline that does not run that stage, and the compiler
     # then reads beat.overlay exactly as before.
     selection = ctx.read_json("overlays.json") if ctx.has("overlays.json") else None
+    # D107: the hook's headline moments join the selection on beats that carry
+    # no graphic of their own
+    if ctx.has("hook_plan.json"):
+        beats_doc, selection = hook_agent.merge_into_selection(beats_doc, selection, ctx.read_json("hook_plan.json"))
     hook = _hook_for(ctx, audio_duration)
     plan = compile_plan(
         beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration, selection,
@@ -770,6 +775,29 @@ def run_compile_plan(ctx: StageContext) -> None:
     ctx.write_json("edit_plan.json", plan)
     ctx.log(f"plan compiled: {len(plan['tracks']['visual'])} visual items, "
             f"{len(plan['tracks']['overlays'])} overlays")
+
+
+def run_hook_plan(ctx: StageContext) -> None:
+    """The hook's moments on screen (D107): in the style pack's `headlines`
+    hook mode, one call picks 2-5 moments of the hook and a form for each, and
+    code keeps the ones that obey every rule. Classic mode writes an empty plan."""
+    rules = ((ctx.cfg.get("style_pack_doc") or {}).get("pacing") or {}).get("hook") or {}
+    empty = {"version": "1.0", "video_id": ctx.video_id, "mode": str(rules.get("mode") or "classic"), "moments": []}
+    hook = _hook_for(ctx, probe_duration("hook_plan", ctx.artifact("audio.mp3")))
+    if not hook or rules.get("mode") != "headlines":
+        ctx.write_json("hook_plan.json", empty)
+        ctx.log("hook mode is classic — no headline moments")
+        return
+    beats = [b for b in ctx.read_json("beats.json")["beats"] if b.get("kind") == "narration"]
+    cuts = ctx.read_json("beat_cuts.json").get("cuts") or []
+    # beat craft makes one beat per cut, in order: the hook is its first n beats
+    n = sum(1 for c in cuts if float(c["end_s"]) <= float(hook["end_s"]) + 0.01)
+    selection = ctx.read_json("overlays.json") if ctx.has("overlays.json") else {}
+    graphic = {str(s.get("beat_id")) for s in selection.get("selections") or []}
+    doc = hook_agent.plan(ctx, beats[:n], graphic, progress=ctx.log)
+    for why in doc.get("dropped") or []:
+        ctx.db.event(ctx.video_id, "hook_plan", "progress", f"dropped {why}"[:300])
+    ctx.write_json("hook_plan.json", doc)
 
 
 def _hook_for(ctx: StageContext, audio_duration: float) -> dict | None:

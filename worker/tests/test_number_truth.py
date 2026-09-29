@@ -24,6 +24,7 @@ from lusora_worker import validators
     ("reopened in 2002 after the dampers went in", {"events": [{"date": "2002", "label": "reopens with 91 dampers"}]},
      [91.0]),
     ("A town of miners.", {"decimals": 2, "chapter_number": 3}, []),                   # layout, not facts
+    ("It began in May 1962.", {"date": "May 1963"}, [1963.0]),                          # a year is exact
 ])
 def test_a_number_on_screen_must_be_spoken(narration, hint, missing):
     assert validators.unspoken_numbers(hint, narration) == missing

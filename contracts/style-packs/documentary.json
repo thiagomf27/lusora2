@@ -10,6 +10,7 @@
     "hold_ceiling_ratio": 1.5,
     "hook": {
       "enabled": true,
+      "mode": "headlines",
       "cut_s": 2.2,
       "min_hold": 1.5,
       "max_share": 0.25,

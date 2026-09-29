@@ -72,6 +72,11 @@
           "description": "D106 — the opening hook, from the start of the narration to subjects.json hook_end_cut (a pipeline without the subjects stage has no hook to pace). Dark Palace's hook: faster cuts on word onsets, opening on footage, closing on the video's title with a riser into a hit. Off unless enabled, so a pack that does not set it compiles exactly as before.",
           "properties": {
             "enabled": { "type": "boolean", "default": false },
+            "mode": {
+              "enum": ["classic", "headlines"],
+              "default": "classic",
+              "description": "D107 — Dark Palace's hook option. classic = footage and the pack's own overlays; headlines = the hook_plan stage also puts 2-5 moments of the hook on screen in varied forms (a headline in big type, one giant word, a marked phrase of the narration, two number cards), each landing on words the narration says and never showing a number it does not."
+            },
             "cut_s": { "type": "number", "minimum": 1, "maximum": 6, "default": 2.2, "description": "target seconds per hook shot; each cut moves to the nearest word onset" },
             "min_hold": { "type": "number", "minimum": 0.5, "default": 1.5, "description": "the hook's own hold floor, in place of pacing.min_hold x hold_floor_ratio" },
             "max_share": { "type": "number", "minimum": 0.05, "maximum": 0.5, "default": 0.25, "description": "the hook never runs longer than this share of the narration: a later hook_end_cut is pulled back to the last cut that fits" },

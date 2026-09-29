@@ -1,5 +1,5 @@
 name: documentary
-version: "1.4"
+version: "1.5"
 description: >
   Dark Palace's production on LUSORA's architecture (D100,
   docs/05-roadmap/documentary-pipeline-plan.md). Every DP feature enters as a
@@ -33,6 +33,12 @@ description: >
   planned and rendered. pick_shots stops the video too when fewer shots than
   pick.min_coverage have a good candidate, and in review mode it always
   stops. Both write footage_report.md; approving the stage continues.
+
+  v1.5 (slice 6a, D107) adds `hook_plan` after select_overlays: in the
+  style pack's `headlines` hook mode, 2-5 moments of the hook go on screen in
+  varied forms (a headline, one giant word, a marked phrase, two number
+  cards), each landing on words the beat says and never on a beat that
+  already carries a graphic. compile_plan merges them into the selection.
 
   Each later slice adds one stage or knob and bumps the version; the stages it adds are registry entries, so v3
   can adopt any of them by listing it (D60).
@@ -122,6 +128,13 @@ stages:
     requires: [beats.json]
     produces: [overlays.json]
     receivable_on_upload: true            # hand-written selection (schema-checked)
+
+  # D107 — the hook's moments on screen (headlines mode). After
+  # select_overlays so it can leave every graphic beat alone.
+  - name: hook_plan
+    requires: [beats.json, subjects.json]
+    produces: [hook_plan.json]
+    receivable_on_upload: true            # hand-written moments (schema-checked)
 
   - name: compile_plan
     requires: [beats.json]

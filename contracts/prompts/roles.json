@@ -468,6 +468,31 @@
           "source": "cfg.overrides.instructions"
         }
       }
+    },
+    "hook_plan": {
+      "description": "D107 — the hook's beats, numbered, those already carrying a graphic marked -> 2 to 5 moments to put on screen and the form of each (headline, word, phrase, cards), landing on words the beat says. Dark Palace's MANCHETES_REGRA; code drops any moment that breaks a rule rather than repairing it.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "beats": {
+          "required": true,
+          "source": "derived: every hook beat as `[beat id] text`, the ones with a graphic marked so nothing is put on them"
+        },
+        "main_idea": {
+          "required": false,
+          "source": "subjects.json main_idea (D102)"
+        },
+        "content_rules": {
+          "required": false,
+          "source": "cfg.content_rules"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        }
+      }
     }
   }
 }
