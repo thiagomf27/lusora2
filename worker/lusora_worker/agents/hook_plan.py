@@ -87,13 +87,18 @@ def check(
         if beat_id in graphic:
             drop(m, "the beat already carries a graphic")
             continue
+        index = order.index(beat_id)
+        if index + 1 < len(order) and order[index + 1] in graphic:
+            # a moment holds ~3.5 s, into the next beat: on the first 6a run
+            # the CENTRALIA card pushed the "1,000 -> 5" split off the screen
+            drop(m, "the next beat carries a graphic, and a moment would run into it")
+            continue
         if beat_id in used_beats:
             drop(m, "the beat already has a moment")
             continue
         if form in PAPER and form in used_forms:
             drop(m, f"a {form} is used once")
             continue
-        index = order.index(beat_id)
         if form in PAPER and any(abs(index - j) <= 1 for j in paper_at):
             drop(m, "two full-frame cards in a row read as a slideshow")
             continue

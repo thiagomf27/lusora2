@@ -60,16 +60,24 @@ def test_a_moment_that_breaks_a_rule_is_dropped_not_repaired(moment, reason):
 
 def test_never_on_a_graphic_beat_never_two_cards_in_a_row_one_per_beat():
     kept, dropped = check([
-        {"beat": "b3", "form": "headline", "says": "just 5", "text": "JUST 5"},
+        {"beat": "b4", "form": "headline", "says": "Nobody", "text": "NOBODY"},
         {"beat": "b1", "form": "word", "says": "Pennsylvania", "word": "Pennsylvania"},
         {"beat": "b2", "form": "phrase", "says": "Steam", "text": "Steam still rises from cracks"},
         {"beat": "b5", "form": "headline", "says": "May 1962", "text": "MAY 1962"},
         {"beat": "b5", "form": "headline", "says": "1962", "text": "1962"},
-    ], graphic={"b3"})
+    ], graphic={"b4"})
     assert [(m["form"], m["beat_id"]) for m in kept] == [("word", "b1"), ("headline", "b5")]
     assert any("already carries a graphic" in d for d in dropped)
     assert any("slideshow" in d for d in dropped), "b2's phrase sits next to b1's word"
     assert any("already has a moment" in d for d in dropped)
+
+
+def test_a_moment_never_runs_into_the_next_beats_graphic():
+    """First 6a render: a CENTRALIA word card on b3 held 3.5 s into b4, and
+    the "1,000 -> 5" split selected for b4 was trimmed off the screen. A fact
+    graphic outranks a decorative moment."""
+    kept, dropped = check([{"beat": "b2", "form": "headline", "says": "Steam", "text": "STEAM"}], graphic={"b3"})
+    assert kept == [] and "next beat carries a graphic" in dropped[0]
 
 
 def test_a_phrase_becomes_a_quote_anchored_passage_that_compiles():
