@@ -190,6 +190,10 @@ on the same pipeline can keep a clean look.
 
 ## Slices
 
+The slices still to build each have a self-contained brief in
+[briefs/](briefs/README.md), written so a fresh chat can build them without
+this plan's history.
+
 Each slice ends the same way: re-render Centralia on `documentary`, write the
 viewing notes in the comparison folder's `runs/`, add a decision entry, and
 update `00-status.md`.

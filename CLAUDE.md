@@ -82,6 +82,10 @@ docker-compose.
   picking, hook forms, texture, overlay SFX, waveform ducking, subscription
   providers) as stages and knobs of a new `documentary` pipeline, in slices
   benchmarked on the Centralia script ★ read before starting any of them
+- [Slice Briefs](05-roadmap/briefs/README.md) — one scoped, self-contained task
+  per remaining documentary slice (11a–d, 12a–b, 13, 14a–b): files to touch,
+  Dark Palace sources, tests, the benchmark fork recipe and the rules that
+  never bend ★ start here when building a remaining slice in a fresh chat
 
 ### 07 — Authoring
 - [Authoring Guide](07-authoring.md) — ready-made prompts for adding a
