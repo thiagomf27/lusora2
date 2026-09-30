@@ -14,6 +14,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync, renameSync } from "node
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { EditPlan, VisualItem, CaptionItem } from "@lusora/contracts";
+import { normalizeLoudness } from "../loudness.ts";
 
 export interface RenderResult {
   duration_s: number;
@@ -176,7 +177,7 @@ export async function renderFfmpeg(plan: EditPlan, videoDir: string): Promise<Re
       // the Remotion path interpolates, so both mixes are identical.
       const envelope = "gain_envelope" in item ? item.gain_envelope : undefined;
       if (envelope?.length) {
-        chain += `,volume=${envelopeExpr(envelope, item.start_s)}:eval=frame`;
+        chain += `,volume=${envelopeExpr(coarsen(envelope, MAX_EXPR_POINTS), item.start_s)}:eval=frame`;
       }
       chain += `,adelay=${Math.round(item.start_s * 1000)}:all=1[${label}${idx}]`;
       filters.push(chain);
@@ -187,7 +188,10 @@ export async function renderFfmpeg(plan: EditPlan, videoDir: string): Promise<Re
     // the whole mix up to compensate. Single-pass loudnorm — a two-pass measure
     // costs a full extra decode for a difference the ear cannot hear here.
     // -14 LUFS is the YouTube target, so the platform leaves the mix alone.
-    const loudnorm = "loudnorm=I=-14:TP=-1.5:LRA=11,apad[aout]";
+    // D114: a two-pass master needs the finished mix to measure, so it runs
+    // after the mux (as on the Remotion path) and the chain only pads here
+    const twoPass = plan.tracks.audio.master?.loudness === "two_pass";
+    const loudnorm = twoPass ? "apad[aout]" : "loudnorm=I=-14:TP=-1.5:LRA=11,apad[aout]";
     filters.push(
       mixLabels.length === 1
         ? `${mixLabels[0]}${loudnorm}`
@@ -203,6 +207,8 @@ export async function renderFfmpeg(plan: EditPlan, videoDir: string): Promise<Re
        "-t", totalDuration.toFixed(3), "-movflags", "+faststart", tmpFinal],
       "audio mux"
     );
+
+    if (twoPass) normalizeLoudness(tmpFinal, "two_pass");
 
     // ---- 5. atomic write ----
     renameSync(tmpFinal, join(videoDir, "final.mp4"));
@@ -320,6 +326,39 @@ function escapeFilterPath(p: string): string {
  * The ends are held flat, matching gainAt() on the Remotion side. The schema
  * caps the envelope at 200 points, which bounds this string to a few KB.
  */
+/** ffmpeg's expression is nested one `if` per point; past a few hundred it is
+ *  slow to parse and deep to evaluate, so a D114 waveform envelope is thinned. */
+export const MAX_EXPR_POINTS = 200;
+
+/**
+ * Thin a gain envelope to at most `max` points, dropping first the point whose
+ * removal changes the curve least (the smallest triangle it makes with its
+ * neighbours, Visvalingam). The ends always stay.
+ */
+export function coarsen<T extends { t_s: number; gain: number }>(points: T[], max: number): T[] {
+  if (points.length <= max) return points;
+  const kept = [...points];
+  const area = (i: number) => {
+    const a = kept[i - 1];
+    const b = kept[i];
+    const c = kept[i + 1];
+    return Math.abs((b.t_s - a.t_s) * (c.gain - a.gain) - (c.t_s - a.t_s) * (b.gain - a.gain)) / 2;
+  };
+  while (kept.length > max) {
+    let at = 1;
+    let least = Infinity;
+    for (let i = 1; i < kept.length - 1; i++) {
+      const v = area(i);
+      if (v < least) {
+        least = v;
+        at = i;
+      }
+    }
+    kept.splice(at, 1);
+  }
+  return kept;
+}
+
 export function envelopeExpr(points: { t_s: number; gain: number }[], startS: number): string {
   const p = points
     .map(({ t_s, gain }) => ({ t: t_s - startS, g: gain }))

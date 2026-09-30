@@ -108,6 +108,19 @@
       "push": "slide",
       "wipe": "zip",
       "flash": "hit"
+    },
+    "mood_beds": {
+      "neutral": "neutral-01",
+      "tense": "tense-01",
+      "somber": "somber-01",
+      "hopeful": "hopeful-01",
+      "urgent": "urgent-01",
+      "triumphant": "triumphant-01",
+      "reflective": "reflective-01",
+      "playful": "playful-01"
+    },
+    "gain": {
+      "sfx": 1.0
     }
   }
 }

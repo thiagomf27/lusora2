@@ -59,6 +59,15 @@
               "items": { "$ref": "#/$defs/musicItem" },
               "description": "background beds, one per mood span; may overlap by the style pack's crossfade"
             },
+            "master": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "D114 \u2014 mastering, from style_pack.mix. Absent = one single-pass loudnorm on the mixed bus (D48).",
+              "properties": {
+                "loudness": { "enum": ["single", "two_pass"], "default": "single" },
+                "voice_lufs": { "type": "number", "description": "resolve_audio normalized the narration to this and pointed voiceover.path at the result" }
+              }
+            },
             "sfx": {
               "type": "array",
               "items": { "$ref": "#/$defs/sfxItem" },
@@ -272,8 +281,8 @@
     "gainEnvelope": {
       "type": "array",
       "minItems": 2,
-      "maxItems": 200,
-      "description": "piecewise-linear absolute-time gain multiplier, computed by the compiler from real sentence timings (D48 ducking). Multiplies `volume`. Points are ordered by t_s; the value before the first and after the last point is held flat.",
+      "maxItems": 5000,
+      "description": "piecewise-linear absolute-time gain multiplier, computed by the compiler from real sentence timings (D48 ducking) or the voice's waveform (D114, up to 5000 points). Multiplies `volume`. Points are ordered by t_s; the value before the first and after the last point is held flat.",
       "items": {
         "type": "object",
         "required": ["t_s", "gain"],

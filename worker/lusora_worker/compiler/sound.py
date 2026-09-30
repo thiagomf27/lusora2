@@ -57,8 +57,22 @@ _DUCK_RAMP_S = 0.25
 # pumping bed rather than a score.
 _MIN_LIFT_GAP_S = 1.2
 
-# Schema cap (edit_plan gainEnvelope.maxItems). Coarsen rather than overflow.
+# Schema cap (edit_plan gainEnvelope.maxItems) for the sentence-timed envelope,
+# which has always coarsened at 200 and must keep doing so (Principle 7).
 _MAX_ENVELOPE_POINTS = 200
+# D114: a waveform envelope rises in every pause of a long video, so it gets the
+# schema's full room; the ffmpeg renderer coarsens it for its own expression.
+_MAX_WAVEFORM_POINTS = 5000
+
+# D114 — Dark Palace's `respiro`, the bed breathing with the real voice
+BED_LUFS = -20.0          # crafted beds are brought here (mixing.BED_LUFS)
+_BLOCK_S = 0.01
+_DUCK_FALL_S = 0.08       # time constant down when the narrator starts
+_DUCK_RISE_S = 0.6        # and back up in a pause
+_ENVELOPE_TOLERANCE_DB = 0.5
+# DP fades its single bed in over 2.5 s and out over the last 5 s
+_ONE_BED_FADE_IN_S = 2.5
+_ONE_BED_FADE_OUT_S = 5.0
 
 
 class SoundError(StageError):
@@ -455,13 +469,37 @@ def mood_spans(
     return [(round(s, 3), round(e, 3), m) for s, e, m, _w in merged]
 
 
+def music_settings(style: dict[str, Any]) -> dict[str, Any]:
+    music = style.get("music") or {}
+    return {
+        "one_bed": bool(music.get("one_bed", False)),
+        "duck": str(music.get("duck") or "sentences"),
+        "under_voice_db": float(music.get("under_voice_db", -28.0)),
+        "duck_db": float(music.get("duck_db", 6.0)),
+        "hook_lift_db": float(music.get("hook_lift_db", 0.0)),
+        "hook_settle_s": float(music.get("hook_settle_s", 5.0)),
+        "loop_crossfade_s": float(music.get("loop_crossfade_s", 7.0)),
+    }
+
+
+def voice_lufs(style: dict[str, Any]) -> float:
+    """The loudness the narration is mixed at: the pack's `mix.voice_lufs`, or
+    -14 (the output target, which a normalized mix lands the voice near)."""
+    value = (style.get("mix") or {}).get("voice_lufs")
+    return float(value) if value is not None else -14.0
+
+
 def compile_music(
     beat_times: list[tuple[float, float, str]],
     sentence_timings: list[dict[str, Any]],
     cfg: dict[str, Any],
     total_duration_s: float,
+    speech: list[tuple[float, float]] | None = None,
+    hook_end_s: float | None = None,
 ) -> list[dict[str, Any]]:
-    """One bed per mood span, ducked against the real narration."""
+    """One bed per mood span (or one bed for the whole video), ducked against
+    the real narration: its sentence timings, or — `music.duck: waveform` — the
+    voice's own waveform (`speech`, absolute windows from speech_windows.json)."""
     if not sound_enabled(cfg, "music") or not _pack(cfg):
         return []
 
@@ -471,9 +509,15 @@ def compile_music(
     if not mood_beds:
         return []
 
-    style_music = (cfg.get("style_pack_doc") or {}).get("music") or {}
-    min_span = float(style_music.get("min_span_s", 20))
+    style = cfg.get("style_pack_doc") or {}
+    style_music = style.get("music") or {}
+    conf = music_settings(style)
+    # D114: DP plays ONE bed under the whole video; the heaviest mood picks it
+    min_span = math.inf if conf["one_bed"] else float(style_music.get("min_span_s", 20))
     crossfade = float(style_music.get("crossfade_s", 1.5))
+    waveform = conf["duck"] == "waveform"
+    if waveform and speech is None:
+        raise SoundError("music.duck is waveform but there is no speech_windows.json to duck against")
 
     policy = (cfg.get("source_policy") or {}).get("music") or {}
     # A TRIM, not the level: the levels are the theme's music_duck/music_lift,
@@ -515,7 +559,22 @@ def compile_music(
             "fade_out_s": crossfade,
             "mood": mood,
         }
-        envelope = duck_envelope(sentence_timings, start, span_end, duck, lift)
+        if conf["one_bed"]:
+            item["fade_in_s"], item["fade_out_s"] = _ONE_BED_FADE_IN_S, _ONE_BED_FADE_OUT_S
+        if waveform:
+            # resolve_audio crafts the bed to BED_LUFS at exactly this length,
+            # so the level is known here and the file needs no loop of its own;
+            # the pack's per-bed gain meant "against a -24 LUFS file" and no longer applies
+            item["volume"] = round(min(trim, 1.0), 4)
+            item["loop"] = False
+            pause = voice_lufs(style) + conf["under_voice_db"] + conf["duck_db"]
+            envelope = breathing_envelope(
+                speech or [], start, span_end,
+                pause_gain=10 ** ((pause - BED_LUFS) / 20), duck_db=conf["duck_db"],
+                hook_end_s=hook_end_s, hook_lift_db=conf["hook_lift_db"], hook_settle_s=conf["hook_settle_s"],
+            )
+        else:
+            envelope = duck_envelope(sentence_timings, start, span_end, duck, lift)
         if envelope:
             item["gain_envelope"] = envelope
         out.append(item)
@@ -524,6 +583,85 @@ def compile_music(
 
 
 # ---------------- ducking ----------------
+
+
+def breathing_envelope(
+    speech: list[tuple[float, float]],
+    span_start: float,
+    span_end: float,
+    pause_gain: float,
+    duck_db: float,
+    hook_end_s: float | None = None,
+    hook_lift_db: float = 0.0,
+    hook_settle_s: float = 5.0,
+) -> list[dict[str, Any]]:
+    """The bed's gain from the voice's waveform (D114, DP's `respiro`).
+
+    `pause_gain` in a pause, `duck_db` lower under speech; the gain falls with
+    a 0.08 s time constant when the narrator starts and rises with 0.6 s in a
+    pause, per 10 ms block, so it breathes in EVERY pause rather than only the
+    long ones. Through the hook the whole curve sits `hook_lift_db` higher and
+    settles back over `hook_settle_s` (DP's `aplicar_respiro`). The curve is
+    then thinned to the points that matter (within 0.5 dB).
+    """
+    if span_end <= span_start:
+        return []
+    n = max(2, int(math.ceil((span_end - span_start) / _BLOCK_S)) + 1)
+    times = [span_start + k * _BLOCK_S for k in range(n)]
+    times[-1] = span_end
+    talking = [False] * n
+    for s0, s1 in speech:
+        if s1 <= span_start or s0 >= span_end:
+            continue
+        k0 = max(0, int((s0 - span_start) / _BLOCK_S))
+        k1 = min(n, int(math.ceil((s1 - span_start) / _BLOCK_S)) + 1)
+        for k in range(k0, k1):
+            talking[k] = True
+    low = 10 ** (-duck_db / 20)
+    a_down = 1 - math.exp(-_BLOCK_S / _DUCK_FALL_S)
+    a_up = 1 - math.exp(-_BLOCK_S / _DUCK_RISE_S)
+    up = 10 ** (hook_lift_db / 20)
+    g = low if talking[0] else 1.0
+    gains: list[float] = []
+    for k in range(n):
+        target = low if talking[k] else 1.0
+        g += (target - g) * (a_down if target < g else a_up)
+        lift = 1.0
+        if hook_end_s is not None and hook_lift_db:
+            t = times[k]
+            lift = up if t < hook_end_s else \
+                1 + (up - 1) * max(0.0, min(1.0, 1 - (t - hook_end_s) / hook_settle_s)) ** 2
+        gains.append(min(1.0, max(0.0, pause_gain * g * lift)))
+    keep = _thin([(t, 20 * math.log10(max(x, 1e-6))) for t, x in zip(times, gains)], _ENVELOPE_TOLERANCE_DB)
+    tolerance = _ENVELOPE_TOLERANCE_DB
+    while len(keep) > _MAX_WAVEFORM_POINTS:
+        tolerance *= 1.5
+        keep = _thin([(t, 20 * math.log10(max(x, 1e-6))) for t, x in zip(times, gains)], tolerance)
+    return [{"t_s": round(times[k], 3), "gain": round(gains[k], 4)} for k in keep]
+
+
+def _thin(points: list[tuple[float, float]], tolerance: float) -> list[int]:
+    """Ramer-Douglas-Peucker on (t, dB): the indexes of the points a straight
+    line between neighbours cannot stand in for within `tolerance` dB."""
+    keep = {0, len(points) - 1}
+    stack = [(0, len(points) - 1)]
+    while stack:
+        i, j = stack.pop()
+        if j <= i + 1:
+            continue
+        (t0, v0), (t1, v1) = points[i], points[j]
+        worst, at = -1.0, -1
+        for k in range(i + 1, j):
+            t, v = points[k]
+            line = v0 + (v1 - v0) * (t - t0) / (t1 - t0) if t1 > t0 else v0
+            err = abs(v - line)
+            if err > worst:
+                worst, at = err, k
+        if worst > tolerance:
+            keep.add(at)
+            stack.append((i, at))
+            stack.append((at, j))
+    return sorted(keep)
 
 
 def duck_envelope(

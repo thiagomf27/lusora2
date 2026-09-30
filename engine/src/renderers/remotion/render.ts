@@ -100,7 +100,7 @@ export async function renderRemotion(
   // D48: Remotion mixes the audio itself, so the loudness pass is a separate
   // remux here rather than a filter in the mux chain. Runs on the tmp file so
   // final.mp4 still appears atomically.
-  normalizeLoudness(tmpOut);
+  normalizeLoudness(tmpOut, plan.tracks.audio.master?.loudness ?? "single");
   renameSync(tmpOut, join(videoDir, "final.mp4"));
 
   if (window) return { duration_s: window.end_s - window.start_s };

@@ -164,6 +164,15 @@
         }
       }
     },
+    "mix": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D114 \u2014 mastering. Omitted = the D48 mix: everything summed, then one single-pass loudnorm to -14 LUFS on the bus.",
+      "properties": {
+        "voice_lufs": { "type": "number", "minimum": -30, "maximum": -8, "description": "the narration is normalized to this (two-pass, linear) before anything is mixed against it (Dark Palace: -14)" },
+        "master": { "enum": ["single", "two_pass"], "default": "single", "description": "the finished mix's loudness pass to -14 LUFS / -1.5 dBTP: single = one dynamic pass (D48); two_pass = measure, then one linear gain, so the balance of voice, bed and cues is kept as mixed" }
+      }
+    },
     "captions": {
       "type": "object",
       "additionalProperties": false,
@@ -375,7 +384,37 @@
           "minimum": 0,
           "default": 1.5,
           "description": "fade in/out at each span boundary; adjacent spans overlap by this much"
-        }
+        },
+        "one_bed": {
+          "type": "boolean",
+          "default": false,
+          "description": "D114 \u2014 one bed under the whole video (Dark Palace), picked by the mood that covers the most time, fading in over 2.5 s and out over the last 5 s; false = a bed per mood span"
+        },
+        "duck": {
+          "enum": ["sentences", "waveform"],
+          "default": "sentences",
+          "description": "D114 \u2014 what the bed ducks against. sentences = the D48 envelope, lifting only in gaps of 1.2 s or more between sentence timings; waveform = Dark Palace's respiro: the voice's own waveform in 10 ms blocks (speech_windows.json), falling in 0.08 s when the narrator starts and rising in 0.6 s in every pause. waveform also crafts each bed (brought to -20 LUFS, its ends trimmed, looped through loop_crossfade_s seams to exactly its span), which is what lets the levels below be set in dB"
+        },
+        "under_voice_db": {
+          "type": "number",
+          "maximum": 0,
+          "default": -28,
+          "description": "waveform only: the bed's loudness while the narrator speaks, in dB against the voice (mix.voice_lufs, else -14). Dark Palace: -28, its user's Premiere level for an ambience under a -14 LUFS voice"
+        },
+        "duck_db": {
+          "type": "number",
+          "minimum": 0,
+          "default": 6,
+          "description": "waveform only: how far the bed rises in a pause (Dark Palace: 6)"
+        },
+        "hook_lift_db": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "waveform only: the bed sits this much higher through the hook and settles back over hook_settle_s after it (Dark Palace: 6). Needs pacing.hook"
+        },
+        "hook_settle_s": { "type": "number", "exclusiveMinimum": 0, "default": 5 },
+        "loop_crossfade_s": { "type": "number", "exclusiveMinimum": 0, "default": 7, "description": "waveform only: the crafted bed's loop seam (Dark Palace: 7 s, equal-power)" }
       }
     }
   }

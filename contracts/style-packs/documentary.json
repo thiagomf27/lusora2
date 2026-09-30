@@ -76,6 +76,17 @@
   "music": {
     "enabled": true,
     "min_span_s": 28,
-    "crossfade_s": 2.5
+    "crossfade_s": 2.5,
+    "one_bed": true,
+    "duck": "waveform",
+    "under_voice_db": -28,
+    "duck_db": 6,
+    "hook_lift_db": 6,
+    "hook_settle_s": 5,
+    "loop_crossfade_s": 7
+  },
+  "mix": {
+    "voice_lufs": -14,
+    "master": "two_pass"
   }
 }

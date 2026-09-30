@@ -33,12 +33,13 @@ from ..agents import planner as planner_agent
 from ..agents import script as script_agent
 from ..agents import subjects as subjects_agent
 from ..compiler import compile_plan
+from ..compiler import sound as sound_rules
 from ..config import parallelism
 from ..context import StageContext
 from ..errors import StageError
 from ..media import extract_audio, probe_duration, probe_size, run_ffmpeg
 from ..providers import imagery, sources, tts, whisper
-from .. import align, beatphases, edithints
+from .. import align, beatphases, edithints, mixing
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
 from ..validators import validate_beat_sheet, validate_marks, validate_plan, validate_shot_picks
@@ -761,6 +762,7 @@ def run_compile_plan(ctx: StageContext) -> None:
     plan = compile_plan(
         beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration, selection,
         on_note=ctx.log if hook or placing else None, hook=hook, marks=marks,
+        speech_windows=_speech_windows(ctx),
     )
     if hook:
         hooked = [v for v in plan["tracks"]["visual"] if v.get("hook")]
@@ -784,6 +786,27 @@ def run_compile_plan(ctx: StageContext) -> None:
     ctx.write_json("edit_plan.json", plan)
     ctx.log(f"plan compiled: {len(plan['tracks']['visual'])} visual items, "
             f"{len(plan['tracks']['overlays'])} overlays")
+
+
+def _speech_windows(ctx: StageContext) -> list[list[float]] | None:
+    """Where the narrator speaks (D114), for a bed ducked on the waveform.
+
+    Read off audio.mp3 once and kept in speech_windows.json; None when the
+    style pack ducks on sentence timings, so nothing is decoded for it. Written
+    here rather than by the narration stage so a video whose narration was
+    forked or uploaded gets it too.
+    """
+    style = ctx.cfg.get("style_pack_doc") or {}
+    if sound_rules.music_settings(style)["duck"] != "waveform" or not sound_rules.sound_enabled(ctx.cfg, "music"):
+        return None
+    if ctx.has("speech_windows.json") and \
+            ctx.artifact("speech_windows.json").stat().st_mtime >= ctx.artifact("audio.mp3").stat().st_mtime:
+        return ctx.read_json("speech_windows.json")["windows"]
+    windows = mixing.speech_windows(ctx.artifact("audio.mp3"))
+    ctx.write_json("speech_windows.json", {"version": "1.0", "video_id": ctx.video_id,
+                                           "block_s": mixing.BLOCK_S, "windows": windows})
+    ctx.log(f"speech windows: {len(windows)} stretches of speech read off the narration")
+    return windows
 
 
 def run_hook_plan(ctx: StageContext) -> None:
@@ -1420,7 +1443,15 @@ def audio_resolved(ctx: StageContext) -> bool:
         plan = ctx.read_json("edit_plan.json")
     except StageError:
         return False
-    return all((ctx.folder / str(item["path"])).exists() for item in _audio_items(plan))
+    if not all((ctx.folder / str(item["path"])).exists() for item in _audio_items(plan)):
+        return False
+    # D114: a plan asking for a normalized voice points at it once it exists
+    master = (plan["tracks"]["audio"].get("master") or {})
+    voice = str(plan["tracks"]["audio"]["voiceover"]["path"])
+    return master.get("voice_lufs") is None or (voice == VOICE_NORMALIZED and ctx.has(VOICE_NORMALIZED))
+
+
+VOICE_NORMALIZED = "audio/voice-normalized.mp3"
 
 
 def run_resolve_audio(ctx: StageContext) -> None:
@@ -1436,6 +1467,7 @@ def run_resolve_audio(ctx: StageContext) -> None:
     in the repo, recorded as `library` provenance like any other local asset.
     """
     plan = ctx.read_json("edit_plan.json")
+    _normalize_voice(ctx, plan)
     items = _audio_items(plan)
     if not items:
         ctx.log("no music or sfx in this plan")
@@ -1453,10 +1485,13 @@ def run_resolve_audio(ctx: StageContext) -> None:
     entries = {**(pack.get("cues") or {}), **(pack.get("beds") or {})}
 
     (ctx.folder / "audio").mkdir(exist_ok=True)
+    music_conf = sound_rules.music_settings(ctx.cfg.get("style_pack_doc") or {})
+    waveform, crossfade = music_conf["duck"] == "waveform", music_conf["loop_crossfade_s"]
     copied = 0
     for item in items:
         dest = ctx.folder / str(item["path"])
-        name = str(item.get("cue") or Path(str(item["path"])).stem)
+        # a crafted bed (D114) has its own file name; the asset still names the pack's bed
+        name = str(item.get("cue") or (item.get("asset") or {}).get("id") or Path(str(item["path"])).stem)
         entry = entries.get(name)
         if entry is None:
             raise StageError(
@@ -1473,6 +1508,8 @@ def run_resolve_audio(ctx: StageContext) -> None:
         if not dest.exists():
             shutil.copyfile(source, dest)
             copied += 1
+        if waveform and item in (plan["tracks"]["audio"].get("music") or []):
+            item["path"] = _craft_bed(ctx, item, dest, crossfade)
         item["asset"] = {
             "source": "library",
             "id": name,
@@ -1493,6 +1530,36 @@ def run_resolve_audio(ctx: StageContext) -> None:
 
     ctx.write_json("edit_plan.json", plan)
     ctx.log(f"audio resolved from pack '{pack_name}': {len(items)} items, {copied} copied")
+
+
+def _craft_bed(ctx: StageContext, item: dict, track: Path, crossfade: float) -> str:
+    """The span's own bed file (D114): the pack's bed at mixing.BED_LUFS, its
+    ends trimmed, looped through `crossfade`-second seams to exactly the span."""
+    total = float(item.get("end_s") or 0) - float(item["start_s"])
+    # the length is in the name: a recompile that moves the span gets a new bed
+    out = f"audio/bed-{item['id']}-{int(round(total * 1000))}.mp3"
+    if not ctx.has(out):
+        mixing.craft_bed(track, total, ctx.folder / out, crossfade)
+        ctx.log(f"bed {item['id']}: {track.stem} crafted to {total:.1f}s at {mixing.BED_LUFS:g} LUFS")
+    return out
+
+
+def _normalize_voice(ctx: StageContext, plan: dict) -> None:
+    """The narration at the pack's `mix.voice_lufs` before the mix (D114, DP:
+    loudnorm I=-14 on the voice alone), so the bed and cues are balanced
+    against a known level instead of whatever the TTS produced."""
+    master = plan["tracks"]["audio"].get("master") or {}
+    target = master.get("voice_lufs")
+    if target is None:
+        return
+    voiceover = plan["tracks"]["audio"]["voiceover"]
+    if not ctx.has(VOICE_NORMALIZED):
+        (ctx.folder / "audio").mkdir(exist_ok=True)
+        measured = mixing.normalize_voice(ctx.artifact(str(voiceover["path"])), ctx.folder / VOICE_NORMALIZED,
+                                          float(target))
+        ctx.log(f"voice normalized: {float(measured['input_i']):.1f} LUFS -> {float(target):g} LUFS")
+    voiceover["path"] = VOICE_NORMALIZED
+    ctx.write_json("edit_plan.json", plan)
 
 
 # ---------------- validate (full, always runs) ----------------

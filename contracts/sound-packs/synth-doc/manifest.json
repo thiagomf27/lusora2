@@ -8,6 +8,7 @@
       "kind": "one_shot",
       "duration_s": 0.653,
       "lead_s": 0.34,
+      "gain": 0.451,
       "priority": 7
     },
     "swish": {
@@ -15,6 +16,7 @@
       "kind": "one_shot",
       "duration_s": 0.366,
       "lead_s": 0.14,
+      "gain": 0.201,
       "priority": 3
     },
     "slide": {
@@ -22,6 +24,7 @@
       "kind": "one_shot",
       "duration_s": 0.549,
       "lead_s": 0.2,
+      "gain": 0.201,
       "priority": 6
     },
     "pop": {
@@ -29,6 +32,7 @@
       "kind": "one_shot",
       "duration_s": 0.209,
       "lead_s": 0.004,
+      "gain": 0.358,
       "priority": 5
     },
     "tick": {
@@ -36,6 +40,7 @@
       "kind": "one_shot",
       "duration_s": 0.131,
       "lead_s": 0.002,
+      "gain": 0.285,
       "priority": 5
     },
     "blip": {
@@ -43,6 +48,7 @@
       "kind": "one_shot",
       "duration_s": 0.209,
       "lead_s": 0.004,
+      "gain": 0.201,
       "priority": 3
     },
     "thud": {
@@ -50,6 +56,7 @@
       "kind": "one_shot",
       "duration_s": 0.549,
       "lead_s": 0.004,
+      "gain": 0.715,
       "priority": 9
     },
     "hit": {
@@ -57,6 +64,7 @@
       "kind": "one_shot",
       "duration_s": 1.228,
       "lead_s": 0.004,
+      "gain": 1.0,
       "priority": 10
     },
     "riser": {
@@ -64,6 +72,7 @@
       "kind": "one_shot",
       "duration_s": 1.829,
       "lead_s": 1.76,
+      "gain": 0.568,
       "priority": 8
     },
     "rise": {
@@ -71,6 +80,7 @@
       "kind": "one_shot",
       "duration_s": 0.653,
       "lead_s": 0.58,
+      "gain": 0.143,
       "priority": 2
     },
     "marker": {
@@ -78,6 +88,7 @@
       "kind": "one_shot",
       "duration_s": 0.392,
       "lead_s": 0.03,
+      "gain": 0.143,
       "priority": 4
     },
     "pen": {
@@ -85,6 +96,7 @@
       "kind": "one_shot",
       "duration_s": 0.549,
       "lead_s": 0.03,
+      "gain": 0.08,
       "priority": 1
     },
     "zip": {
@@ -92,6 +104,7 @@
       "kind": "one_shot",
       "duration_s": 0.392,
       "lead_s": 0.25,
+      "gain": 0.285,
       "priority": 6
     },
     "count": {
@@ -99,14 +112,14 @@
       "kind": "one_shot",
       "duration_s": 1.646,
       "lead_s": 0.004,
-      "gain": 0.8,
+      "gain": 0.319,
       "priority": 8
     },
     "type": {
       "file": "sfx/type.mp3",
       "kind": "loop",
       "duration_s": 1.228,
-      "gain": 0.6,
+      "gain": 0.254,
       "priority": 4,
       "fade_out_s": 0.08
     },
@@ -115,6 +128,7 @@
       "kind": "one_shot",
       "duration_s": 0.601,
       "lead_s": 0.12,
+      "gain": 0.201,
       "priority": 5
     },
     "tear": {
@@ -122,6 +136,7 @@
       "kind": "one_shot",
       "duration_s": 0.549,
       "lead_s": 0.05,
+      "gain": 0.285,
       "priority": 7
     },
     "bell": {
@@ -129,7 +144,7 @@
       "kind": "one_shot",
       "duration_s": 1.437,
       "lead_s": 0.004,
-      "gain": 0.8,
+      "gain": 0.319,
       "priority": 7
     },
     "chime": {
@@ -137,7 +152,7 @@
       "kind": "one_shot",
       "duration_s": 1.149,
       "lead_s": 0.004,
-      "gain": 0.8,
+      "gain": 0.201,
       "priority": 5
     },
     "static": {
@@ -145,7 +160,7 @@
       "kind": "one_shot",
       "duration_s": 1.228,
       "lead_s": 0.1,
-      "gain": 0.7,
+      "gain": 0.451,
       "priority": 2
     }
   },

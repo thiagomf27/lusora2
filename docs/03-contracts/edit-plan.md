@@ -84,11 +84,16 @@ points in its volume callback; ffmpeg builds the same curve as a nested
 `if(lt(t,…))` expression on `volume=…:eval=frame`. Both read the same
 numbers, so both paths mix the same — `engine/test/audio.test.ts` pins
 that by evaluating the ffmpeg expression and `gainAt()` against each
-other. The schema caps the list at 200 points; the compiler drops the
-shortest gaps rather than overflow it.
+other. The sentence envelope stays within 200 points, dropping the
+shortest gaps rather than overflow them. A waveform envelope (D114) may
+carry up to the schema's 5000; the ffmpeg path thins it to 200 for its
+expression, so on that path it is an approximation of what Remotion plays.
 
 Finally, one `loudnorm` pass takes the finished mix to **-14 LUFS**,
 YouTube's target, so the platform's own normalization leaves it alone.
+`audio.master` (D114, from `style_pack.mix`) changes that: `voice_lufs`
+means the voiceover was normalized before the mix, and `loudness:
+two_pass` measures the mix first and applies one linear gain.
 
 ## Item provenance + lock (the editor-sync rule)
 

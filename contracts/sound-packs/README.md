@@ -43,7 +43,9 @@ exactly what D8 removed from the model's job; the planner's only contribution is
   inharmonic partials), so the pack is `own`, offline, and a rebuild is
   byte-identical. Each cue's `lead_s` is its recipe's peak, so the loudest
   instant lands on the visual. Pairs with the `documentary-dark` theme, which
-  maps every catalog component to one of them.
+  maps every catalog component to one of them. Each cue's `gain` is Dark Palace's level
+  for it (D114): against a −14 LUFS voice, with the theme's `gain.sfx` at 1,
+  a whoosh peaks where DP's did and a pen stroke sits 15 dB under it.
 
 The two packs share three cues because the recordings behind them are one kit;
 what still separates the packs is the swoosh and the transient — `woosh` against

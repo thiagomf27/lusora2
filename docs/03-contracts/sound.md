@@ -150,6 +150,25 @@ narration and `music_lift: 0.5` about 8 dB under.
 Finally one `loudnorm` pass takes the mix to **-14 LUFS** — YouTube's
 target, so the platform's own normalization leaves it alone.
 
+### The waveform mix (D114)
+
+A style pack can ask for Dark Palace's mix instead. `music.duck: waveform`
+ducks on the voice's own waveform: `speech_windows.json` holds where the
+narrator really speaks (10 ms blocks), and the envelope follows it with a
+0.08 s fall and a 0.6 s rise, so the bed comes up in every pause, not only
+gaps of 1.2 s. Its levels are in dB against the voice: `under_voice_db`
+(−28) while speaking, `duck_db` (6) higher in a pause, `hook_lift_db`
+higher through the hook. That needs a bed of known loudness, so
+`resolve_audio` crafts each one: the pack's file brought to −20 LUFS, its
+ends trimmed, looped through `loop_crossfade_s` seams to exactly its span.
+`music.one_bed` plays a single bed under the whole video.
+
+`style_pack.mix` masters it: `voice_lufs` normalizes the narration before
+the mix (`audio/voice-normalized.mp3`), and `master: two_pass` measures the
+finished mix and applies one linear gain to −14 LUFS, keeping the balance
+the plan set. The `documentary` pack sets all of it to Dark Palace's
+numbers.
+
 ## Editing
 
 **Per video**, in the editor: the audio lane shows beds as spans (with the

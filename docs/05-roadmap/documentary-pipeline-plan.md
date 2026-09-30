@@ -359,10 +359,18 @@ phrases, and ceiling cuts snapped to words.
   already bounds, so there is nothing for them to do (D113). The per-source cap
   counts YouTube uploads only: library segments still do not name theirs.
 
-### Slice 9: the sound mix (M)
+### Slice 9: the sound mix (M) ✅ BUILT (D114)
 `speech_windows.json` and a waveform-driven duck (raise the edit-plan
 envelope's 200-point cap), `hook_lift_db`, voice normalization, two-pass mix
 loudnorm, and bed craft (trim, loop, crossfade).
+- Built: all of the above (`music.one_bed`, `music.duck: waveform` with
+  `under_voice_db` / `duck_db` / `hook_lift_db`, `style_pack.mix`), plus
+  `synth-doc`'s cue gains set to DP's per-cue levels. `speech_windows.json` is
+  written by `compile_plan` rather than the narration stage, so forked and
+  uploaded narrations get it too.
+- Not built: the user's own music tracks (DP's `musicas/` folder). The
+  documentary look plays `synth-doc`'s synthesized beds until a music source
+  exists.
 
 ### Slice 10: narration quality (M)
 A spoken-number pre-pass per language, a Whisper review knob, and `voice.speed`.

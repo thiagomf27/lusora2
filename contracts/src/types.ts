@@ -274,7 +274,7 @@ export interface EditPlan {
     visual: VisualItem[];
     overlays: OverlayItem[];
     captions: { enabled: boolean; preset?: string; items: CaptionItem[] };
-    audio: { voiceover: VoiceoverItem; music?: MusicItem[]; sfx?: SfxItem[] };
+    audio: { voiceover: VoiceoverItem; music?: MusicItem[]; sfx?: SfxItem[]; master?: AudioMaster };
   };
 }
 
@@ -420,6 +420,12 @@ export type OverlayDensity = "low" | "normal" | "high" | { per_minute: number };
 
 export type VideoType = "doc" | "explainer" | "breakdown" | "listicle";
 
+/** D114: how the finished mix is mastered (from style_pack.mix). */
+export interface AudioMaster {
+  loudness?: "single" | "two_pass";
+  voice_lufs?: number;
+}
+
 export interface StylePack {
   name: string;
   /** The video-type preset this pack implements — a video type IS a style pack
@@ -510,7 +516,22 @@ export interface StylePack {
     min_gap_s?: number;
   };
   /** D48: how background music is shaped across the video. */
-  music?: { enabled?: boolean; min_span_s?: number; crossfade_s?: number };
+  music?: {
+    enabled?: boolean;
+    min_span_s?: number;
+    crossfade_s?: number;
+    /** D114: one bed under the whole video (Dark Palace). */
+    one_bed?: boolean;
+    /** D114: waveform = the bed breathes with the voice's own waveform, and beds are crafted to -20 LUFS. */
+    duck?: "sentences" | "waveform";
+    under_voice_db?: number;
+    duck_db?: number;
+    hook_lift_db?: number;
+    hook_settle_s?: number;
+    loop_crossfade_s?: number;
+  };
+  /** D114: mastering — the voice normalized first, the mix measured once or twice. */
+  mix?: { voice_lufs?: number; master?: "single" | "two_pass" };
   /** D55: the card drawn instead of an asset the chain could not match well. */
   fallback?: { component?: string; text_prop?: string };
 }

@@ -6,7 +6,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { audioVolumeAt, gainAt } from "../src/renderers/remotion/audioVolume.ts";
-import { envelopeExpr } from "../src/renderers/ffmpeg/render.ts";
+import { coarsen, envelopeExpr, MAX_EXPR_POINTS } from "../src/renderers/ffmpeg/render.ts";
+import { twoPassFilter } from "../src/renderers/loudness.ts";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const fps = 30;
 
@@ -157,4 +162,52 @@ test("the ffmpeg expression and gainAt agree on the same envelope", () => {
       `t=${absolute}: ffmpeg ${viaFfmpeg} vs remotion ${viaRemotion}`
     );
   }
+});
+
+// ---- D114: waveform envelopes and two-pass mastering ----
+
+/** A bed that breathes: down under speech, up in a pause, every 3 s for 20 minutes. */
+function breathing(pauses: number) {
+  const points: { t_s: number; gain: number }[] = [];
+  for (let k = 0; k < pauses; k++) {
+    const t = k * 3;
+    points.push({ t_s: t, gain: 0.08 }, { t_s: t + 2.4, gain: 0.08 }, { t_s: t + 2.7, gain: 0.16 }, { t_s: t + 2.95, gain: 0.1 });
+  }
+  return points;
+}
+
+test("gainAt finds the right segment in a long envelope", () => {
+  const env = breathing(400);
+  const linear = (t: number) => {
+    for (let i = 1; i < env.length; i++) {
+      if (t <= env[i].t_s) {
+        const a = env[i - 1];
+        const b = env[i];
+        return a.gain + ((b.gain - a.gain) * (t - a.t_s)) / (b.t_s - a.t_s);
+      }
+    }
+    return env[env.length - 1].gain;
+  };
+  for (const t of [0.5, 2.55, 600.1, 1197.8]) {
+    assert.ok(Math.abs(gainAt(env, t) - linear(t)) < 1e-9, `t=${t}`);
+  }
+});
+
+test("the ffmpeg path thins a long envelope to what its expression can carry", () => {
+  const env = breathing(400);
+  const thin = coarsen(env, MAX_EXPR_POINTS);
+  assert.equal(thin.length, MAX_EXPR_POINTS);
+  assert.deepEqual(thin[0], env[0]);
+  assert.deepEqual(thin[thin.length - 1], env[env.length - 1]);
+  assert.equal(coarsen(env.slice(0, 10), MAX_EXPR_POINTS).length, 10, "a short one is left alone");
+});
+
+test("two-pass mastering measures the mix and applies one linear gain", () => {
+  const dir = mkdtempSync(join(tmpdir(), "master-"));
+  const file = join(dir, "mix.mp4");
+  spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.05*sin(2*PI*440*t)':s=48000:d=4",
+    "-c:a", "aac", file]);
+  const filter = twoPassFilter(file);
+  assert.ok(filter?.includes("linear=true") && filter.includes("measured_I="), String(filter));
+  assert.equal(twoPassFilter(join(dir, "missing.mp4")), null);
 });

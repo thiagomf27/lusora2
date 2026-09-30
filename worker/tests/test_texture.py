@@ -197,15 +197,19 @@ def test_off_places_nothing():
     assert json.dumps(visual) == before
 
 
-def compile_with(style_extra, marks):
+def compile_with(style_extra, marks, speech_windows=None, sound_pack=None, theme=None):
     beats = [dict(b, visual_intent="shot", mood="somber") for b in BEATS]
     cfg = {"style_pack_doc": {"pacing": {"avg_hold_seconds": 3, "min_hold": 2, "max_hold": 10},
                               "overlays": {"density": "normal"},
                               "transitions": {"allowed": ["cut"], "default": "cut"}, **style_extra},
            "output": {"fps": 30, "width": 1920, "height": 1080}}
+    if sound_pack is not None:
+        cfg["sound_pack_doc"] = sound_pack
+    if theme is not None:
+        cfg["theme_doc"] = theme
     timings = [{"text": c["script_text"], "start_s": c["start_s"], "end_s": c["end_s"]} for c in CUTS]
     doc = {"version": "1.0", "video_id": "v", "beats": beats}
-    return compile_plan(doc, timings, cfg, 18.0, marks=marks), cfg
+    return compile_plan(doc, timings, cfg, 18.0, marks=marks, speech_windows=speech_windows), cfg
 
 
 def test_a_textured_plan_compiles_and_validates(tmp_path):

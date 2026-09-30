@@ -38,6 +38,7 @@ def compile_plan(
     on_note: Callable[[str], None] | None = None,
     hook: dict[str, Any] | None = None,
     marks: dict[str, Any] | None = None,
+    speech_windows: list[list[float]] | None = None,
 ) -> dict[str, Any]:
     """sentence_timings: [{text, start_s, end_s}] in audio time (from the
     TTS adapter or the SRT), covering the whole narration in order.
@@ -250,12 +251,23 @@ def compile_plan(
         for t in sentence_timings
     ]
 
-    music = sound.compile_music(beat_times, absolute_timings, cfg, total_duration_s)
+    # D114: where the voice really speaks, for a bed that breathes with it
+    speech = [(vo_start + float(a), vo_start + float(b)) for a, b in speech_windows] \
+        if speech_windows is not None else None
+    music = sound.compile_music(beat_times, absolute_timings, cfg, total_duration_s, speech=speech,
+                                hook_end_s=hook_end_abs if hook_rules else None)
     if music:
         audio["music"] = music
     sfx = sound.compile_sfx(overlays, visual, cfg, total_duration_s, pinned=pinned_cues)
     if sfx:
         audio["sfx"] = sfx
+    # D114: the narration normalized before the mix, the finished mix measured twice
+    mix = style.get("mix") or {}
+    if mix:
+        master: dict[str, Any] = {"loudness": str(mix.get("master") or "single")}
+        if mix.get("voice_lufs") is not None:
+            master["voice_lufs"] = float(mix["voice_lufs"])
+        audio["master"] = master
 
     plan: dict[str, Any] = {
         "version": "1.0",
