@@ -15,6 +15,7 @@ import lusora_contracts
 
 from .context import StageContext
 from .errors import StageError
+from .providers import llm
 
 # One per process: budget_gate's read-then-reserve must not interleave.
 _GATE_LOCK = threading.Lock()
@@ -80,7 +81,7 @@ def budget_gate(
     ctx: StageContext,
     *,
     stage: str,
-    provider: str,
+    provider: str | list[str],
     operation: str,
     estimated_units: float,
     details: dict[str, Any] | None = None,
@@ -96,8 +97,26 @@ def budget_gate(
     its own unit. The ESTIMATE cannot know the split, so it prices the
     reservation at the OUTPUT rate — the expensive side, and the one a
     reasoning model spends most of.
+
+    `provider` may be an LLM fallback chain (D116). Every element must be
+    priced BEFORE anything is spent, since any of them may end up answering;
+    the estimate is priced on `llm.gate_element` (the first not out in the
+    ledger), and the completed event is re-priced on — and filed under — the
+    element the recorder reports as `answered_by`. Billing a fallback's tokens
+    at the first element's rate is how a paid call would read as $0.
     """
+    chain = provider if isinstance(provider, list) else None
+    if chain is not None:
+        for element in chain:
+            name, elem_model = llm.parse_element(str(element))
+            token_rates(name, operation, elem_model)
+        provider, gate_model = llm.parse_element(llm.gate_element(chain))
+        model = gate_model
     tokens = operation.startswith(("llm.", "vision."))
+    if chain is None and tokens:
+        # a plain string may carry a `/model` too; it wins, as it does in chat()
+        provider, suffix = llm.parse_element(provider)
+        model = suffix or model
     in_rate, out_rate = token_rates(provider, operation, model) if tokens else (0.0, 0.0)
     price = out_rate if tokens else unit_price(provider, operation)
     estimate = estimated_units * price
@@ -131,15 +150,29 @@ def budget_gate(
     recorder = CostRecorder(ctx, common, details, in_rate, out_rate, tokens)
     try:
         yield recorder
-    except Exception:
+    except Exception as exc:
         ctx.db.release_reservation(ctx.video_id, provider, operation, event_id=reservation)
         ctx.db.cost_event(**common, status="failed", units=0, usd=0, details=details)
+        # D116 — the LLM chain marked these out in the quota ledger; chat()
+        # and see() have no context, so the one place that always does
+        # reports them. A caller that wraps the error keeps it as __cause__.
+        marks = getattr(exc, "marks", None) or getattr(exc.__cause__, "marks", None) or []
+        kind = "vision" if operation.startswith("vision.") else "llm"
+        for name, reason in marks:
+            ctx.db.provider_health(f"{kind}.{name}", False, str(reason)[:200])
         raise
     else:
         ctx.db.release_reservation(ctx.video_id, provider, operation, event_id=reservation)
         actual_units = recorder.actual_units if recorder.actual_units is not None else estimated_units
+        completed = common
+        answered = (recorder.detail_overrides or {}).get("answered_by")
+        if tokens and chain is not None and answered and answered != provider:
+            answered_model = next((m for n, m in map(llm.parse_element, map(str, chain)) if n == answered), None)
+            recorder._in_rate, recorder._out_rate = token_rates(answered, operation, answered_model)
+            price = recorder._out_rate
+            completed = {**common, "provider": answered, "unit_price_usd": price}
         ctx.db.cost_event(
-            **common,
+            **completed,
             status="completed",
             units=actual_units,
             usd=recorder.usd(actual_units, price),

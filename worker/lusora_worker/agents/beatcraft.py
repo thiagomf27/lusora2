@@ -335,7 +335,6 @@ def _craft_chunk(
     exactly what the single call always did."""
     planner_cfg = ctx.cfg.get("planner") or {}
     provider = planner_cfg.get("llm") or "deepseek"
-    gate_provider = llm.gate_provider(llm.chain_of(provider))
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     max_tokens = int((prompt or {}).get("max_tokens") or 64000)
@@ -354,7 +353,7 @@ def _craft_chunk(
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=gate_provider, operation="llm.craft_beats",
+            ctx, stage=STAGE, provider=provider, operation="llm.craft_beats",
             estimated_units=8000,
             details={"attempt": attempt, "cuts": len(cuts), "part": chunk_position or "whole",
                      "prompt": (prompt or {}).get("name", "default")},

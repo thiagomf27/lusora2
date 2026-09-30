@@ -15,8 +15,11 @@ import threading
 
 import pytest
 
+from lusora_worker.costs import budget_gate
 from lusora_worker.errors import StageError
 from lusora_worker.providers import llm, quota
+
+from test_agents import FakeDb, make_ctx
 
 
 class FakeResponse:
@@ -241,6 +244,126 @@ def test_see_falls_over_on_a_text_only_element(monkeypatch, tmp_path):
     monkeypatch.setattr(llm.httpx, "post", fake_post)
     result = llm.see(["deepseek", "anthropic"], None, "sys", "user", [frame], 1000, 0.2)
     assert result.provider == "anthropic"
+
+
+# ---------------- a plain string never touches the ledger ----------------
+
+
+def test_a_plain_string_429_marks_nothing_and_raises_its_own_error(monkeypatch):
+    """One per-minute 429 on a plain-string channel must not lock the provider
+    out for every other video on the machine — the brief's 'behaves exactly as
+    today'."""
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "k")
+    monkeypatch.setattr(llm.httpx, "post",
+                        lambda *a, **k: FakeResponse({"error": {"message": "rate limit"}}, status=429))
+    with pytest.raises(StageError, match="deepseek API error 429"):
+        llm.chat("deepseek", None, "sys", "user", 1000)
+    assert quota.out_reason("deepseek") == ""
+
+
+def test_a_plain_string_is_tried_even_when_the_ledger_marks_it_out(monkeypatch, calls):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "k")
+    quota.mark_out("deepseek", "quota exceeded", 3600)
+    assert llm.chat("deepseek", None, "sys", "user", 1000).provider == "deepseek"
+    assert len(calls) == 1
+
+
+# ---------------- the budget gate with a chain ----------------
+
+
+class HealthDb(FakeDb):
+    def __init__(self):
+        super().__init__()
+        self.health: list[tuple] = []
+
+    def provider_health(self, provider, ok, error=None):
+        self.health.append((provider, ok, error))
+
+
+def _gate_ctx(tmp_path):
+    ctx = make_ctx(tmp_path)
+    ctx.db = HealthDb()
+    return ctx
+
+
+def _completed(ctx):
+    return [e for e in ctx.db.cost_events if e["status"] == "completed"]
+
+
+def test_a_chain_led_by_claude_cli_passes_the_gate_on_a_text_role(tmp_path):
+    """The brief's own example chain: claude_cli used to have no llm.* price,
+    so this stopped the video before any call."""
+    ctx = _gate_ctx(tmp_path)
+    with budget_gate(ctx, stage="t", provider=["claude_cli", "gemini", "deepseek"],
+                     operation="llm.plan_beats", estimated_units=100) as cost:
+        cost.actual(3, {"input_tokens": 1, "output_tokens": 2, "answered_by": "claude_cli"})
+    assert _completed(ctx)[0]["provider"] == "claude_cli"
+
+
+def test_every_chain_element_must_be_priced_before_anything_is_spent(tmp_path):
+    ctx = _gate_ctx(tmp_path)
+    with pytest.raises(StageError, match="no price for provider 'openai' operation 'llm.plan_beats'"):
+        with budget_gate(ctx, stage="t", provider=["gemini", "openai"],
+                         operation="llm.plan_beats", estimated_units=100):
+            raise AssertionError("the call must never run")
+    assert ctx.db.cost_events == []
+
+
+def test_a_fallback_is_billed_at_its_own_rate_not_the_first_elements(tmp_path):
+    """gemini is $0; when it fails over and deepseek answers, recording the
+    deepseek tokens at gemini's rate is a paid call reading as $0."""
+    from lusora_worker.costs import token_rates
+
+    ctx = _gate_ctx(tmp_path)
+    with budget_gate(ctx, stage="t", provider=["gemini", "deepseek/deepseek-v4-pro"],
+                     operation="llm.plan_beats", estimated_units=100) as cost:
+        cost.actual(3000, {"input_tokens": 1000, "output_tokens": 2000, "answered_by": "deepseek"})
+    done = _completed(ctx)[0]
+    in_rate, out_rate = token_rates("deepseek", "llm.plan_beats", "deepseek-v4-pro")
+    assert done["provider"] == "deepseek"
+    assert done["usd"] == pytest.approx(1000 * in_rate + 2000 * out_rate)
+    assert done["usd"] > 0
+
+
+def test_the_estimate_is_priced_on_the_first_element_not_out(tmp_path):
+    quota.mark_out("gemini", "quota", 3600)
+    ctx = _gate_ctx(tmp_path)
+    with budget_gate(ctx, stage="t", provider=["gemini", "deepseek"],
+                     operation="llm.plan_beats", estimated_units=100) as cost:
+        cost.actual(3, {"input_tokens": 1, "output_tokens": 2, "answered_by": "deepseek"})
+    estimated = [e for e in ctx.db.cost_events if e["status"] == "estimated"][0]
+    assert estimated["provider"] == "deepseek" and estimated["usd"] > 0
+
+
+def test_the_gate_reports_a_chains_marks_to_provider_health(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "k")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.setattr(llm.httpx, "post",
+                        lambda *a, **k: FakeResponse({"error": {"message": "quota exceeded"}}, status=429))
+    ctx = _gate_ctx(tmp_path)
+    with pytest.raises(StageError):
+        with budget_gate(ctx, stage="t", provider=["deepseek", "anthropic"],
+                         operation="llm.plan_beats", estimated_units=100):
+            llm.chat(["deepseek", "anthropic"], None, "sys", "user", 1000)
+    assert {h[0] for h in ctx.db.health} == {"llm.deepseek", "llm.anthropic"}
+    assert all(ok is False for _p, ok, _e in ctx.db.health)
+
+
+def test_a_plain_string_through_the_gate_is_unchanged(tmp_path):
+    ctx = _gate_ctx(tmp_path)
+    with budget_gate(ctx, stage="t", provider="deepseek", operation="llm.plan_beats",
+                     estimated_units=100, model="deepseek-v4-flash") as cost:
+        cost.actual(3, {"input_tokens": 1, "output_tokens": 2, "answered_by": "deepseek"})
+    assert [e["provider"] for e in ctx.db.cost_events] == ["deepseek"] * 3
+    assert not quota._path().exists(), "a plain string never reads or writes the ledger"
+
+
+def test_shot_picks_accepts_a_chain_as_its_provider():
+    from lusora_worker.validators import validate_shot_picks
+
+    doc = {"version": "1.0", "video_id": "v", "enabled": True, "provider": ["claude_cli", "gemini"],
+           "model": None, "sheets": 0, "unjudged": [], "items": {}}
+    assert validate_shot_picks(doc) == []
 
 
 # ---------------- the ledger ----------------

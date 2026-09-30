@@ -110,9 +110,10 @@ its own message gave, or a default (Gemini's daily quota until the next
 Pacific midnight; anything else 6 hours) — so the next call, from this video
 or another one, skips it instead of failing against it again. A network error
 or a 5xx is weather, not quota: the chain still moves on for that one call,
-but the provider is not marked out. A single-provider (non-chain) config that
-fails raises exactly the error it always did — chains are additive, and a
-plain string compiles, plans and calls byte-identically to before D116.
+but the provider is not marked out. A plain string never touches the ledger:
+it is always tried and fails with exactly the error it always did — chains are
+additive, and a plain-string channel calls exactly as before D116. Marks are
+reported to `provider_health` by the budget gate.
 
 ---
 

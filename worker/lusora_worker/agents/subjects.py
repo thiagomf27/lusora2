@@ -60,7 +60,6 @@ def find_subjects(
     """One call, repaired up to three times, judged by `validate_subjects`."""
     planner_cfg = ctx.cfg.get("planner") or {}
     provider = planner_cfg.get("llm") or "deepseek"
-    gate_provider = llm.gate_provider(llm.chain_of(provider))
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     max_tokens = int((prompt or {}).get("max_tokens") or 32000)
@@ -71,7 +70,7 @@ def find_subjects(
     attempts: list[str] = []
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=gate_provider, operation="llm.subjects",
+            ctx, stage=STAGE, provider=provider, operation="llm.subjects",
             estimated_units=4000,
             details={"attempt": attempt, "cuts": len(cuts),
                      "prompt": (prompt or {}).get("name", "default")},

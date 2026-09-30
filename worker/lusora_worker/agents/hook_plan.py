@@ -232,7 +232,6 @@ def plan(
     chain = llm.chain_of(provider)
     if chain == ["mock"] or not hook_beats:
         return doc
-    gate_provider = llm.gate_provider(chain)
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     model = None if isinstance(provider, list) else (planner.get("model") or (prompt or {}).get("model_hint"))
     subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else {}
@@ -242,7 +241,7 @@ def plan(
         "content_rules": str(ctx.cfg.get("content_rules") or ""),
         "instructions": str((ctx.cfg.get("overrides") or {}).get("instructions") or ""),
     })
-    with budget_gate(ctx, stage=STAGE, provider=gate_provider, operation="llm.hook_plan",
+    with budget_gate(ctx, stage=STAGE, provider=provider, operation="llm.hook_plan",
                      estimated_units=3000, model=model, details={"beats": len(hook_beats)}) as cost:
         result = chat_fn(provider, model, system, user, int((prompt or {}).get("max_tokens") or 16000),
                          prompt_packs.temperature(ROLE, prompt))

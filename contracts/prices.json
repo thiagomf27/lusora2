@@ -78,6 +78,18 @@
       }
     },
     "claude_cli": {
+      "comment": "D103/D116 — the operator's own subscription: $0 per call, tokens recorded. The llm.* entries let it answer text roles too, alone or in a fallback chain.",
+      "llm.chat_edit": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.craft_beats": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.generate_research": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.generate_script": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.hook_plan": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.narrative_marks": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.pick_videos": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.plan_beats": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.plan_spine": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.select_overlays": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.subjects": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
       "vision.pick_shots": {
         "unit": "token",
         "input_per_1m": 0.0,

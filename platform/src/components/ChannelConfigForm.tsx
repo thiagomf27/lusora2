@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChannelConfig, VideoType, VisualSource, LicenseKind } from "@lusora/contracts";
 import s from "./ChannelConfigForm.module.css";
+import { parseChain } from "@/lib/llmChain";
 
 const VIDEO_TYPES = ["doc", "explainer", "breakdown", "listicle"] as const;
 /** D62 — how far the worker runs before asking a human. The schema value is
@@ -146,13 +147,18 @@ function LlmField({
   value: string | string[] | undefined;
   onChange: (v: string | string[]) => void;
 }) {
+  // the typed text is kept as typed: re-rendering from the parsed chain
+  // would eat a trailing comma, so no element could be added at the end
+  const [draft, setDraft] = useState(Array.isArray(value) ? value.join(", ") : "");
   if (Array.isArray(value)) {
     return (
       <input
-        value={value.join(", ")}
-        onChange={(e) =>
-          onChange(e.target.value.split(",").map((s) => s.trim()).filter(Boolean))
-        }
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const chain = parseChain(e.target.value);
+          if (chain.length) onChange(chain);
+        }}
       />
     );
   }

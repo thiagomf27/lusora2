@@ -142,10 +142,9 @@ def build(ctx: StageContext, kind: str, see_fn: llm.SeeFn = llm.see) -> dict[str
     system, user = prompt_packs.compose(ROLE, (ctx.cfg.get("prompts") or {}).get(ROLE),
                                         {"kind": kind, "count": len(order)})
     provider = conf["llm"]
-    gate_provider = llm.gate_provider(chain)
     model = None if isinstance(provider, list) else conf.get("model")
     try:
-        with budget_gate(ctx, stage="hook_plan", provider=gate_provider, operation="vision.match_cut",
+        with budget_gate(ctx, stage="hook_plan", provider=provider, operation="vision.match_cut",
                          estimated_units=3000, model=model, details={"kind": kind}) as cost:
             try:
                 result = see_fn(provider, model, system, user, [sheet], 4000, 0.2)
@@ -155,8 +154,6 @@ def build(ctx: StageContext, kind: str, see_fn: llm.SeeFn = llm.see) -> dict[str
                                               "output_tokens": result.output_tokens,
                                               "answered_by": result.provider})
     except _JudgeDown as exc:
-        for name, reason in getattr(exc.__cause__, "marks", None) or [(gate_provider, str(exc)[:200])]:
-            ctx.db.provider_health(f"vision.{name}", False, reason[:200])
         return None  # a judge that cannot answer costs the match cut, not the video
     try:
         answer = llm.extract_json(result.text)

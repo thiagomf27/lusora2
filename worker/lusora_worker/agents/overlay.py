@@ -255,7 +255,6 @@ def select_overlays(
 
     if chain == ["mock"]:
         return empty
-    gate_provider = llm.gate_provider(chain)
 
     target = max(1, int((ctx.cfg.get("planner") or {}).get("chunk_target_beats")
                         or DEFAULT_CHUNK_TARGET))
@@ -267,7 +266,7 @@ def select_overlays(
     def select(i: int, chunk: list[dict[str, Any]]) -> dict[str, Any]:
         return _select_chunk(
             ctx, chunk, beats, audio_duration_s, chat_fn,
-            provider, gate_provider, model, prompt, max_tokens, temperature,
+            provider, model, prompt, max_tokens, temperature,
             chunk_position=f"part {i + 1} of {len(chunks)}" if len(chunks) > 1 else "",
             share=len(chunk) / len(candidates) if len(chunks) > 1 else 1.0,
         )
@@ -323,7 +322,6 @@ def _select_chunk(
     audio_duration_s: float,
     chat_fn: llm.ChatFn,
     provider: str | list[str],
-    gate_provider: str,
     model: Any,
     prompt: Any,
     max_tokens: int,
@@ -348,7 +346,7 @@ def _select_chunk(
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=gate_provider, operation="llm.select_overlays",
+            ctx, stage=STAGE, provider=provider, operation="llm.select_overlays",
             estimated_units=6000,
             details={"attempt": attempt, "candidates": len(candidates),
                      "prompt": (prompt or {}).get("name", "default")},

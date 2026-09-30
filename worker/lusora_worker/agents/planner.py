@@ -222,7 +222,6 @@ def _spine_sections(
 
     planner_cfg = ctx.cfg.get("planner") or {}
     provider = planner_cfg.get("llm") or "deepseek"
-    gate_provider = llm.gate_provider(llm.chain_of(provider))
     prompt = (ctx.cfg.get("prompts") or {}).get(SPINE_ROLE)
     model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     system, user = prompt_packs.compose(
@@ -239,7 +238,7 @@ def _spine_sections(
 
     try:
         with budget_gate(
-            ctx, stage=STAGE, provider=gate_provider, operation="llm.plan_spine",
+            ctx, stage=STAGE, provider=provider, operation="llm.plan_spine",
             estimated_units=2000, details={"sections": section_count},
             model=model,
         ) as cost:
@@ -416,7 +415,6 @@ def _plan_chunk(
     planner_cfg = ctx.cfg.get("planner") or {}
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     provider = planner_cfg.get("llm") or "deepseek"
-    gate_provider = llm.gate_provider(llm.chain_of(provider))
     model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     # 64k, not 16k: reasoning is billed out of max_tokens and its length is not
     # bounded by the prompt — a run that had been costing 4-9k spent 15.8k
@@ -440,7 +438,7 @@ def _plan_chunk(
     attempts: list[str] = []
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=gate_provider, operation="llm.plan_beats",
+            ctx, stage=STAGE, provider=provider, operation="llm.plan_beats",
             estimated_units=12000,
             details={
                 "attempt": attempt,

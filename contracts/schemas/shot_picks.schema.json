@@ -10,7 +10,13 @@
     "version": { "const": "1.0" },
     "video_id": { "type": "string" },
     "enabled": { "type": "boolean", "description": "false = the channel has pick off; the stage wrote this so a resumed video does not ask again" },
-    "provider": { "type": ["string", "null"] },
+    "provider": {
+      "description": "the channel's pick.llm as configured: a provider name, or a fallback chain (D116); each sheet's cost event names the element that answered it (`answered_by`)",
+      "oneOf": [
+        { "type": ["string", "null"] },
+        { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      ]
+    },
     "model": { "type": ["string", "null"] },
     "sheets": { "type": "integer", "minimum": 0, "description": "contact sheets judged (= vision calls that answered)" },
     "unjudged": {

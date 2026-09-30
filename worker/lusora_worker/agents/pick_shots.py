@@ -231,7 +231,6 @@ def judge(
     answer, so its shots fall back to the plain search."""
     provider = conf["llm"]
     chain = llm.chain_of(provider)
-    gate_provider = llm.gate_provider(chain)
     model = None if isinstance(provider, list) else conf.get("model")
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     temperature = prompt_packs.temperature(ROLE, prompt)
@@ -240,7 +239,7 @@ def judge(
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             with budget_gate(
-                ctx, stage=STAGE, provider=gate_provider, operation="vision.pick_shots",
+                ctx, stage=STAGE, provider=provider, operation="vision.pick_shots",
                 estimated_units=3000, model=model,
                 details={"sheet": label, "candidates": count, "attempt": attempt},
             ) as cost:
@@ -256,8 +255,8 @@ def judge(
                                                   "sheet": label, "attempt": attempt,
                                                   "answered_by": result.provider})
         except _JudgeDown as exc:
-            for name, reason in getattr(exc.__cause__, "marks", None) or [(gate_provider, str(exc)[:200])]:
-                ctx.db.provider_health(f"vision.{name}", False, reason[:200])
+            if isinstance(provider, str):  # a chain's marks are reported by the gate
+                ctx.db.provider_health(f"vision.{provider}", False, str(exc)[:200])
             ctx.db.event(ctx.video_id, STAGE, "progress",
                          f"{label}: the judge did not answer ({str(exc)[:160]}) — plain search for its shots")
             return None

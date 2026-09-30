@@ -154,7 +154,6 @@ def pick_videos(
     chain = llm.chain_of(provider)
     if chain == ["mock"] or not results:
         return {sid: list(range(min(quota[sid], len(found)))) for sid, found in results.items()}
-    gate_provider = llm.gate_provider(chain)
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     model = None if isinstance(provider, list) else (planner.get("model") or (prompt or {}).get("model_hint"))
     subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else {}
@@ -166,7 +165,7 @@ def pick_videos(
     })
     user = base_user
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        with budget_gate(ctx, stage=STAGE, provider=gate_provider, operation="llm.pick_videos",
+        with budget_gate(ctx, stage=STAGE, provider=provider, operation="llm.pick_videos",
                          estimated_units=3000, model=model,
                          details={"subjects": len(results), "attempt": attempt}) as cost:
             result = chat_fn(provider, model, system, user, int((prompt or {}).get("max_tokens") or 16000),

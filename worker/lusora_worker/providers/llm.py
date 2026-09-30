@@ -1,13 +1,14 @@
 """LLM provider adapter — one client, several backends.
 
 Backends are OpenAI-compatible chat APIs (deepseek, openai, and any
-compatible endpoint), Anthropic's native messages API, and the Claude CLI
-on the operator's own subscription (D103). The provider name is also the
-price-table key; usage (tokens) is returned so the budget gate records
-actuals. Missing API key = actionable StageError.
+compatible endpoint), Anthropic's native messages API, Google's Gemini API
+(D116), and the Claude CLI on the operator's own subscription (D103). The
+provider name is also the price-table key; usage (tokens) is returned so the
+budget gate records actuals. Missing API key = actionable StageError.
 
 `chat` answers text; `see` answers text about images, and only a provider
-that declares `vision` may be asked.
+that declares `vision` may be asked. Either takes a plain provider name or a
+fallback chain (a list, D116), walked against the quota ledger in `quota.py`.
 """
 
 from __future__ import annotations
@@ -140,24 +141,28 @@ def chain_of(value: str | list[str] | None, default: str | list[str] = "mock") -
     return [str(value)]
 
 
-def _parse_element(element: str) -> tuple[str, str | None]:
+def parse_element(element: str) -> tuple[str, str | None]:
     """`"provider"` or `"provider/model"` -> `(provider, model)`."""
     name, sep, model = element.partition("/")
     return name, (model or None) if sep else None
 
 
-def gate_provider(chain: list[str]) -> str:
-    """The provider name the budget gate should price the ESTIMATE against:
-    the first element the ledger does not mark out, so a channel whose first
+def gate_element(chain: list[str]) -> str:
+    """The chain element the budget gate should price the ESTIMATE against:
+    the first one the ledger does not mark out, so a channel whose first
     choice is quota-exhausted is not quoted a price for a call it was never
     going to make. When every element is out, the first one anyway — the gate
     then raises its own actionable price/budget error instead of crashing on
     an empty chain."""
     for element in chain:
-        name, _ = _parse_element(element)
-        if not quota.out_reason(name):
-            return name
-    return _parse_element(chain[0])[0]
+        if not quota.out_reason(parse_element(element)[0]):
+            return element
+    return chain[0]
+
+
+def gate_provider(chain: list[str]) -> str:
+    """`gate_element`'s provider name, without its `/model`."""
+    return parse_element(gate_element(chain))[0]
 
 
 def chat(
@@ -177,35 +182,48 @@ def chat(
     failure is classified into the shared ledger so later calls skip it too.
     `result.provider`/`result.model` name whichever element actually
     answered. Every element failing raises one `StageError` naming each and
-    why; a single-provider (non-chain) call that fails raises exactly that
-    provider's own error, unchanged, so a plain string behaves exactly as it
-    did before chains existed.
+    why.
+
+    A plain string is NOT a one-element chain: it never reads or writes the
+    ledger, and a failure raises that provider's own error, unchanged — so a
+    plain-string channel behaves exactly as it did before chains existed,
+    and one per-minute 429 on it cannot lock the provider out for every
+    other video on the machine.
     """
-    chain = chain_of(provider, provider)
+    return _run_chain(provider, model, lambda name, m: _chat_one(
+        name, m, system, user, max_tokens, temperature, expect_json), "provider")
+
+
+def _run_chain(provider: str | list[str], model: str | None,
+               call: Callable[[str, str | None], LLMResult], what: str) -> LLMResult:
+    """`chat()`'s and `see()`'s shared chain walk (D116)."""
+    if not isinstance(provider, list):
+        name, elem_model = parse_element(provider)
+        result = call(name, elem_model or model)
+        result.provider = name
+        result.model = elem_model or model or PROVIDERS[name].default_model
+        return result
     errors: list[str] = []
     marks: list[tuple[str, str]] = []
-    for element in chain:
-        name, elem_model = _parse_element(element)
+    for element in provider:
+        name, elem_model = parse_element(str(element))
         reason = quota.out_reason(name)
         if reason:
-            errors.append(f"{name}: {reason}")
+            errors.append(f"{name}: out ({reason[:120]})")
             continue
         try:
-            result = _chat_one(name, elem_model or model, system, user, max_tokens, temperature, expect_json)
+            result = call(name, elem_model or model)
         except StageError as exc:
             out, seconds = quota.classify(name, getattr(exc, "http_detail", str(exc)), getattr(exc, "http_status", None))
             if out:
                 quota.mark_out(name, str(exc), seconds)
                 marks.append((name, str(exc)[:200]))
-            if len(chain) == 1:
-                exc.marks = marks
-                raise
             errors.append(f"{name}: {exc}")
             continue
         result.provider = name
         result.model = elem_model or model or PROVIDERS[name].default_model
         return result
-    raise StageError("llm", "every provider in the chain failed: " + "; ".join(errors), marks=marks)
+    raise StageError("llm", f"every {what} in the chain failed: " + "; ".join(errors), marks=marks)
 
 
 def _chat_one(
@@ -371,31 +389,8 @@ def see(
 ) -> LLMResult:
     """One completion about `images` (D103), from the first ready element of
     `provider` that answers — same chain rules as `chat()` (D116)."""
-    chain = chain_of(provider, provider)
-    errors: list[str] = []
-    marks: list[tuple[str, str]] = []
-    for element in chain:
-        name, elem_model = _parse_element(element)
-        reason = quota.out_reason(name)
-        if reason:
-            errors.append(f"{name}: {reason}")
-            continue
-        try:
-            result = _see_one(name, elem_model or model, system, user, images, max_tokens, temperature)
-        except StageError as exc:
-            out, seconds = quota.classify(name, getattr(exc, "http_detail", str(exc)), getattr(exc, "http_status", None))
-            if out:
-                quota.mark_out(name, str(exc), seconds)
-                marks.append((name, str(exc)[:200]))
-            if len(chain) == 1:
-                exc.marks = marks
-                raise
-            errors.append(f"{name}: {exc}")
-            continue
-        result.provider = name
-        result.model = elem_model or model or PROVIDERS[name].default_model
-        return result
-    raise StageError("llm", "every vision provider in the chain failed: " + "; ".join(errors), marks=marks)
+    return _run_chain(provider, model, lambda name, m: _see_one(
+        name, m, system, user, images, max_tokens, temperature), "vision provider")
 
 
 def _see_one(

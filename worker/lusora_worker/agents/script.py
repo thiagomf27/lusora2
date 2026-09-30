@@ -66,7 +66,6 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
     cfg_script = ctx.cfg.get("script") or {}
     provider = cfg_script.get("llm") or "deepseek"
     chain = llm.chain_of(provider)
-    gate_provider = llm.gate_provider(chain)
     style = ctx.cfg.get("style_pack_doc") or {}
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     seconds = target_seconds(ctx.cfg)
@@ -99,7 +98,7 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
     temperature = prompt_packs.temperature(ROLE, prompt)
     est_tokens = 1200
     with budget_gate(
-        ctx, stage=STAGE, provider=gate_provider, operation="llm.generate_script",
+        ctx, stage=STAGE, provider=provider, operation="llm.generate_script",
         estimated_units=est_tokens,
         details={"title": str(ctx.video.get("title") or "")[:80],
                  "prompt": (prompt or {}).get("name", "default")},
@@ -128,7 +127,7 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
                 "prompt pack, or upload script.txt",
             )
         with budget_gate(
-            ctx, stage=STAGE, provider=gate_provider, operation="llm.generate_script",
+            ctx, stage=STAGE, provider=provider, operation="llm.generate_script",
             estimated_units=est_tokens,
             details={"repair": attempt + 1, "prompt": (prompt or {}).get("name", "default")},
             model=model,
@@ -183,7 +182,6 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
 
     if not research_enabled(ctx.cfg) or chain == ["mock"]:
         return title_only_brief(title)
-    gate_provider = llm.gate_provider(chain)
 
     prompt = (ctx.cfg.get("prompts") or {}).get(RESEARCH_ROLE)
     system, user = prompt_packs.compose(
@@ -202,7 +200,7 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
     model = None if isinstance(provider, list) else (cfg_script.get("model") or (prompt or {}).get("model_hint"))
     temperature = prompt_packs.temperature(RESEARCH_ROLE, prompt)
     with budget_gate(
-        ctx, stage=RESEARCH_STAGE, provider=gate_provider, operation="llm.generate_research",
+        ctx, stage=RESEARCH_STAGE, provider=provider, operation="llm.generate_research",
         estimated_units=900,
         details={"title": title[:80], "prompt": (prompt or {}).get("name", "default")},
         model=model,

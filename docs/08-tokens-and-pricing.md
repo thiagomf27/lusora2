@@ -234,14 +234,20 @@ without spending.
 Any of the `llm` fields above may hold a **list** instead of a single
 provider name — `["claude_cli", "gemini", "deepseek"]` — tried in order,
 skipping one a shared quota ledger has marked out (429/quota, or 401/403/
-login), moving the same call to the next at once on any other failure. The
-budget gate still prices its ESTIMATE against one provider
-(`llm.gate_provider(chain)` — the first element not marked out), but the
-element that actually answers can differ from that estimate, so every cost
-event's `details` carries `answered_by: "<provider>"` — read that field, not
-`provider`, when a channel uses a chain and you want to know who was really
-billed. A plain string is unaffected: `answered_by` there always equals the
-provider you configured.
+login), moving the same call to the next at once on any other failure. Every
+cost event's `details` carries `answered_by: "<provider>"`. The budget gate:
+
+- refuses a chain in which ANY element has no price for the operation, before
+  anything is spent (any of them may end up answering);
+- prices the ESTIMATE on the first element not marked out
+  (`llm.gate_element(chain)`, with its `/model`);
+- files the COMPLETED event under `answered_by` and re-prices it at that
+  provider's rates — so a `["gemini", "deepseek"]` chain that falls over to
+  deepseek is billed as deepseek, not at gemini's $0.
+
+`claude_cli` has $0 prices for every `llm.*` operation, so it can lead a text
+chain. A plain string is unaffected: `answered_by` always equals the provider
+you configured, and the ledger is never consulted.
 
 ---
 
