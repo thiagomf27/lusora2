@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import type { ChannelConfig, VideoType, VisualSource, LicenseKind } from "@lusora/contracts";
+import type { ChannelConfig, VideoType, VisualSource, LicenseKind, PresetOption } from "@lusora/contracts";
+import { applyPreset } from "@lusora/contracts";
 import s from "./ChannelConfigForm.module.css";
 import { parseChain } from "@/lib/llmChain";
 
@@ -59,6 +60,8 @@ interface ConfigOptions {
   pipelines: PipelineOption[];
   /** Prompt pack names per role (D42) — layer 2 of the resolution ladder. */
   prompts: { script: string[]; planner: string[]; chat: string[] };
+  /** D119 — partial channel configs, whole, so the form can merge one in. */
+  presets?: PresetOption[];
 }
 
 /** A schema-valid starting point for a brand-new channel. */
@@ -185,7 +188,9 @@ export default function ChannelConfigForm({
     componentPacks: [],
     pipelines: [],
     prompts: { script: [], planner: [], chat: [] },
+    presets: [],
   });
+  const [appliedPreset, setAppliedPreset] = useState<PresetOption | null>(null);
 
   useEffect(() => {
     fetch("/api/config-options")
@@ -243,6 +248,33 @@ export default function ChannelConfigForm({
 
   return (
     <div className={s.form}>
+      {/* D119 — a preset fills many fields at once; nothing is saved until the
+          user saves, and nothing is ever applied to a channel on its own. */}
+      {(opts.presets ?? []).length > 0 && (
+        <section className={s.section}>
+          <div className={s.sectionTitle}>Start from a preset</div>
+          <label className={s.field}>
+            <span className={s.label}>Preset</span>
+            <Select
+              value=""
+              options={(opts.presets ?? []).map((p) => p.name)}
+              empty="Choose a preset to fill the form…"
+              onChange={(name) => {
+                const chosen = (opts.presets ?? []).find((p) => p.name === name);
+                if (!chosen) return;
+                onChange(applyPreset(value, chosen.preset));
+                setAppliedPreset(chosen);
+              }}
+            />
+            <span className={s.hint}>
+              {appliedPreset
+                ? `Applied “${appliedPreset.name}” — review the fields below, then save. ${appliedPreset.description}`
+                : "Fills the fields it sets and leaves the rest as they are. Nothing is saved until you save."}
+            </span>
+          </label>
+        </section>
+      )}
+
       {/* Identity */}
       <section className={s.section}>
         <div className={s.sectionTitle}>Identity</div>

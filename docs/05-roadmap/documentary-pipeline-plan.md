@@ -186,6 +186,12 @@ turns on hook, rhythm, texture and overlay sounds together. That way a channel g
 DP's look by choosing a preset rather than setting twenty knobs. Other channels
 on the same pipeline can keep a clean look.
 
+**Shipped (slice 14a, D119).** The theme and pack carry the look and the
+behaviour; the channel half ships as [`contracts/presets/documentary.json`](../../contracts/presets/documentary.json):
+the pipeline, theme and pack names, captions, music and sfx on, footage and
+the shot judge on, DP's dedup rules and the narration settings. The channel
+form's "Start from a preset" merges it in; the user reviews and saves.
+
 ---
 
 ## Slices
@@ -419,7 +425,11 @@ Subscribe CTA component and placement, and MP4 checks before the final name.
 - Not built: moving the MP4 to an output folder or deleting intermediates (DP's
   `entregar` / `limpar`): `data/videos/<id>/` stays the record.
 
-### Slice 14: preset and promotion
+### Slice 14: preset and promotion — 14a ✅ BUILT (D119)
+- **14a ✅ BUILT (D119):** `contracts/presets/documentary.json`, validated by
+  `validate:schemas`, applied from the channel form.
+- **14b:** comparison and promotion (below).
+
 Ship `documentary-dark`. Watch Centralia plus one fresh script on `documentary`
 vs `faceless_v3`, write the decision entry, then set `stability: production`.
 

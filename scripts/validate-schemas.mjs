@@ -207,6 +207,41 @@ if (existsSync(stylePacksDir)) {
   }
 }
 
+// 3quater. channel presets (D119): a partial channel config plus a
+//     description. Merged onto the channel_config fixture with the platform's
+//     own rules, the result must be a valid channel config; and a preset never
+//     carries what belongs to one channel (its id, name, language, voice or
+//     budget).
+const presetsDir = join(root, "contracts/presets");
+if (existsSync(presetsDir)) {
+  const { applyPreset, forbiddenPresetKeys } = await import("../contracts/src/presets.ts");
+  const base = JSON.parse(readFileSync(join(fixturesDir, "channel_config.json"), "utf8"));
+  for (const file of readdirSync(presetsDir).filter((f) => f.endsWith(".json"))) {
+    const preset = JSON.parse(readFileSync(join(presetsDir, file), "utf8"));
+    if (typeof preset.description !== "string" || !preset.description.trim()) {
+      fail(`presets/${file}: needs a 'description' saying what it sets and what it leaves to the channel`);
+      continue;
+    }
+    const forbidden = forbiddenPresetKeys(preset);
+    if (forbidden.length) {
+      fail(`presets/${file}: carries ${forbidden.join(", ")} — those belong to one channel, never a preset`);
+      continue;
+    }
+    const merged = applyPreset(base, preset);
+    if (!validators.channel_config(merged)) {
+      fail(`presets/${file}: merged onto the fixture it is not a valid channel config: ${ajv.errorsText(validators.channel_config.errors)}`);
+      continue;
+    }
+    for (const [field, dir] of [["theme", "themes"], ["style_pack", "style-packs"]]) {
+      if (preset[field] && !existsSync(join(root, "contracts", dir, `${preset[field]}.json`)))
+        fail(`presets/${file}: ${field} '${preset[field]}' has no contracts/${dir}/${preset[field]}.json`);
+    }
+    if (preset.pipeline && !existsSync(join(root, "contracts/pipelines", `${preset.pipeline}.yaml`)))
+      fail(`presets/${file}: pipeline '${preset.pipeline}' has no contracts/pipelines/${preset.pipeline}.yaml`);
+    console.log(`✓ preset ${file.replace(/\.json$/, "")} merges into a valid channel config`);
+  }
+}
+
 // 3c. prompt packs (D42): schema-valid, role matches the directory, name
 //     matches the filename, every {{variable}} is one the role declares, and
 //     the required ones survive into the composed (editable + welded) text.

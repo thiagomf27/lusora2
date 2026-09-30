@@ -7,6 +7,7 @@ import { packNames } from "@/lib/catalog";
 import { repoRoot } from "@/lib/env";
 import { PROMPT_ROLES, listPrompts } from "@/lib/prompts";
 import { listPipelineSummaries } from "@/lib/pipelines";
+import { listPresets } from "@/lib/presets";
 import { listSoundPacks } from "@/lib/soundPacks";
 import { stylePacksDir } from "@/lib/stylePacks";
 import { loadVideoTypeDefaults } from "@/lib/videoTypeDefaults";
@@ -68,6 +69,9 @@ export const GET = handler(async () => {
 
   return NextResponse.json({
     themes: listNames("themes"),
+    // D119 — partial channel configs the form can start from, whole: the
+    // form merges one into its current value and the user still saves
+    presets: listPresets(repoRoot()),
     // D60/D61 — the stage lists a channel (or the home composer) can pin, with
     // the `category` the channel's production style is matched against.
     pipelines: listPipelineSummaries(),

@@ -1,0 +1,26 @@
+{
+  "description": "Dark Palace's documentary setup, the channel half (D119): the documentary pipeline, the documentary-dark theme and documentary style pack, captions, music and sound effects on, internet footage and the vision shot judge on, Dark Palace's repetition rules, and narration with numbers said aloud at 0.9 speed. Voice review is on: it hears every narrated part and asks for up to 3 takes on a slip, and every extra take is paid. Not included, and still the channel's to choose: which visual sources it may use (source_policy.visual.chain is a licensing decision), the voice and its provider, the language, the budget, and the shot judge's model.",
+  "pipeline": "documentary",
+  "theme": "documentary-dark",
+  "style_pack": "documentary",
+  "captions": { "enabled": true },
+  "voice": {
+    "speakable": true,
+    "speed": 0.9,
+    "review": { "enabled": true, "takes": 3 }
+  },
+  "source_policy": {
+    "sfx": { "enabled": true },
+    "music": { "enabled": true },
+    "visual": {
+      "footage": { "enabled": true, "amount": "normal" },
+      "pick": { "enabled": true },
+      "dedup": {
+        "reuse_window_s": 30,
+        "min_hamming_distance": 13,
+        "max_beats_per_source": 3,
+        "source_in_adjacent_beats": false
+      }
+    }
+  }
+}

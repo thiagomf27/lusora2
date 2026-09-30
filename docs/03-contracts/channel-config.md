@@ -201,3 +201,26 @@ source_policy:
   actionable event before generating.
 - overlay density / pacing overrides ride the same merge (they live in
   the style pack section of the snapshot).
+
+## Presets (D119)
+
+A preset is a **partial channel config** in `contracts/presets/<name>.json`:
+any subset of the fields above, plus a `description`. The channel form's
+"Start from a preset" deep-merges one into the form — objects key by key,
+arrays and scalars from the preset replace — and the user reviews and saves.
+Nothing is ever applied to an existing channel on its own.
+
+A preset carries the channel HALF of a setup: the theme and style pack already
+carry the look and the behaviour, and a preset names them alongside the
+settings only a channel can hold (captions, music, footage, the shot judge,
+dedup, narration). It never carries what belongs to one channel — `channel_id`,
+`name`, `language`, `voice.provider`, `voice.voice_id`, `budget` — and
+`validate:schemas` fails a preset that does, or one that does not merge onto
+the fixture into a valid config. `source_policy.visual.chain` stays out by
+convention: which sources a channel may use is a licensing decision.
+
+`documentary` is Dark Palace's setup: pipeline `documentary`, theme
+`documentary-dark`, style pack `documentary`, captions, music and sfx on,
+footage (`normal`) and the shot judge on, dedup at 30 s / 13 bits / 3 beats per
+upload / never the neighbour's upload, and the voice at 0.9 speed, numbers said
+aloud and reviewed (up to 3 takes, each extra take paid).
