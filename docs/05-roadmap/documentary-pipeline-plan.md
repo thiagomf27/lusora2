@@ -410,8 +410,14 @@ Per-segment render first (today LUSORA re-renders the whole video), then
 review 2 frames per block and repair only what failed. The empty-frame degrade
 lands here too.
 
-### Slice 13: delivery (S)
+### Slice 13: delivery (S) ✅ BUILT (D118)
 Subscribe CTA component and placement, and MP4 checks before the final name.
+- Built: `SubscribeButton` (compiler_only) placed by `style_pack.cta` on the first
+  spoken "subscribe" in six languages, with a pop and a bell (on in `documentary`);
+  `qa.container_problems` on every render (H.264 at the plan's size, audio, a
+  clean decode of the first and last 8 s).
+- Not built: moving the MP4 to an output folder or deleting intermediates (DP's
+  `entregar` / `limpar`): `data/videos/<id>/` stays the record.
 
 ### Slice 14: preset and promotion
 Ship `documentary-dark`. Watch Centralia plus one fresh script on `documentary`

@@ -203,6 +203,30 @@
         "vintage_every": { "type": "integer", "minimum": 2, "maximum": 40, "default": 7, "description": "count mode: every Nth shot after the hook is aged" }
       }
     },
+    "cta": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D118 — the subscribe button (Dark Palace's cta_widget). When the narration says 'subscribe' in one of six languages, the compiler places a SubscribeButton (compiler_only, never planned) at the top-right from 0.15 s before the FIRST such word, for hold_s, and pins lead_cue at +0.05 s and bell_cue at +0.35 s. A cue the sound pack lacks is skipped with a note. Off by default, so a pack without this block compiles byte-identically.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "hold_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 15, "default": 4 },
+        "lead_cue": { "type": "string", "default": "pop", "description": "a sound pack cue, or 'none'" },
+        "bell_cue": { "type": "string", "default": "bell", "description": "a sound pack cue, or 'none'" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "the button's text per language of the word that matched; an omitted language keeps its default",
+          "properties": {
+            "pt": { "type": "string", "maxLength": 24 },
+            "en": { "type": "string", "maxLength": 24 },
+            "es": { "type": "string", "maxLength": 24 },
+            "fr": { "type": "string", "maxLength": 24 },
+            "de": { "type": "string", "maxLength": 24 },
+            "it": { "type": "string", "maxLength": 24 }
+          }
+        }
+      }
+    },
     "transitions": {
       "type": "object",
       "required": [

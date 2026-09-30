@@ -485,6 +485,14 @@ export interface StylePack {
     leak_every?: number;
     vintage_every?: number;
   };
+  /** D118: the subscribe button, compiler-placed on the first spoken "subscribe". */
+  cta?: {
+    enabled?: boolean;
+    hold_s?: number;
+    lead_cue?: string;
+    bell_cue?: string;
+    labels?: Partial<Record<"pt" | "en" | "es" | "fr" | "de" | "it", string>>;
+  };
   transitions: {
     allowed: TransitionType[];
     default: TransitionType;

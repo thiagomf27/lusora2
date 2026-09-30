@@ -63,6 +63,13 @@ row carries the narration. A ranked list was this component plus an ordinal.
 RegionHighlight is placed in the editor, never chosen by the planner: it
 needs a border polygon and nothing derives one.
 
+Some components are `compiler_only`: code places them, no planner menu ever
+offers them, and both validators refuse them in a planner's answer. `MatchCut`
+(D111) is filled by the hook_plan stage. `SubscribeButton` (D118) is placed by
+`compiler/cta.py` on the first spoken "subscribe" when `style_pack.cta` is on:
+a themed pill with a swinging bell at the top-right, its pop and bell pinned by
+the compiler.
+
 ## A pack is a menu, not a look (D46, enforced by D66)
 
 Add a pack when you need a component that does not exist — a finance

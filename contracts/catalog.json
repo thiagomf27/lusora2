@@ -1402,6 +1402,30 @@
       "renderer": "remotion"
     },
     {
+      "name": "SubscribeButton",
+      "pack": "core",
+      "when_to_use": "the narration asks the viewer to subscribe: a subscribe button with a swinging bell pops in at the top-right on that spoken word — placed by the compiler (style_pack.cta), never chosen by a planner",
+      "when_not_to_use": "anything a planner picks: the word it lands on is found in the narration's timing by code (compiler_only)",
+      "anchor_types": [],
+      "props": {
+        "label": {
+          "type": "string",
+          "maxWords": 3,
+          "description": "D118: the button's text in the narration's language, from style_pack.cta.labels"
+        }
+      },
+      "region": {
+        "y_min": 0.03,
+        "y_max": 0.13
+      },
+      "duration_hint_s": {
+        "min": 2,
+        "default": 4
+      },
+      "compiler_only": true,
+      "renderer": "remotion"
+    },
+    {
       "name": "NamePlate",
       "pack": "core",
       "when_to_use": "introducing a person by name while the narration continues — role and lifespan optional",

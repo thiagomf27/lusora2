@@ -16,7 +16,7 @@ import lusora_contracts
 from .. import validators
 from ..errors import StageError
 from ..textsplit import split_sentences
-from . import geo, rhythm, sound, texture
+from . import cta, geo, rhythm, sound, texture
 from . import captions as caption_rules
 from . import transitions as transition_rules
 from .textmatch import SKIPPABLE, compare_key, decade_context, is_filler, number_run, tokenize
@@ -191,6 +191,9 @@ def compile_plan(
             overlays, visual, hook_rules, hook_end_abs, str(hook.get("title") or ""), aligned, total_end, on_note)
     overlays = _trim_overlay_holds(overlays, total_end=total_end, on_note=on_note)
     overlays = rhythm.space_graphics(overlays, rhythm_conf, hook_end_abs if hook_rules else vo_start, on_note)
+    # D118: after the planned graphics are settled, so the button never displaces one
+    overlays, cta_cues = cta.place(overlays, style, word_timeline, vo_start, total_end, aligned, cfg, on_note)
+    pinned_cues = [*pinned_cues, *cta_cues]
 
     # ---- transitions (D95) ----
     # After the overlays, not with the visual track: the placement reads the

@@ -14,6 +14,7 @@ and an unattended pipeline would otherwise publish.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from collections.abc import Callable
@@ -230,9 +231,72 @@ def inspect(
     return problems
 
 
+DECODE_EDGE_S = 8.0
+
+
+def _decodes(path: Path, start_s: float | None) -> bool:
+    """ffmpeg reads DECODE_EDGE_S seconds from `start_s` (or the start) with
+    no error at all — exit 0 and an empty stderr."""
+    argv = ["ffmpeg", "-v", "error", "-nostdin"]
+    if start_s is not None:
+        argv += ["-ss", f"{start_s:.3f}"]
+    argv += ["-i", str(path), "-t", f"{DECODE_EDGE_S:g}", "-f", "null", "-"]
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    return proc.returncode == 0 and not proc.stderr.strip()
+
+
+def container_problems(path: Path, plan: dict[str, Any] | None) -> list[str]:
+    """The finished MP4 checked as a FILE (D118, Dark Palace's `confere`):
+    an H.264 picture at the plan's resolution, an audio track, and a clean
+    decode of the first and last eight seconds. The sampled-frame checks below
+    look at the picture; this catches the file a player refuses — a missing
+    moov atom, a truncated tail, a stream the encoder never wrote."""
+    proc = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)],
+        capture_output=True, text=True, timeout=120,
+    )
+    try:
+        probe = json.loads(proc.stdout or "{}")
+    except ValueError:
+        probe = {}
+    streams = probe.get("streams") or []
+    if proc.returncode != 0 or not streams:
+        return [f"{path.name} is not a readable MP4 (ffprobe: {(proc.stderr or 'no streams').strip()[:160]})"]
+    problems: list[str] = []
+    video = [s for s in streams if s.get("codec_type") == "video"]
+    want = (plan or {}).get("resolution") or {}
+    if not video:
+        problems.append(f"{path.name} has no video stream")
+    else:
+        v = video[0]
+        if v.get("codec_name") != "h264":
+            problems.append(f"{path.name}'s picture is {v.get('codec_name')}, not H.264")
+        if want and (v.get("width"), v.get("height")) != (want.get("width"), want.get("height")):
+            problems.append(f"{path.name} is {v.get('width')}x{v.get('height')}, "
+                            f"not the plan's {want.get('width')}x{want.get('height')}")
+    if not any(s.get("codec_type") == "audio" for s in streams):
+        problems.append(f"{path.name} has no audio stream")
+    try:
+        duration = float((probe.get("format") or {}).get("duration") or 0)
+    except ValueError:
+        duration = 0.0
+    if not _decodes(path, None):
+        problems.append(f"{path.name} does not decode cleanly in its first {DECODE_EDGE_S:g} s")
+    if not _decodes(path, max(0.0, duration - DECODE_EDGE_S)):
+        problems.append(f"{path.name} does not decode cleanly in its last {DECODE_EDGE_S:g} s")
+    return problems
+
+
 def check(ctx, video: Path, expected_duration_s: float | None,
-          source_at: SourceAt | None = None, fill_at: FillAt | None = None) -> None:
+          source_at: SourceAt | None = None, fill_at: FillAt | None = None,
+          plan: dict[str, Any] | None = None) -> None:
     """Raise with ONE actionable reason, or return quietly."""
+    # D118: a property of any deliverable, so not behind the QA switch
+    problems = container_problems(video, plan)
+    if problems:
+        for extra in problems[1:]:
+            ctx.db.event(ctx.video_id, STAGE, "progress", extra)
+        raise StageError(STAGE, problems[0])
     opts = settings(ctx.cfg)
     if not opts.get("enabled", True):
         ctx.log("post-render QA disabled for this channel")

@@ -1687,7 +1687,7 @@ def run_qa(ctx: StageContext) -> None:
 
             def fill_at(t: float) -> str | None:
                 return plan_fill(t + start)
-        qa.check(ctx, final, expected, source_at, fill_at)
+        qa.check(ctx, final, expected, source_at, fill_at, plan=plan)
         return
     qa.check(ctx, final, expected)
 

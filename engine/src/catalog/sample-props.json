@@ -289,6 +289,9 @@
       "step_s": 0.14,
       "hold_s": 0.7
     },
+    "SubscribeButton": {
+      "label": "Subscribe"
+    },
     "SatelliteLocate": {
       "place_name": "Stalingrad",
       "lat": 48.708,

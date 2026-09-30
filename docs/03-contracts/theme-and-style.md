@@ -550,7 +550,23 @@ music:                            # D48 — how music is SHAPED
   enabled: true
   min_span_s: 28                  # shorter mood runs merge into a neighbour
   crossfade_s: 2.5
+cta:                              # D118 — the subscribe button; off by default
+  enabled: false
+  hold_s: 4
+  lead_cue: pop                   # at +0.05 s
+  bell_cue: bell                  # at +0.35 s
+  labels: {en: Subscribe, pt: Inscreva-se}   # six languages; omitted ones keep theirs
 ```
+
+- `cta` (D118, Dark Palace's `cta_widget`) is compiler behaviour, not a menu
+  item. When it is on and the narration says "subscribe" (in pt, en, es, fr, de
+  or it), the compiler places one `SubscribeButton` at the top-right from
+  0.15 s before the FIRST such word, for `hold_s`, after the planned graphics
+  are settled so it never displaces one. It pins the two cues to it; a cue the
+  sound pack lacks is skipped with a note. The label is the language of the word
+  that matched. The theme draws it (plate, ink, accent disc, corners, type); the
+  pack only says whether and how long. Two cues on one overlay are exempt from
+  `sfx.min_gap_s` — the pop and the bell are one composed sound.
 
 - `pacing` numbers are CONSTRAINTS: the prompt derives target beat count
   from them, and the compiler enforces min/max hold (auto-split at

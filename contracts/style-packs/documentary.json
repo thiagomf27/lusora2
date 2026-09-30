@@ -42,6 +42,9 @@
     "leak_min_gap_s": 12,
     "vintage_max_share": 0.33
   },
+  "cta": {
+    "enabled": true
+  },
   "transitions": {
     "allowed": [
       "cut",

@@ -247,3 +247,50 @@ def test_a_windowed_render_that_came_out_short_still_fails(tmp_path):
     render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=2)
     with pytest.raises(StageError, match="runs 2"):
         run_qa(_windowed_ctx(tmp_path, {"start_s": 0, "end_s": 6}))
+
+
+# ---------------- the MP4 as a file (D118, Dark Palace's `confere`) ----------------
+
+PLAN_320 = {"resolution": {"width": 320, "height": 180}}
+
+
+def test_a_whole_mp4_passes_the_container_check(tmp_path):
+    good = render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=10)
+    assert qa.container_problems(good, PLAN_320) == []
+
+
+def test_an_mp4_without_audio_is_named(tmp_path):
+    mute = tmp_path / "final.mp4"
+    run_ffmpeg("t", ["-f", "lavfi", "-i", GOOD_VIDEO, "-t", "10", "-pix_fmt", "yuv420p", str(mute)])
+    assert qa.container_problems(mute, PLAN_320) == ["final.mp4 has no audio stream"]
+
+
+def test_an_mp4_at_the_wrong_size_is_named(tmp_path):
+    good = render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=10)
+    problems = qa.container_problems(good, {"resolution": {"width": 1920, "height": 1080}})
+    assert problems == ["final.mp4 is 320x180, not the plan's 1920x1080"]
+
+
+def test_a_picture_that_is_not_h264_is_named(tmp_path):
+    other = tmp_path / "final.mp4"
+    run_ffmpeg("t", ["-f", "lavfi", "-i", GOOD_VIDEO, "-f", "lavfi", "-i", GOOD_AUDIO, "-t", "10",
+                     "-c:v", "mpeg4", "-c:a", "aac", "-shortest", str(other)])
+    assert qa.container_problems(other, PLAN_320) == ["final.mp4's picture is mpeg4, not H.264"]
+
+
+def test_a_truncated_mp4_is_named(tmp_path):
+    good = render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=10)
+    cut = tmp_path / "cut.mp4"
+    cut.write_bytes(good.read_bytes()[: good.stat().st_size // 2])
+    problems = qa.container_problems(cut, PLAN_320)
+    assert problems and "cut.mp4" in problems[0]
+
+
+def test_the_container_check_runs_even_with_qa_off(tmp_path):
+    """A file a player refuses is never a deliverable, whatever the channel's
+    QA switch says; the switch still turns off the picture and sound checks."""
+    good = render(tmp_path / "final.mp4", video=GOOD_VIDEO, audio=GOOD_AUDIO, seconds=10)
+    cut = tmp_path / "cut.mp4"
+    cut.write_bytes(good.read_bytes()[: good.stat().st_size // 2])
+    with pytest.raises(StageError):
+        qa.check(make_ctx(tmp_path, enabled=False), cut, 10.0, plan=PLAN_320)

@@ -676,8 +676,13 @@ def _check_sfx_density(tracks: dict, cfg: dict, total_duration_s: float) -> list
         )
 
     min_gap = float(style_sfx.get("min_gap_s", 1.2))
-    starts = sorted(float(s["start_s"]) for s in sfx)
-    tight = [(a, b) for a, b in zip(starts, starts[1:]) if b - a < min_gap - 1e-6]
+    # Two cues on ONE overlay are one composed sound, not a stutter — the
+    # subscribe button's pop and bell, 0.3 s apart (D118). Only the compiler's
+    # pinned cues can share an origin: an overlay's own entrance cue is one.
+    ordered = sorted(sfx, key=lambda s: float(s["start_s"]))
+    tight = [(float(a["start_s"]), float(b["start_s"])) for a, b in zip(ordered, ordered[1:])
+             if float(b["start_s"]) - float(a["start_s"]) < min_gap - 1e-6
+             and not (a.get("origin_id") and a.get("origin_id") == b.get("origin_id"))]
     if tight:
         a, b = tight[0]
         violations.append(

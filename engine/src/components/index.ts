@@ -72,6 +72,7 @@ import { RouteMap } from "./core/RouteMap.tsx";
 import { SatelliteLocate } from "./core/SatelliteLocate.tsx";
 import { StatTag } from "./core/StatTag.tsx";
 import { StepFlow } from "./core/StepFlow.tsx";
+import { SubscribeButton } from "./core/SubscribeButton.tsx";
 import { Timeline } from "./core/Timeline.tsx";
 
 export interface OverlayComponentProps {
@@ -116,6 +117,7 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
   SocialPost,
   StatTag,
   StepFlow,
+  SubscribeButton,
   TextBanner,
   TextCounter,
   TextHighlight,
@@ -164,6 +166,7 @@ export {
   SocialPost,
   StatTag,
   StepFlow,
+  SubscribeButton,
   TextBanner,
   TextCounter,
   TextHighlight,
