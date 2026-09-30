@@ -572,6 +572,13 @@ def credits(ctx: StageContext, doc: dict[str, Any] | None, plan: dict[str, Any])
             kind = "video" if item.get("media_type") == "video" else "photo"
             page = f" — https://www.pexels.com/{kind}/{aid}/" if provider == "pexels" else ""
             lines.append(f"- {provider.capitalize()} {kind} #{aid} — {asset.get('license') or 'royalty-free'}{page}")
+    maps = [o for o in plan["tracks"].get("overlays") or []
+            if o.get("component") == "SatelliteLocate" and ((o.get("props") or {}).get("plate") or (o.get("props") or {}).get("plates"))
+            and float(o.get("end_s", 0.0)) > lo and float(o.get("start_s", 0.0)) < hi]
+    if maps:
+        from ..providers.imagery import CREDIT
+
+        lines.append(f"- {CREDIT} — https://gibs.earthdata.nasa.gov")
     if not lines:
         return ""
     return "Footage and photos used in this video:\n" + "\n".join(lines) + "\n"

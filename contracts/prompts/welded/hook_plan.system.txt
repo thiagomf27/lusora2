@@ -4,5 +4,5 @@ HARD RULES:
 1. `says` is 1 to 3 words copied EXACTLY, in order, from that beat's text: the moment lands when they are spoken.
 2. Only facts WRITTEN in these beats. Never compute, convert, round or add a number, a date or a fact.
 3. At most one moment per beat, and never on a beat marked GRAPHIC.
-4. `word`, `phrase` and `cards` at most once each, and never two of them in consecutive beats.
+4. `word`, `phrase`, `cards` and `satellite` at most once each, and never two of them in consecutive beats.
 5. The narration's own language.

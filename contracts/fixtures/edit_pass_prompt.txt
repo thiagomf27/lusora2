@@ -161,6 +161,8 @@ Fact graphics — need an "anchor" taken from the words in "at":
     country (≤4 words)
     zoom = neighbourhood|city|region|country|continent|world — altitude: a few blocks, a city, a region, a country, a continent, the globe
     framing = full|panel
+    dive (true/false) — D110: first zoom straight down from the whole planet onto the place, landing as it is named — the hook's satellite dive. Full frame only
+    plates ([{west number -180-180, south number -90-90, east number -180-180, north number -90-90}, …]) — D110: the dive's real imagery, coarse to fine, each an equirectangular image and its bbox; filled by resolve_assets from NASA GIBS, never by a planner
 - StatTag [anchor: number | percentage]
   use: a figure that should sit quietly in a corner while the footage carries the shot — a rate, a total, a share
   not: the number is the point of the beat and deserves the frame (AnimatedCounter); several numbers (BarChart or FactSheet); a rank (RankLabel)

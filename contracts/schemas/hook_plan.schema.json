@@ -19,11 +19,12 @@
         "required": ["beat_id", "form", "says", "component", "props"],
         "properties": {
           "beat_id": { "type": "string" },
-          "form": { "enum": ["headline", "word", "phrase", "cards"] },
+          "form": { "enum": ["headline", "word", "phrase", "cards", "satellite"] },
           "says": { "type": "string", "description": "1-3 words copied from the beat: where the moment lands" },
           "component": { "type": "string" },
           "props": { "type": "object" },
-          "quote": { "type": "string", "description": "phrase form: the verbatim span the compiler adds to the beat as a quote anchor" }
+          "quote": { "type": "string", "description": "phrase form: the verbatim span the compiler adds to the beat as a quote anchor" },
+          "place": { "type": "string", "description": "satellite form (D110): the place name the compiler adds to the beat as a place anchor, landing on `says`" }
         }
       }
     },

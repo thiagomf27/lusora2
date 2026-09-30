@@ -35,7 +35,7 @@ from ..config import parallelism
 from ..context import StageContext
 from ..errors import StageError
 from ..media import extract_audio, probe_duration, run_ffmpeg
-from ..providers import sources, tts, whisper
+from ..providers import imagery, sources, tts, whisper
 from .. import align, beatphases, edithints
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
@@ -1273,6 +1273,35 @@ def run_resolve_assets(ctx: StageContext) -> None:
                      f"{sum(1 for v in plan['tracks']['visual'] if v['asset'].get('path'))} of "
                      f"{len(plan['tracks']['visual'])} items resolved")
     ctx.log("assets resolved for all visual items")
+    _resolve_plates(ctx, plan)
+
+
+def _resolve_plates(ctx: StageContext, plan: dict) -> None:
+    """Real NASA imagery for every SatelliteLocate that has none (D110): a
+    static plate at exactly the window it frames, or the coarse-to-fine plates
+    of a dive. A plate that cannot be fetched leaves the schematic stand-in."""
+    output = ctx.cfg.get("output") or {}
+    frame_aspect = float(output.get("width", 1920)) / float(output.get("height", 1080))
+    changed = 0
+    for overlay in plan["tracks"].get("overlays") or []:
+        props = overlay.get("props") or {}
+        if overlay.get("component") != "SatelliteLocate" or props.get("plate") or props.get("plates"):
+            continue
+        if props.get("lat") is None or props.get("lng") is None:
+            continue
+        panel = props.get("framing") == "panel"
+        aspect = (1 / 0.7) if panel else frame_aspect
+        got = imagery.plates_for(ctx.folder, float(props["lat"]), float(props["lng"]),
+                                 str(props.get("zoom") or "region"), bool(props.get("dive")) and not panel, aspect)
+        if got:
+            props.update(got)
+            changed += 1
+        else:
+            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                         f"{overlay['id']}: no satellite imagery for {props.get('place_name')} — schematic map")
+    if changed:
+        ctx.write_json("edit_plan.json", plan)
+        ctx.log(f"satellite imagery: {changed} map{'s' if changed != 1 else ''} with NASA plates")
 
 
 def _place(

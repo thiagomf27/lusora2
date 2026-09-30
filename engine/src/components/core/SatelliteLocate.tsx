@@ -77,6 +77,10 @@ export const SatelliteLocateProps = z.object({
     .default("region"),
   framing: z.enum(["full", "panel"]).default("full"),
   plate: plateSchema.optional(),
+  /** D110: zoom down from the planet onto the place first (full frame only). */
+  dive: z.boolean().default(false),
+  /** D110: the dive's imagery, coarse to fine (NASA GIBS, filled by resolve_assets). */
+  plates: z.array(plateSchema).max(6).optional(),
   emphasis: z.enum(["accent", "neutral"]).default("neutral"),
 });
 export type SatelliteLocateProps = z.infer<typeof SatelliteLocateProps>;
@@ -97,6 +101,139 @@ const ZOOM_SPAN: Record<string, number> = {
 };
 
 export function SatelliteLocate({ props, theme }: { props: SatelliteLocateProps; theme: Theme }) {
+  if (props.dive && props.plates && props.plates.length > 0 && props.framing !== "panel") {
+    return <SatelliteDive props={props} theme={theme} plates={props.plates} />;
+  }
+  return <SatellitePlate props={props} theme={theme} />;
+}
+
+/**
+ * D110 — the dive from space (Dark Palace's `satelite.py`): the view starts on
+ * the whole planet and eases straight down onto the coordinate, landing as the
+ * place is named, then creeps on while the marker and label arrive. Every
+ * plate is drawn through the same equirectangular mapping as the static plate
+ * (see PLATE CONVENTION): a plate's bbox, projected into the current view's
+ * bbox, gives its box on screen. A finer plate fades in once the view is well
+ * inside it, and a coarser plate stops being drawn once a finer one covers
+ * the view — so no image is ever scaled hundreds of times over.
+ */
+function SatelliteDive({
+  props,
+  theme,
+  plates,
+}: {
+  props: SatelliteLocateProps;
+  theme: Theme;
+  plates: NonNullable<SatelliteLocateProps["plates"]>;
+}) {
+  const frame = useCurrentFrame();
+  const { fps, width, height, durationInFrames } = useVideoConfig();
+  const { durationMul } = motionScale(theme);
+  const accent = emphasisColor(theme, props.emphasis);
+  const curve = Easing.bezier(...easingCurve(theme));
+
+  // the overlay starts on the words naming the place, so the dive is quick:
+  // it lands ~2.6 s later and holds there for the marker and the label
+  const land = Math.max(1, Math.min(Math.round(fps * 2.6), Math.round(durationInFrames * 0.6)));
+  const startSpan = 120;
+  const endSpan = ZOOM_SPAN[props.zoom] ?? 12;
+  const u = Math.min(1, frame / land);
+  const eased = 0.5 - 0.5 * Math.cos(Math.PI * u); // slow off the planet, fast through, slow onto the place
+  const creep = frame > land ? 1 - 0.08 * ((frame - land) / Math.max(1, durationInFrames - land)) : 1;
+  const latSpan = startSpan * Math.pow(endSpan / startSpan, eased) * creep;
+  const lngSpan = latSpan * (width / height);
+  // the view never looks past a pole: its centre is held off them until the
+  // view is small enough to sit on the place itself (continuous, so no jump)
+  const centerLat = Math.max(-90 + latSpan / 2, Math.min(90 - latSpan / 2, props.lat));
+  const vWest = props.lng - lngSpan / 2;
+  const vNorth = centerLat + latSpan / 2;
+  const markerY = ((vNorth - props.lat) / latSpan) * height;
+
+  // coarse first; the finest plate that already covers the view hides the rest
+  const ordered = [...plates].sort((a, b) => (b.north - b.south) - (a.north - a.south));
+  const opacityOf = (p: (typeof plates)[number]) =>
+    interpolate(latSpan / (p.north - p.south), [0.8, 1.05], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  let firstDrawn = 0;
+  ordered.forEach((p, i) => {
+    if (opacityOf(p) >= 1) firstDrawn = i;
+  });
+
+  const cross = interpolate(frame, [land, land + Math.round(fps * 0.4 * durationMul)], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: curve,
+  });
+  const labelStart = land + Math.round(fps * 0.25 * durationMul);
+  const pulse = (frame / fps) % 1.6;
+  const ringR = height * 0.03;
+  const cx = width / 2;
+  const cy = markerY; // the centre once landed; above/below it only while held off a pole
+
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: surfaceColor(theme) }}>
+      {ordered.map((p, i) =>
+        i < firstDrawn ? null : (
+          <Img
+            key={p.src}
+            src={staticFile(p.src)}
+            style={{
+              position: "absolute",
+              left: ((p.west - vWest) / lngSpan) * width,
+              top: ((vNorth - p.north) / latSpan) * height,
+              width: ((p.east - p.west) / lngSpan) * width,
+              height: ((p.north - p.south) / latSpan) * height,
+              objectFit: "fill",
+              opacity: i === 0 ? 1 : opacityOf(p),
+            }}
+          />
+        ),
+      )}
+      <div style={{ position: "absolute", inset: 0, boxShadow: `inset 0 0 ${height * 0.22}px rgba(0,0,0,0.45)` }} />
+      <svg width={width} height={height} style={{ position: "absolute", inset: 0 }}>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={interpolate(pulse, [0, 1.6], [ringR, ringR * 4])}
+          fill="none"
+          stroke={accent}
+          strokeOpacity={interpolate(pulse, [0, 1.6], [0.7, 0]) * cross}
+          strokeWidth={Math.max(2, height * 0.004)}
+        />
+        <circle cx={cx} cy={cy} r={ringR * 0.55 * cross} fill={accent} />
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          left: cx + ringR * 2,
+          top: cy - height * 0.045,
+          maxWidth: width * 0.45,
+          background: `${plateColor(theme)}e0`,
+          padding: `${height * 0.016}px ${width * 0.018}px`,
+          clipPath: `inset(0 ${interpolate(frame, [labelStart, labelStart + fps * 0.4 * durationMul], [100, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+            easing: curve,
+          })}% 0 0)`,
+        }}
+      >
+        <div
+          style={{
+            fontFamily: fontStack(theme.typography.display),
+            fontSize: height * 0.055,
+            fontWeight: typeWeight(theme, 700),
+            textTransform: typeCase(theme, "none"),
+            color: contrastInk(theme, plateColor(theme)),
+            whiteSpace: "nowrap",
+          }}
+        >
+          {props.label ?? props.place_name}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SatellitePlate({ props, theme }: { props: SatelliteLocateProps; theme: Theme }) {
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const { durationMul } = motionScale(theme);

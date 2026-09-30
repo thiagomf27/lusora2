@@ -6,14 +6,14 @@
  * into engine/fixtures/preview/ so you (or Claude) can eyeball the component.
  *
  * Usage:
- *   node scripts/preview-overlay.mjs <Component> '<propsJSON>' [--theme <name>] [--dur <s>] [--at <0..1>]
+ *   node scripts/preview-overlay.mjs <Component> '<propsJSON>' [--theme <name>] [--dur <s>] [--at <0..1>] [--assets <dir>]
  * Example:
  *   node scripts/preview-overlay.mjs AnimatedCounter '{"value":42,"label":"share of imports","suffix":"%"}'
  *
  * Needs ffmpeg on PATH and a browser (set REMOTION_BROWSER_EXECUTABLE to skip
  * the one-time Chrome download).
  */
-import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -56,6 +56,10 @@ const ff = (a, ctx) => {
 
 const work = mkdtempSync(join(tmpdir(), "overlay-preview-"));
 mkdirSync(join(work, "clips"));
+// --assets <dir>: files the props point at (a SatelliteLocate's plates/), copied
+// into the preview's folder, which is the renderer's public dir
+const assetsDir = flag("assets", null);
+if (assetsDir) cpSync(resolve(assetsDir), work, { recursive: true });
 try {
   ff(["-f", "lavfi", "-i", "gradients=size=1280x720:x0=0:y0=0:x1=1280:y1=720:c0=0x0d1220:c1=0x243350:seed=7", "-frames:v", "1", join(work, "clips/bg.png")], "bg");
   ff(["-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", String(dur), "-c:a", "libmp3lame", "-q:a", "9", join(work, "audio.mp3")], "audio");

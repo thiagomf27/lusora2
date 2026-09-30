@@ -29,10 +29,10 @@ from ..validators import check_prop_value, unspoken_numbers
 
 STAGE = "hook_plan"
 ROLE = "hook_plan"
-FORMS = ("headline", "word", "phrase", "cards")
-PAPER = {"word", "phrase", "cards"}          # full-frame moments: never two in a row
+FORMS = ("headline", "word", "phrase", "cards", "satellite")
+PAPER = {"word", "phrase", "cards", "satellite"}   # full-frame moments: never two in a row
 # the most visual forms are placed first when two compete for a beat
-PRIORITY = {"word": 0, "cards": 1, "phrase": 2, "headline": 3}
+PRIORITY = {"satellite": 0, "word": 1, "cards": 2, "phrase": 3, "headline": 4}
 MAX_MOMENTS = 5
 
 
@@ -144,6 +144,23 @@ def check(
             marks = ([{"phrase": highlight, "style": "underline"}]
                      if highlight and compare_key(highlight) in _keys(text) else [])
             moment.update(component="HighlightedPassage", props={"text": text, "marks": marks}, quote=text)
+        elif form == "satellite":
+            # D110: a dive from space onto the first exact place the hook names
+            from ..compiler import geo
+
+            place = " ".join(str(m.get("place") or "").split()[:12])
+            coords = (geo.lookup(place) or geo.lookup(place.split(",")[0])) if place else None
+            if coords is None:
+                drop(m, f"'{place}' could not be found on the map")
+                continue
+            name = place.split(",")[0].strip()
+            if not 1 <= len(name.split()) <= 6:
+                drop(m, "the place's name is 1-6 words before the first comma")
+                continue
+            moment.update(component="SatelliteLocate",
+                          props={"place_name": name, "label": name, "lat": coords[0], "lng": coords[1],
+                                 "zoom": "neighbourhood", "framing": "full", "dive": True},
+                          place=name)
         else:  # cards
             title = str(m.get("title") or "").strip()
             rows = []
@@ -243,9 +260,13 @@ def merge_into_selection(
         if beat is None or str(m["beat_id"]) in taken:
             continue
         sel: dict[str, Any] = {"beat_id": m["beat_id"], "component": m["component"], "props_hint": m["props"]}
-        if m.get("quote"):
+        if m.get("quote") or m.get("place"):
+            # a phrase is a verbatim quote; a dive lands on the words naming a
+            # place — each is the anchor its component attaches to
+            anchor = ({"type": "quote", "value": m["quote"], "source_words": m["quote"]} if m.get("quote")
+                      else {"type": "place", "value": m["place"], "source_words": m["says"]})
             anchors = list(beat.get("anchors") or [])
-            anchors.append({"type": "quote", "value": m["quote"], "source_words": m["quote"]})
+            anchors.append(anchor)
             beat["anchors"] = anchors
             sel.update(role="anchor", anchor_ref=len(anchors) - 1)
         else:

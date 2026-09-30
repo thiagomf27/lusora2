@@ -949,6 +949,26 @@ export const CORE_COMPONENTS: CatalogEntry[] = [
           north: { type: "number", min: -90, max: 90 },
         },
       },
+      dive: {
+        type: "boolean",
+        default: false,
+        description: "D110: first zoom straight down from the whole planet onto the place, landing as it is named — the hook's satellite dive. Full frame only",
+      },
+      plates: {
+        type: "array",
+        max: 6,
+        description: "D110: the dive's real imagery, coarse to fine, each an equirectangular image and its bbox; filled by resolve_assets from NASA GIBS, never by a planner",
+        items: {
+          type: "object",
+          properties: {
+            src: { type: "string" },
+            west: { type: "number", min: -180, max: 180 },
+            south: { type: "number", min: -90, max: 90 },
+            east: { type: "number", min: -180, max: 180 },
+            north: { type: "number", min: -90, max: 90 },
+          },
+        },
+      },
       emphasis: { enum: ["accent", "neutral"], default: "neutral" },
     },
     region: { y_min: 0.0, y_max: 0.94 },

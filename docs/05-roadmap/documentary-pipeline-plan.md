@@ -325,8 +325,9 @@ Split in three, each benchmarked on its own:
   card is an existing component (HammerStatement, HighlightedPassage,
   FactSheet), so the paper look is a theme decision, per the overlay-authoring
   rule. The place tag waits for 6b.
-- **6b:** the satellite dive. It needs NASA GIBS imagery for `SatelliteLocate`
-  and an online geocoder behind `geo.lookup`.
+- **6b ✅ BUILT (D110):** the satellite dive. It uses NASA GIBS plates
+  (WMS, plate carrée) for every `SatelliteLocate`, Nominatim behind
+  `geo.lookup`, and a `dive` mode that the hook's new `satellite` form uses.
 - **6c:** the match cut: Commons photos of one kind of place, with
   vision-marked alignment points. It needs a `MatchCut` component, the one
   new geometry of this slice.

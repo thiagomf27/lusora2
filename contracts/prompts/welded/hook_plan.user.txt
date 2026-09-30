@@ -3,6 +3,7 @@ Output JSON shape (only the fields of each form):
  {"beat":"b2","form":"headline","says":"…","text":"…"},
  {"beat":"b4","form":"word","says":"…","word":"…","caption":"…"},
  {"beat":"b6","form":"phrase","says":"…","text":"…","highlight":"…"},
- {"beat":"b8","form":"cards","says":"…","title":"…","items":[{"value":"…","label":"…"},{"value":"…","label":"…"}]}
+ {"beat":"b8","form":"cards","says":"…","title":"…","items":[{"value":"…","label":"…"},{"value":"…","label":"…"}]},
+ {"beat":"b1","form":"satellite","says":"…","place":"…"}
 ]}
 Respond with the JSON object only.

@@ -7,7 +7,14 @@ geocoder adapter can replace lookup() later without touching callers).
 
 from __future__ import annotations
 
+import json
+import os
+import threading
+import time
 import unicodedata
+from pathlib import Path
+
+import httpx
 
 _GAZETTEER: dict[str, tuple[float, float]] = {
     "berlin": (52.52, 13.405),
@@ -79,4 +86,52 @@ def _norm(name: str) -> str:
 
 
 def lookup(place_name: str) -> tuple[float, float] | None:
-    return _GAZETTEER.get(_norm(place_name))
+    """The gazetteer first; then OpenStreetMap's geocoder (D110), cached, so a
+    town like Centralia no longer stops the video. LUSORA_GEOCODER=offline
+    keeps it to the gazetteer (the tests set it)."""
+    hit = _GAZETTEER.get(_norm(place_name))
+    if hit is not None:
+        return hit
+    if os.environ.get("LUSORA_GEOCODER", "nominatim").lower() == "offline":
+        return None
+    return _nominatim(place_name)
+
+
+# ---------------- the online geocoder (D110) ----------------
+
+_NOMINATIM = "https://nominatim.openstreetmap.org/search"
+_UA = {"User-Agent": "LUSORA/1.0 (documentary video tool; geocoding a few place names per video)"}
+_LOCK = threading.Lock()
+_LAST = [0.0]
+
+
+def _cache_path() -> Path:
+    # the repo's data/ folder, beside videos/ and stock-cache/ (worker/ is two up)
+    return Path(__file__).resolve().parents[3] / "data" / "geocode_cache.json"
+
+
+def _nominatim(place_name: str) -> tuple[float, float] | None:
+    """One request a second at most (Nominatim's usage policy), every answer —
+    a miss included — cached on disk, so a place is asked once per machine."""
+    key = _norm(place_name)
+    path = _cache_path()
+    with _LOCK:
+        cache = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        if key in cache:
+            return tuple(cache[key]) if cache[key] else None
+        wait = 1.1 - (time.time() - _LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        _LAST[0] = time.time()
+        try:
+            resp = httpx.get(_NOMINATIM, params={"q": place_name, "format": "json", "limit": 1},
+                             headers=_UA, timeout=30)
+            resp.raise_for_status()
+            rows = resp.json()
+        except (httpx.HTTPError, ValueError):
+            return None  # not cached: an outage must not outlive itself
+        coords = [round(float(rows[0]["lat"]), 5), round(float(rows[0]["lon"]), 5)] if rows else None
+        cache[key] = coords
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(cache, indent=1, ensure_ascii=False), encoding="utf-8")
+        return tuple(coords) if coords else None
