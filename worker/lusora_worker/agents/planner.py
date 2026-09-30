@@ -110,6 +110,8 @@ def _catalog_menu(allowed: list[str] | None, *, props: bool = False) -> str:
     # composed the prompt is an order that cannot be pinned. Caught by the
     # golden file the first time it existed, which is the whole argument for it.
     for entry in sorted(lusora_contracts.load_catalog()["components"], key=lambda e: e["name"]):
+        if entry.get("compiler_only"):
+            continue  # D111: placed by code, never offered to a planner
         if allowed and entry["name"] not in allowed:
             continue
         anchors = "/".join(entry["anchor_types"]) or "none — pure text allowed"

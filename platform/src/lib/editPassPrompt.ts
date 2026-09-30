@@ -165,7 +165,8 @@ function menuEntries(style: EditPassStyle): { facts: CatalogEntry[]; emphasis: C
   const allowed = style.overlays?.allowed_components;
   const entries = loadMergedCatalog()
     .items.map((i) => i.entry)
-    .filter((e) => !allowed || allowed.includes(e.name))
+    // D111: a compiler_only entry is placed by code, never by the edit pass
+    .filter((e) => !e.compiler_only && (!allowed || allowed.includes(e.name)))
     // code-point order, not localeCompare: the golden file must not depend on
     // the machine's locale (the planner's menu sorts the same way)
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));

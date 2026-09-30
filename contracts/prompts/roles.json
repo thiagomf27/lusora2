@@ -493,6 +493,23 @@
           "source": "cfg.overrides.instructions"
         }
       }
+    },
+    "match_cut": {
+      "description": "D111 — a numbered sheet of photos found for one KIND of place -> which are clearly one of that kind (real photograph, whole, no text, no people in front) and, for each kept, the centre and height of its main subject, most striking first. The hook's match cut aligns every kept photo on that point.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "kind": {
+          "required": true,
+          "source": "the hook moment's search: the kind of place the photos were found for"
+        },
+        "count": {
+          "required": true,
+          "source": "derived: how many numbered photos the sheet holds"
+        }
+      }
     }
   }
 }

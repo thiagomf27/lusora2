@@ -59,6 +59,7 @@ import { HammerStatement } from "./core/HammerStatement.tsx";
 import { HighlightedPassage } from "./core/HighlightedPassage.tsx";
 import { IconArray } from "./core/IconArray.tsx";
 import { KineticTitle } from "./core/KineticTitle.tsx";
+import { MatchCut } from "./core/MatchCut.tsx";
 import { LineChart } from "./core/LineChart.tsx";
 import { NamePlate } from "./core/NamePlate.tsx";
 import { PhotoRow } from "./core/PhotoRow.tsx";
@@ -101,6 +102,7 @@ export const COMPONENTS: Record<string, ComponentType<OverlayComponentProps>> = 
   IconArray,
   KineticTitle,
   LineChart,
+  MatchCut,
   MetricGrid,
   NamePlate,
   PhotoRow,
@@ -148,6 +150,7 @@ export {
   IconArray,
   KineticTitle,
   LineChart,
+  MatchCut,
   MetricGrid,
   NamePlate,
   PhotoRow,

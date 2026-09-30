@@ -112,7 +112,7 @@ test("roles.json declares the three bounded agents, plus their phase roles", () 
   // carries a graphic.
   assert.deepEqual(
     Object.keys(loadRoles()).sort(),
-    ["beatcraft", "chat", "hook_plan", "image", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects"]
+    ["beatcraft", "chat", "hook_plan", "image", "match_cut", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects"]
   );
 });
 

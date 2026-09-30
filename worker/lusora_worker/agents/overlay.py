@@ -72,6 +72,8 @@ def _candidate_menu(
     """
     out = []
     for entry in sorted(lusora_contracts.load_catalog()["components"], key=lambda e: e["name"]):
+        if entry.get("compiler_only"):
+            continue  # D111: placed by code, never offered to a planner
         if allowed and entry["name"] not in allowed:
             continue
         takes = entry["anchor_types"]

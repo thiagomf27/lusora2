@@ -572,6 +572,17 @@ def credits(ctx: StageContext, doc: dict[str, Any] | None, plan: dict[str, Any])
             kind = "video" if item.get("media_type") == "video" else "photo"
             page = f" — https://www.pexels.com/{kind}/{aid}/" if provider == "pexels" else ""
             lines.append(f"- {provider.capitalize()} {kind} #{aid} — {asset.get('license') or 'royalty-free'}{page}")
+    # D111: the match cut's photos, from the hook plan that gathered them
+    shown = [o for o in plan["tracks"].get("overlays") or [] if o.get("component") == "MatchCut"
+             and float(o.get("end_s", 0.0)) > lo and float(o.get("start_s", 0.0)) < hi]
+    if shown and ctx.has("hook_plan.json"):
+        for moment in ctx.read_json("hook_plan.json").get("moments") or []:
+            for c in moment.get("credits") or []:
+                key = str(c.get("page") or c.get("title"))
+                if key not in seen:
+                    seen.add(key)
+                    lines.append(f"- {c.get('title')} — {c.get('author') or 'unknown author'} — "
+                                 f"{c.get('license')} — {c.get('page')}")
     maps = [o for o in plan["tracks"].get("overlays") or []
             if o.get("component") == "SatelliteLocate" and ((o.get("props") or {}).get("plate") or (o.get("props") or {}).get("plates"))
             and float(o.get("end_s", 0.0)) > lo and float(o.get("start_s", 0.0)) < hi]

@@ -29,10 +29,10 @@ from ..validators import check_prop_value, unspoken_numbers
 
 STAGE = "hook_plan"
 ROLE = "hook_plan"
-FORMS = ("headline", "word", "phrase", "cards", "satellite")
-PAPER = {"word", "phrase", "cards", "satellite"}   # full-frame moments: never two in a row
+FORMS = ("headline", "word", "phrase", "cards", "satellite", "matchcut")
+PAPER = {"word", "phrase", "cards", "satellite", "matchcut"}   # full-frame moments: never two in a row
 # the most visual forms are placed first when two compete for a beat
-PRIORITY = {"satellite": 0, "word": 1, "cards": 2, "phrase": 3, "headline": 4}
+PRIORITY = {"matchcut": 0, "satellite": 1, "word": 2, "cards": 3, "phrase": 4, "headline": 5}
 MAX_MOMENTS = 5
 
 
@@ -156,6 +156,14 @@ def check(
             marks = ([{"phrase": highlight, "style": "underline"}]
                      if highlight and compare_key(highlight) in _keys(text) else [])
             moment.update(component="HighlightedPassage", props={"text": text, "marks": marks}, quote=text)
+        elif form == "matchcut":
+            # D111: photos of one KIND of place, aligned — gathered and judged
+            # in plan(), after the rules, so a moment the rules drop costs nothing
+            search = " ".join(str(m.get("search") or "").split()[:5])
+            if not 1 <= len(search.split()) <= 4:
+                drop(m, "a match cut needs a 1-4 word search for a kind of place or thing")
+                continue
+            moment.update(component="MatchCut", props={"photos": []}, search=search)
         elif form == "satellite":
             # D110: a dive from space onto the first exact place the hook names
             from ..compiler import geo
@@ -214,6 +222,7 @@ def plan(
     graphic: set[str],
     chat_fn: llm.ChatFn = llm.chat,
     progress: Callable[[str], None] | None = None,
+    see_fn: llm.SeeFn = llm.see,
 ) -> dict[str, Any]:
     """One call over the hook, then the rules. `mock` plans nothing."""
     doc: dict[str, Any] = {"version": "1.0", "video_id": ctx.video_id, "mode": "headlines",
@@ -244,6 +253,18 @@ def plan(
         return doc
     proposed = answer.get("moments") if isinstance(answer, dict) else None
     doc["moments"], doc["dropped"] = check(proposed if isinstance(proposed, list) else [], hook_beats, graphic)
+    # D111: a match cut kept by the rules still needs six good photos
+    for moment in [m for m in doc["moments"] if m["form"] == "matchcut"]:
+        from . import match_cut
+
+        built = match_cut.build(ctx, moment["search"], see_fn)
+        if built is None:
+            doc["moments"].remove(moment)
+            doc["dropped"].append(f"matchcut on {moment['beat_id']}: fewer than {match_cut.MIN_PHOTOS} "
+                                  f"good photos of '{moment['search']}'")
+            continue
+        moment["props"] = {"photos": built["photos"], "says": moment["says"]}
+        moment["credits"] = built["credits"]
     if progress:
         progress(f"hook moments: {len(doc['moments'])} kept"
                  + (f" ({'; '.join(m['form'] + ' on ' + m['beat_id'] for m in doc['moments'])})" if doc["moments"] else "")

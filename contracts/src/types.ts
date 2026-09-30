@@ -526,7 +526,9 @@ export type PromptRole =
   /** D104 — chooses YouTube videos worth downloading, from their titles. */
   | "pick_videos"
   /** D107 — picks the hook's moments and the form each goes on screen in. */
-  | "hook_plan";
+  | "hook_plan"
+  /** D111 — the match cut's vision judge: keeps photos and marks their subject. */
+  | "match_cut";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */
@@ -756,6 +758,9 @@ export interface CatalogEntry {
    *  passes to useEntrance, so the compiler resolves the SAME kind the
    *  renderer will play. */
   entrance_support?: "panel" | "text";
+  /** D111 — placed by code only (the hook's match cut): never offered in a
+   *  planner's menu, refused in a planner's answer. */
+  compiler_only?: boolean;
   renderer: "remotion";
 }
 

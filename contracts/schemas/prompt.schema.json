@@ -29,7 +29,8 @@
         "subjects",
         "pick_shots",
         "pick_videos",
-        "hook_plan"
+        "hook_plan",
+        "match_cut"
       ],
       "description": "must match the containing directory; decides the variable set and the welded block"
     },

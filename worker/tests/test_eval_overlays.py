@@ -519,7 +519,9 @@ def test_the_marking_prompts_component_menu_agrees_with_the_catalog():
     # the CORE catalog only: the doc says a pack's entries are added per case,
     # because which pack is installed is a property of the channel a case was
     # torn down from, not of the prompt
-    catalog = [c for c in load_catalog()["components"] if c.get("pack") == "core"]
+    # and never a compiler_only entry (D111): no planner chooses it, so no
+    # human marking a reference video should expect one
+    catalog = [c for c in load_catalog()["components"] if c.get("pack") == "core" and not c.get("compiler_only")]
     for anchor_type in ("number", "percentage", "comparison", "place", "date", "name", "quote"):
         expected = sorted(c["name"] for c in catalog if anchor_type in (c.get("anchor_types") or []))
         assert f"| `{anchor_type}` | {', '.join(expected)} |" in doc, anchor_type

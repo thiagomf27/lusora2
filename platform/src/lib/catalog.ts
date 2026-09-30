@@ -280,7 +280,8 @@ export function componentMenu(
   opts: { props?: boolean } = {}
 ): string {
   return loadMergedCatalog()
-    .items.filter(({ entry }) => !allowed || allowed.includes(entry.name))
+    // D111: a compiler_only entry is placed by code and never offered to a planner
+    .items.filter(({ entry }) => !entry.compiler_only && (!allowed || allowed.includes(entry.name)))
     // sorted by name, explicitly, in BOTH languages: the two catalog loaders
     // order the merge differently, and an order that depends on which one
     // composed the prompt is an order that cannot be pinned

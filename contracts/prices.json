@@ -52,6 +52,11 @@
         "input_per_1m": 0.0,
         "output_per_1m": 0.0
       },
+      "vision.match_cut": {
+        "unit": "token",
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
+      },
       "llm.pick_videos": {
         "unit": "token",
         "input_per_1m": 0.0,
@@ -69,6 +74,11 @@
     },
     "claude_cli": {
       "vision.pick_shots": {
+        "unit": "token",
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
+      },
+      "vision.match_cut": {
         "unit": "token",
         "input_per_1m": 0.0,
         "output_per_1m": 0.0
@@ -343,6 +353,16 @@
           }
         },
         "default_model": "claude-haiku-4-5-20251001"
+      },
+      "vision.match_cut": {
+        "unit": "token",
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
       }
     },
     "openai": {
@@ -355,6 +375,16 @@
         "unit_price_usd": 0.04
       },
       "vision.pick_shots": {
+        "unit": "token",
+        "by_model": {
+          "gpt-4o-mini": {
+            "input_per_1m": 0.15,
+            "output_per_1m": 0.6
+          }
+        },
+        "default_model": "gpt-4o-mini"
+      },
+      "vision.match_cut": {
         "unit": "token",
         "by_model": {
           "gpt-4o-mini": {

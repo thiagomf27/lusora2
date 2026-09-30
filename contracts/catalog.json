@@ -1336,6 +1336,72 @@
       "renderer": "remotion"
     },
     {
+      "name": "MatchCut",
+      "pack": "core",
+      "when_to_use": "the hook's match cut: real photos of one KIND of place flash one after another, each aligned on the same point — placed by the hook_plan stage, never chosen by a planner",
+      "when_not_to_use": "anything a planner picks: the photos and their alignment points are computed by code (compiler_only)",
+      "anchor_types": [],
+      "props": {
+        "photos": {
+          "type": "array",
+          "max": 16,
+          "description": "D111: photos with the subject's centre (ax, ay) and height (th) as fractions of the photo, computed by hook_plan",
+          "items": {
+            "type": "object",
+            "properties": {
+              "src": {
+                "type": "string"
+              },
+              "w": {
+                "type": "number"
+              },
+              "h": {
+                "type": "number"
+              },
+              "ax": {
+                "type": "number",
+                "min": 0,
+                "max": 1
+              },
+              "ay": {
+                "type": "number",
+                "min": 0,
+                "max": 1
+              },
+              "th": {
+                "type": "number",
+                "min": 0.05,
+                "max": 1
+              }
+            }
+          }
+        },
+        "step_s": {
+          "type": "number",
+          "min": 0.06,
+          "max": 0.5,
+          "default": 0.14
+        },
+        "hold_s": {
+          "type": "number",
+          "min": 0,
+          "max": 3,
+          "default": 0.7
+        },
+        "says": {
+          "type": "string",
+          "maxWords": 3,
+          "description": "the narration's words the cut lands on — the compiler times it to them; not drawn"
+        }
+      },
+      "duration_hint_s": {
+        "min": 1.2,
+        "default": 2.4
+      },
+      "compiler_only": true,
+      "renderer": "remotion"
+    },
+    {
       "name": "NamePlate",
       "pack": "core",
       "when_to_use": "introducing a person by name while the narration continues — role and lifespan optional",

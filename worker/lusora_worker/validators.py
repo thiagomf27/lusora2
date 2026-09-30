@@ -325,6 +325,9 @@ def validate_beat_sheet(
             # so bill it as an anchor overlay and let the catalog error stand
             overlay_count += 1
             continue
+        if entry.get("compiler_only"):
+            violations.append(f"beat {b.get('id')}: '{name}' is placed by code only (the hook's match cut) — choose another component")
+            continue
         # A TIMED beat's overlay is outside the class system entirely (D86).
         # It carries no script_text, so it can carry no anchor, so every
         # overlay on one is pure text by construction — and it competes with no
@@ -733,6 +736,9 @@ def validate_overlay_selection(
         if entry is None:
             violations.append(f"{where}: component '{name}' not in catalog")
             anchor_count += 1
+            continue
+        if entry.get("compiler_only"):
+            violations.append(f"{where}: '{name}' is placed by code only (the hook's match cut) — choose another component")
             continue
         if allowed and name not in allowed:
             violations.append(

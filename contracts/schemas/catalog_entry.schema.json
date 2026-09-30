@@ -54,6 +54,7 @@
       "default": "panel",
       "description": "which entrances this component can draw: `panel` = PANEL_ENTRANCES, `text` = those plus typewriter. Mirrors the constant the component passes to useEntrance, so the compiler can resolve the SAME entrance kind the renderer will play."
     },
+    "compiler_only": { "type": "boolean", "description": "D111 — placed by code only (the hook's match cut, whose photos and alignment points a stage computes): never offered in a planner's menu, refused in a planner's answer" },
     "renderer": { "enum": ["remotion"], "description": "catalog components always require the Remotion path" }
   },
   "$defs": {

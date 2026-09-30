@@ -314,7 +314,7 @@ heard use `end_s: 75`; b-roll slices and DP comparisons render the whole script.
   - Evals: the overlay prompt's example changed, so `evals/BASELINE.md` is to
     be retaken for both arms before any overlay-quality claim.
 
-### Slice 6: hook forms (L)
+### Slice 6: hook forms (L) ✅ BUILT (6a D107, 6b D110, 6c D111)
 New stage `hook_plan` (DP's `MANCHETES_REGRA`: only what the narration says, no
 unspoken number). New `PaperCard` and `MatchCut` components, a GIBS imagery
 resolver for `SatelliteLocate`, and an online geocoder behind `geo.lookup`.
@@ -328,9 +328,11 @@ Split in three, each benchmarked on its own:
 - **6b ✅ BUILT (D110):** the satellite dive. It uses NASA GIBS plates
   (WMS, plate carrée) for every `SatelliteLocate`, Nominatim behind
   `geo.lookup`, and a `dive` mode that the hook's new `satellite` form uses.
-- **6c:** the match cut: Commons photos of one kind of place, with
-  vision-marked alignment points. It needs a `MatchCut` component, the one
-  new geometry of this slice.
+- **6c ✅ BUILT (D111):** the match cut.
+  - `hook_plan`'s `matchcut` form: Commons and Pexels photos of one kind of
+    place, deduplicated, with alignment points marked by the vision judge.
+  - A new `MatchCut` component, `compiler_only`.
+  - The per-cut sounds are left to the user.
 
 ### Slice 7: texture (M)
 New stage `narrative_marks` (one cheap call; with no answer, turns fall back to paragraph starts).

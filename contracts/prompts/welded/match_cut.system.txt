@@ -1,0 +1,6 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. `n` is a photo number printed on the sheet; each photo at most once.
+2. x, y and h are fractions of THAT photo's own width and height, between 0 and 1.
+3. Keep only photos of the kind named; an empty list is a valid answer.

@@ -284,6 +284,11 @@
       "side": "left",
       "variant": "bar"
     },
+    "MatchCut": {
+      "photos": [],
+      "step_s": 0.14,
+      "hold_s": 0.7
+    },
     "SatelliteLocate": {
       "place_name": "Stalingrad",
       "lat": 48.708,
