@@ -431,6 +431,23 @@ def test_classify_gemini_daily_quota_resets_at_the_next_pacific_midnight():
     assert 0 < seconds <= 24 * 3600
 
 
+def test_classify_gemini_daily_quota_beats_its_own_retry_delay(monkeypatch):
+    """A real free-tier 429 names the daily quota AND carries retryDelay 50s
+    (the per-minute window). Obeying the 50 s would ask again in a minute a
+    quota that is empty until tomorrow."""
+    monkeypatch.setattr(quota, "_next_midnight_pacific", lambda: quota.time.time() + 5 * 3600)
+    body = ('{"error":{"message":"Quota exceeded ... limit: 0","details":[{"violations":'
+            '[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]},{"retryDelay":"50s"}]}}')
+    out, seconds = quota.classify("gemini", body, 429)
+    assert out and seconds == pytest.approx(5 * 3600, abs=5)
+
+
+def test_classify_a_per_minute_429_still_obeys_its_retry_delay():
+    body = '{"error":{"details":[{"quotaId":"GenerateRequestsPerMinutePerProjectPerModel"},{"retryDelay":"21s"}]}}'
+    out, seconds = quota.classify("gemini", body, 429)
+    assert out and seconds == pytest.approx(21.0)
+
+
 def test_classify_gemini_per_minute_429_is_not_treated_as_daily():
     out, seconds = quota.classify("gemini", '{"error":{"message":"quota_exhausted perMinute"}}', 429)
     assert out

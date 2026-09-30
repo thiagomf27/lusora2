@@ -642,7 +642,8 @@ export interface VisualSource {
   licenses?: LicenseKind[];
   min_score?: number;
   providers?: string[];
-  provider?: string;
+  /** ai_image (D117): "mock" | "openai" | "nano_banana", or a fallback chain. */
+  provider?: string | string[];
   style?: string;
 }
 

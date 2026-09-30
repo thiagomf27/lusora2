@@ -384,7 +384,7 @@ A spoken-number pre-pass per language, a Whisper review knob, and `voice.speed`.
 - Checked on a paid ai33 sample (pt and en, numbers, money, units) rather than
   a Centralia re-narration: nothing in that script changes under the pass.
 
-### Slice 11: subscription providers (L) — 11a ✅ BUILT (D116)
+### Slice 11: subscription providers (L) — 11a ✅ BUILT (D116), 11b ✅ BUILT (D117)
 `codex_cli`, `claude_cli` and `agy` for text and vision; `flow`, `codex` and
 `nano_banana` for images; fallback chains per role; a quota ledger. Off unless a
 channel lists them, and this machine needs the CLIs logged in.
@@ -396,7 +396,10 @@ Split in four (see [the slice briefs](briefs/README.md)):
   (`llm_quota.json`) that marks a provider out on quota or login failure until
   it should be tried again. A plain string still compiles, plans and calls
   exactly as before.
-- **11b:** Nano Banana images and an image chain.
+- **11b ✅ BUILT (D117):** `nano_banana` (Gemini's image model) for `ai_image`, and a provider
+  chain there (`["nano_banana", "openai"]`) on the same quota ledger. Not usable on
+  this machine yet: the Gemini key is free-tier, which has no image quota
+  (`429 limit: 0`); it works as soon as billing is enabled, at Google's image price.
 - **11c:** Codex CLI for text, vision and images. Needs `codex` installed and
   logged in.
 - **11d:** `agy` (Antigravity CLI). Needs `agy` installed and logged in, plus

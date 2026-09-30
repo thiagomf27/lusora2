@@ -53,7 +53,7 @@ source_policy:
         providers: [pexels]
         media_types: [video]
       - source: ai_image
-        provider: ai33
+        provider: [nano_banana, openai]  # D117 — mock | openai | nano_banana, or a chain
         style: "archival photo, desaturated, film grain"
     max_clip_seconds: 12
     orientation: landscape
@@ -119,6 +119,16 @@ source_policy:
   `resolve_assets` walks the chain and stops at the first acceptable
   asset; `min_score` is what makes fallthrough honest (without it the
   library always returns *something*).
+- An `ai_image` entry's `provider` (D117) is `mock` (the default), `openai`
+  (`gpt-image-1`), `nano_banana` (Gemini's image model on `GEMINI_API_KEY`; the
+  model is `GEMINI_IMAGE_MODEL` or the best image model the key lists), or a
+  **chain** of them tried in order within that one entry, skipping what the
+  shared quota ledger (D116) marks out. A refusal — a filter, an empty answer,
+  a quota — moves to the next provider, then on down the source chain. A
+  quota or login refusal inside a chain marks the provider out, so the next
+  beat does not ask it again; Gemini's free tier has no image quota at all
+  (`429 limit: 0`), which marks `nano_banana` out until the next Pacific
+  midnight. A plain name never touches the ledger.
 - Every library filter maps 1:1 to a `library_search` parameter — the
   policy is stored arguments, not a query language.
 - `visual.dedup` (D54) is what keeps one video from showing the same thing

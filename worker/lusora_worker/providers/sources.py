@@ -25,6 +25,7 @@ from ..costs import budget_gate
 from ..errors import StageError
 from ..media import run_ffmpeg
 from ..textsplit import normalize
+from . import quota
 
 STAGE = "resolve_assets"
 
@@ -731,6 +732,54 @@ def image_prompt(ctx: StageContext, query: str, source_cfg: dict) -> str:
 class _ImageRefused(Exception):
     """The image API answered, with a refusal."""
 
+    def __init__(self, message: str, status: int | None = None, body: str = "") -> None:
+        super().__init__(message)
+        self.status = status
+        self.body = body
+
+
+# Gemini's aspect names for the three shapes image_aspect() knows.
+_GEMINI_ASPECTS = {"landscape": "16:9", "portrait": "9:16", "square": "1:1"}
+_GEMINI_API = "https://generativelanguage.googleapis.com/v1beta"
+_GEMINI_IMAGE_MODEL: dict[str, str] = {}
+_GEMINI_IMAGE_LOCK = threading.Lock()
+
+
+def _image_model_rank(name: str) -> tuple:
+    """Dark Palace's `_familia` for images: Flash (not lite) before Pro before
+    the rest, newest version first, a preview/exp after its stable twin."""
+    n = name.lower()
+    fam = 0 if ("flash" in n and "lite" not in n) else (1 if "pro" in n else 2)
+    m = re.match(r"^gemini-(\d+)(?:\.(\d+))?", n)
+    ver = (int(m.group(1)), int(m.group(2) or 0)) if m else (0, 0)
+    preview = 1 if re.search(r"preview|exp", n) else 0
+    return (fam, -ver[0], -ver[1], preview, len(n))
+
+
+def gemini_image_model(api_key: str) -> str:
+    """GEMINI_IMAGE_MODEL, else the best image model this key lists (Dark
+    Palace's `escolhe_modelo("imagem")`). The listing is free and does not
+    change within a run, so it is asked once per process; a failed listing is
+    not cached, so the next item asks again."""
+    fixed = (os.environ.get("GEMINI_IMAGE_MODEL") or "").strip()
+    if fixed:
+        return fixed
+    with _GEMINI_IMAGE_LOCK:
+        if "model" in _GEMINI_IMAGE_MODEL:
+            return _GEMINI_IMAGE_MODEL["model"]
+        resp = httpx.get(f"{_GEMINI_API}/models", params={"pageSize": 200},
+                         headers={"x-goog-api-key": api_key}, timeout=60)
+        resp.raise_for_status()
+        names = [str(m.get("name") or "").removeprefix("models/")
+                 for m in resp.json().get("models") or []
+                 if "generateContent" in (m.get("supportedGenerationMethods") or [])]
+        # Gemini's own image models only: Imagen speaks `predict`, not this call
+        images = sorted((n for n in names if n.startswith("gemini") and "image" in n), key=_image_model_rank)
+        if not images:
+            raise _ImageRefused("the key lists no Gemini image model")
+        _GEMINI_IMAGE_MODEL["model"] = images[0]
+        return images[0]
+
 
 class AiImageAdapter:
     # A generator wants the whole description; it is a prompt, not a search.
@@ -740,15 +789,47 @@ class AiImageAdapter:
         self, ctx: StageContext, item: dict, query: str, source_cfg: dict,
         ledger: "Ledger | None" = None,
     ) -> Resolution | None:
-        provider = str(source_cfg.get("provider") or "mock")
+        """`provider` is a plain name, or a chain (D117) tried in order,
+        skipping what the quota ledger marks out. A plain name never touches
+        the ledger — the D116 rule for the LLM chains."""
+        provider = source_cfg.get("provider") or "mock"
         prompt = image_prompt(ctx, query, source_cfg)
+        if not isinstance(provider, list):
+            return self._one(ctx, item, query, prompt, str(provider), chained=False)
+        for element in provider:
+            name = str(element)
+            if quota.out_reason(name):
+                continue
+            found = self._one(ctx, item, query, prompt, name, chained=True)
+            if found is not None:
+                return found
+        return None
+
+    def _one(self, ctx: StageContext, item: dict, query: str, prompt: str,
+             provider: str, chained: bool) -> Resolution | None:
         if provider == "mock":
             return self._mock(ctx, item, query, prompt)
         if provider == "openai":
-            return self._openai(ctx, item, query, prompt)
+            return self._openai(ctx, item, query, prompt, chained)
+        if provider == "nano_banana":
+            return self._nano_banana(ctx, item, query, prompt, chained)
         ctx.db.provider_health(f"ai_image.{provider}", False,
                                f"ai_image provider '{provider}' not implemented")
         return None
+
+    @staticmethod
+    def _refused(ctx: StageContext, provider: str, exc: Exception, chained: bool) -> None:
+        """One refused image (a content filter, a timeout, a quota) is this
+        beat's problem, not the video's: the gate has already recorded it as a
+        failed spend, and the chain may still have a source after this one
+        (D103). In a chain, a quota or login refusal also marks the provider
+        out in the ledger, so the next item does not ask it again."""
+        ctx.db.provider_health(f"ai_image.{provider}", False, str(exc)[:200])
+        if chained and isinstance(exc, _ImageRefused):
+            out, seconds = quota.classify("gemini" if provider == "nano_banana" else provider,
+                                          exc.body or str(exc), exc.status)
+            if out:
+                quota.mark_out(provider, str(exc), seconds)
 
     def _mock(self, ctx: StageContext, item: dict, query: str, prompt: str) -> Resolution | None:
         import re
@@ -772,7 +853,8 @@ class AiImageAdapter:
         return Resolution(source="ai", id=None, provider="mock", license="own",
                           path=out_rel, score=None, query=query[:200], media_type="image")
 
-    def _openai(self, ctx: StageContext, item: dict, query: str, prompt: str) -> Resolution | None:
+    def _openai(self, ctx: StageContext, item: dict, query: str, prompt: str,
+                chained: bool = False) -> Resolution | None:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             ctx.db.provider_health("ai_image.openai", False, "OPENAI_API_KEY not set")
@@ -789,19 +871,60 @@ class AiImageAdapter:
                     timeout=300,
                 )
                 if resp.status_code != 200:
-                    raise _ImageRefused(f"{resp.status_code}: {resp.text[:150]}")
+                    raise _ImageRefused(f"{resp.status_code}: {resp.text[:150]}", resp.status_code, resp.text)
                 b64 = resp.json()["data"][0]["b64_json"]
                 out_rel = f"clips/{item['id']}.png"
                 (ctx.folder / out_rel).write_bytes(base64.b64decode(b64))
         except (_ImageRefused, httpx.HTTPError) as e:
-            # One refused prompt (a content filter, a timeout) is this beat's
-            # problem, not the video's: the gate has already recorded it as a
-            # failed spend, and the chain may still have a source after this
-            # one (D103). Exhausting the chain still fails loud.
-            ctx.db.provider_health("ai_image.openai", False, str(e)[:200])
+            # Exhausting the chain still fails loud.
+            self._refused(ctx, "openai", e, chained)
             return None
         ctx.db.provider_health("ai_image.openai", True)
         return Resolution(source="ai", id=None, provider="openai", license="own",
+                          path=out_rel, score=None, query=query[:200], media_type="image")
+
+    def _nano_banana(self, ctx: StageContext, item: dict, query: str, prompt: str,
+                     chained: bool = False) -> Resolution | None:
+        """Gemini's image model through 11a's key (D117) — Dark Palace's
+        `gera_imagem_api` without the reference image: the prompt as text, the
+        answer's first `inlineData` image written to the clip, and a file under
+        100 bytes counted as no image at all."""
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            ctx.db.provider_health("ai_image.nano_banana", False, "GEMINI_API_KEY not set")
+            return None
+        try:
+            with budget_gate(ctx, stage=STAGE, provider="nano_banana", operation="image.generate",
+                             estimated_units=1, details={"prompt": prompt[:200]}) as cost:
+                import base64
+                model = gemini_image_model(api_key)
+                resp = httpx.post(
+                    f"{_GEMINI_API}/models/{model}:generateContent",
+                    headers={"x-goog-api-key": api_key},
+                    json={"contents": [{"parts": [{"text": prompt}]}],
+                          "generationConfig": {
+                              "responseModalities": ["IMAGE"],
+                              "imageConfig": {"aspectRatio": _GEMINI_ASPECTS[image_aspect(ctx.cfg)]}}},
+                    timeout=300,
+                )
+                if resp.status_code != 200:
+                    raise _ImageRefused(f"{resp.status_code}: {resp.text[:150]}", resp.status_code, resp.text)
+                image = next((p.get("inlineData") or p.get("inline_data")
+                              for c in resp.json().get("candidates") or []
+                              for p in (c.get("content") or {}).get("parts") or []
+                              if (p.get("inlineData") or p.get("inline_data") or {}).get("data")), None)
+                data = base64.b64decode(image["data"]) if image else b""
+                if len(data) < 100:
+                    raise _ImageRefused(f"{model} answered with no image")
+                ext = ".jpg" if "jpeg" in str(image.get("mimeType") or image.get("mime_type") or "") else ".png"
+                out_rel = f"clips/{item['id']}{ext}"
+                (ctx.folder / out_rel).write_bytes(data)
+                cost.actual(1, {"model": model, "bytes": len(data)})
+        except (_ImageRefused, httpx.HTTPError) as e:
+            self._refused(ctx, "nano_banana", e, chained)
+            return None
+        ctx.db.provider_health("ai_image.nano_banana", True)
+        return Resolution(source="ai", id=None, provider="nano_banana", license="own",
                           path=out_rel, score=None, query=query[:200], media_type="image")
 
 

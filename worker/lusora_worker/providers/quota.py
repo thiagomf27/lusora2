@@ -140,14 +140,15 @@ def classify(provider: str, error_text: str, http_status: int | None = None) -> 
     for THIS call, but the provider is not marked out for the next one."""
     text = error_text or ""
     if http_status == 429 or _QUOTA_WORDS.search(text):
+        # Gemini's daily quota first: its 429 ALSO carries a `retryDelay`
+        # ("50s", the per-minute window), and obeying that would ask again in
+        # a minute a quota that is empty until tomorrow — or, with `limit: 0`,
+        # a model the free tier does not have at all (measured on a real
+        # free-tier image call, D117).
+        if provider == "gemini" and _is_daily_quota(text):
+            return True, max(1.0, _next_midnight_pacific() - time.time())
         seconds = _reset_seconds(text)
-        if seconds is None:
-            seconds = (
-                _next_midnight_pacific() - time.time()
-                if provider == "gemini" and _is_daily_quota(text)
-                else SIX_HOURS
-            )
-        return True, max(1.0, seconds)
+        return True, max(1.0, SIX_HOURS if seconds is None else seconds)
     if http_status in (401, 403) or _AUTH_WORDS.search(text):
         return True, SIX_HOURS
     return False, 0.0

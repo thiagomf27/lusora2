@@ -626,7 +626,13 @@
         },
         "min_score": { "type": "number", "minimum": 0, "maximum": 1 },
         "providers": { "type": "array", "items": { "type": "string" } },
-        "provider": { "type": "string" },
+        "provider": {
+          "description": "ai_image: mock, openai or nano_banana (D117), or a fallback chain of them tried in order — [\"nano_banana\", \"openai\"] — skipping what the quota ledger marks out. A plain name never touches the ledger (D116).",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        },
         "style": { "type": "string", "description": "ai_image style suffix appended to the visual_intent" }
       }
     },

@@ -117,6 +117,10 @@
       "vision.pick_shots": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
       "vision.match_cut": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 }
     },
+    "nano_banana": {
+      "comment": "D117 — Gemini's image model through GEMINI_API_KEY. $0 because the operator's key is free-tier, measured 2026-09-30: gemini-3.1-flash-image answered 429 `limit: 0` (the free tier has no image quota at all, as Dark Palace found), so nothing is ever generated or billed. When billing is enabled on the Google project, set this to Google's per-image rate for the model in use.",
+      "image.generate": { "unit": "image", "unit_price_usd": 0 }
+    },
     "local": {
       "tts.narrate": {
         "unit": "char",

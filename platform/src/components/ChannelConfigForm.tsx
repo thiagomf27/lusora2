@@ -29,6 +29,8 @@ const VOICE_PROVIDERS = ["local", "mock", "ai33"] as const;
 const LOCAL_VOICES = ["kal", "kal16", "awb", "rms", "slt"] as const; // flite voices
 const REQUEST_UNITS = ["sentence", "paragraph"] as const; // D93
 const LLMS = ["deepseek", "openai", "anthropic", "gemini", "mock"] as const;
+/** ai_image providers → worker/.../providers/sources.py AiImageAdapter (D117). */
+const IMAGE_PROVIDERS = ["mock", "openai", "nano_banana"] as const;
 const SCRIPT_GENERATORS = ["simple"] as const;
 const LANGUAGES = [
   "en-US", "en-GB", "pt-BR", "pt-PT", "es-ES", "es-MX", "de-DE", "fr-FR", "it-IT", "ja-JP",
@@ -136,16 +138,19 @@ function Select({
   );
 }
 
-/** D116 — `llm` is a provider name OR a fallback chain. A plain string keeps
+/** D116/D117 — an `llm` field or an ai_image `provider`: a provider name OR a
+ *  fallback chain. A plain string keeps
  *  the familiar select; a chain (saved by hand, or by a previous session)
  *  shows as a comma-separated text box instead, so opening and saving the
  *  form never flattens it back into one provider. */
-function LlmField({
+function ChainField({
   value,
   onChange,
+  options = LLMS,
 }: {
   value: string | string[] | undefined;
   onChange: (v: string | string[]) => void;
+  options?: readonly string[];
 }) {
   // the typed text is kept as typed: re-rendering from the parsed chain
   // would eat a trailing comma, so no element could be added at the end
@@ -162,7 +167,7 @@ function LlmField({
       />
     );
   }
-  return <Select value={value ?? "mock"} options={LLMS} onChange={onChange} />;
+  return <Select value={value ?? "mock"} options={options} onChange={onChange} />;
 }
 
 export default function ChannelConfigForm({
@@ -432,14 +437,14 @@ export default function ChannelConfigForm({
           </label>
           <label className={s.field}>
             <span className={s.label}>Script LLM</span>
-            <LlmField
+            <ChainField
               value={value.script?.llm}
               onChange={(v) => up({ script: { ...(value.script ?? {}), llm: v } })}
             />
           </label>
           <label className={s.field}>
             <span className={s.label}>Planner LLM</span>
-            <LlmField
+            <ChainField
               value={value.planner?.llm}
               onChange={(v) => up({ planner: { ...(value.planner ?? {}), llm: v } })}
             />
@@ -648,6 +653,16 @@ export default function ChannelConfigForm({
                     <input
                       value={csv(src.providers)}
                       onChange={(e) => updateSource(i, { providers: parseCsv(e.target.value) })}
+                    />
+                  </label>
+                )}
+                {src.source === "ai_image" && (
+                  <label className={s.field}>
+                    <span className={s.label}>Image provider</span>
+                    <ChainField
+                      value={src.provider}
+                      options={IMAGE_PROVIDERS}
+                      onChange={(v) => updateSource(i, { provider: v })}
                     />
                   </label>
                 )}
