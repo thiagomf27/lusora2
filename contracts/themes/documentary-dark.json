@@ -17,6 +17,12 @@
   },
   "motion_feel": "fast_light",
   "grain": "none",
+  "texture": {
+    "dust": "light",
+    "tape": "vhs",
+    "vintage": "faded",
+    "crt": "tube"
+  },
   "surface": {
     "radius": "square",
     "fill": "solid",

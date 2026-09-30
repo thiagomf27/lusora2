@@ -28,6 +28,7 @@ const KIND_CLASS: Record<TransitionKind, string> = {
   whip: s.whip,
   wipe: s.wipe,
   zoom_through: s.zoom,
+  light_leak: s.leak,
 };
 
 /** Two shots and the join between them, looping. */
@@ -37,7 +38,7 @@ export function TransitionThumb({ kind }: { kind: string }) {
     <span className={`${s.tBox} ${cls}`} aria-hidden="true">
       <span className={s.tA}>A</span>
       <span className={s.tB}>B</span>
-      {(kind === "fade_to_black" || kind === "flash") && <span className={s.tVeil} />}
+      {(kind === "fade_to_black" || kind === "flash" || kind === "light_leak") && <span className={s.tVeil} />}
     </span>
   );
 }

@@ -56,7 +56,8 @@ async function main() {
     }
   }
 
-  const route = routePlan(plan);
+  const { loadTheme } = await import("./renderers/remotion/render.ts");
+  const route = routePlan(plan, loadTheme(videoDir));
   let renderer: "ffmpeg" | "remotion";
   if (requested === "auto") {
     renderer = route.renderer;

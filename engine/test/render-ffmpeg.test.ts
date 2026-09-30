@@ -204,3 +204,42 @@ test("the slice-2 transitions render through xfade, and a flash is white at its 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("D112: focus_y keeps the top of a standing photo", { timeout: 120_000 }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lusora-focus-"));
+  try {
+    mkdirSync(join(dir, "clips"));
+    // a standing photo: white on top, black below — a centre crop shows the seam, a top crop is all white
+    sh("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=white:s=180x320",
+      "-vf", "drawbox=x=0:y=110:w=180:h=210:color=black:t=fill", "-frames:v", "1", join(dir, "clips/tall.png")]);
+    sh("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=330:duration=1",
+      "-q:a", "9", join(dir, "audio.mp3")]);
+    const plan: EditPlan = {
+      version: "1.0", video_id: "focus", fps: 30,
+      resolution: { width: 320, height: 180 },
+      tracks: {
+        visual: [{
+          id: "v1", beat_id: "b1", locked: false, start_s: 0, end_s: 1,
+          media_type: "image", focus_y: 0, asset: { source: "stock", path: "clips/tall.png" },
+        }],
+        overlays: [],
+        captions: { enabled: false, items: [] },
+        audio: { voiceover: { path: "audio.mp3", start_s: 0, duration_s: 1, volume: 1 } },
+      },
+    };
+    const mean = async (p: EditPlan): Promise<number> => {
+      await renderFfmpeg(p, dir);
+      const proc = spawnSync("ffmpeg", ["-v", "error", "-i", join(dir, "final.mp4"), "-frames:v", "1",
+        "-vf", "format=gray,scale=1:1:flags=area", "-f", "rawvideo", "-"]);
+      assert.equal(proc.status, 0, String(proc.stderr));
+      return proc.stdout[0]!;
+    };
+    const top = await mean(plan);
+    const centred = structuredClone(plan);
+    delete centred.tracks.visual[0]!.focus_y;
+    const centre = await mean(centred);
+    assert.ok(top > 200 && centre < 150, `top crop ${top} (white) vs centre crop ${centre} (mostly black)`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -80,7 +80,7 @@ Kind: **S** = stage, **K** = knob, **P** = provider, **W** = worker or engine.
 | Shots cut at scene changes, shown to a vision model on contact sheets and rated 1–5 | `diretor.py:649-733` | new stage `pick_shots` | S | 3 |
 | Photos chosen by a vision model per subject | `diretor.py:837-900` | `pick_shots` | S | 3 |
 | Logo-corner crop, letterbox strip | `LOGO_CROP`, `recorte` | `pick_shots` writes a crop per asset; the renderers honour it | K+W | 3 |
-| Portrait photos framed on the top third | `doc_pecas._enquadra` | a focal field on photo assets | W | 3 |
+| Portrait photos framed on the top third | `doc_pecas._enquadra` | a focal field on photo assets | W | 7 |
 | 18+ filter: word list in ~25 languages, then vision (text-only judge as last resort); unjudged photos are dropped | `filtro_adulto.py`, `diretor.py:769` | `pick_shots` safety pass, `safety` block in channel config | K | 4 |
 | AI images only for what is still missing, started early while downloads run | `codex_cedo`, `gerador_imagens.py` | `ai_image` stays last in the chain; slice 11 adds the subscription providers | P | 11 |
 | Credits file with licences | `entrega.py` | `finalize` writes `credits.txt` from `asset_usage` | W | 13 |
@@ -334,11 +334,16 @@ Split in three, each benchmarked on its own:
   - A new `MatchCut` component, `compiler_only`.
   - The per-cut sounds are left to the user.
 
-### Slice 7: texture (M)
+### Slice 7: texture (M) ✅ BUILT (D112)
 New stage `narrative_marks` (one cheap call; with no answer, turns fall back to paragraph starts).
-A `light_leak` transition kind, placed on turns and at D95 section breaks. `theme.texture`
+A `light_leak` transition kind, placed on turns (and available to a pack's D95 `section_break`). `theme.texture`
 covers dust, tape and vintage, with CRT on flashback footage. `style_pack.texture.placement`
 is one of `narrative | count | off`.
+- Built: all of the above, drawn procedurally in the engine (no stock overlay
+  files), plus portrait framing (`focus_y`, deferred here from slice 4).
+- Not built: DP's whole-video tape pass (`vhs_fita.py` over a finished
+  video). The tape here is DP's per-footage mode (`filtro_filmagem`), which is
+  the one its documentary style uses; captions stay clean on top in both.
 
 ### Slice 8: rhythm, repetition, captions (M)
 The `pacing.rhythm` knobs, `over_footage` in the catalog, and the new dedup

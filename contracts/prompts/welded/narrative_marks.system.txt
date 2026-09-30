@@ -1,0 +1,7 @@
+You output ONLY a JSON object, no prose.
+
+HARD RULES:
+1. Only beat ids from the list.
+2. A beat is a flashback only when the narration itself steps back in time there; a whole story set in the past is not a flashback.
+3. A turn is where a new chapter begins, not every new sentence: a handful across the whole narration.
+4. A flashback is a PASSAGE: mark every beat of it, from the beat that steps back to the last beat before the story returns.

@@ -1,5 +1,5 @@
 name: documentary
-version: "1.5"
+version: "1.6"
 description: >
   Dark Palace's production on LUSORA's architecture (D100,
   docs/05-roadmap/documentary-pipeline-plan.md). Every DP feature enters as a
@@ -39,6 +39,13 @@ description: >
   varied forms (a headline, one giant word, a marked phrase, two number
   cards), each landing on words the beat says and never on a beat that
   already carries a graphic. compile_plan merges them into the selection.
+
+  v1.6 (slice 7, D112) adds `narrative_marks` after hook_plan: one cheap
+  call marks the beats where the story turns and the beats told as a
+  flashback. compile_plan places the film texture from it when the style
+  pack's texture.placement is `narrative` — a light leak into each turn, the
+  vintage grade over a flashback, a CRT set on its first footage — and the
+  theme draws dust and tape over the picture. Other placements make no call.
 
   Each later slice adds one stage or knob and bumps the version; the stages it adds are registry entries, so v3
   can adopt any of them by listing it (D60).
@@ -135,6 +142,13 @@ stages:
     requires: [beats.json, subjects.json]
     produces: [hook_plan.json]
     receivable_on_upload: true            # hand-written moments (schema-checked)
+
+  # D112 — story turns and flashbacks, for the film texture. No call unless
+  # the style pack's texture.placement is `narrative`.
+  - name: narrative_marks
+    requires: [beats.json, beat_cuts.json]
+    produces: [marks.json]
+    receivable_on_upload: true            # hand-written marks (schema-checked)
 
   - name: compile_plan
     requires: [beats.json]

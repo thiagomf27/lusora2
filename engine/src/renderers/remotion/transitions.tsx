@@ -13,6 +13,9 @@
  * they render through the experimental HTML-in-canvas path, and renders here
  * run on software GL (swiftshader) — a transition must never be the thing that
  * makes a render slow or fail.
+ *
+ * `light_leak` (D112) is custom CSS too, and Remotion-only: ffmpeg's xfade has
+ * nothing that reads as a leak.
  */
 
 import { fade } from "@remotion/transitions/fade";
@@ -25,6 +28,7 @@ import type {
 import type { TransitionDirection } from "@lusora/contracts";
 import { AbsoluteFill, Easing } from "remotion";
 import type { TransitionKind } from "./timeline.ts";
+import { LeakGlow } from "./texture.tsx";
 
 type Empty = Record<string, unknown>;
 type Props = TransitionPresentationComponentProps<Empty>;
@@ -66,6 +70,25 @@ const ZoomThrough: React.FC<Props> = ({ children, presentationDirection, present
       }}
     >
       {children}
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * D112 — a light leak straddling the cut (Dark Palace's `luz`): the outgoing
+ * shot burns up into a warm bloom, the swap happens under the bloom's peak,
+ * and the incoming shot settles out of it. The glow is drawn by whichever side
+ * is on screen, so it runs through the swap without doubling.
+ */
+const LightLeak: React.FC<Props> = ({ children, presentationDirection, presentationProgress }) => {
+  const secondHalf = presentationProgress >= 0.5;
+  const visible = presentationDirection === "entering" ? secondHalf : !secondHalf;
+  return (
+    <AbsoluteFill style={{ opacity: visible ? 1 : 0 }}>
+      <AbsoluteFill style={{ filter: `brightness(${(1 + 0.3 * peak(presentationProgress)).toFixed(3)})` }}>
+        {children}
+      </AbsoluteFill>
+      {visible ? <LeakGlow progress={presentationProgress} /> : null}
     </AbsoluteFill>
   );
 };
@@ -146,5 +169,7 @@ export function presentationFor(
       return slide({ direction: FROM[direction] }) as TransitionPresentation<Empty>;
     case "wipe":
       return wipe({ direction: FROM[direction] }) as TransitionPresentation<Empty>;
+    case "light_leak":
+      return custom(LightLeak);
   }
 }

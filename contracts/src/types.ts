@@ -133,7 +133,8 @@ export type TransitionType =
   | "zoom_through"
   | "push"
   | "wipe"
-  | "flash";
+  | "flash"
+  | "light_leak";
 /** Which way the picture MOVES, for push / whip / wipe. `left`: the new shot enters from the right. */
 export type TransitionDirection = "left" | "right" | "up" | "down";
 /** Every transition that is not a cut — what a mix or a section break can name. */
@@ -145,7 +146,7 @@ export interface Transition {
   /** push / whip / wipe only; absent means `left`. */
   direction?: TransitionDirection;
   /** D95 — the compiler placed it (from the pack's section_break or mix). Renderers ignore it. */
-  placed_by?: "section_break" | "filler" | "overlay";
+  placed_by?: "section_break" | "filler" | "overlay" | "texture";
 }
 
 export interface VisualItem {
@@ -171,6 +172,12 @@ export interface VisualItem {
   absorbed_beat_ids?: string[];
   /** D106: a shot in the opening hook, paced by style_pack.pacing.hook. */
   hook?: boolean;
+  /** D112: an aged shot (a flashback passage, or the count rhythm) — the theme's texture.vintage look. */
+  grade?: "vintage";
+  /** D112: this footage plays on an old CRT set — the first footage of a flashback. */
+  crt?: boolean;
+  /** D112: where a cover crop keeps the picture, 0 = top, 1 = bottom. Absent = centre; a standing photo is framed on its top third. */
+  focus_y?: number;
 }
 
 export interface OverlayItem {
@@ -303,6 +310,17 @@ export interface Theme {
   };
   motion_feel?: "slow_heavy" | "neutral" | "fast_light";
   grain?: "none" | "archival" | "film";
+  /** D112 — film texture. Omitted tokens draw nothing, so an untouched theme renders identically. */
+  texture?: {
+    /** specks and hairs over the whole picture (below the captions) */
+    dust?: "none" | "light" | "heavy";
+    /** a VHS tape look over every footage shot: tape colour, lines, wobble, a split on each cut */
+    tape?: "none" | "vhs";
+    /** what a shot the compiler marked `grade: vintage` looks like; `none` refuses the grade */
+    vintage?: "faded" | "sepia" | "none";
+    /** what a shot marked `crt` plays on; `none` refuses it */
+    crt?: "tube" | "none";
+  };
   /** D46 — the shape of an overlay. Omitted tokens keep the pre-D46 look. */
   surface?: {
     radius?: "square" | "soft" | "rounded";
@@ -441,6 +459,17 @@ export interface StylePack {
     /** D59: a second overlay class, counted under its own budget. */
     emphasis?: { enabled?: boolean; per_minute?: number };
   };
+  /** D112: where the film texture lands; the theme's `texture` says what it looks like. */
+  texture?: {
+    placement?: "narrative" | "count" | "off";
+    /** false keeps the grade and the CRT but places no light leak (look.exclude.transitions sets it) */
+    light_leak?: boolean;
+    leak_min_gap_s?: number;
+    leak_duration_s?: number;
+    vintage_max_share?: number;
+    leak_every?: number;
+    vintage_every?: number;
+  };
   transitions: {
     allowed: TransitionType[];
     default: TransitionType;
@@ -528,7 +557,9 @@ export type PromptRole =
   /** D107 — picks the hook's moments and the form each goes on screen in. */
   | "hook_plan"
   /** D111 — the match cut's vision judge: keeps photos and marks their subject. */
-  | "match_cut";
+  | "match_cut"
+  /** D112 — marks the story's turns and flashback passages, for the film texture. */
+  | "narrative_marks";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */

@@ -4,7 +4,7 @@
  * with the list of offending items — capability enforcement, not
  * degradation.
  */
-import type { EditPlan } from "@lusora/contracts";
+import type { EditPlan, Theme } from "@lusora/contracts";
 
 // whip is absent on purpose: xfade has no flick, only smears (transitions plan, slice 2)
 const FFMPEG_TRANSITIONS = new Set([
@@ -18,8 +18,17 @@ export interface RouteResult {
   reasons: string[];
 }
 
-export function routePlan(plan: EditPlan): RouteResult {
+/**
+ * `theme` is optional because most callers route a plan alone; given one, a
+ * theme that draws film texture (D112 dust or tape) routes the video to
+ * Remotion too — ffmpeg would drop it silently.
+ */
+export function routePlan(plan: EditPlan, theme?: Theme): RouteResult {
   const reasons: string[] = [];
+
+  const texture = theme?.texture;
+  if (texture?.dust && texture.dust !== "none") reasons.push(`theme: dust ${texture.dust}`);
+  if (texture?.tape && texture.tape !== "none") reasons.push(`theme: tape ${texture.tape}`);
 
   for (const item of plan.tracks.overlays) {
     if (item.kind === "component") {
@@ -34,6 +43,8 @@ export function routePlan(plan: EditPlan): RouteResult {
     if (t && !FFMPEG_TRANSITIONS.has(t)) {
       reasons.push(`visual ${item.id}: transition ${t}`);
     }
+    if (item.grade) reasons.push(`visual ${item.id}: ${item.grade} grade`);
+    if (item.crt) reasons.push(`visual ${item.id}: CRT set`);
     if (item.speed !== undefined && item.speed !== 1) {
       reasons.push(`visual ${item.id}: speed ${item.speed} (playbackRate is Remotion-only)`);
     }

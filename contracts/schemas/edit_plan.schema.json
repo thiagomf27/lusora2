@@ -111,15 +111,15 @@
       "required": ["type"],
       "additionalProperties": false,
       "properties": {
-        "type": { "enum": ["cut", "crossfade", "fade", "fade_to_black", "whip", "zoom_through", "push", "wipe", "flash"] },
+        "type": { "enum": ["cut", "crossfade", "fade", "fade_to_black", "whip", "zoom_through", "push", "wipe", "flash", "light_leak"] },
         "direction": {
           "enum": ["left", "right", "up", "down"],
           "description": "which way the picture MOVES, for the kinds that have one (push, whip, wipe) — `left` means the incoming shot enters from the right. Ignored by every other kind. Absent means `left`. The compiler alternates push and whip left/right so a run of them does not read as a slideshow."
         },
         "duration_s": { "type": "number", "exclusiveMinimum": 0, "maximum": 3, "default": 0.5 },
         "placed_by": {
-          "enum": ["section_break", "filler", "overlay"],
-          "description": "D95 — the compiler chose this transition from the style pack's `section_break`, `mix` or `per_component` (`overlay`), rather than a beat's `transition_out` or the pack's `default`. Provenance only; renderers ignore it. It is what lets the editor tell a placed transition from a stale human one: a beat that names no transition shows the placed one as-is, and falls back to the default otherwise."
+          "enum": ["section_break", "filler", "overlay", "texture"],
+          "description": "D95 — the compiler chose this transition from the style pack's `section_break`, `mix` or `per_component` (`overlay`), rather than a beat's `transition_out` or the pack's `default`. Provenance only; renderers ignore it. D112 adds `texture`: a light leak placed by style_pack.texture on a story turn or on the count rhythm. It is what lets the editor tell a placed transition from a stale human one: a beat that names no transition shows the placed one as-is, and falls back to the default otherwise."
         }
       },
       "description": "transition OUT of this item; consumes handles, never moves narrative cuts"
@@ -145,6 +145,20 @@
         "hook": {
           "type": "boolean",
           "description": "D106 — this shot is in the opening hook, paced by style_pack.pacing.hook (cut every ~cut_s on a word onset, its own hold floor) rather than by the pack's normal holds. The first hook shot opens on footage."
+        },
+        "grade": {
+          "enum": ["vintage"],
+          "description": "D112 — an aged shot: a flashback passage, or the style pack's count rhythm. The theme's texture.vintage says what it looks like. Remotion path only."
+        },
+        "crt": {
+          "type": "boolean",
+          "description": "D112 — this footage plays inside an old CRT set (the first footage of a flashback run). The theme's texture.crt can refuse it. Remotion path only."
+        },
+        "focus_y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "D112 — where a cover crop keeps the picture: 0 keeps the top edge, 1 the bottom. Absent is the centre. resolve_assets frames a standing photo on its top third, where faces are."
         },
         "absorbed_beat_ids": {
           "type": "array",

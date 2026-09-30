@@ -28,7 +28,7 @@ export const EASINGS = ["smooth", "snap", "spring", "linear"] as const;
  * one. Absence is meaningful here (it means "each component keeps its own
  * pre-D46 look"), so it has to be written as absence.
  */
-export function mergeTokenGroup<K extends "surface" | "motion" | "sound">(
+export function mergeTokenGroup<K extends "surface" | "motion" | "sound" | "texture">(
   theme: Theme,
   group: K,
   patch: Partial<Theme[K]>,

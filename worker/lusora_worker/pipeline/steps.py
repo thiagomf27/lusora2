@@ -25,6 +25,8 @@ import lusora_contracts
 from ..agents import beatcraft as beatcraft_agent
 from ..agents import gather_footage as footage_agent
 from ..agents import hook_plan as hook_agent
+from ..agents import narrative_marks as marks_agent
+from ..compiler import texture as texture_rules
 from ..agents import overlay as overlay_agent
 from ..agents import pick_shots as pick_agent
 from ..agents import planner as planner_agent
@@ -34,12 +36,12 @@ from ..compiler import compile_plan
 from ..config import parallelism
 from ..context import StageContext
 from ..errors import StageError
-from ..media import extract_audio, probe_duration, run_ffmpeg
+from ..media import extract_audio, probe_duration, probe_size, run_ffmpeg
 from ..providers import imagery, sources, tts, whisper
 from .. import align, beatphases, edithints
 from ..srt import SrtItem, read_srt, write_srt
 from ..textsplit import split_sentences
-from ..validators import validate_beat_sheet, validate_plan, validate_shot_picks
+from ..validators import validate_beat_sheet, validate_marks, validate_plan, validate_shot_picks
 from . import checkpoints, degrade, qa
 
 # ---------------- research (D64) ----------------
@@ -749,9 +751,16 @@ def run_compile_plan(ctx: StageContext) -> None:
     if ctx.has("hook_plan.json"):
         beats_doc, selection = hook_agent.merge_into_selection(beats_doc, selection, ctx.read_json("hook_plan.json"))
     hook = _hook_for(ctx, audio_duration)
+    # D112: where the story turns and looks back, for style_pack.texture
+    marks = ctx.read_json("marks.json") if ctx.has("marks.json") else None
+    if marks is not None:
+        problems = validate_marks(marks)
+        if problems:
+            raise StageError("compile_plan", "marks.json invalid: " + "; ".join(problems[:8]))
+    placing = marks_agent.placement(ctx.cfg) != "off"
     plan = compile_plan(
         beats_doc, _sentence_timings(ctx), ctx.cfg, audio_duration, selection,
-        on_note=ctx.log if hook else None, hook=hook,
+        on_note=ctx.log if hook or placing else None, hook=hook, marks=marks,
     )
     if hook:
         hooked = [v for v in plan["tracks"]["visual"] if v.get("hook")]
@@ -798,6 +807,21 @@ def run_hook_plan(ctx: StageContext) -> None:
     for why in doc.get("dropped") or []:
         ctx.db.event(ctx.video_id, "hook_plan", "progress", f"dropped {why}"[:300])
     ctx.write_json("hook_plan.json", doc)
+
+
+def run_narrative_marks(ctx: StageContext) -> None:
+    """Where the story turns and where it looks back (D112): one cheap call
+    over the narration, for style_pack.texture's `narrative` placement. With
+    no answer the turns are the script's paragraph starts after the hook and
+    nothing is aged; with any other placement no call is made."""
+    beats = [b for b in ctx.read_json("beats.json")["beats"] if b.get("kind") == "narration"]
+    cuts = ctx.read_json("beat_cuts.json").get("cuts") or [] if ctx.has("beat_cuts.json") else []
+    script = ctx.artifact("script.txt").read_text(encoding="utf-8") if ctx.has("script.txt") else ""
+    hook = _hook_for(ctx, probe_duration("narrative_marks", ctx.artifact("audio.mp3")))
+    doc = marks_agent.mark(ctx, beats, cuts, script, float(hook["end_s"]) if hook else None)
+    ctx.write_json("marks.json", doc)
+    ctx.log(f"narrative marks ({doc['source']}): {len(doc['turns'])} turns, {len(doc['flashback'])} flashback beats"
+            + (f" — {doc['note']}" if doc.get("note") else ""))
 
 
 def _hook_for(ctx: StageContext, audio_duration: float) -> dict | None:
@@ -1273,7 +1297,37 @@ def run_resolve_assets(ctx: StageContext) -> None:
                      f"{sum(1 for v in plan['tracks']['visual'] if v['asset'].get('path'))} of "
                      f"{len(plan['tracks']['visual'])} items resolved")
     ctx.log("assets resolved for all visual items")
+    if texture_rules.settings(ctx.cfg.get("style_pack_doc") or {})["placement"] != "off":
+        # D112: the CRT set goes on the first shot that really is footage
+        texture_rules.settle_crt(plan["tracks"]["visual"])
+        ctx.write_json("edit_plan.json", plan)
+    _frame_portraits(ctx, plan)
     _resolve_plates(ctx, plan)
+
+
+# Dark Palace's `_enquadra`: a photo at least this tall for its width is standing
+STANDING = 0.9
+# ...and is cropped from here down (DP's object-position 50% 22%), where faces are
+STANDING_FOCUS_Y = 0.22
+
+
+def _frame_portraits(ctx: StageContext, plan: dict) -> None:
+    """A standing photo keeps its top third (D112). A cover crop cuts in the
+    centre, which on a bust or a standing portrait is the chin and chest; DP
+    measured a face cut off above the nose. Wide photos and footage keep the
+    centre, and a focus a human set is kept."""
+    framed = 0
+    for item in plan["tracks"]["visual"]:
+        path = (item.get("asset") or {}).get("path")
+        if item.get("media_type") != "image" or "focus_y" in item or not path:
+            continue
+        size = probe_size(ctx.folder / str(path))
+        if size and size[1] >= STANDING * size[0]:
+            item["focus_y"] = STANDING_FOCUS_Y
+            framed += 1
+    if framed:
+        ctx.write_json("edit_plan.json", plan)
+        ctx.log(f"{framed} standing photo{'s' if framed != 1 else ''} framed on the top third")
 
 
 def _resolve_plates(ctx: StageContext, plan: dict) -> None:

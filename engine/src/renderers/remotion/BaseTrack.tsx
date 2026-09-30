@@ -7,6 +7,10 @@
  * the item opts in; when a transition needs more footage than the source has
  * — accounting for speed — the item freezes on its last available frame.
  * Stills get the item's `motion`, which keeps moving through the handle.
+ *
+ * D112 texture: a shot the compiler graded `vintage` plays through the theme's
+ * vintage filter, footage through the theme's tape look, and a `crt` shot
+ * inside an old television set; `focus_y` moves the cover crop off the centre.
  */
 
 import { TransitionSeries, linearTiming } from "@remotion/transitions";
@@ -21,16 +25,19 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import type { EditPlan, VisualItem } from "@lusora/contracts";
+import type { EditPlan, Theme, VisualItem } from "@lusora/contracts";
 import { motionTransform } from "./motion.ts";
 import { buildVisualTimeline, type VisualAsset, type VisualLayout } from "./timeline.ts";
 import { presentationFor } from "./transitions.tsx";
+import { CrtSet, TapeLook, shotFilter, textureOf, type TextureTokens } from "./texture.tsx";
 
-export const BaseTrack: React.FC<{ plan: EditPlan; assets: VisualAsset[] }> = ({
+export const BaseTrack: React.FC<{ plan: EditPlan; assets: VisualAsset[]; theme?: Theme }> = ({
   plan,
   assets,
+  theme,
 }) => {
   const { fps } = useVideoConfig();
+  const tokens = useMemo(() => textureOf(theme ?? ({} as Theme)), [theme]);
   const items = plan.tracks.visual;
   const layouts = useMemo(() => buildVisualTimeline(items, assets, fps), [items, assets, fps]);
 
@@ -43,7 +50,9 @@ export const BaseTrack: React.FC<{ plan: EditPlan; assets: VisualAsset[] }> = ({
             key={`visual-${i}`}
             durationInFrames={layout.narrativeFrames + layout.extensionFrames}
           >
-            <VisualItemContent item={item} asset={assets[i]!} layout={layout} />
+            <TexturedItem item={item} asset={assets[i]!} tokens={tokens}>
+              <VisualItemContent item={item} asset={assets[i]!} layout={layout} />
+            </TexturedItem>
           </TransitionSeries.Sequence>,
         ];
         if (layout.transitionOut) {
@@ -63,6 +72,28 @@ export const BaseTrack: React.FC<{ plan: EditPlan; assets: VisualAsset[] }> = ({
 
 const COVER: React.CSSProperties = { width: "100%", height: "100%", objectFit: "cover" };
 
+/** The cover crop, moved off the centre when the plan says where the picture's subject is. */
+function cover(item: VisualItem): React.CSSProperties {
+  if (item.focus_y === undefined) return COVER;
+  return { ...COVER, objectPosition: `50% ${(item.focus_y * 100).toFixed(1)}%` };
+}
+
+/** D112: the shot's grade and tape look, then the television set it may play on. */
+const TexturedItem: React.FC<{
+  item: VisualItem;
+  asset: VisualAsset;
+  tokens: TextureTokens;
+  children: React.ReactNode;
+}> = ({ item, asset, tokens, children }) => {
+  const footage = asset.kind === "video" && asset.src !== null;
+  const filter = shotFilter(item, tokens, footage);
+  let out: React.ReactNode = children;
+  if (filter) out = <AbsoluteFill style={{ filter }}>{out}</AbsoluteFill>;
+  if (footage && tokens.tape === "vhs") out = <TapeLook seed={item.id}>{out}</TapeLook>;
+  if (footage && item.crt && tokens.crt === "tube") out = <CrtSet>{out}</CrtSet>;
+  return <>{out}</>;
+};
+
 const VisualItemContent: React.FC<{
   item: VisualItem;
   asset: VisualAsset;
@@ -81,7 +112,7 @@ const VisualItemContent: React.FC<{
       <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
         <Img
           src={staticFile(asset.src)}
-          style={{ ...COVER, transform: motionTransform(item.motion, frame, totalFrames) }}
+          style={{ ...cover(item), transform: motionTransform(item.motion, frame, totalFrames) }}
         />
       </AbsoluteFill>
     );
@@ -93,7 +124,7 @@ const VisualItemContent: React.FC<{
       src={staticFile(asset.src)}
       startFrom={Math.round((item.in_offset_s ?? 0) * fps)}
       playbackRate={item.speed ?? 1}
-      style={COVER}
+      style={cover(item)}
     />
   );
 

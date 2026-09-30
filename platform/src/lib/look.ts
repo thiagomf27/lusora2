@@ -166,6 +166,11 @@ export function applyLook(snapshot: Record<string, unknown>): string[] {
     style.transitions.allowed = allowed;
     narrowTransitionPlacement(style.transitions, allowed);
   }
+  // D112: the texture's leaks are a transition too, placed outside `allowed`,
+  // so excluding the kind has to reach the texture block as well
+  if (style?.texture && exclude.transitions?.includes("light_leak" as never)) {
+    style.texture.light_leak = false;
+  }
 
   if (style?.sfx && exclude.sfx_cues?.length) {
     const cues: string[] = style.sfx.cues ?? ["entrance"];

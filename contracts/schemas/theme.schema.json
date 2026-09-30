@@ -136,6 +136,17 @@
       "default": "none",
       "description": "optional post-look (Remotion path)"
     },
+    "texture": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D112 — film texture over the PICTURE (Remotion path). Every token optional; omitted draws nothing, so an untouched theme renders identically. `dust` and `tape` are always on when set; `vintage` and `crt` say what a shot looks like when the COMPILER marked it (`grade: vintage`, `crt: true`, placed by style_pack.texture.placement), and `none` refuses the mark.",
+      "properties": {
+        "dust": { "enum": ["none", "light", "heavy"], "default": "none", "description": "specks and hairs over the whole picture, below the captions" },
+        "tape": { "enum": ["none", "vhs"], "default": "none", "description": "a VHS tape look over every footage shot: tape colour, lines, a small wobble, a colour split on each cut" },
+        "vintage": { "enum": ["faded", "sepia", "none"], "default": "faded", "description": "an aged shot: `faded` is less colour, warmer and a touch darker; `sepia` goes further to brown" },
+        "crt": { "enum": ["tube", "none"], "default": "tube", "description": "a shot marked crt plays inside an old television set" }
+      }
+    },
     "surface": {
       "type": "object",
       "additionalProperties": false,
@@ -447,7 +458,8 @@
             "zoom_through": { "$ref": "#/$defs/cueRef" },
             "push": { "$ref": "#/$defs/cueRef" },
             "wipe": { "$ref": "#/$defs/cueRef" },
-            "flash": { "$ref": "#/$defs/cueRef" }
+            "flash": { "$ref": "#/$defs/cueRef" },
+            "light_leak": { "$ref": "#/$defs/cueRef" }
           }
         },
         "transition": {

@@ -16,7 +16,7 @@ import lusora_contracts
 from .. import validators
 from ..errors import StageError
 from ..textsplit import split_sentences
-from . import geo, sound
+from . import geo, sound, texture
 from . import transitions as transition_rules
 from .textmatch import SKIPPABLE, compare_key, decade_context, is_filler, number_run, tokenize
 
@@ -36,6 +36,7 @@ def compile_plan(
     overlay_selection: dict[str, Any] | None = None,
     on_note: Callable[[str], None] | None = None,
     hook: dict[str, Any] | None = None,
+    marks: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """sentence_timings: [{text, start_s, end_s}] in audio time (from the
     TTS adapter or the SRT), covering the whole narration in order.
@@ -196,6 +197,8 @@ def compile_plan(
     transition_rules.place_transitions(
         visual, {str(b.get("id")): b for b in beats}, beat_times, style, on_note, overlays
     )
+    # D112: leaks on story turns, the aged grade on flashbacks (style_pack.texture)
+    texture.place_texture(visual, style, marks, on_note)
     _fit_transitions(visual)
 
     # ---- captions ----

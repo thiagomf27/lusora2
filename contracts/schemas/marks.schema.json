@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lusora.dev/schemas/marks.schema.json",
+  "title": "Narrative marks",
+  "description": "D112 (documentary plan, slice 7) — where the story turns and where it steps back in time, by beat id. Written by the narrative_marks stage; compile_plan places the film texture from it when style_pack.texture.placement is `narrative`: a light leak on the cut into a turn, the vintage grade over a flashback, a CRT set on a flashback's first footage. Decides no content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "video_id", "flashback", "turns", "source"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "video_id": { "type": "string" },
+    "flashback": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "beats told as a memory or a step back to an older time than the story around them"
+    },
+    "turns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "beats where the story turns: a new place, time or chapter, a revelation. Always includes the script's paragraph starts after the hook (Dark Palace's rule)"
+    },
+    "source": {
+      "enum": ["model", "fallback", "off"],
+      "description": "model: the call answered; fallback: no answer, the turns are the paragraph starts and nothing is aged; off: the style pack places no narrative texture and no call was made"
+    },
+    "note": { "type": "string", "description": "why the call gave no answer, when source is fallback" }
+  }
+}

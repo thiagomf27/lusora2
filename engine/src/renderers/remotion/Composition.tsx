@@ -31,6 +31,7 @@ import { BaseTrack } from "./BaseTrack.tsx";
 import { audioVolumeAt } from "./audioVolume.ts";
 import { captionBottom, captionPose } from "./captionEffects.ts";
 import { fallbackAssets, type VisualAsset } from "./timeline.ts";
+import { Dust, textureOf } from "./texture.tsx";
 
 export interface VideoInput {
   plan: EditPlan;
@@ -270,8 +271,10 @@ export function VideoComposition({ plan, theme, assets }: VideoInput) {
   return (
     <AbsoluteFill style={{ background: "#000" }}>
       <PackagedFonts />
-      <BaseTrack plan={plan} assets={resolvedAssets} />
+      <BaseTrack plan={plan} assets={resolvedAssets} theme={theme} />
       <Overlays plan={plan} theme={theme} />
+      {/* D112: dust is on the film, so it sits over picture and graphics, under the captions */}
+      <Dust level={textureOf(theme).dust} />
       <Captions plan={plan} theme={theme} />
       <AudioTracks plan={plan} />
       {theme.grain && theme.grain !== "none" ? (

@@ -74,6 +74,8 @@ STEP_REGISTRY: dict[str, Step] = {
     "select_overlays": Step(steps.run_select_overlays),
     # D107 — the hook's moments on screen (headlines mode). Only documentary lists it.
     "hook_plan": Step(steps.run_hook_plan),
+    # D112 — story turns and flashbacks, for style_pack.texture. Only documentary lists it.
+    "narrative_marks": Step(steps.run_narrative_marks),
     "compile_plan": Step(steps.run_compile_plan, steps.plan_compiled_and_fresh),
     # D104 — YouTube footage and free-licence photos per subject, into the
     # video's folder, for the `youtube` and `archive` chain sources.

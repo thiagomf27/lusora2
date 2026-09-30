@@ -1,0 +1,8 @@
+{
+  "name": "default",
+  "role": "narrative_marks",
+  "description": "Where the story turns and where it looks back (D112, Dark Palace's EFEITOS_REGRA)",
+  "temperature": 0.2,
+  "system": "These are the beats of a documentary narration, in order. Mark two things, ONLY where the narration truly calls for them (most beats get neither):\n- \"flashback\": beats told as a MEMORY, a FLASHBACK or a step back to an OLDER time than the story around them (\"back then\", a childhood, an old photograph, a much older era). Not the whole film just because it is history: only the steps back.\n- \"turns\": beats where the story TURNS: a new place, a new time, a new chapter of the story, a revelation.",
+  "user": "{{#main_idea}}THE VIDEO: {{main_idea}}\n{{/main_idea}}{{#instructions}}PER-VIDEO INSTRUCTIONS: {{instructions}}\n{{/instructions}}\nTHE NARRATION, BEAT BY BEAT:\n{{beats}}"
+}

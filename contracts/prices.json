@@ -67,6 +67,11 @@
         "input_per_1m": 0.0,
         "output_per_1m": 0.0
       },
+      "llm.narrative_marks": {
+        "unit": "token",
+        "input_per_1m": 0.0,
+        "output_per_1m": 0.0
+      },
       "tts.narrate": {
         "unit": "char",
         "unit_price_usd": 0
@@ -228,6 +233,20 @@
         },
         "default_model": "deepseek-v4-flash"
       },
+      "llm.narrative_marks": {
+        "unit": "token",
+        "by_model": {
+          "deepseek-v4-pro": {
+            "input_per_1m": 1.32,
+            "output_per_1m": 3.96
+          },
+          "deepseek-v4-flash": {
+            "input_per_1m": 0.44,
+            "output_per_1m": 1.32
+          }
+        },
+        "default_model": "deepseek-v4-flash"
+      },
       "llm.pick_videos": {
         "unit": "token",
         "by_model": {
@@ -325,6 +344,16 @@
         "default_model": "claude-haiku-4-5-20251001"
       },
       "llm.hook_plan": {
+        "unit": "token",
+        "by_model": {
+          "claude-haiku-4-5-20251001": {
+            "input_per_1m": 1.0,
+            "output_per_1m": 5.0
+          }
+        },
+        "default_model": "claude-haiku-4-5-20251001"
+      },
+      "llm.narrative_marks": {
         "unit": "token",
         "by_model": {
           "claude-haiku-4-5-20251001": {

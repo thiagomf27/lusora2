@@ -1019,6 +1019,11 @@ def validate_ratings(answer: Any, candidate_count: int) -> list[str]:
     return violations
 
 
+def validate_marks(doc: dict[str, Any]) -> list[str]:
+    """A marks.json, written by the narrative_marks stage or uploaded by hand (D112)."""
+    return _schema_errors("marks", doc)
+
+
 def validate_shot_picks(doc: dict[str, Any]) -> list[str]:
     """A shot_picks.json, written by the stage or uploaded by hand (D103)."""
     return _schema_errors("shot_picks", doc)

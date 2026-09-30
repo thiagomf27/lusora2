@@ -494,6 +494,27 @@
         }
       }
     },
+    "narrative_marks": {
+      "description": "D112 — the narration's beats, numbered -> the beats told as a memory or a step back in time (`flashback`) and the beats where the story turns (`turns`). Dark Palace's EFEITOS_REGRA. It decides no content: the compiler places the film texture from it (a light leak on a turn, the vintage grade and a CRT set on a flashback), and with no answer the turns are the script's paragraph starts after the hook.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "beats": {
+          "required": true,
+          "source": "derived: every narration beat as `[beat id] text`"
+        },
+        "main_idea": {
+          "required": false,
+          "source": "subjects.json main_idea (D102)"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        }
+      }
+    },
     "match_cut": {
       "description": "D111 — a numbered sheet of photos found for one KIND of place -> which are clearly one of that kind (real photograph, whole, no text, no people in front) and, for each kept, the centre and height of its main subject, most striking first. The hook's match cut aligns every kept photo on that point.",
       "welded": {

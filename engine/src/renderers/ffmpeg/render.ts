@@ -225,7 +225,11 @@ function renderSegment(
   if (item.media_type !== "color" && !existsSync(assetPath)) {
     throw new Error(`visual item ${item.id}: asset file missing: ${item.asset.path}`);
   }
-  const cover = `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}`;
+  // D112: focus_y moves the crop off the centre (a standing photo keeps its top third)
+  const cropAt = (w: number, h: number) =>
+    item.focus_y === undefined ? `crop=${w}:${h}` : `crop=${w}:${h}:(iw-${w})/2:(ih-${h})*${item.focus_y.toFixed(3)}`;
+  const cover = `scale=${W}:${H}:force_original_aspect_ratio=increase,${cropAt(W, H)}`;
+  const cover2x = `scale=${W * 2}:${H * 2}:force_original_aspect_ratio=increase,${cropAt(W * 2, H * 2)}`;
 
   if (item.media_type === "image") {
     const motion = item.motion ?? { type: "none" as const };
@@ -248,7 +252,7 @@ function renderSegment(
         : pan === "down" ? `(ih-ih/zoom)*on/${frames}`
         : `ih/2-(ih/zoom/2)`;
       // upscale first so zoompan has pixels to move through (avoids jitter)
-      const vf = `scale=${W * 2}:-1,${cover.replace(`${W}:${H}:`, `${W * 2}:${H * 2}:`).replace(`crop=${W}:${H}`, `crop=${W * 2}:${H * 2}`)},zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=${frames}:s=${W}x${H}:fps=${fps},setsar=1`;
+      const vf = `scale=${W * 2}:-1,${cover2x},zoompan=z='${zExpr}':x='${xExpr}':y='${yExpr}':d=${frames}:s=${W}x${H}:fps=${fps},setsar=1`;
       ffmpeg(
         ["-i", assetPath, "-vf", vf, "-t", dur.toFixed(3),
          "-r", String(fps), "-pix_fmt", "yuv420p", "-an", outFile],

@@ -109,10 +109,11 @@ test("roles.json declares the three bounded agents, plus their phase roles", () 
   // `hook_plan` (D107) is a phase of the overlay decision for the opening only:
   // it puts two to five hook moments on screen in forms the overlay pass never
   // chooses (a headline, one giant word), and never on a beat that already
-  // carries a graphic.
+  // carries a graphic. `narrative_marks` (D112) marks where the story turns and
+  // where it looks back; it decides no content, only where the texture lands.
   assert.deepEqual(
     Object.keys(loadRoles()).sort(),
-    ["beatcraft", "chat", "hook_plan", "image", "match_cut", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects"]
+    ["beatcraft", "chat", "hook_plan", "image", "match_cut", "narrative_marks", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects"]
   );
 });
 

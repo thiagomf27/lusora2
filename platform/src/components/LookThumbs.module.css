@@ -47,6 +47,9 @@
 /* flash: the swap under a WHITE veil that arrives and leaves fast */
 .flash .tVeil { background: #fff; animation: flashVeil 3s linear infinite; }
 .flash .tB { animation: swapHard 3s steps(1, end) infinite; }
+/* light_leak: a warm bloom drifts across and the shots swap under its peak */
+.leak .tVeil { background: radial-gradient(ellipse at center, #ffd696 0%, #ff8c3c 45%, rgba(200, 50, 20, 0) 75%); mix-blend-mode: screen; animation: flashVeil 3s linear infinite; }
+.leak .tB { animation: swapHard 3s steps(1, end) infinite; }
 /* push: B shoves A out of frame, both travelling left */
 .push .tA { animation: pushOut 3s ease-in-out infinite; }
 .push .tB { animation: pushIn 3s ease-in-out infinite; }

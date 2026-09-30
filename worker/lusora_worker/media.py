@@ -26,5 +26,19 @@ def probe_duration(stage: str, path: Path) -> float:
     return float(proc.stdout.strip())
 
 
+def probe_size(path: Path) -> tuple[int, int] | None:
+    """(width, height) of an image or video's first stream, or None when unreadable."""
+    proc = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+         "-of", "csv=p=0", str(path)],
+        capture_output=True, text=True,
+    )
+    try:
+        w, h = (int(v) for v in proc.stdout.strip().split(",")[:2])
+    except ValueError:
+        return None
+    return w, h
+
+
 def extract_audio(stage: str, video: Path, out_mp3: Path) -> None:
     run_ffmpeg(stage, ["-i", str(video), "-vn", "-acodec", "libmp3lame", "-q:a", "4", str(out_mp3)])

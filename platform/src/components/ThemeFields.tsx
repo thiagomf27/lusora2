@@ -23,6 +23,11 @@ import s from "./form.module.css";
 export const CAPTION_PRESETS = ["plain", "serif-lower-third", "boxed"] as const;
 export const MOTION_FEELS = ["slow_heavy", "neutral", "fast_light"] as const;
 export const GRAINS = ["none", "archival", "film"] as const;
+/** D112 — film texture: dust and tape always on; vintage and crt style the shots the compiler marks. */
+const DUSTS = ["none", "light", "heavy"] as const;
+const TAPES = ["none", "vhs"] as const;
+const VINTAGES = ["faded", "sepia", "none"] as const;
+const CRTS = ["tube", "none"] as const;
 
 /**
  * The families `engine/fonts/` actually carries (D70). Anything else renders in
@@ -35,7 +40,7 @@ export const FONTS = ["Inter", "Oswald", "Playfair Display"] as const;
 
 /** Every transition that is not a cut — the keys sound.per_transition takes. */
 const TRANSITION_KINDS = [
-  "crossfade", "fade", "fade_to_black", "flash", "push", "wipe", "whip", "zoom_through",
+  "crossfade", "fade", "fade_to_black", "flash", "push", "wipe", "whip", "zoom_through", "light_leak",
 ] as const;
 
 export const THEME_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
@@ -254,6 +259,8 @@ export default function ThemeFields({
     onChange(mergeTokenGroup(value, "motion", patch));
   const upSound = (patch: Partial<NonNullable<Theme["sound"]>>) =>
     onChange(mergeTokenGroup(value, "sound", patch));
+  const upTexture = (patch: Partial<NonNullable<Theme["texture"]>>) =>
+    onChange(mergeTokenGroup(value, "texture", patch));
 
   return (
     <div className={s.form}>
@@ -315,6 +322,41 @@ export default function ThemeFields({
         value={value.grain ?? "none"}
         options={GRAINS}
         onChange={(v) => onChange({ ...value, grain: v as Theme["grain"] })}
+      />
+
+      <div className={s.formLabel}>TEXTURE</div>
+      <div className={s.hint}>
+        Film texture over the picture (Remotion only). Dust and tape are always
+        on when set; vintage and crt say what a shot looks like when the style
+        pack&apos;s texture placement marks it.
+      </div>
+      <OptionalSelect
+        label="dust"
+        value={value.texture?.dust}
+        options={DUSTS}
+        unsetNote="none"
+        onChange={(v) => upTexture({ dust: v as never })}
+      />
+      <OptionalSelect
+        label="tape"
+        value={value.texture?.tape}
+        options={TAPES}
+        unsetNote="none"
+        onChange={(v) => upTexture({ tape: v as never })}
+      />
+      <OptionalSelect
+        label="vintage"
+        value={value.texture?.vintage}
+        options={VINTAGES}
+        unsetNote="faded"
+        onChange={(v) => upTexture({ vintage: v as never })}
+      />
+      <OptionalSelect
+        label="crt"
+        value={value.texture?.crt}
+        options={CRTS}
+        unsetNote="tube"
+        onChange={(v) => upTexture({ crt: v as never })}
       />
 
       <div className={s.formLabel}>SURFACE</div>
