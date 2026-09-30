@@ -174,6 +174,7 @@ def compile_plan(
         if item:
             overlays.append(item)
     overlays.sort(key=lambda o: o["start_s"])
+    overlays = _dive_first(overlays, total_end, on_note)
     pinned_cues: list[tuple[str, float, str]] = []
     if hook_rules:
         overlays, pinned_cues = _hook_overlays(
@@ -362,6 +363,35 @@ def _hook_overlays(
         if card["hit_cue"]:
             pinned.append((str(card["hit_cue"]), start, "o_hook_title"))
     return out, pinned
+
+
+def _dive_first(
+    overlays: list[dict[str, Any]], total_end: float, on_note: Callable[[str], None] | None,
+) -> list[dict[str, Any]]:
+    """A satellite dive owns its seconds (D110, the user's call): a graphic it
+    would sit on moves to just after it, keeping its own length, or is dropped
+    when that would run past the video. Every other overlap is left to
+    _trim_overlay_holds, where the earlier graphic keeps the moment."""
+    dives = [o for o in overlays if o.get("component") == "SatelliteLocate" and (o.get("props") or {}).get("dive")]
+    if not dives:
+        return overlays
+    out = list(dives)
+    for o in overlays:
+        if o in dives:
+            continue
+        clash = next((d for d in dives if float(o["start_s"]) < float(d["end_s"]) and float(o["end_s"]) > float(d["start_s"])), None)
+        if clash is None:
+            out.append(o)
+            continue
+        length = float(o["end_s"]) - float(o["start_s"])
+        start = float(clash["end_s"])
+        if start + max(length, _readable_minimum(o)) > total_end:
+            _report(on_note, o, "it would sit under the satellite dive, and there is no room after it")
+            continue
+        moved = {**o, "start_s": round(start, 3), "end_s": round(start + max(length, _readable_minimum(o)), 3)}
+        _moved(on_note, moved, "after the satellite dive")
+        out.append(moved)
+    return sorted(out, key=lambda o: o["start_s"])
 
 
 # ---------------- helpers ----------------

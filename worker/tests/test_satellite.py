@@ -119,3 +119,27 @@ def test_a_dive_compiles_on_a_place_anchor_landing_on_its_words():
     assert dive["component"] == "SatelliteLocate" and dive["props"]["dive"] is True
     # "Berlin" is the 5th of 10 words over 8 s: said at ~3.2 s, the dive starts just before
     assert 2.5 < dive["start_s"] < 3.4, "it starts on 'Berlin', not at the top of the beat"
+
+
+def test_the_dive_may_sit_next_to_a_graphic_and_the_graphic_moves_after_it():
+    """The user's call (D110): the dive is the hook's strongest form. On the
+    Centralia hook "the town of Centralia" sits right before the "1,000 -> 5"
+    split, and the neighbour rule dropped the dive twice."""
+    from lusora_worker.compiler import core
+
+    beats = [{"id": "b3", "kind": "narration", "script_text": "The roads lead nowhere. And the town of Berlin,"},
+             {"id": "b4", "kind": "narration", "script_text": "once home to 1,000 people, now has just 5."}]
+    kept, dropped = hook_plan.check([{"beat": "b3", "form": "satellite", "says": "Berlin", "place": "Berlin"}],
+                                    beats, {"b4"})
+    assert dropped == [] and kept[0]["form"] == "satellite"
+    lost, why = hook_plan.check([{"beat": "b3", "form": "headline", "says": "roads", "text": "ROADS"}], beats, {"b4"})
+    assert lost == [] and "neighbouring" in why[0], "every other form still yields"
+
+    notes = []
+    dive = {"id": "o_b3", "component": "SatelliteLocate", "props": {"dive": True}, "start_s": 3.0, "end_s": 8.0}
+    split = {"id": "o_b4", "kind": "component", "component": "ComparisonSplit", "props": {}, "start_s": 5.0, "end_s": 10.0}
+    out = core._dive_first([dive, split], 60.0, notes.append)
+    moved = next(o for o in out if o["id"] == "o_b4")
+    assert moved["start_s"] == 8.0 and moved["end_s"] == 13.0, "after the dive, its own length kept"
+    assert "moved after the satellite dive" in notes[0]
+    assert core._dive_first([dive, split], 9.0, notes.append) == [dive], "no room after it: dropped"

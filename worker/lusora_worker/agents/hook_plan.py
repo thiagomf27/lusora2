@@ -56,7 +56,7 @@ def render_beats(hook_beats: list[dict[str, Any]], graphic: set[str]) -> str:
         if ids[i] in graphic:
             return " (GRAPHIC — never put anything here)"
         if any(ids[j] in graphic for j in (i - 1, i + 1) if 0 <= j < len(ids)):
-            return " (next to a graphic — never put anything here)"
+            return " (next to a graphic — only a satellite dive may go here)"
         return ""
 
     return "\n".join(f"[{b['id']}]{mark(i)} {str(b.get('script_text') or '').strip()}"
@@ -99,7 +99,9 @@ def check(
             continue
         index = order.index(beat_id)
         neighbours = [order[j] for j in (index - 1, index + 1) if 0 <= j < len(order)]
-        if any(n in graphic for n in neighbours):
+        # the dive is the exception (the user's call): it is the hook's
+        # strongest form, and a neighbouring graphic moves after it instead
+        if form != "satellite" and any(n in graphic for n in neighbours):
             # graphics hold ~3.5-6 s, across beat lines, and two on screen at
             # once is one too many: on the first 6a runs a CENTRALIA card
             # pushed the next beat's "1,000 -> 5" split off, and a headline was
