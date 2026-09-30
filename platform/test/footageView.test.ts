@@ -57,7 +57,7 @@ test("each shot lists its best candidates with a link, the placed one marked", a
   assert.equal(yt.link, "https://www.youtube.com/watch?v=abc&t=41s");
   assert.equal(yt.thumb, "/api/videos/vid_f/files/footage/thumbs/abc_03.jpg");
   assert.equal(photo.link, "https://commons.wikimedia.org/wiki/File:X.jpg");
-  assert.equal(photo.placed, true);
+  assert.equal(photo.used, true, "after resolve: what the plan placed");
   assert.equal(stock.link, "https://www.pexels.com/video/555/");
   assert.equal(stock.thumb, "https://img/555.jpg");
   assert.deepEqual(view.sheets, ["/api/videos/vid_f/files/sheets/sheet_01.jpg"]);
@@ -69,4 +69,34 @@ test("a video without judged footage has no review", async () => {
   write("vid_off", "shot_picks.json", { enabled: false, items: {} });
   assert.equal(footageView("vid_off"), null);
   assert.equal(footageView("vid_none"), null);
+});
+
+test("before the render it predicts each shot's pick: best 3+, not taken earlier, a choice first", async () => {
+  const { footageView } = await import("../src/lib/footageView.ts");
+  const id = "vid_pred";
+  const cand = (cid: string, rating: number) => ({ source: "stock", provider: "pexels", id: cid, rating, query: "q" });
+  write(id, "shot_picks.json", { enabled: true, items: {
+    v_b1_0: { beat_id: "b1", candidates: [cand("A", 5), cand("B", 4)] },
+    v_b1_1: { beat_id: "b1", candidates: [cand("A", 5), cand("C", 3)] },
+    v_b2: { beat_id: "b2", candidates: [cand("D", 2), cand("E", 1)] },
+    v_b3: { beat_id: "b3", candidates: [cand("F", 1)] },
+  } });
+  write(id, "beats.json", { beats: [{ id: "b1", script_text: "One." }, { id: "b2", script_text: "Two." }, { id: "b3", script_text: "Three." }] });
+  write(id, "edit_plan.json", { tracks: { visual: [
+    { id: "v_b1_0", beat_id: "b1", start_s: 0, end_s: 2, asset: {} },
+    { id: "v_b1_1", beat_id: "b1", start_s: 2, end_s: 4, asset: {} },
+    { id: "v_b2", beat_id: "b2", start_s: 4, end_s: 7, asset: {} },
+    { id: "v_b3", beat_id: "b3", start_s: 7, end_s: 9, asset: {} },
+  ] } });
+  const used = (v: any) => v.rows.map((r: any) => r.candidates.find((c: any) => c.used)?.id ?? null);
+  let view = footageView(id)!;
+  assert.equal(view.resolved, false);
+  assert.deepEqual(used(view), ["A", "C", "D", null], "A is taken by shot 1; D is the last resort; F (a 1) never");
+  assert.deepEqual(view.rows.map((r: any) => [r.shot, r.shots_in_beat]), [[1, 2], [2, 2], [1, 1], [1, 1]]);
+  assert.deepEqual(view.rows.map((r: any) => r.covered), [true, true, false, false]);
+
+  write(id, "footage_choices.json", { choices: { v_b1_0: { source: "stock", id: "B" } } });
+  view = footageView(id)!;
+  assert.deepEqual(used(view), ["B", "A", "D", null], "the choice goes first and frees A for shot 2");
+  assert.equal(view.rows[0].candidates.find((c: any) => c.id === "B")?.chosen, true);
 });

@@ -424,6 +424,20 @@ def test_a_weak_pick_beats_the_plain_search_and_an_unusable_one_does_not(tmp_pat
     assert adapter.searched == ["v0", "v3"]
 
 
+def test_a_choice_made_at_the_gate_is_placed_over_the_judges_pick(tmp_path, stock, monkeypatch):
+    """D109: a person picked a lower-rated candidate for v1, and the same clip
+    v0 already shows for v2 — both are theirs to make."""
+    adapter = stock(OfferingStock({}))
+    (tmp_path / "footage_choices.json").write_text(json.dumps({"choices": {
+        "v1": {"source": "stock", "id": "c"}, "v2": {"source": "stock", "id": "a"}}}))
+    placed = _resolve(tmp_path, adapter, {
+        "v0": [("a", 5)],
+        "v1": [("b", 5), ("c", 2)],
+        "v2": [("d", 4), ("a", 3)],
+    }, monkeypatch)
+    assert [v["asset"]["id"] for v in placed] == ["a", "c", "a"]
+
+
 def test_an_uploaded_picks_file_is_checked(tmp_path, stock, monkeypatch):
     from lusora_worker.pipeline import steps
 

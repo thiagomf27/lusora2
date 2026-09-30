@@ -1163,6 +1163,7 @@ def run_resolve_assets(ctx: StageContext) -> None:
         if problems:
             raise StageError("resolve_assets", "shot_picks.json invalid: " + "; ".join(problems[:5]))
     min_rating = int(pick_agent.settings(ctx.cfg)["min_rating"])
+    choices = (ctx.read_json("footage_choices.json").get("choices") or {}) if ctx.has("footage_choices.json") else {}
     # the judge always reports a corner logo; it is cropped only on request
     # (the user: a small channel logo does not need cropping)
     crop_logos = bool(pick_agent.settings(ctx.cfg)["crop_logos"])
@@ -1173,6 +1174,18 @@ def run_resolve_assets(ctx: StageContext) -> None:
         if hook_rules.get("enabled") and hook_rules.get("open_on", "footage") == "footage" else None
 
     def picked(item: dict, snapshot: sources.Ledger) -> sources.Resolution | None:
+        # D109: a person's choice at the footage gate comes first — over the
+        # judge's ranking, the opening-shot rule and the repeat ledger alike
+        choice = choices.get(str(item["id"]))
+        if choice:
+            chosen = [c for c in ((picks.get("items") or {}).get(str(item["id"])) or {}).get("candidates") or []
+                      if str(c["id"]) == str(choice.get("id")) and c["source"] == choice.get("source")]
+            found = fetch_first(item, chosen, snapshot, honour=True)
+            if found is not None:
+                return found
+            ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                         f"beat {item.get('beat_id')}: the chosen {choice.get('source')} {choice.get('id')} "
+                         "could not be fetched — using the judge's pick")
         found = fetch_first(item, pick_agent.best_candidates(picks, str(item["id"]), min_rating), snapshot)
         if found is not None:
             return found
@@ -1192,11 +1205,12 @@ def run_resolve_assets(ctx: StageContext) -> None:
                          "— asking the plain search")
         return None
 
-    def fetch_first(item: dict, options: list[dict], snapshot: sources.Ledger) -> sources.Resolution | None:
-        if str(item["id"]) == opening_id:
+    def fetch_first(item: dict, options: list[dict], snapshot: sources.Ledger,
+                    honour: bool = False) -> sources.Resolution | None:
+        if str(item["id"]) == opening_id and not honour:
             options = [c for c in options if c["source"] != "archive"]  # archive = photos
         for candidate in options:
-            if snapshot.blocked(str(candidate["source"]), candidate.get("provider"), str(candidate["id"])):
+            if not honour and snapshot.blocked(str(candidate["source"]), candidate.get("provider"), str(candidate["id"])):
                 continue
             source_cfg = next((c for c in chain if str(c.get("source")) == candidate["source"]), None)
             adapter = sources.ADAPTERS.get(str(candidate["source"]))

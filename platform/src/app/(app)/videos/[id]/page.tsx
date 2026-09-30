@@ -102,6 +102,8 @@ export default function VideoPage() {
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [channel, setChannel] = useState<ChannelRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  // null = follow the default (open only at the script gate); a click remembers
+  const [scriptOpenPref, setScriptOpenPref] = useState<boolean | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [noteText, setNoteText] = useState("");
@@ -293,6 +295,7 @@ export default function VideoPage() {
   const playable = ["rendered", "in_review", "approved", "posted"].includes(video.status);
   // The script is editable only where nothing has been built from it yet.
   const atScriptGate = video.status === "awaiting_approval" && video.pending_gate === "script";
+  const scriptOpen = scriptOpenPref ?? atScriptGate;
 
   /** Where this run actually is: the snapshot's stage list against the log. */
   const run = (() => {
@@ -486,8 +489,11 @@ export default function VideoPage() {
                   <div className={s.scriptMeta}>
                     {(scriptDraft ?? script).trim().split(/\s+/).length} words
                   </div>
+                  <button type="button" className={s.disclose} onClick={() => setScriptOpenPref(!scriptOpen)}>
+                    {scriptOpen ? "Hide script" : "Show script"}
+                  </button>
                 </div>
-                {atScriptGate && canReview ? (
+                {!scriptOpen ? null : atScriptGate && canReview ? (
                   <>
                     <TextInput
                       multiline
@@ -521,6 +527,7 @@ export default function VideoPage() {
               videoId={id}
               refreshKey={`${video.status}:${video.pending_gate ?? ""}`}
               canAsk={canReview && video.status === "awaiting_approval" && video.pending_gate === "pick_shots"}
+              defaultOpen={video.status === "awaiting_approval" && video.pending_gate === "pick_shots"}
               onAsked={load}
             />
 
