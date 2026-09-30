@@ -46,11 +46,21 @@ def _contains(haystack: list[str], needle: list[str]) -> bool:
 
 
 def render_beats(hook_beats: list[dict[str, Any]], graphic: set[str]) -> str:
-    return "\n".join(
-        f"[{b['id']}]{' (GRAPHIC — never put anything here)' if str(b['id']) in graphic else ''} "
-        f"{str(b.get('script_text') or '').strip()}"
-        for b in hook_beats
-    )
+    """The hook, beat by beat, with every beat a moment may not use marked —
+    the graphic beats AND their neighbours (a moment there would collide).
+    Marking only the graphics had the model spend its whole answer on beats
+    the rules then dropped: on the first 6b run, three of three."""
+    ids = [str(b["id"]) for b in hook_beats]
+
+    def mark(i: int) -> str:
+        if ids[i] in graphic:
+            return " (GRAPHIC — never put anything here)"
+        if any(ids[j] in graphic for j in (i - 1, i + 1) if 0 <= j < len(ids)):
+            return " (next to a graphic — never put anything here)"
+        return ""
+
+    return "\n".join(f"[{b['id']}]{mark(i)} {str(b.get('script_text') or '').strip()}"
+                     for i, b in enumerate(hook_beats))
 
 
 def check(

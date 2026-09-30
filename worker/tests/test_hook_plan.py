@@ -130,6 +130,8 @@ def test_the_plan_asks_once_and_keeps_only_the_rule_abiding(tmp_path):
 
     doc = hook_plan.plan(ctx, BEATS, {"b3"}, chat_fn=chat)
     assert "[b3] (GRAPHIC — never put anything here)" in users[0]
+    assert "[b2] (next to a graphic — never put anything here)" in users[0], "its neighbours are off limits too"
+    assert "[b1] In a quiet corner" in users[0]
     assert [m["props"]["text"] for m in doc["moments"]] == ["MAY 1962"]
     assert len(doc["dropped"]) == 1
 
