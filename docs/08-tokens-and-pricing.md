@@ -121,6 +121,15 @@ Operations currently priced: `llm.generate_script`, `llm.plan_beats`,
 `llm.chat_edit`, `tts.narrate`, `whisper.transcribe`, `image.generate`,
 `stock.search`, `stock.download`.
 
+**`gemini` (D116)** is priced at $0 for every `llm.*`/`vision.*` operation:
+the operator's `GEMINI_API_KEY` is on the free tier, so every call is free but
+tokens are still recorded (from `usageMetadata`), exactly like `claude_cli`'s
+subscription call. If the key is ever moved to a paid tier, update the
+`gemini` block in `prices.json` to Google's per-token rate for the model
+actually in use (`by_model`, as the `deepseek` block does) rather than a flat
+rate — a paid Gemini call's output tokens cost more than its input ones, same
+as every other reasoning-capable model in the table.
+
 ⚠️ **The DeepSeek rate is stale.** `0.00000028/token` ($0.28/M) predates
 the v4 migration and was set as a placeholder (OQ-15). Since v4 also
 burns 3x the tokens per plan, reported per-video LLM cost is currently
@@ -206,6 +215,8 @@ Resolution order, most specific first:
 | `deepseek` | `deepseek-v4-pro` | `DEEPSEEK_API_KEY` | api.deepseek.com/v1 |
 | `openai` | `gpt-4o-mini` | `OPENAI_API_KEY` | api.openai.com/v1 |
 | `anthropic` | `claude-haiku-4-5-20251001` | `ANTHROPIC_API_KEY` | api.anthropic.com/v1 |
+| `gemini` | `gemini-3.8-flash` (env `GEMINI_MODEL` overrides) | `GEMINI_API_KEY` | generativelanguage.googleapis.com/v1beta |
+| `claude_cli` | `sonnet` | none — the CLI's own login | — |
 | `mock` | — | none | deterministic fallback, $0 |
 
 Which provider runs is `channel.script.llm` / `channel.planner.llm`
@@ -217,6 +228,20 @@ Anthropic otherwise.
 env var and tells you to switch the channel to `mock`. `mock` is priced
 at $0 for every operation and is the way to exercise the pipeline
 without spending.
+
+### Fallback chains and `answered_by` (D116)
+
+Any of the `llm` fields above may hold a **list** instead of a single
+provider name — `["claude_cli", "gemini", "deepseek"]` — tried in order,
+skipping one a shared quota ledger has marked out (429/quota, or 401/403/
+login), moving the same call to the next at once on any other failure. The
+budget gate still prices its ESTIMATE against one provider
+(`llm.gate_provider(chain)` — the first element not marked out), but the
+element that actually answers can differ from that estimate, so every cost
+event's `details` carries `answered_by: "<provider>"` — read that field, not
+`provider`, when a channel uses a chain and you want to know who was really
+billed. A plain string is unaffected: `answered_by` there always equals the
+provider you configured.
 
 ---
 

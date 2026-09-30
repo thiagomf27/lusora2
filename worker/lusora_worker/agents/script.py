@@ -64,7 +64,9 @@ def read_brief(ctx: StageContext) -> str:
 
 def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
     cfg_script = ctx.cfg.get("script") or {}
-    provider = str(cfg_script.get("llm") or "deepseek")
+    provider = cfg_script.get("llm") or "deepseek"
+    chain = llm.chain_of(provider)
+    gate_provider = llm.gate_provider(chain)
     style = ctx.cfg.get("style_pack_doc") or {}
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     seconds = target_seconds(ctx.cfg)
@@ -88,14 +90,16 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
     )
 
     max_tokens = int((prompt or {}).get("max_tokens") or 8000)
-    model = cfg_script.get("model") or (prompt or {}).get("model_hint")
+    # the channel's separate model field applies only when llm is a plain
+    # string (D116); a chain's elements carry their own model, if any
+    model = None if isinstance(provider, list) else (cfg_script.get("model") or (prompt or {}).get("model_hint"))
     # the one task in the pipeline where a second sample being different is the
     # point, so the script pack states no temperature and inherits the house
     # default (D85)
     temperature = prompt_packs.temperature(ROLE, prompt)
     est_tokens = 1200
     with budget_gate(
-        ctx, stage=STAGE, provider=provider, operation="llm.generate_script",
+        ctx, stage=STAGE, provider=gate_provider, operation="llm.generate_script",
         estimated_units=est_tokens,
         details={"title": str(ctx.video.get("title") or "")[:80],
                  "prompt": (prompt or {}).get("name", "default")},
@@ -104,8 +108,9 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         # prose, not JSON: asking DeepSeek for json_object here is a 400 (D90)
         result = chat_fn(provider, model, system, user, max_tokens, temperature, expect_json=False)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
-                                          "output_tokens": result.output_tokens})
-    ctx.db.provider_health(f"llm.{provider}", True)
+                                          "output_tokens": result.output_tokens,
+                                          "answered_by": result.provider})
+    ctx.db.provider_health(f"llm.{result.provider}", True)
 
     text = result.text.strip()
     target_words = round(seconds * WORDS_PER_SECOND)
@@ -123,7 +128,7 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
                 "prompt pack, or upload script.txt",
             )
         with budget_gate(
-            ctx, stage=STAGE, provider=provider, operation="llm.generate_script",
+            ctx, stage=STAGE, provider=gate_provider, operation="llm.generate_script",
             estimated_units=est_tokens,
             details={"repair": attempt + 1, "prompt": (prompt or {}).get("name", "default")},
             model=model,
@@ -137,7 +142,8 @@ def generate_script(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
             )
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens,
-                                              "repair": attempt + 1})
+                                              "repair": attempt + 1,
+                                              "answered_by": result.provider})
         text = result.text.strip()
     return text
 
@@ -172,10 +178,12 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
     is a phase of the planner."""
     title = str(ctx.video.get("title") or "").strip()
     cfg_script = ctx.cfg.get("script") or {}
-    provider = str(cfg_script.get("llm") or "deepseek")
+    provider = cfg_script.get("llm") or "deepseek"
+    chain = llm.chain_of(provider)
 
-    if not research_enabled(ctx.cfg) or provider == "mock":
+    if not research_enabled(ctx.cfg) or chain == ["mock"]:
         return title_only_brief(title)
+    gate_provider = llm.gate_provider(chain)
 
     prompt = (ctx.cfg.get("prompts") or {}).get(RESEARCH_ROLE)
     system, user = prompt_packs.compose(
@@ -191,10 +199,10 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
     )
 
     max_tokens = int((prompt or {}).get("max_tokens") or 4000)
-    model = cfg_script.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (cfg_script.get("model") or (prompt or {}).get("model_hint"))
     temperature = prompt_packs.temperature(RESEARCH_ROLE, prompt)
     with budget_gate(
-        ctx, stage=RESEARCH_STAGE, provider=provider, operation="llm.generate_research",
+        ctx, stage=RESEARCH_STAGE, provider=gate_provider, operation="llm.generate_research",
         estimated_units=900,
         details={"title": title[:80], "prompt": (prompt or {}).get("name", "default")},
         model=model,
@@ -202,6 +210,7 @@ def generate_research(ctx: StageContext, chat_fn: llm.ChatFn = llm.chat) -> str:
         # prose, not JSON: asking DeepSeek for json_object here is a 400 (D90)
         result = chat_fn(provider, model, system, user, max_tokens, temperature, expect_json=False)
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
-                                          "output_tokens": result.output_tokens})
-    ctx.db.provider_health(f"llm.{provider}", True)
+                                          "output_tokens": result.output_tokens,
+                                          "answered_by": result.provider})
+    ctx.db.provider_health(f"llm.{result.provider}", True)
     return result.text.strip()

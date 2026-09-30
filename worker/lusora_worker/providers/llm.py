@@ -28,6 +28,7 @@ import httpx
 from lusora_contracts.prompts import HOUSE_TEMPERATURE
 
 from ..errors import StageError
+from . import quota
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,19 @@ PROVIDERS: dict[str, Provider] = {
         "claude_cli", "", "sonnet", "",
         json_mode=False, max_temperature=1.0, vision=True,
     ),
+    # D116 — Google's Gemini API, keyed by GEMINI_API_KEY. `gemini-3.8-flash`
+    # was the newest stable (non-preview, non-lite) Flash model GEMINI_API_KEY
+    # had on its `GET /v1beta/models` listing when this was written; that
+    # listing is per-key and changes over time, so GEMINI_MODEL overrides it.
+    # `json_mode` is false even though the REST call DOES have a JSON mode
+    # (`responseMimeType`): that flag means "send openai's response_format",
+    # a key only the openai-kind branch reads — gemini's own branch asks for
+    # JSON directly from `expect_json`, never through this field.
+    "gemini": Provider(
+        "gemini", "https://generativelanguage.googleapis.com/v1beta",
+        os.environ.get("GEMINI_MODEL") or "gemini-3.8-flash", "GEMINI_API_KEY",
+        json_mode=False, max_temperature=2.0, vision=True,
+    ),
 }
 
 
@@ -95,6 +109,10 @@ class LLMResult:
     text: str
     input_tokens: int
     output_tokens: int
+    # D116 — which element of a chain actually answered, so a caller can bill
+    # and log the real provider rather than the chain it was offered.
+    provider: str = ""
+    model: str = ""
 
     @property
     def total_tokens(self) -> int:
@@ -108,8 +126,42 @@ class LLMResult:
 ChatFn = Callable[..., LLMResult]
 
 
+def chain_of(value: str | list[str] | None, default: str | list[str] = "mock") -> list[str]:
+    """Normalize a channel's `llm` field into an ordered list of elements
+    (D116). `None` becomes `default`; a bare string becomes a one-element
+    chain; a list is returned as-is (stringified). Every caller that used to
+    compare a plain string against `"mock"` compares `chain_of(value) ==
+    ["mock"]` instead — a list would otherwise stringify to `"['a', 'b']"`,
+    which is never `"mock"` and used to silently mean "call the real API"."""
+    if value is None:
+        value = default
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    return [str(value)]
+
+
+def _parse_element(element: str) -> tuple[str, str | None]:
+    """`"provider"` or `"provider/model"` -> `(provider, model)`."""
+    name, sep, model = element.partition("/")
+    return name, (model or None) if sep else None
+
+
+def gate_provider(chain: list[str]) -> str:
+    """The provider name the budget gate should price the ESTIMATE against:
+    the first element the ledger does not mark out, so a channel whose first
+    choice is quota-exhausted is not quoted a price for a call it was never
+    going to make. When every element is out, the first one anyway — the gate
+    then raises its own actionable price/budget error instead of crashing on
+    an empty chain."""
+    for element in chain:
+        name, _ = _parse_element(element)
+        if not quota.out_reason(name):
+            return name
+    return _parse_element(chain[0])[0]
+
+
 def chat(
-    provider: str,
+    provider: str | list[str],
     model: str | None,
     system: str,
     user: str,
@@ -117,7 +169,57 @@ def chat(
     temperature: float = HOUSE_TEMPERATURE,
     expect_json: bool = True,
 ) -> LLMResult:
-    """One completion. `expect_json` is the CALL's half of JSON mode (D90).
+    """One completion, from the first element of `provider` (a plain provider
+    name, or a fallback chain — D116) that is ready and answers.
+
+    An element out in the quota ledger is skipped without being tried; an
+    element that fails moves the SAME call to the next one at once, and the
+    failure is classified into the shared ledger so later calls skip it too.
+    `result.provider`/`result.model` name whichever element actually
+    answered. Every element failing raises one `StageError` naming each and
+    why; a single-provider (non-chain) call that fails raises exactly that
+    provider's own error, unchanged, so a plain string behaves exactly as it
+    did before chains existed.
+    """
+    chain = chain_of(provider, provider)
+    errors: list[str] = []
+    marks: list[tuple[str, str]] = []
+    for element in chain:
+        name, elem_model = _parse_element(element)
+        reason = quota.out_reason(name)
+        if reason:
+            errors.append(f"{name}: {reason}")
+            continue
+        try:
+            result = _chat_one(name, elem_model or model, system, user, max_tokens, temperature, expect_json)
+        except StageError as exc:
+            out, seconds = quota.classify(name, getattr(exc, "http_detail", str(exc)), getattr(exc, "http_status", None))
+            if out:
+                quota.mark_out(name, str(exc), seconds)
+                marks.append((name, str(exc)[:200]))
+            if len(chain) == 1:
+                exc.marks = marks
+                raise
+            errors.append(f"{name}: {exc}")
+            continue
+        result.provider = name
+        result.model = elem_model or model or PROVIDERS[name].default_model
+        return result
+    raise StageError("llm", "every provider in the chain failed: " + "; ".join(errors), marks=marks)
+
+
+def _chat_one(
+    provider: str,
+    model: str | None,
+    system: str,
+    user: str,
+    max_tokens: int,
+    temperature: float,
+    expect_json: bool,
+) -> LLMResult:
+    """One completion from exactly ONE named provider — `chat()`'s old body,
+    before chains existed. `expect_json` is the CALL's half of JSON mode
+    (D90).
 
     The provider declares whether it CAN take `response_format`; the caller
     declares whether this answer is JSON at all. Both are needed: DeepSeek
@@ -190,6 +292,32 @@ def chat(
                 input_tokens=int(usage.get("prompt_tokens", 0)),
                 output_tokens=int(usage.get("completion_tokens", 0)),
             )
+        elif kind == "gemini":
+            # D116 — Gemini's system text is a top-level field, not a message;
+            # `expect_json` maps to `responseMimeType`, the REST equivalent of
+            # the openai branch's `response_format` (never gated on
+            # `spec.json_mode`, which only that branch reads).
+            gen_config: dict = {"temperature": temperature, "maxOutputTokens": max_tokens}
+            if expect_json:
+                gen_config["responseMimeType"] = "application/json"
+            resp = httpx.post(
+                f"{base_url}/models/{model}:generateContent",
+                headers={"x-goog-api-key": api_key},
+                json={
+                    "contents": [{"role": "user", "parts": [{"text": user}]}],
+                    "systemInstruction": {"parts": [{"text": system}]},
+                    "generationConfig": gen_config,
+                },
+                timeout=180,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            usage = data.get("usageMetadata") or {}
+            return LLMResult(
+                text=_gemini_text(data),
+                input_tokens=int(usage.get("promptTokenCount", 0)),
+                output_tokens=int(usage.get("candidatesTokenCount", 0)),
+            )
         else:  # anthropic
             resp = httpx.post(
                 f"{base_url}/messages",
@@ -215,9 +343,15 @@ def chat(
                 output_tokens=int(usage.get("output_tokens", 0)),
             )
     except httpx.HTTPStatusError as e:
-        raise StageError(
+        # the FULL body, never truncated, rides on the exception for the
+        # quota ledger to classify (D116) — a retry hint can sit past the
+        # 200 chars a human-readable message keeps
+        err = StageError(
             "llm", f"{provider} API error {e.response.status_code}: {e.response.text[:200]}"
         )
+        err.http_status = e.response.status_code
+        err.http_detail = e.response.text
+        raise err
     except httpx.HTTPError as e:
         raise StageError("llm", f"{provider} API unreachable: {e}")
 
@@ -227,7 +361,7 @@ SeeFn = Callable[..., LLMResult]
 
 
 def see(
-    provider: str,
+    provider: str | list[str],
     model: str | None,
     system: str,
     user: str,
@@ -235,8 +369,46 @@ def see(
     max_tokens: int = 4000,
     temperature: float = HOUSE_TEMPERATURE,
 ) -> LLMResult:
-    """One completion about `images` (D103). Refused, by name, on a provider
-    that does not declare `vision`."""
+    """One completion about `images` (D103), from the first ready element of
+    `provider` that answers — same chain rules as `chat()` (D116)."""
+    chain = chain_of(provider, provider)
+    errors: list[str] = []
+    marks: list[tuple[str, str]] = []
+    for element in chain:
+        name, elem_model = _parse_element(element)
+        reason = quota.out_reason(name)
+        if reason:
+            errors.append(f"{name}: {reason}")
+            continue
+        try:
+            result = _see_one(name, elem_model or model, system, user, images, max_tokens, temperature)
+        except StageError as exc:
+            out, seconds = quota.classify(name, getattr(exc, "http_detail", str(exc)), getattr(exc, "http_status", None))
+            if out:
+                quota.mark_out(name, str(exc), seconds)
+                marks.append((name, str(exc)[:200]))
+            if len(chain) == 1:
+                exc.marks = marks
+                raise
+            errors.append(f"{name}: {exc}")
+            continue
+        result.provider = name
+        result.model = elem_model or model or PROVIDERS[name].default_model
+        return result
+    raise StageError("llm", "every vision provider in the chain failed: " + "; ".join(errors), marks=marks)
+
+
+def _see_one(
+    provider: str,
+    model: str | None,
+    system: str,
+    user: str,
+    images: list[Path],
+    max_tokens: int,
+    temperature: float,
+) -> LLMResult:
+    """One completion about `images` from exactly ONE named provider (D103).
+    Refused, by name, on a provider that does not declare `vision`."""
     spec = PROVIDERS.get(provider)
     if spec is None:
         raise StageError("llm", f"unknown llm provider '{provider}' — known: {sorted(PROVIDERS)}")
@@ -270,6 +442,27 @@ def see(
             return LLMResult(text=data["choices"][0]["message"]["content"] or "",
                              input_tokens=int(usage.get("prompt_tokens", 0)),
                              output_tokens=int(usage.get("completion_tokens", 0)))
+        if spec.kind == "gemini":
+            parts: list[dict] = [{"inlineData": {"mimeType": mt, "data": b64}} for mt, b64 in encoded]
+            parts.append({"text": user})
+            resp = httpx.post(
+                f"{spec.base_url}/models/{model}:generateContent",
+                headers={"x-goog-api-key": api_key},
+                json={
+                    "contents": [{"role": "user", "parts": parts}],
+                    "systemInstruction": {"parts": [{"text": system}]},
+                    "generationConfig": {"temperature": temperature, "maxOutputTokens": max_tokens},
+                },
+                timeout=300,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            usage = data.get("usageMetadata") or {}
+            return LLMResult(
+                text=_gemini_text(data),
+                input_tokens=int(usage.get("promptTokenCount", 0)),
+                output_tokens=int(usage.get("candidatesTokenCount", 0)),
+            )
         blocks: list[dict] = [{"type": "image", "source": {"type": "base64", "media_type": mt, "data": b64}}
                               for mt, b64 in encoded]
         blocks.append({"type": "text", "text": user})
@@ -287,9 +480,25 @@ def see(
                          input_tokens=int(usage.get("input_tokens", 0)),
                          output_tokens=int(usage.get("output_tokens", 0)))
     except httpx.HTTPStatusError as e:
-        raise StageError("llm", f"{provider} API error {e.response.status_code}: {e.response.text[:200]}")
+        err = StageError("llm", f"{provider} API error {e.response.status_code}: {e.response.text[:200]}")
+        err.http_status = e.response.status_code
+        err.http_detail = e.response.text
+        raise err
     except httpx.HTTPError as e:
         raise StageError("llm", f"{provider} API unreachable: {e}")
+
+
+def _gemini_text(data: dict) -> str:
+    """Concatenate every non-thought text part across all candidates (Dark
+    Palace's `_texto_da_resposta`) — harmless today (no `thinkingConfig` is
+    sent, so nothing comes back marked `thought`), and cheap insurance against
+    a model that starts including reasoning text by default."""
+    return "".join(
+        p.get("text", "")
+        for c in data.get("candidates") or []
+        for p in (c.get("content") or {}).get("parts") or []
+        if isinstance(p.get("text"), str) and not p.get("thought")
+    )
 
 
 def _media_type(path: Path) -> str:

@@ -31,7 +31,7 @@ all depend on.
 | 2f | Beat planner — video pick (D104) | `worker/lusora_worker/agents/gather_footage.py` | `prompts/pick_videos/` + `welded/pick_videos.{system,user}.txt` | shares `channel.planner.llm` → `deepseek`; `mock` takes each subject's first result | 16000 tok, ≤2 attempts, temp 0.2 | `{picks: {"<subject id>": [result numbers]}}` | `gather_footage.validate_picks`; nothing is downloaded before it answers |
 | 2g | Overlay — hook moments (D107) | `worker/lusora_worker/agents/hook_plan.py` | `prompts/hook_plan/` + `welded/hook_plan.{system,user}.txt` | shares `channel.planner.llm` → `deepseek`; `mock` plans nothing | 16000 tok, one shot, temp 0.3 | `{moments: [{beat, form, says, text|word|caption|highlight|title|items}]}` | `hook_plan.check` — a moment breaking any rule is dropped, never repaired |
 | 2h | Narrative marks (D112) | `worker/lusora_worker/agents/narrative_marks.py` | `prompts/narrative_marks/` + `welded/narrative_marks.{system,user}.txt` | shares `channel.planner.llm` → `deepseek`; `mock`, a failed call or a bad answer falls back to the paragraph starts after the hook as turns; no call unless `style_pack.texture.placement` is `narrative` | 8000 tok, one shot, temp 0.2 | `{flashback: [beat ids], turns: [beat ids]}` | `narrative_marks.validate` (known ids only); `marks.json` against `marks.schema.json` at compile |
-| 8 | Shot judge (D103) | `worker/lusora_worker/agents/pick_shots.py` | `prompts/pick_shots/` + `welded/pick_shots.{system,user}.txt` | `source_policy.visual.pick.llm` → `claude_cli` (`sonnet`); `anthropic`, `openai` also see | one contact sheet per call, ≤2 attempts, temp 0.2 | `{ratings: [{n, rating 1-5, logo, desc}]}` | `validators.validate_ratings`; the stage's `shot_picks.json` against `shot_picks.schema.json` |
+| 8 | Shot judge (D103) | `worker/lusora_worker/agents/pick_shots.py` | `prompts/pick_shots/` + `welded/pick_shots.{system,user}.txt` | `source_policy.visual.pick.llm` → `claude_cli` (`sonnet`); `anthropic`, `openai`, `gemini` also see, or a chain of them (D116) | one contact sheet per call, ≤2 attempts, temp 0.2 | `{ratings: [{n, rating 1-5, logo, desc}]}` | `validators.validate_ratings`; the stage's `shot_picks.json` against `shot_picks.schema.json` |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
 prompts are data. 2b, 2c, 2d and 2e are not further agents: each is a PHASE of
@@ -85,6 +85,34 @@ packs; the script agent and the research phase stay at the house default of
 0.7, because those are the calls where a second sample being different is the
 point. 4–6 belong to the library service (its own boundary, its
 own model, its own prompts). 7 is barely a prompt — see gaps.
+
+### Providers and chains (D116)
+
+Every `llm` field in the table above — `script.llm`, `planner.llm`,
+`chat.llm`, `source_policy.visual.pick.llm` — takes a plain provider name
+(`"deepseek"`) exactly as before, OR a **fallback chain**: a list such as
+`["claude_cli", "gemini", "deepseek"]`. `llm.chat()`/`llm.see()` try each
+element in order, skip one the quota ledger has already marked out, and move
+the SAME call to the next element at once on a failure. Either form's
+elements may name a model with a `/model` suffix (`"gemini/gemini-2.5-flash"`,
+`"claude_cli/sonnet"`); the channel's separate `model` field keeps applying
+only when `llm` is a plain string — a chain's elements carry their own model,
+if any. `result.provider`/`result.model` name whichever element actually
+answered, and every caller writes that into its cost event as `answered_by`
+(see `docs/08-tokens-and-pricing.md`).
+
+`gemini` is a fifth provider (Google's Gemini API, keyed by `GEMINI_API_KEY`,
+default model `gemini-3.8-flash`, text and vision). A provider that fails for
+quota (HTTP 429, or "quota"/"rate limit"/"usage limit" in the error) or login
+(401/403, or "not logged in"/"login"/"unauthorized") is marked OUT in a
+shared, file-based ledger (`<videos_root>/../llm_quota.json`) until the time
+its own message gave, or a default (Gemini's daily quota until the next
+Pacific midnight; anything else 6 hours) — so the next call, from this video
+or another one, skips it instead of failing against it again. A network error
+or a 5xx is weather, not quota: the chain still moves on for that one call,
+but the provider is not marked out. A single-provider (non-chain) config that
+fails raises exactly the error it always did — chains are additive, and a
+plain string compiles, plans and calls byte-identically to before D116.
 
 ---
 

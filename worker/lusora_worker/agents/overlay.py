@@ -241,9 +241,10 @@ def select_overlays(
         return empty
 
     cfg_block = ctx.cfg.get("overlay") or ctx.cfg.get("planner") or {}
-    provider = str(cfg_block.get("llm") or "deepseek")
+    provider = cfg_block.get("llm") or "deepseek"
+    chain = llm.chain_of(provider)
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
-    model = cfg_block.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (cfg_block.get("model") or (prompt or {}).get("model_hint"))
     # 64k, matching the planner, and for the same reason: reasoning is billed
     # out of max_tokens and its length is not bounded by the prompt. One run
     # died here having spent all 32,000 completion tokens thinking, with none
@@ -252,8 +253,9 @@ def select_overlays(
     max_tokens = int((prompt or {}).get("max_tokens") or 64000)
     temperature = prompt_packs.temperature(ROLE, prompt)
 
-    if provider == "mock":
+    if chain == ["mock"]:
         return empty
+    gate_provider = llm.gate_provider(chain)
 
     target = max(1, int((ctx.cfg.get("planner") or {}).get("chunk_target_beats")
                         or DEFAULT_CHUNK_TARGET))
@@ -265,7 +267,7 @@ def select_overlays(
     def select(i: int, chunk: list[dict[str, Any]]) -> dict[str, Any]:
         return _select_chunk(
             ctx, chunk, beats, audio_duration_s, chat_fn,
-            provider, model, prompt, max_tokens, temperature,
+            provider, gate_provider, model, prompt, max_tokens, temperature,
             chunk_position=f"part {i + 1} of {len(chunks)}" if len(chunks) > 1 else "",
             share=len(chunk) / len(candidates) if len(chunks) > 1 else 1.0,
         )
@@ -320,7 +322,8 @@ def _select_chunk(
     beats: list[dict[str, Any]],
     audio_duration_s: float,
     chat_fn: llm.ChatFn,
-    provider: str,
+    provider: str | list[str],
+    gate_provider: str,
     model: Any,
     prompt: Any,
     max_tokens: int,
@@ -345,7 +348,7 @@ def _select_chunk(
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=provider, operation="llm.select_overlays",
+            ctx, stage=STAGE, provider=gate_provider, operation="llm.select_overlays",
             estimated_units=6000,
             details={"attempt": attempt, "candidates": len(candidates),
                      "prompt": (prompt or {}).get("name", "default")},
@@ -354,7 +357,8 @@ def _select_chunk(
             result = chat_fn(provider, model, system, user, max_tokens, temperature)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens,
-                                              "attempt": attempt})
+                                              "attempt": attempt,
+                                              "answered_by": result.provider})
         try:
             doc = llm.extract_json(result.text)
         except (ValueError, json.JSONDecodeError) as exc:
@@ -367,7 +371,7 @@ def _select_chunk(
             if chunk_position:
                 violations += _outside_this_chunk(doc, candidates)
             if not violations:
-                ctx.db.provider_health(f"llm.{provider}", True)
+                ctx.db.provider_health(f"llm.{result.provider}", True)
                 ctx.db.event(
                     ctx.video_id, STAGE, "progress",
                     f"{chunk_position or 'overlays'} accepted on attempt {attempt} "

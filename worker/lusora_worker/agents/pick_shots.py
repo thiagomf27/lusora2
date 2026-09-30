@@ -229,7 +229,10 @@ def judge(
 ) -> list[dict] | None:
     """One sheet's ratings, repaired once; None when the judge could not
     answer, so its shots fall back to the plain search."""
-    provider, model = str(conf["llm"]), conf.get("model")
+    provider = conf["llm"]
+    chain = llm.chain_of(provider)
+    gate_provider = llm.gate_provider(chain)
+    model = None if isinstance(provider, list) else conf.get("model")
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
     temperature = prompt_packs.temperature(ROLE, prompt)
     system, base_user = _build_prompt(ctx, rows_text, count)
@@ -237,7 +240,7 @@ def judge(
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             with budget_gate(
-                ctx, stage=STAGE, provider=provider, operation="vision.pick_shots",
+                ctx, stage=STAGE, provider=gate_provider, operation="vision.pick_shots",
                 estimated_units=3000, model=model,
                 details={"sheet": label, "candidates": count, "attempt": attempt},
             ) as cost:
@@ -250,9 +253,11 @@ def judge(
                     raise _JudgeDown(str(exc)) from exc
                 cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                                   "output_tokens": result.output_tokens,
-                                                  "sheet": label, "attempt": attempt})
+                                                  "sheet": label, "attempt": attempt,
+                                                  "answered_by": result.provider})
         except _JudgeDown as exc:
-            ctx.db.provider_health(f"vision.{provider}", False, str(exc)[:200])
+            for name, reason in getattr(exc.__cause__, "marks", None) or [(gate_provider, str(exc)[:200])]:
+                ctx.db.provider_health(f"vision.{name}", False, reason[:200])
             ctx.db.event(ctx.video_id, STAGE, "progress",
                          f"{label}: the judge did not answer ({str(exc)[:160]}) — plain search for its shots")
             return None
@@ -263,7 +268,7 @@ def judge(
         else:
             violations = validate_ratings(answer, count)
             if not violations:
-                ctx.db.provider_health(f"vision.{provider}", True)
+                ctx.db.provider_health(f"vision.{result.provider}", True)
                 return answer["ratings"]
             if attempt == MAX_ATTEMPTS and all(v.startswith("not rated") for v in violations):
                 # What it did rate is a real answer; the thumbnails it skipped
@@ -304,7 +309,7 @@ def pick(
     plain search placed exactly the first hit the judge had just rated 1."""
     conf = settings(ctx.cfg)
     doc: dict[str, Any] = {"version": "1.0", "video_id": ctx.video_id, "enabled": True,
-                           "provider": str(conf["llm"]), "model": conf.get("model"),
+                           "provider": conf["llm"], "model": conf.get("model"),
                            "sheets": 0, "unjudged": [], "items": {}}
     limit = int(conf["candidates_per_shot"])
     min_rating = int(conf["min_rating"])
@@ -361,7 +366,7 @@ def _round(
         first_row = g * per_sheet
         rows = [found[str(item["id"])] for item, _beat in group]
         label = f"{'round 2 ' if prefix else ''}sheet {g + 1}/{len(groups)}"
-        if conf["llm"] == "mock":
+        if llm.chain_of(conf["llm"]) == ["mock"]:
             numbered = [(r, c) for r, row in enumerate(rows) for c in row]
             return g, numbered, mock_ratings(len(numbered))
         sheet, numbered = build_sheet(workdir, rows, first_row, limit, f"{prefix}sheet_{g + 1:02d}")

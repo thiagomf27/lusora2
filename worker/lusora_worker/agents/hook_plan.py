@@ -228,11 +228,13 @@ def plan(
     doc: dict[str, Any] = {"version": "1.0", "video_id": ctx.video_id, "mode": "headlines",
                            "moments": [], "dropped": []}
     planner = ctx.cfg.get("planner") or {}
-    provider = str(planner.get("llm") or "mock")
-    if provider == "mock" or not hook_beats:
+    provider = planner.get("llm") or "mock"
+    chain = llm.chain_of(provider)
+    if chain == ["mock"] or not hook_beats:
         return doc
+    gate_provider = llm.gate_provider(chain)
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
-    model = planner.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (planner.get("model") or (prompt or {}).get("model_hint"))
     subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else {}
     system, user = prompt_packs.compose(ROLE, prompt, {
         "beats": render_beats(hook_beats, graphic),
@@ -240,12 +242,13 @@ def plan(
         "content_rules": str(ctx.cfg.get("content_rules") or ""),
         "instructions": str((ctx.cfg.get("overrides") or {}).get("instructions") or ""),
     })
-    with budget_gate(ctx, stage=STAGE, provider=provider, operation="llm.hook_plan",
+    with budget_gate(ctx, stage=STAGE, provider=gate_provider, operation="llm.hook_plan",
                      estimated_units=3000, model=model, details={"beats": len(hook_beats)}) as cost:
         result = chat_fn(provider, model, system, user, int((prompt or {}).get("max_tokens") or 16000),
                          prompt_packs.temperature(ROLE, prompt))
         cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
-                                          "output_tokens": result.output_tokens})
+                                          "output_tokens": result.output_tokens,
+                                          "answered_by": result.provider})
     try:
         answer = llm.extract_json(result.text)
     except (ValueError, json.JSONDecodeError) as exc:

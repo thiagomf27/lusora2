@@ -27,7 +27,7 @@ const LICENSES: LicenseKind[] = ["cc0", "cc-pd", "cc-by", "cc-by-sa", "cc-by-nd"
 const VOICE_PROVIDERS = ["local", "mock", "ai33"] as const;
 const LOCAL_VOICES = ["kal", "kal16", "awb", "rms", "slt"] as const; // flite voices
 const REQUEST_UNITS = ["sentence", "paragraph"] as const; // D93
-const LLMS = ["deepseek", "openai", "anthropic", "mock"] as const;
+const LLMS = ["deepseek", "openai", "anthropic", "gemini", "mock"] as const;
 const SCRIPT_GENERATORS = ["simple"] as const;
 const LANGUAGES = [
   "en-US", "en-GB", "pt-BR", "pt-PT", "es-ES", "es-MX", "de-DE", "fr-FR", "it-IT", "ja-JP",
@@ -133,6 +133,30 @@ function Select({
       ))}
     </select>
   );
+}
+
+/** D116 — `llm` is a provider name OR a fallback chain. A plain string keeps
+ *  the familiar select; a chain (saved by hand, or by a previous session)
+ *  shows as a comma-separated text box instead, so opening and saving the
+ *  form never flattens it back into one provider. */
+function LlmField({
+  value,
+  onChange,
+}: {
+  value: string | string[] | undefined;
+  onChange: (v: string | string[]) => void;
+}) {
+  if (Array.isArray(value)) {
+    return (
+      <input
+        value={value.join(", ")}
+        onChange={(e) =>
+          onChange(e.target.value.split(",").map((s) => s.trim()).filter(Boolean))
+        }
+      />
+    );
+  }
+  return <Select value={value ?? "mock"} options={LLMS} onChange={onChange} />;
 }
 
 export default function ChannelConfigForm({
@@ -402,17 +426,15 @@ export default function ChannelConfigForm({
           </label>
           <label className={s.field}>
             <span className={s.label}>Script LLM</span>
-            <Select
-              value={value.script?.llm ?? "mock"}
-              options={LLMS}
+            <LlmField
+              value={value.script?.llm}
               onChange={(v) => up({ script: { ...(value.script ?? {}), llm: v } })}
             />
           </label>
           <label className={s.field}>
             <span className={s.label}>Planner LLM</span>
-            <Select
-              value={value.planner?.llm ?? "mock"}
-              options={LLMS}
+            <LlmField
+              value={value.planner?.llm}
               onChange={(v) => up({ planner: { ...(value.planner ?? {}), llm: v } })}
             />
           </label>

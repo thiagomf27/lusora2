@@ -59,9 +59,10 @@ def find_subjects(
 ) -> dict[str, Any]:
     """One call, repaired up to three times, judged by `validate_subjects`."""
     planner_cfg = ctx.cfg.get("planner") or {}
-    provider = str(planner_cfg.get("llm") or "deepseek")
+    provider = planner_cfg.get("llm") or "deepseek"
+    gate_provider = llm.gate_provider(llm.chain_of(provider))
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
-    model = planner_cfg.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     max_tokens = int((prompt or {}).get("max_tokens") or 32000)
     temperature = prompt_packs.temperature(ROLE, prompt)
 
@@ -70,7 +71,7 @@ def find_subjects(
     attempts: list[str] = []
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=provider, operation="llm.subjects",
+            ctx, stage=STAGE, provider=gate_provider, operation="llm.subjects",
             estimated_units=4000,
             details={"attempt": attempt, "cuts": len(cuts),
                      "prompt": (prompt or {}).get("name", "default")},
@@ -79,7 +80,8 @@ def find_subjects(
             result = chat_fn(provider, model, system, user, max_tokens, temperature)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens,
-                                              "attempt": attempt})
+                                              "attempt": attempt,
+                                              "answered_by": result.provider})
         try:
             doc = llm.extract_json(result.text)
         except (ValueError, json.JSONDecodeError) as exc:
@@ -89,7 +91,7 @@ def find_subjects(
             doc["video_id"] = ctx.video_id  # ours, not the model's to get wrong
             violations = validate_subjects(doc, len(cuts))
             if not violations:
-                ctx.db.provider_health(f"llm.{provider}", True)
+                ctx.db.provider_health(f"llm.{result.provider}", True)
                 ctx.db.event(ctx.video_id, STAGE, "progress",
                              f"{len(doc['subjects'])} subjects accepted on attempt {attempt}")
                 return doc

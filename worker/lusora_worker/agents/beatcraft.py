@@ -334,9 +334,10 @@ def _craft_chunk(
     slice. Where there is only one chunk the slice IS the sheet, so this is
     exactly what the single call always did."""
     planner_cfg = ctx.cfg.get("planner") or {}
-    provider = str(planner_cfg.get("llm") or "deepseek")
+    provider = planner_cfg.get("llm") or "deepseek"
+    gate_provider = llm.gate_provider(llm.chain_of(provider))
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
-    model = planner_cfg.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     max_tokens = int((prompt or {}).get("max_tokens") or 64000)
     temperature = prompt_packs.temperature(ROLE, prompt)
 
@@ -353,7 +354,7 @@ def _craft_chunk(
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=provider, operation="llm.craft_beats",
+            ctx, stage=STAGE, provider=gate_provider, operation="llm.craft_beats",
             estimated_units=8000,
             details={"attempt": attempt, "cuts": len(cuts), "part": chunk_position or "whole",
                      "prompt": (prompt or {}).get("name", "default")},
@@ -362,7 +363,8 @@ def _craft_chunk(
             result = chat_fn(provider, model, system, user, max_tokens, temperature)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens,
-                                              "attempt": attempt})
+                                              "attempt": attempt,
+                                              "answered_by": result.provider})
         try:
             craft = llm.extract_json(result.text)
         except (ValueError, json.JSONDecodeError) as exc:
@@ -378,7 +380,7 @@ def _craft_chunk(
             violations += _subject_violations(ctx, cuts, craft)
             _raise_if_structural(violations)
             if not violations:
-                ctx.db.provider_health(f"llm.{provider}", True)
+                ctx.db.provider_health(f"llm.{result.provider}", True)
                 ctx.db.event(ctx.video_id, STAGE, "progress",
                              f"{chunk_position or 'beat craft'} accepted on attempt {attempt} "
                              f"({len(doc['beats'])} beats)")

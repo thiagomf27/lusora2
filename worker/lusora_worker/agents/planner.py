@@ -221,9 +221,10 @@ def _spine_sections(
         return None
 
     planner_cfg = ctx.cfg.get("planner") or {}
-    provider = str(planner_cfg.get("llm") or "deepseek")
+    provider = planner_cfg.get("llm") or "deepseek"
+    gate_provider = llm.gate_provider(llm.chain_of(provider))
     prompt = (ctx.cfg.get("prompts") or {}).get(SPINE_ROLE)
-    model = planner_cfg.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     system, user = prompt_packs.compose(
         SPINE_ROLE,
         prompt,
@@ -238,7 +239,7 @@ def _spine_sections(
 
     try:
         with budget_gate(
-            ctx, stage=STAGE, provider=provider, operation="llm.plan_spine",
+            ctx, stage=STAGE, provider=gate_provider, operation="llm.plan_spine",
             estimated_units=2000, details={"sections": section_count},
             model=model,
         ) as cost:
@@ -248,7 +249,8 @@ def _spine_sections(
                 prompt_packs.temperature(SPINE_ROLE, prompt),
             )
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
-                                              "output_tokens": result.output_tokens})
+                                              "output_tokens": result.output_tokens,
+                                              "answered_by": result.provider})
         doc = llm.extract_json(result.text)
         raw = doc.get("sections") or []
         starts = [int(s["start_sentence"]) for s in raw]
@@ -413,8 +415,9 @@ def _plan_chunk(
     here, where the repair loop can fix it cheaply."""
     planner_cfg = ctx.cfg.get("planner") or {}
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
-    provider = str(planner_cfg.get("llm") or "deepseek")
-    model = planner_cfg.get("model") or (prompt or {}).get("model_hint")
+    provider = planner_cfg.get("llm") or "deepseek"
+    gate_provider = llm.gate_provider(llm.chain_of(provider))
+    model = None if isinstance(provider, list) else (planner_cfg.get("model") or (prompt or {}).get("model_hint"))
     # 64k, not 16k: reasoning is billed out of max_tokens and its length is not
     # bounded by the prompt — a run that had been costing 4-9k spent 15.8k
     # thinking and truncated mid-JSON with 16k. The unused budget is free
@@ -437,7 +440,7 @@ def _plan_chunk(
     attempts: list[str] = []
     for attempt in range(1, MAX_ATTEMPTS + 1):
         with budget_gate(
-            ctx, stage=STAGE, provider=provider, operation="llm.plan_beats",
+            ctx, stage=STAGE, provider=gate_provider, operation="llm.plan_beats",
             estimated_units=12000,
             details={
                 "attempt": attempt,
@@ -450,7 +453,8 @@ def _plan_chunk(
             result = chat_fn(provider, model, system, user, max_tokens, temperature)
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
                                               "output_tokens": result.output_tokens,
-                                              "attempt": attempt})
+                                              "attempt": attempt,
+                                              "answered_by": result.provider})
         try:
             doc = llm.extract_json(result.text)
         except (ValueError, json.JSONDecodeError) as e:
@@ -460,7 +464,7 @@ def _plan_chunk(
             doc.setdefault("version", "1.1")
             violations = validate_beat_sheet(doc, script, ctx.cfg, validate_duration_s)
             if not violations:
-                ctx.db.provider_health(f"llm.{provider}", True)
+                ctx.db.provider_health(f"llm.{result.provider}", True)
                 ctx.db.event(ctx.video_id, STAGE, "progress",
                              f"{label_prefix}beat sheet accepted on attempt {attempt} ({len(doc['beats'])} beats)")
                 return doc

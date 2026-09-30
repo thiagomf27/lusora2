@@ -112,12 +112,14 @@ def mark(
     doc.update(turns=turns, source="fallback")
 
     planner = ctx.cfg.get("planner") or {}
-    provider = str(planner.get("llm") or "mock")
-    if provider == "mock" or not beats:
+    provider = planner.get("llm") or "mock"
+    chain = llm.chain_of(provider)
+    if chain == ["mock"] or not beats:
         doc["note"] = "no model for the call (mock planner)"
         return doc
+    gate_provider = llm.gate_provider(chain)
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
-    model = planner.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (planner.get("model") or (prompt or {}).get("model_hint"))
     subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else {}
     system, user = prompt_packs.compose(ROLE, prompt, {
         "beats": render_beats(beats),
@@ -125,7 +127,7 @@ def mark(
         "instructions": str((ctx.cfg.get("overrides") or {}).get("instructions") or ""),
     })
     try:
-        with budget_gate(ctx, stage=STAGE, provider=provider, operation="llm.narrative_marks",
+        with budget_gate(ctx, stage=STAGE, provider=gate_provider, operation="llm.narrative_marks",
                          estimated_units=4000, model=model, details={"beats": len(beats)}) as cost:
             try:
                 result = chat_fn(provider, model, system, user, int((prompt or {}).get("max_tokens") or 8000),
@@ -133,10 +135,13 @@ def mark(
             except StageError as exc:
                 raise _NoAnswer(str(exc)) from exc  # the gate records it as failed
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
-                                              "output_tokens": result.output_tokens})
+                                              "output_tokens": result.output_tokens,
+                                              "answered_by": result.provider})
     except _NoAnswer as exc:
         # the marks only place texture: a provider that cannot answer costs the
         # flashbacks, never the video (a budget refusal still stops it)
+        for name, reason in getattr(exc.__cause__, "marks", None) or [(gate_provider, str(exc)[:200])]:
+            ctx.db.provider_health(f"llm.{name}", False, reason[:200])
         doc["note"] = f"the call failed ({exc})"[:300]
         return doc
     try:

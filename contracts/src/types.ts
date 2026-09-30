@@ -684,7 +684,9 @@ export interface ChannelConfig {
   };
   script?: {
     generator?: string;
-    llm?: string;
+    /** D116 — a provider name, or a fallback chain (the first ready one that
+     *  answers); either form's elements may carry a `/model` suffix. */
+    llm?: string | string[];
     model?: string;
     prompt?: string;
     target_seconds?: number;
@@ -693,8 +695,9 @@ export interface ChannelConfig {
      *  planner's, so it is a phase of a bounded agent and not a new one. */
     research?: { enabled?: boolean; prompt?: string };
   };
-  planner?: { llm?: string; model?: string; prompt?: string };
-  chat?: { llm?: string; model?: string; prompt?: string };
+  /** D116: `llm` is a provider name, or a fallback chain — see script.llm. */
+  planner?: { llm?: string | string[]; model?: string; prompt?: string };
+  chat?: { llm?: string | string[]; model?: string; prompt?: string };
   captions?: { enabled?: boolean };
   renderer?: "auto" | "ffmpeg" | "remotion";
   /**
@@ -764,7 +767,9 @@ export interface ChannelConfig {
       /** D103: vision-rated candidates per shot (the pick_shots stage). */
       pick?: {
         enabled?: boolean;
-        llm?: "claude_cli" | "anthropic" | "openai" | "mock";
+        /** D116 — "claude_cli" | "anthropic" | "openai" | "gemini" | "mock",
+         *  a `/model` suffix, or a fallback chain of those. */
+        llm?: string | string[];
         model?: string;
         candidates_per_shot?: number;
         shots_per_sheet?: number;

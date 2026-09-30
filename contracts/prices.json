@@ -89,6 +89,22 @@
         "output_per_1m": 0.0
       }
     },
+    "gemini": {
+      "comment": "D116 — the operator's GEMINI_API_KEY is on the free tier: $0 for every operation, tokens still recorded (usageMetadata), same treatment as claude_cli's own subscription call. A paid key would price the default model (gemini-3.8-flash) at Google's per-token rate instead.",
+      "llm.chat_edit": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.craft_beats": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.generate_research": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.generate_script": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.hook_plan": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.narrative_marks": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.pick_videos": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.plan_beats": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.plan_spine": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.select_overlays": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "llm.subjects": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "vision.pick_shots": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 },
+      "vision.match_cut": { "unit": "token", "input_per_1m": 0.0, "output_per_1m": 0.0 }
+    },
     "local": {
       "tts.narrate": {
         "unit": "char",

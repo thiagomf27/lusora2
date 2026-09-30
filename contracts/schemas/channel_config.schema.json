@@ -99,7 +99,13 @@
       "additionalProperties": false,
       "properties": {
         "generator": { "type": "string", "default": "simple" },
-        "llm": { "type": "string" },
+        "llm": {
+          "description": "D116 — a provider name, or a fallback chain (the first that is ready and answers): [\"claude_cli\", \"gemini\", \"deepseek\"]. Either form may name a provider's model with a '/model' suffix, e.g. \"gemini/gemini-2.5-flash\".",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        },
         "model": { "type": "string", "description": "provider model id; the agents already read it" },
         "prompt": {
           "type": "string",
@@ -134,7 +140,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "llm": { "type": "string" },
+        "llm": {
+          "description": "D116 — a provider name, or a fallback chain (the first that is ready and answers): [\"claude_cli\", \"gemini\", \"deepseek\"]. Either form may name a provider's model with a '/model' suffix, e.g. \"gemini/gemini-2.5-flash\".",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        },
         "model": { "type": "string", "description": "provider model id; the agents already read it" },
         "prompt": {
           "type": "string",
@@ -171,7 +183,13 @@
       "additionalProperties": false,
       "description": "editor chat agent (D15); the platform reads it from the video's cfg snapshot",
       "properties": {
-        "llm": { "type": "string" },
+        "llm": {
+          "description": "D116 — a provider name, or a fallback chain (the first that is ready and answers): [\"claude_cli\", \"gemini\", \"deepseek\"]. Either form may name a provider's model with a '/model' suffix, e.g. \"gemini/gemini-2.5-flash\".",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        },
         "model": { "type": "string" },
         "prompt": {
           "type": "string",
@@ -397,9 +415,12 @@
               "properties": {
                 "enabled": { "type": "boolean", "default": false },
                 "llm": {
-                  "enum": ["claude_cli", "anthropic", "openai", "mock"],
+                  "oneOf": [
+                    { "type": "string", "pattern": "^(claude_cli|anthropic|openai|gemini|mock)(/.+)?$" },
+                    { "type": "array", "items": { "type": "string", "pattern": "^(claude_cli|anthropic|openai|gemini|mock)(/.+)?$" }, "minItems": 1 }
+                  ],
                   "default": "claude_cli",
-                  "description": "a provider that declares vision. claude_cli runs `claude -p` on the operator's own login ($0 in the price table, tokens recorded); mock rates every candidate 3 without looking, for offline runs and tests."
+                  "description": "D116 — a provider that declares vision, or a fallback chain of them, either form's elements optionally naming a model with a '/model' suffix. claude_cli runs `claude -p` on the operator's own login ($0 in the price table, tokens recorded); mock rates every candidate 3 without looking, for offline runs and tests."
                 },
                 "model": { "type": "string", "description": "the provider's model; for claude_cli a CLI alias such as sonnet or haiku. Absent = the provider's default." },
                 "candidates_per_shot": { "type": "integer", "minimum": 2, "maximum": 10, "default": 6 },

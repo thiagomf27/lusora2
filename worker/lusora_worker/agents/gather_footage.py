@@ -150,11 +150,13 @@ def pick_videos(
     titles; `mock` takes each subject's first result. A model that cannot
     answer costs the YouTube footage, not the video."""
     planner = ctx.cfg.get("planner") or {}
-    provider = str(planner.get("llm") or "mock")
-    if provider == "mock" or not results:
+    provider = planner.get("llm") or "mock"
+    chain = llm.chain_of(provider)
+    if chain == ["mock"] or not results:
         return {sid: list(range(min(quota[sid], len(found)))) for sid, found in results.items()}
+    gate_provider = llm.gate_provider(chain)
     prompt = (ctx.cfg.get("prompts") or {}).get(ROLE)
-    model = planner.get("model") or (prompt or {}).get("model_hint")
+    model = None if isinstance(provider, list) else (planner.get("model") or (prompt or {}).get("model_hint"))
     subjects_doc = ctx.read_json("subjects.json") if ctx.has("subjects.json") else {}
     system, base_user = prompt_packs.compose(ROLE, prompt, {
         "results": render_results(subjects, results, quota),
@@ -164,13 +166,14 @@ def pick_videos(
     })
     user = base_user
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        with budget_gate(ctx, stage=STAGE, provider=provider, operation="llm.pick_videos",
+        with budget_gate(ctx, stage=STAGE, provider=gate_provider, operation="llm.pick_videos",
                          estimated_units=3000, model=model,
                          details={"subjects": len(results), "attempt": attempt}) as cost:
             result = chat_fn(provider, model, system, user, int((prompt or {}).get("max_tokens") or 16000),
                              prompt_packs.temperature(ROLE, prompt))
             cost.actual(result.total_tokens, {"input_tokens": result.input_tokens,
-                                              "output_tokens": result.output_tokens, "attempt": attempt})
+                                              "output_tokens": result.output_tokens, "attempt": attempt,
+                                              "answered_by": result.provider})
         try:
             answer = llm.extract_json(result.text)
         except (ValueError, json.JSONDecodeError) as exc:
