@@ -16,7 +16,8 @@ import lusora_contracts
 from .. import validators
 from ..errors import StageError
 from ..textsplit import split_sentences
-from . import geo, sound, texture
+from . import geo, rhythm, sound, texture
+from . import captions as caption_rules
 from . import transitions as transition_rules
 from .textmatch import SKIPPABLE, compare_key, decade_context, is_filler, number_run, tokenize
 
@@ -125,7 +126,10 @@ def compile_plan(
     # subjects pass; the style pack decides whether and how it is paced.
     hook_rules = _hook_rules(pacing, hook)
     hook_end_abs = vo_start + float(hook["end_s"]) if hook_rules else -1.0
-    onsets = [vo_start + float(w["start_s"]) for w in word_timeline] if hook_rules else []
+    # D113: the body's rhythm (style_pack.pacing.rhythm); all off by default
+    rhythm_conf = rhythm.settings(pacing)
+    onsets = [vo_start + float(w["start_s"]) for w in word_timeline] \
+        if hook_rules or rhythm_conf["snap_to_words"] else []
 
     for slot in _enforce_hold_floor(aligned, hold_floor):
         beat = slot["beat"]
@@ -136,6 +140,10 @@ def compile_plan(
         else:
             spans = _split_for_max_hold(slot["start"], slot["end"], slot["sentences"], min_hold, max_hold)
             spans = _enforce_hold_ceiling(spans, max_hold, hold_ceiling)
+            still = str(beat.get("media_preference") or "any") != "video"
+            spans = rhythm.split_long(spans, still, rhythm_conf, hold_floor)
+            if rhythm_conf["snap_to_words"]:
+                spans = rhythm.snap(spans, onsets, hold_floor)
         for j, (s0, s1) in enumerate(spans):
             # A beat too long for one hold becomes several shots of the SAME
             # beat, and its transition names the junction to the NEXT beat — so
@@ -181,6 +189,7 @@ def compile_plan(
         overlays, pinned_cues = _hook_overlays(
             overlays, visual, hook_rules, hook_end_abs, str(hook.get("title") or ""), aligned, total_end, on_note)
     overlays = _trim_overlay_holds(overlays, total_end=total_end, on_note=on_note)
+    overlays = rhythm.space_graphics(overlays, rhythm_conf, hook_end_abs if hook_rules else vo_start, on_note)
 
     # ---- transitions (D95) ----
     # After the overlays, not with the visual track: the placement reads the
@@ -204,14 +213,19 @@ def compile_plan(
     # ---- captions ----
     theme = cfg.get("theme_doc") or {}
     preset = str(((theme.get("typography") or {}).get("caption_preset")) or "plain")
-    caption_items = [
-        {
-            "start_s": round(t["start_s"] + vo_start, 3),
-            "end_s": round(t["end_s"] + vo_start, 3),
-            "text": t["text"],
-        }
-        for t in sentence_timings
-    ]
+    chunk = (style.get("captions") or {}).get("chunk")
+    if chunk:
+        # D113: short phrases on the spoken word
+        caption_items = caption_rules.chunk_items(sentence_timings, vo_start, chunk)
+    else:
+        caption_items = [
+            {
+                "start_s": round(t["start_s"] + vo_start, 3),
+                "end_s": round(t["end_s"] + vo_start, 3),
+                "text": t["text"],
+            }
+            for t in sentence_timings
+        ]
 
     _place_captions(caption_items, overlays, cfg)
 

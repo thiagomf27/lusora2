@@ -433,6 +433,23 @@
                   "maximum": 64,
                   "default": 0,
                   "description": "near-duplicate threshold on a 64-bit perceptual hash of one frame: a candidate closer than this to a shot already used is skipped. 0 = off (the default, since the check costs one wasted download per repeat); ~6 catches the same footage re-encoded or re-graded, without catching two different shots of the same subject."
+                },
+                "reuse_window_s": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "D113 \u2014 the look check (min_hamming_distance) compares against the shots of the last this-many seconds only, in place of reuse_window_items: a shot that looks like one from minutes ago reads as a callback, one from ten seconds ago as a mistake. 0 = as reuse_window_items says. Dark Palace: 30, with a distance of 13 (its 'within 12 bits')."
+                },
+                "max_beats_per_source": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "D113 \u2014 one source video (a YouTube upload, whose shots are separate assets) appears in at most this many beats; the shots of one beat count once. 0 = off. Dark Palace: 3. Library segments do not say which upload they came from, so they are not counted."
+                },
+                "source_in_adjacent_beats": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "D113 \u2014 false = a beat never uses the source video the beat before it used (Dark Palace: the cuts showed the same thing). Shots inside one beat may share a source."
                 }
               }
             }

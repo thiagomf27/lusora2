@@ -57,6 +57,9 @@ source_policy:
     dedup:                            # D54 — the same shot twice in one video
       reuse_window_items: 0           # 0 = a segment is spent for the whole video
       min_hamming_distance: 6         # near-duplicate frames; 0 = off (default)
+      reuse_window_s: 0               # D113 — the look check over N seconds instead
+      max_beats_per_source: 0         # D113 — one YouTube upload in at most N beats
+      source_in_adjacent_beats: true  # D113 — false = never the upload next door
   sound_pack: doc-restrained          # optional; overrides theme.sound.pack
   music:
     enabled: true                     # master switch for this channel
@@ -123,6 +126,10 @@ source_policy:
   falling through to a worse source. `min_hamming_distance` adds a perceptual
   check on one frame — off by default, since it costs a wasted download per
   rejection — for the case ids cannot catch: the same drone pass sold twice.
+  D113 adds Dark Palace's rules: `reuse_window_s` compares looks only against
+  the last N seconds (30 there, with a distance of 13), and the per-source
+  pair caps how many beats one YouTube upload's shots appear in (3) and keeps
+  it out of neighbouring beats. Shots inside one beat may share an upload.
 - `music.enabled` / `sfx.enabled` are the **master switches for sound**
   (D48): with either false, nothing is produced for it whatever the theme
   and style pack say, and `resolve_audio` no-ops. Both default TRUE. Like

@@ -345,10 +345,19 @@ is one of `narrative | count | off`.
   video). The tape here is DP's per-footage mode (`filtro_filmagem`), which is
   the one its documentary style uses; captions stay clean on top in both.
 
-### Slice 8: rhythm, repetition, captions (M)
+### Slice 8: rhythm, repetition, captions (M) ✅ BUILT (D113)
 The `pacing.rhythm` knobs, `over_footage` in the catalog, and the new dedup
 defaults. The per-source cap needs the library to expose each segment's parent. Captions in
 phrases, and ceiling cuts snapped to words.
+- Built: `pacing.rhythm {shot_s, max_still_s, snap_to_words, min_graphic_gap_s}`,
+  `style_pack.captions.chunk {max_chars, max_words}`, and `dedup {reuse_window_s,
+  max_beats_per_source, source_in_adjacent_beats}`. The documentary pack sets
+  5 / 6 / on / 2 s and 40 chars / 8 words; the dedup numbers (30 s, 13 bits, 3
+  beats, never adjacent) and `captions.enabled` wait for the preset (slice 14).
+- Not built: `over_footage` and the long-graphic rule. Every LUSORA graphic is an
+  overlay over a visual track that keeps cutting, with a hold the catalog
+  already bounds, so there is nothing for them to do (D113). The per-source cap
+  counts YouTube uploads only: library segments still do not name theirs.
 
 ### Slice 9: the sound mix (M)
 `speech_windows.json` and a waveform-driven duck (raise the edit-plan

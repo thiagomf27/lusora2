@@ -1257,10 +1257,10 @@ def run_resolve_assets(ctx: StageContext) -> None:
     def fetch(item: dict, live: bool = False) -> sources.Resolution | None:
         _beat, query, queries, person = question(item)
         if live:
-            snapshot = ledger
+            snapshot = ledger.at(item)
         else:
             with ledger_lock:
-                snapshot = ledger.copy()
+                snapshot = ledger.copy().at(item)
         if picks and person is None:
             found = picked(item, snapshot)
             if found is not None:
@@ -1274,7 +1274,7 @@ def run_resolve_assets(ctx: StageContext) -> None:
     try:
         for n, item in enumerate(todo):
             found = futures[n].result() if pool else fetch(item)
-            if found is not None and sources.conflicts(ctx, found, ledger):
+            if found is not None and sources.conflicts(ctx, found, ledger.at(item)):
                 (ctx.folder / str(found["path"])).unlink(missing_ok=True)
                 ctx.db.event(ctx.video_id, "resolve_assets", "progress",
                              f"beat {item.get('beat_id')}: {found.get('source')} {found.get('id')} "

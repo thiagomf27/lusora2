@@ -450,6 +450,13 @@ export interface StylePack {
         hit_cue?: string | null;
       };
     };
+    /** D113: the body's rhythm after the hook; every knob off by default. */
+    rhythm?: {
+      shot_s?: number;
+      max_still_s?: number;
+      snap_to_words?: boolean;
+      min_graphic_gap_s?: number;
+    };
   };
   overlays: {
     density: OverlayDensity;
@@ -459,6 +466,8 @@ export interface StylePack {
     /** D59: a second overlay class, counted under its own budget. */
     emphasis?: { enabled?: boolean; per_minute?: number };
   };
+  /** D113: captions in short phrases on the spoken word (whether they show is the channel's). */
+  captions?: { chunk?: { max_chars?: number; max_words?: number } };
   /** D112: where the film texture lands; the theme's `texture` says what it looks like. */
   texture?: {
     placement?: "narrative" | "count" | "off";
@@ -693,7 +702,16 @@ export interface ChannelConfig {
       /** D55: how a slot longer than its footage is covered, first applicable wins. */
       short_clip_fallback?: ("loop" | "slow" | "freeze")[];
       /** D54: how hard this channel works not to show the same shot twice. */
-      dedup?: { reuse_window_items?: number; min_hamming_distance?: number };
+      dedup?: {
+        reuse_window_items?: number;
+        min_hamming_distance?: number;
+        /** D113: the look check over this many seconds instead (DP: 30) */
+        reuse_window_s?: number;
+        /** D113: one source video (a YouTube upload) in at most this many beats */
+        max_beats_per_source?: number;
+        /** D113: false = never the source video the previous beat used */
+        source_in_adjacent_beats?: boolean;
+      };
       /** D104: internet footage and photos per subject (the gather_footage stage). */
       footage?: {
         enabled?: boolean;

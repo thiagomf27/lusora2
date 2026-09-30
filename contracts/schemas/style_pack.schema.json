@@ -93,6 +93,17 @@
               }
             }
           }
+        },
+        "rhythm": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "D113 \u2014 the body's rhythm after the hook (Dark Palace's montar): about one shot per shot_s, no planned still past max_still_s, cuts on a spoken word, never two panel graphics in a row. Every knob is off by default, so a pack without the block compiles exactly as before. The hook keeps its own pacing (pacing.hook).",
+          "properties": {
+            "shot_s": { "type": "number", "minimum": 0, "default": 0, "description": "a shot longer than this becomes ceil(duration / shot_s) equal shots. 0 = off. DP: 5 (one 15 s take read as stuck)" },
+            "max_still_s": { "type": "number", "minimum": 0, "default": 0, "description": "the same for a shot the plan puts a photo on. 0 = off. DP: 6" },
+            "snap_to_words": { "type": "boolean", "default": false, "description": "a cut inside a beat (the hold ceiling's and these) moves to the nearest word onset within 0.5 s, leaving no shot under 1 s" },
+            "min_graphic_gap_s": { "type": "number", "minimum": 0, "default": 0, "description": "after the hook, a panel graphic (one filling half the frame's height or more) that starts less than this after the previous one ended is dropped, and the earlier one keeps the moment. Corner tags never count. 0 = off" }
+          }
         }
       }
     },
@@ -149,6 +160,22 @@
               "default": 1,
               "description": "ceiling for emphasis overlays alone, per minute of narration"
             }
+          }
+        }
+      }
+    },
+    "captions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "D113 \u2014 how the narration is cut into captions. Whether captions show at all, and where, is the channel's (channel_config.captions).",
+      "properties": {
+        "chunk": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "short phrases shown from their first spoken word (Dark Palace's _frases): a phrase ends at max_chars or max_words, after . ? ! and after , ; : once it has four words; a tail under ten characters joins the phrase before it. Omitted = one caption per narration timing chunk, as before.",
+          "properties": {
+            "max_chars": { "type": "integer", "minimum": 10, "default": 40 },
+            "max_words": { "type": "integer", "minimum": 2, "default": 8 }
           }
         }
       }

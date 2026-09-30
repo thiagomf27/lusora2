@@ -1049,7 +1049,15 @@ class Ledger:
         # same footage re-encoded or re-graded without catching two different
         # shots of the same subject.
         self.min_distance = int(dedup.get("min_hamming_distance", 0) or 0)
+        # D113: the look check in seconds, and the per-source-video rules
+        self.window_s = float(dedup.get("reuse_window_s", 0) or 0)
+        self.max_beats_per_source = int(dedup.get("max_beats_per_source", 0) or 0)
+        self.adjacent_beats = bool(dedup.get("source_in_adjacent_beats", True))
         self.entries: list[tuple[str, int | None]] = []
+        # per entry, parallel to `entries`: (beat_id, source video, start_s)
+        self.placed: list[tuple[str, str | None, float]] = []
+        # the item being resolved: the per-source and seconds rules are relative to it
+        self.item: dict[str, Any] | None = None
 
     @classmethod
     def from_plan(cls, plan: dict[str, Any], folder: Any, cfg: dict[str, Any] | None = None) -> "Ledger":
@@ -1059,7 +1067,7 @@ class Ledger:
             path = str(asset.get("path") or "")
             if not path:
                 continue
-            ledger.remember(asset, folder / path if ledger.min_distance else None)
+            ledger.remember(asset, folder / path if ledger.min_distance else None, item)
         return ledger
 
     def copy(self) -> "Ledger":
@@ -1067,8 +1075,25 @@ class Ledger:
         on screen when it started, and never writes back."""
         other = Ledger.__new__(Ledger)
         other.window, other.min_distance = self.window, self.min_distance
+        other.window_s = self.window_s
+        other.max_beats_per_source, other.adjacent_beats = self.max_beats_per_source, self.adjacent_beats
         other.entries = list(self.entries)
+        other.placed = list(self.placed)
+        other.item = self.item
         return other
+
+    def at(self, item: dict[str, Any] | None) -> "Ledger":
+        """Point the ledger at the item being resolved, and return it."""
+        self.item = item
+        return self
+
+    @staticmethod
+    def parent(source: str, asset_id: str | None) -> str | None:
+        """The upload an asset was cut from: a YouTube shot's id is `<video>#<n>`.
+        None when the asset does not say (library segments, stock, photos)."""
+        if source == "youtube" and asset_id and "#" in asset_id:
+            return asset_id.partition("#")[0]
+        return None
 
     @staticmethod
     def key(asset: dict[str, Any]) -> str:
@@ -1077,19 +1102,50 @@ class Ledger:
     def _recent(self) -> list[tuple[str, int | None]]:
         return self.entries if self.window <= 0 else self.entries[-self.window :]
 
+    def _recent_looks(self) -> list[tuple[str, int | None]]:
+        """What the look check compares against: the last `window_s` seconds
+        before the item being resolved when that is set, else `_recent`."""
+        if self.window_s <= 0 or self.item is None:
+            return self._recent()
+        now = float(self.item.get("start_s", 0))
+        return [e for e, (_b, _p, t) in zip(self.entries, self.placed) if now - t < self.window_s]
+
     def blocked(self, source: str, provider: str | None, asset_id: str | None) -> bool:
-        """This exact asset is already on screen, recently enough to notice."""
+        """This exact asset is already on screen, recently enough to notice —
+        or its source video has been shown too often, or by the beat before."""
         if not asset_id:
             return False  # a generated image has no id and is never a repeat
         key = f"{source}:{provider or ''}:{asset_id}"
-        return any(k == key for k, _h in self._recent())
+        if any(k == key for k, _h in self._recent()):
+            return True
+        return self._source_spent(self.parent(source, asset_id))
+
+    def _source_spent(self, parent: str | None) -> bool:
+        if parent is None or self.item is None:
+            return False
+        if self.max_beats_per_source <= 0 and self.adjacent_beats:
+            return False
+        beat = str(self.item.get("beat_id") or "")
+        beats = [b for b, p, _t in self.placed if p == parent and b != beat]
+        if self.max_beats_per_source > 0 and len(set(beats)) >= self.max_beats_per_source:
+            return True
+        if not self.adjacent_beats:
+            # the beats on either side of this one, by where they sit in the video
+            now = float(self.item.get("start_s", 0) or 0)
+            others = [(t, b) for b, _p, t in self.placed if b != beat]
+            before = max((x for x in others if x[0] < now), default=None)
+            after = min((x for x in others if x[0] > now), default=None)
+            near = {x[1] for x in (before, after) if x is not None}
+            if any(b in near and p == parent for b, p, _t in self.placed):
+                return True
+        return False
 
     def too_similar(self, digest: int | None) -> int | None:
         """The closest recent hash within min_distance, or None if it is new
         enough. Returns the distance so the caller can say WHY in a log line."""
         if digest is None or self.min_distance <= 0:
             return None
-        for _key, other in reversed(self._recent()):
+        for _key, other in reversed(self._recent_looks()):
             if other is None:
                 continue
             distance = bin(digest ^ other).count("1")
@@ -1097,11 +1153,15 @@ class Ledger:
                 return distance
         return None
 
-    def remember(self, asset: dict[str, Any], path: Any = None) -> None:
+    def remember(self, asset: dict[str, Any], path: Any = None, item: dict[str, Any] | None = None) -> None:
         # Hash only when a distance is set: it is one or two ffmpeg runs per
         # placed shot (~0.17 s), and with the check off nothing ever reads it.
         digest = perceptual_hash(path) if path is not None and self.min_distance > 0 else None
         self.entries.append((self.key(asset), digest))
+        item = item or {}
+        self.placed.append((str(item.get("beat_id") or ""),
+                            self.parent(str(asset.get("source") or ""), asset.get("id")),
+                            float(item.get("start_s", 0) or 0)))
 
 
 def shot_queries(
@@ -1258,7 +1318,7 @@ def commit(ctx: StageContext, item: dict, resolution: Resolution, ledger: Ledger
         resolution.get("license"), resolution.get("provider"),
     )
     if ledger is not None:
-        ledger.remember(item["asset"], ctx.folder / str(item["asset"]["path"]))
+        ledger.remember(item["asset"], ctx.folder / str(item["asset"]["path"]), item)
     if callable(on_commit):
         on_commit()
 

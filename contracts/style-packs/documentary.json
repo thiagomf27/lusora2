@@ -16,6 +16,12 @@
       "max_share": 0.25,
       "open_on": "footage",
       "title_card": { "enabled": true, "component": "KineticTitle", "seconds": 2.5, "lead_cue": "riser", "hit_cue": "hit" }
+    },
+    "rhythm": {
+      "shot_s": 5,
+      "max_still_s": 6,
+      "snap_to_words": true,
+      "min_graphic_gap_s": 2.0
     }
   },
   "overlays": {
@@ -24,6 +30,12 @@
       "basic",
       "core"
     ]
+  },
+  "captions": {
+    "chunk": {
+      "max_chars": 40,
+      "max_words": 8
+    }
   },
   "texture": {
     "placement": "narrative",
