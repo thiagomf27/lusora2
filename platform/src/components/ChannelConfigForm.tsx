@@ -353,6 +353,45 @@ export default function ChannelConfigForm({
               </span>
             </label>
           )}
+          {provider === "ai33" && (
+            <label className={s.field}>
+              <span className={s.label}>Narration speed</span>
+              <input
+                type="number"
+                min={0.5}
+                max={2}
+                step={0.05}
+                value={value.voice.speed ?? 1}
+                onChange={(e) =>
+                  up({ voice: { ...value.voice, speed: e.target.value === "" ? undefined : Number(e.target.value) } })
+                }
+              />
+              <span className={s.hint}>1 = the voice&apos;s own pace (D115)</span>
+            </label>
+          )}
+          <div className={s.field}>
+            <span className={s.label}>Narration text</span>
+            <label className={s.checkRow}>
+              <input
+                type="checkbox"
+                checked={value.voice.speakable ?? false}
+                onChange={(e) => up({ voice: { ...value.voice, speakable: e.target.checked } })}
+              />
+              Say numbers, money and units the way the voice reads them
+            </label>
+            {provider === "ai33" && (
+              <label className={s.checkRow}>
+                <input
+                  type="checkbox"
+                  checked={value.voice.review?.enabled ?? false}
+                  onChange={(e) =>
+                    up({ voice: { ...value.voice, review: { ...(value.voice.review ?? {}), enabled: e.target.checked } } })
+                  }
+                />
+                Hear each part back and ask again on a slip (extra takes are paid)
+              </label>
+            )}
+          </div>
           <label className={s.field}>
             <span className={s.label}>Script generator</span>
             <Select

@@ -28,6 +28,8 @@ from pathlib import Path
 import httpx
 
 from .. import align
+from ..speech import review as speech_review
+from ..speech import spoken
 from ..config import parallelism
 from ..context import StageContext
 from ..costs import budget_gate
@@ -78,6 +80,28 @@ def synthesize(ctx: StageContext, script: str) -> None:
     ctx.db.provider_health(f"tts.{provider}", True)
 
 
+def voice_settings(cfg: dict) -> dict:
+    """D115: how the narration is asked for. `speed` goes to the provider;
+    `speakable` rewrites the text it is SENT (never the script, the captions or
+    the timings) the way the voice reads it best; `review` hears every take and
+    asks again, up to `takes` times, when it did not say the text."""
+    voice = cfg.get("voice") or {}
+    review = voice.get("review") or {}
+    return {
+        "speed": float(voice.get("speed", 1.0) or 1.0),
+        "speakable": bool(voice.get("speakable", False)),
+        "review": bool(review.get("enabled", False)),
+        "takes": max(1, int(review.get("takes", 3) or 3)),
+        "language": spoken.base(str(cfg.get("language") or "en")),
+    }
+
+
+def sent_text(cfg: dict, text: str) -> str:
+    """What the provider is sent for `text`."""
+    conf = voice_settings(cfg)
+    return spoken.prepare(text, conf["language"]) if conf["speakable"] else text
+
+
 def _write_timings(ctx: StageContext, sentences: list[str], durations: list[float]) -> None:
     t = 0.0
     items = []
@@ -98,7 +122,7 @@ def _flite(ctx: StageContext, sentences: list[str]) -> None:
         for i, sentence in enumerate(sentences):
             wav = tmp_dir / f"s{i:04d}.wav"
             # flite filter takes text inline; escape for lavfi
-            text = sentence.replace("\\", " ").replace("'", "’").replace(":", ",").replace("%", " percent")
+            text = sent_text(ctx.cfg, sentence).replace("\\", " ").replace("'", "’").replace(":", ",").replace("%", " percent")
             run_ffmpeg(STAGE, [
                 "-f", "lavfi", "-i", f"flite=text='{text}':voice={voice}",
                 "-ar", "44100", str(wav),
@@ -192,52 +216,97 @@ def _ai33(ctx: StageContext, sentences: list[str], script: str = "") -> tuple[fl
     unit = request_unit(ctx.cfg)
     units = chunk_sentences(script or " ".join(sentences), sentences, CHUNK_CHARS) if unit == "paragraph" \
         else [[i] for i in range(len(sentences))]
-    texts = [" ".join(sentences[i] for i in u) for u in units]
+    conf = voice_settings(ctx.cfg)
+    # D115: the provider reads `texts`; the timings keep the script's sentences
+    texts = [sent_text(ctx.cfg, " ".join(sentences[i] for i in u)) for u in units]
 
     parts_dir = ctx.folder / PARTS_DIR
     parts_dir.mkdir(exist_ok=True)
-    files = [parts_dir / _part_name(n, voice, t) for n, t in enumerate(texts)]
+    # a speed other than 1 is part of what a part IS: a resumed run never mixes paces
+    voice_key = voice if conf["speed"] == 1.0 else f"{voice}@{conf['speed']:g}"
+    files = [parts_dir / _part_name(n, voice_key, t) for n, t in enumerate(texts)]
     todo = [n for n, f in enumerate(files) if not (f.exists() and f.stat().st_size > 0)]
     if len(todo) < len(units):
         ctx.log(f"narration resumes: {len(units) - len(todo)} of {len(units)} "
                 f"{unit} requests already synthesized")
 
-    def synthesize_one(n: int) -> float:
+    reviewed: dict[int, dict] = {}
+
+    def take(n: int, into: Path) -> float:
         label = f"{unit} {n + 1}"
-        body = _ai33_submit(base, headers, voice, texts[n], n + 1)
+        body = _ai33_submit(base, headers, voice, texts[n], n + 1, speed=conf["speed"])
         if not body.get("success") or not body.get("task_id"):
             raise StageError(STAGE, f"ai33 rejected {label}: {body.get('message', body)}")
         audio_url, credits = _ai33_wait(base, headers, str(body["task_id"]), n + 1)
-        # written beside, renamed into place: a part that exists is a whole one
-        partial = files[n].with_suffix(".part")
         try:
             with httpx.stream("GET", audio_url, timeout=120, follow_redirects=True) as dl:
                 dl.raise_for_status()
-                with open(partial, "wb") as f:
+                with open(into, "wb") as f:
                     for chunk in dl.iter_bytes():
                         f.write(chunk)
         except httpx.HTTPError as e:
-            partial.unlink(missing_ok=True)
+            into.unlink(missing_ok=True)
             raise StageError(STAGE, f"ai33 audio download failed ({label}): {e}")
-        partial.replace(files[n])
         return credits
 
+    def synthesize_one(n: int) -> tuple[float, int]:
+        """One part: a take, heard back when the channel asks (D115, DP's
+        revisor_voz) and asked for again on a real slip; the take with the
+        fewest slips stays. Returns (credits, characters) for every take."""
+        # written beside, renamed into place: a part that exists is a whole one
+        partial = files[n].with_suffix(".part")
+        credits, chars = 0.0, 0
+        best: tuple[Path, list] | None = None
+        takes = conf["takes"] if conf["review"] else 1
+        for k in range(1, takes + 1):
+            attempt = partial.with_suffix(f".take{k}")
+            credits += take(n, attempt)
+            chars += len(texts[n])
+            if not conf["review"]:
+                best = (attempt, [])
+                break
+            try:
+                heard = heard_text(align.transcribe_words(attempt, conf["language"]))
+                problems = speech_review.slips(texts[n], heard, conf["language"])
+            except Exception as e:  # noqa: BLE001 - the review never stops the narration
+                ctx.log(f"narration {unit} {n + 1}: review unavailable ({type(e).__name__}); keeping the take")
+                problems = []
+            if best is None or len(problems) < len(best[1]):
+                if best is not None:
+                    best[0].unlink(missing_ok=True)
+                best = (attempt, problems)
+            else:
+                attempt.unlink(missing_ok=True)
+            if not problems:
+                break
+            first = problems[0]
+            more = f" (+{len(problems) - 1})" if len(problems) > 1 else ""
+            ctx.log(f"narration {unit} {n + 1}: heard \"{first['heard']}\" where it was \"{first['expected']}\"{more}"
+                    + (f" — asking again ({k}/{takes - 1})" if k < takes else " — keeping the best take"))
+        assert best is not None
+        best[0].replace(files[n])
+        reviewed[n] = {"part": n + 1, "takes": k, "slips": best[1]}
+        return credits, chars
+
     workers = min(len(todo), parallelism("TTS_PARALLELISM", 6))
-    total_credits = 0.0
+    results: list[tuple[float, int]] = []
     if workers <= 1:
         for n in todo:
-            total_credits += synthesize_one(n)
+            results.append(synthesize_one(n))
     else:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(synthesize_one, n) for n in todo]
             try:
                 # in order, so the first failure reported is the earliest; the
                 # parts that did finish stay on disk for resume
-                total_credits = sum(f.result() for f in futures)
+                results = [f.result() for f in futures]
             except BaseException:
                 for f in futures:
                     f.cancel()
                 raise
+    total_credits = sum(c for c, _ in results)
+    if conf["review"] and reviewed:
+        _write_review(ctx, reviewed, len(units))
 
     durations = [probe_duration(STAGE, f) for f in files]
     if unit == "paragraph":
@@ -252,7 +321,25 @@ def _ai33(ctx: StageContext, sentences: list[str], script: str = "") -> tuple[fl
         "-acodec", "libmp3lame", "-q:a", "3", str(ctx.artifact("audio.mp3")),
     ])
     shutil.rmtree(parts_dir, ignore_errors=True)
-    return total_credits, sum(len(texts[n]) for n in todo)
+    return total_credits, sum(chars for _, chars in results)
+
+
+def heard_text(words: list) -> str:
+    """Whisper's words as one text. Its word timestamps split a number at its
+    separator ("2", ",750"; "$3", ".5"), and joined with spaces that reads as
+    two numbers — every take of a correct "2.750" was flagged until they were
+    glued back."""
+    return re.sub(r"(?<=\d) (?=[.,]\d)", "", " ".join(w.text for w in words))
+
+
+def _write_review(ctx: StageContext, reviewed: dict[int, dict], parts: int) -> None:
+    """narration_review.json: what the review heard, per part it synthesized."""
+    rows = [reviewed[n] for n in sorted(reviewed)]
+    retaken = sum(1 for r in rows if r["takes"] > 1)
+    left = sum(1 for r in rows if r["slips"])
+    ctx.write_json("narration_review.json", {"version": "1.0", "parts": parts, "reviewed": rows})
+    ctx.log(f"narration review: {len(rows)} parts heard, {retaken} asked for again, "
+            f"{left} still with a slip after the last take")
 
 
 def _write_aligned_timings(
@@ -293,7 +380,7 @@ def _write_aligned_timings(
 
 
 def _ai33_submit(
-    base: str, headers: dict, voice: str, sentence: str, n: int, attempts: int = 5
+    base: str, headers: dict, voice: str, sentence: str, n: int, attempts: int = 5, speed: float = 1.0
 ) -> dict:
     """Queue one sentence, riding out transient aggregator failures."""
     delay = 2.0
@@ -305,7 +392,7 @@ def _ai33_submit(
                 files={
                     "text": (None, sentence),
                     "voice_id": (None, voice),
-                    "speed": (None, "1"),
+                    "speed": (None, f"{speed:g}"),
                     "with_transcript": (None, "false"),
                 },
                 timeout=60,

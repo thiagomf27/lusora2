@@ -671,7 +671,17 @@ export interface ChannelConfig {
   checkpoint_policy?: CheckpointPolicy;
   /** D63: what a cue in subtitles.srt is — read by the transcript stage. */
   transcript?: { granularity?: SrtGranularity };
-  voice: { provider: string; voice_id?: string; request_unit?: "sentence" | "paragraph" };
+  voice: {
+    provider: string;
+    voice_id?: string;
+    request_unit?: "sentence" | "paragraph";
+    /** D115: the narration's pace (Dark Palace: 0.9). */
+    speed?: number;
+    /** D115: rewrite the text sent to the voice the way it reads it best. */
+    speakable?: boolean;
+    /** D115: hear each part back and ask again on a real slip. */
+    review?: { enabled?: boolean; takes?: number };
+  };
   script?: {
     generator?: string;
     llm?: string;

@@ -16,7 +16,12 @@ component_pack: null               # or a named engine pack
 pipeline: faceless                 # D60 — PINS one manifest, overriding the style
 checkpoint_policy: auto            # D62 — auto | guided (REVIEW mode in the UI)
 transcript: { granularity: sentence }   # D63 — what one subtitle cue spans
-voice: { provider: ai33, voice_id: "…" }
+voice:
+  provider: ai33
+  voice_id: "…"
+  speed: 1                          # D115 — the narration's pace (Dark Palace: 0.9)
+  speakable: false                  # D115 — send the voice numbers, money and units as said
+  review: { enabled: false, takes: 3 }  # D115 — hear each part back, ask again on a slip
 script: { generator: scriptforge, llm: deepseek }
 captions: { enabled: true }        # preset comes from the theme
 renderer: auto                     # auto | ffmpeg | remotion (pin)

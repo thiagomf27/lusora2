@@ -372,8 +372,13 @@ loudnorm, and bed craft (trim, loop, crossfade).
   documentary look plays `synth-doc`'s synthesized beds until a music source
   exists.
 
-### Slice 10: narration quality (M)
+### Slice 10: narration quality (M) ✅ BUILT (D115)
 A spoken-number pre-pass per language, a Whisper review knob, and `voice.speed`.
+- Built: `voice.speakable` (DP's whole `fala.preparar`, not only numbers: six
+  languages), `voice.review {enabled, takes}` and `voice.speed`, all off by
+  default; the documentary preset (slice 14) turns them on at DP's values.
+- Checked on a paid ai33 sample (pt and en, numbers, money, units) rather than
+  a Centralia re-narration: nothing in that script changes under the pass.
 
 ### Slice 11: subscription providers (L)
 `codex_cli`, `claude_cli` and `agy` for text and vision; `flow`, `codex` and

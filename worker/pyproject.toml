@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.27",
     "faster-whisper>=1.2.1",
     "yt-dlp>=2026.8.19",
+    "num2words>=0.5.14",
 ]
 
 [dependency-groups]
