@@ -411,10 +411,16 @@ Split in four (see [the slice briefs](briefs/README.md)):
 - **11d:** `agy` (Antigravity CLI). Needs `agy` installed and logged in, plus
   one settings change.
 
-### Slice 12: `visual_review` (L)
+### Slice 12: `visual_review` (L) — 12a ✅ BUILT (D120)
 Per-segment render first (today LUSORA re-renders the whole video), then
 review 2 frames per block and repair only what failed. The empty-frame degrade
 lands here too.
+- **12a ✅ BUILT (D120):** the patch render. `engine patch` re-renders only the
+  changed seconds of a Remotion render and splices them in frame-exact;
+  `pipeline/patch.py` works out those seconds from two plans. Swapping one
+  Centralia shot took 174 s against 8–9 minutes for the whole 60 s window.
+  Not built: patching an ffmpeg render (the caller re-renders it whole).
+- **12b:** the visual review, its first user.
 
 ### Slice 13: delivery (S) ✅ BUILT (D118)
 Subscribe CTA component and placement, and MP4 checks before the final name.

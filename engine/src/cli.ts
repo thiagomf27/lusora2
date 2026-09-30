@@ -6,7 +6,7 @@
  * reason on stderr. Files-only: no network, no DB.
  */
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { EditPlan } from "@lusora/contracts";
 import { routePlan } from "./router.ts";
 import { renderFfmpeg } from "./renderers/ffmpeg/render.ts";
@@ -25,12 +25,36 @@ function parseArgs(argv: string[]) {
   return args;
 }
 
+/**
+ * engine patch --video-dir <folder> --spans <s>-<e>[,<s>-<e>...] [--audio keep|remix] [--renderer auto|remotion]
+ * D120: re-render only those plan seconds and splice them into final.mp4.
+ */
+async function patch(args: Record<string, string>) {
+  // absolute: Remotion resolves a relative public dir against the engine package
+  const videoDir = args["video-dir"] && resolve(args["video-dir"]);
+  if (!videoDir) fail("missing --video-dir");
+  if (!existsSync(join(videoDir, "edit_plan.json"))) fail(`edit_plan.json not found in ${videoDir}`);
+  const audio = args["audio"] ?? "keep";
+  if (audio !== "keep" && audio !== "remix") fail(`--audio must be keep or remix (got '${audio}')`);
+  const { parseSpans, runPatch } = await import("./patch.ts");
+  let spans: Array<[number, number]> = [];
+  try {
+    spans = parseSpans(args["spans"] ?? "");
+  } catch (e) {
+    fail(e instanceof Error ? e.message : String(e));
+  }
+  const result = await runPatch(videoDir, spans, audio, (args["renderer"] ?? "auto") as "auto" | "ffmpeg" | "remotion");
+  console.log(JSON.stringify({ ...result, ok: true }));
+}
+
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
-  if (cmd !== "render") fail(`unknown command '${cmd ?? ""}' — usage: engine render --video-dir <folder> --renderer auto|ffmpeg|remotion`);
+  if (cmd === "patch") return patch(parseArgs(rest));
+  if (cmd !== "render") fail(`unknown command '${cmd ?? ""}' — usage: engine render --video-dir <folder> --renderer auto|ffmpeg|remotion, or engine patch --video-dir <folder> --spans <s>-<e>[,...] [--audio keep|remix]`);
 
   const args = parseArgs(rest);
-  const videoDir = args["video-dir"];
+  // absolute: Remotion resolves a relative public dir against the engine package
+  const videoDir = args["video-dir"] && resolve(args["video-dir"]);
   const requested = (args["renderer"] ?? "auto") as "auto" | "ffmpeg" | "remotion";
   if (!videoDir) fail("missing --video-dir");
   if (!existsSync(videoDir)) fail(`video dir not found: ${videoDir}`);

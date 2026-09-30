@@ -36,13 +36,19 @@ export function loadTheme(videoDir: string): Theme {
   return DEFAULT_THEME;
 }
 
-export async function renderRemotion(
-  plan: EditPlan,
-  videoDir: string,
-  window?: RenderWindow
-): Promise<RenderResult> {
+/** A bundled composition, ready to draw any frame range of the plan. */
+export interface PreparedRemotion {
+  serveUrl: string;
+  composition: Awaited<ReturnType<typeof import("@remotion/renderer")["selectComposition"]>>;
+  inputProps: Record<string, unknown>;
+  browserExecutable: string | null;
+  chromiumOptions: { gl: "swiftshader" | "swangle" | "angle" | "egl" };
+}
+
+/** Bundle once and select the composition; a patch draws several ranges from one bundle. */
+export async function prepareRemotion(plan: EditPlan, videoDir: string): Promise<PreparedRemotion> {
   const { bundle } = await import("@remotion/bundler");
-  const { renderMedia, selectComposition } = await import("@remotion/renderer");
+  const { selectComposition } = await import("@remotion/renderer");
 
   const theme = loadTheme(videoDir);
   // Probe visual assets node-side (durations for the freeze/handle math);
@@ -76,16 +82,33 @@ export async function renderRemotion(
     browserExecutable,
     chromiumOptions,
   });
+  return { serveUrl, composition, inputProps, browserExecutable, chromiumOptions };
+}
 
-  const tmpOut = join(videoDir, "final.tmp.mp4");
+export interface DrawOptions {
+  /** Inclusive plan frames; absent = the whole composition. */
+  frameRange?: [number, number];
+  /** Video only (a patch): the original's audio is kept, or remixed apart. */
+  muted?: boolean;
+  /** "h264" (default) draws picture and sound; "aac" draws the sound alone. */
+  codec?: "h264" | "aac";
+}
+
+/** Draw one file from a prepared composition. */
+export async function drawRemotion(
+  prep: PreparedRemotion,
+  outputLocation: string,
+  opts: DrawOptions = {}
+): Promise<void> {
+  const { renderMedia } = await import("@remotion/renderer");
   await renderMedia({
-    composition,
-    serveUrl,
-    codec: "h264",
-    outputLocation: tmpOut,
-    inputProps,
-    browserExecutable,
-    chromiumOptions,
+    composition: prep.composition,
+    serveUrl: prep.serveUrl,
+    codec: opts.codec ?? "h264",
+    outputLocation,
+    inputProps: prep.inputProps,
+    browserExecutable: prep.browserExecutable,
+    chromiumOptions: prep.chromiumOptions,
     // low-RAM machines: too many tabs + an unbounded OffthreadVideo frame
     // cache stall frame extraction until delayRender times out
     concurrency: Number(process.env.REMOTION_CONCURRENCY ?? 2),
@@ -94,9 +117,20 @@ export async function renderRemotion(
     ),
     // large stock clips can take far longer than the 28s default to seek/decode
     timeoutInMilliseconds: 180000,
-    // a benchmark window draws only its own frames; the audio follows them
-    ...(window ? { frameRange: frameRange(window, composition.fps) } : {}),
+    ...(opts.muted ? { muted: true } : {}),
+    ...(opts.frameRange ? { frameRange: opts.frameRange } : {}),
   });
+}
+
+export async function renderRemotion(
+  plan: EditPlan,
+  videoDir: string,
+  window?: RenderWindow
+): Promise<RenderResult> {
+  const prep = await prepareRemotion(plan, videoDir);
+  const tmpOut = join(videoDir, "final.tmp.mp4");
+  // a benchmark window draws only its own frames; the audio follows them
+  await drawRemotion(prep, tmpOut, window ? { frameRange: frameRange(window, prep.composition.fps) } : {});
   // D48: Remotion mixes the audio itself, so the loudness pass is a separate
   // remux here rather than a filter in the mux chain. Runs on the tmp file so
   // final.mp4 still appears atomically.

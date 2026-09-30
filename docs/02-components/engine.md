@@ -5,7 +5,8 @@ catalog, and the theme runtime. Consumed two ways:
 
 - **CLI** (by the worker): `engine render --video-dir <folder> --renderer
   <auto|ffmpeg|remotion>` → writes `final.mp4` atomically; files-only, no
-  network, no DB.
+  network, no DB. `engine patch` (D120, below) re-renders only some seconds
+  of an existing `final.mp4`.
 - **npm package** (by the platform's editor): exports the components, the
   theme runtime, and a Player wrapper so the editor previews with the
   EXACT code that renders — preview/render parity for the Remotion path.
@@ -41,6 +42,46 @@ the plan; components resolved from the catalog; **theme injected at render
 time** from the channel config. Deterministic motion; transitions consume
 handles and never move narrative cuts; freeze-frame fallback when no
 handle exists.
+
+## Patch render (D120)
+
+```
+engine patch --video-dir <folder> --spans <s>-<e>[,<s>-<e>...] [--audio keep|remix] [--renderer auto|remotion]
+```
+
+Re-renders only the given plan seconds of the folder's `final.mp4` and splices
+them in, instead of rendering the whole video again. It works because a
+Remotion render is a pure function of the frame: the same plan draws the same
+pixels for frame N whether N is drawn alone or inside the whole video.
+
+1. Each span is padded by the transitions at the junctions it touches (a
+   transition straddles its cut), snapped outward to whole frames, shifted by
+   the render window when the video was a windowed test render (`cfg.json`
+   `output.window`; a span outside the window is dropped), and merged with
+   any it overlaps or touches.
+2. Each span is drawn with Remotion, video only, from ONE bundle.
+3. The splice encodes each piece — every untouched stretch of the original,
+   cut by frame number, and every patch — on its own with identical x264
+   settings (`crf 18`, `preset medium`), then joins them with the concat
+   demuxer as a stream copy. One filter graph that trims the original twice
+   buffers every raw frame of the later stretch and was killed for memory
+   (3.4 GB) on the 60 s Centralia render.
+4. `--audio keep` copies the original's audio; `remix` draws the whole mix
+   again (Remotion, `codec: "aac"`) and masters it as a full render does
+   (`plan.tracks.audio.master.loudness`). An audio-only change copies the
+   picture and swaps the sound.
+5. Written to `final.tmp.mp4` and renamed over `final.mp4` only when every
+   piece and the whole file have exactly the frames they should.
+6. Prints `{"patched": [[s, e], ...], "frames": N, "audio": "keep|remix", "ok": true}`.
+
+It refuses, leaving `final.mp4` untouched, when the plan renders with ffmpeg
+(patching an ffmpeg render is out of scope: re-render the whole video), or when
+`final.mp4` is not this plan's size, rate or length (a retimed plan is not a
+patch). The worker's `pipeline/patch.py` decides what to patch from two plans
+(`changed_spans`) and falls back to a full render on a retime (`patch_render`
+returns False). Proof: `engine/test/patch.test.ts` (span math; the splice lands
+frame-exact on synthetic video) and, by hand, `node engine/scripts/patch-check.mjs`
+(a patched render matches a full render of the edited plan, frame by frame).
 
 ## Component catalog
 
