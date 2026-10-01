@@ -111,9 +111,10 @@ test("roles.json declares the three bounded agents, plus their phase roles", () 
   // chooses (a headline, one giant word), and never on a beat that already
   // carries a graphic. `narrative_marks` (D112) marks where the story turns and
   // where it looks back; it decides no content, only where the texture lands.
+  // `visual_review` (D121) looks at the FINISHED video; code repairs the plan.
   assert.deepEqual(
     Object.keys(loadRoles()).sort(),
-    ["beatcraft", "chat", "hook_plan", "image", "match_cut", "narrative_marks", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects"]
+    ["beatcraft", "chat", "hook_plan", "image", "match_cut", "narrative_marks", "overlay", "pick_shots", "pick_videos", "planner", "research", "script", "spine", "subjects", "visual_review"]
   );
 });
 

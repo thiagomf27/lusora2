@@ -1,5 +1,5 @@
 name: documentary
-version: "1.6"
+version: "1.7"
 description: >
   Dark Palace's production on LUSORA's architecture (D100,
   docs/05-roadmap/documentary-pipeline-plan.md). Every DP feature enters as a
@@ -46,6 +46,16 @@ description: >
   pack's texture.placement is `narrative` — a light leak into each turn, the
   vintage grade over a flashback, a CRT set on its first footage — and the
   theme draws dust and tape over the picture. Other placements make no call.
+
+  v1.7 (slice 12b, D121) adds `visual_review` after render: two frames of
+  every shot on contact sheets, shown to the pick judge, which names the shots
+  with a corner logo, foreign text (a news banner, burned-in subtitles), our
+  own text cut off, or a blank frame. Code repairs the plan — the source with
+  foreign text banned from the video and its shots resolved again, the logo
+  cropped, the cut-off graphic dropped, the blank shot given another picture —
+  and 12a's patch render redraws only those seconds. One round. With the same
+  knob, a shot the chain found nothing for takes its neighbour's picture
+  instead of stopping the video. Off unless source_policy.visual.review.enabled.
 
   Each later slice adds one stage or knob and bumps the version; the stages it adds are registry entries, so v3
   can adopt any of them by listing it (D60).
@@ -183,6 +193,13 @@ stages:
   - name: render
     requires: [edit_plan.json]
     produces: [final.mp4]
+
+  # D121 — the finished video looked at: two frames of every shot, and the
+  # shots with a problem repaired and re-rendered alone (12a's patch render).
+  # Off unless source_policy.visual.review.enabled; one round.
+  - name: visual_review
+    requires: [final.mp4, edit_plan.json]
+    produces: [visual_review.json]
 
   - name: qa
     # judges the rendered FILE (black/silent/duration); produces no artifact,

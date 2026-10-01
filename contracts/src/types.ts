@@ -115,6 +115,8 @@ export interface AssetProvenance {
   path: string;
   score?: number | null;
   query?: string | null;
+  /** D121: the corner the visual review cropped a logo out of (the file carries the crop). */
+  logo_crop?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 }
 
 export interface Motion {
@@ -597,7 +599,8 @@ export type PromptRole =
   /** D111 — the match cut's vision judge: keeps photos and marks their subject. */
   | "match_cut"
   /** D112 — marks the story's turns and flashback passages, for the film texture. */
-  | "narrative_marks";
+  | "narrative_marks"
+  | "visual_review";
 
 /** The EDITABLE half of an agent prompt; the welded contract half lives in
  *  contracts/prompts/welded/ and is appended by code at call time. */
@@ -788,6 +791,8 @@ export interface ChannelConfig {
         /** D105: stop before the render when coverage is below this */
         min_coverage?: number;
       };
+      /** D121: the visual_review stage, and a neighbour's picture instead of an empty shot. */
+      review?: { enabled?: boolean; never_empty?: boolean };
     };
     /** D48: overrides theme.sound.pack. */
     sound_pack?: string;

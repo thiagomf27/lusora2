@@ -240,3 +240,36 @@ def _keep_apart(overlays: list[dict[str, Any]], gap: float = 0.2) -> None:
     for i, item in enumerate(overlays[:-1]):
         ceiling = float(overlays[i + 1]["start_s"]) - gap
         item["end_s"] = round(max(min(float(item["end_s"]), ceiling), float(item["start_s"]) + 0.5), 3)
+
+
+def never_empty(cfg: dict[str, Any]) -> bool:
+    """D121: with the visual review on, a shot never renders empty."""
+    review = (((cfg.get("source_policy") or {}).get("visual") or {}).get("review")) or {}
+    return bool(review.get("enabled", False)) and bool(review.get("never_empty", True))
+
+
+def to_neighbour(ctx: StageContext, plan: dict[str, Any], item: dict[str, Any]) -> str | None:
+    """Dark Palace's `imagem_de_reserva`, made to work: a shot the whole chain
+    found nothing for shows the picture next to it — the previous shot's first,
+    else the next one's — instead of stopping the video. None (and nothing
+    changed) when the knob is off or neither neighbour has a picture on disk.
+    Returns the neighbour's id."""
+    if not never_empty(ctx.cfg):
+        return None
+    visual = plan["tracks"]["visual"]
+    i = next((n for n, v in enumerate(visual) if v is item or v.get("id") == item.get("id")), None)
+    if i is None:
+        return None
+    for j in (i - 1, i + 1):
+        if not 0 <= j < len(visual):
+            continue
+        other = visual[j]
+        path = str((other.get("asset") or {}).get("path") or "")
+        if other.get("media_type") in ("image", "video") and path and (ctx.folder / path).exists():
+            item["asset"] = dict(other["asset"])
+            item["media_type"] = other["media_type"]
+            for key in ("in_offset_s", "focus_y"):
+                if key in other:
+                    item[key] = other[key]
+            return str(other.get("id"))
+    return None

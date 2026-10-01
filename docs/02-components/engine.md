@@ -79,7 +79,9 @@ It refuses, leaving `final.mp4` untouched, when the plan renders with ffmpeg
 `final.mp4` is not this plan's size, rate or length (a retimed plan is not a
 patch). The worker's `pipeline/patch.py` decides what to patch from two plans
 (`changed_spans`) and falls back to a full render on a retime (`patch_render`
-returns False). Proof: `engine/test/patch.test.ts` (span math; the splice lands
+returns False) — and, since D121, whenever the sound changed: Remotion draws
+sound by walking every frame, so `--audio remix` costs as much as a whole
+render (905 s for the audio of Centralia's 60 s window). Proof: `engine/test/patch.test.ts` (span math; the splice lands
 frame-exact on synthetic video) and, by hand, `node engine/scripts/patch-check.mjs`
 (a patched render matches a full render of the edited plan, frame by frame).
 

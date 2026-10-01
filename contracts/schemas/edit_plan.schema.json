@@ -90,7 +90,11 @@
         "license": { "type": ["string", "null"] },
         "path": { "type": "string", "description": "relative to the video folder, e.g. clips/b12.mp4" },
         "score": { "type": ["number", "null"] },
-        "query": { "type": ["string", "null"] }
+        "query": { "type": ["string", "null"] },
+        "logo_crop": {
+          "enum": ["top-left", "top-right", "bottom-left", "bottom-right"],
+          "description": "D121 — the corner the visual review found a logo in and cropped out of the file; the file carries the crop, this records that it happened"
+        }
       }
     },
     "itemBase": {

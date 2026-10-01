@@ -32,6 +32,7 @@ all depend on.
 | 2g | Overlay — hook moments (D107) | `worker/lusora_worker/agents/hook_plan.py` | `prompts/hook_plan/` + `welded/hook_plan.{system,user}.txt` | shares `channel.planner.llm` → `deepseek`; `mock` plans nothing | 16000 tok, one shot, temp 0.3 | `{moments: [{beat, form, says, text|word|caption|highlight|title|items}]}` | `hook_plan.check` — a moment breaking any rule is dropped, never repaired |
 | 2h | Narrative marks (D112) | `worker/lusora_worker/agents/narrative_marks.py` | `prompts/narrative_marks/` + `welded/narrative_marks.{system,user}.txt` | shares `channel.planner.llm` → `deepseek`; `mock`, a failed call or a bad answer falls back to the paragraph starts after the hook as turns; no call unless `style_pack.texture.placement` is `narrative` | 8000 tok, one shot, temp 0.2 | `{flashback: [beat ids], turns: [beat ids]}` | `narrative_marks.validate` (known ids only); `marks.json` against `marks.schema.json` at compile |
 | 8 | Shot judge (D103) | `worker/lusora_worker/agents/pick_shots.py` | `prompts/pick_shots/` + `welded/pick_shots.{system,user}.txt` | `source_policy.visual.pick.llm` → `claude_cli` (`sonnet`); `anthropic`, `openai`, `gemini` also see, or a chain of them (D116) | one contact sheet per call, ≤2 attempts, temp 0.2 | `{ratings: [{n, rating 1-5, logo, desc}]}` | `validators.validate_ratings`; the stage's `shot_picks.json` against `shot_picks.schema.json` |
+| 9 | Visual review (D121) | `worker/lusora_worker/agents/visual_review.py` | `prompts/visual_review/` + `welded/visual_review.{system,user}.txt` | shares `source_policy.visual.pick.llm` (a vision provider or chain); off unless `source_policy.visual.review.enabled` | one sheet of 12 shots (two frames each) per call, one round, temp 0.2 | `{problems: [{item, problem: logo\|foreign_text\|cut_off\|blank, corner, note}]}` | `visual_review.validate` — an item off the sheet, an unknown problem or a logo with no corner is dropped with a note; code does every repair |
 
 Agents 1–3 are the three bounded agents of **D2**, and the only ones whose
 prompts are data. 2b, 2c, 2d and 2e are not further agents: each is a PHASE of
@@ -85,6 +86,16 @@ packs; the script agent and the research phase stay at the house default of
 0.7, because those are the calls where a second sample being different is the
 point. 4–6 belong to the library service (its own boundary, its
 own model, its own prompts). 7 is barely a prompt — see gaps.
+
+**9 (visual review, D121)** looks at the FINISHED video — Dark Palace's
+`revisor`. The judge only names problems; code repairs them (a banned source
+and its shots resolved again, a corner crop, a dropped graphic, another
+picture) and 12a's patch render redraws only those seconds. Each shot's line
+in the prompt lists OUR graphics on screen at its frames, with what they say:
+on the first Centralia review, without that list, the judge called the hook's
+own marked phrase ("the hardest and cleanest-burning coal in America",
+words underlined and highlighted) burned-in subtitles and banned two good
+clips over it.
 
 ### Providers and chains (D116)
 

@@ -10,6 +10,8 @@ caller renders the whole video instead.
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 from typing import Any
 
@@ -44,12 +46,14 @@ def changed_spans(old: dict[str, Any], new: dict[str, Any]) -> tuple[list[Span],
     o_tracks, n_tracks = old.get("tracks") or {}, new.get("tracks") or {}
 
     old_v, new_v = _by_id(o_tracks.get("visual")), _by_id(n_tracks.get("visual"))
+    heard = False  # a changed shot whose own sound plays changes the mix too
     for vid in old_v.keys() | new_v.keys():
         a, b = old_v.get(vid), new_v.get(vid)
-        if a is None or b is None:
-            spans.append(_span(a or b))
-        elif any(a.get(f) != b.get(f) for f in VISUAL_FIELDS) or _span(a) != _span(b):
-            spans += list({_span(a), _span(b)})
+        if a is None or b is None or any(a.get(f) != b.get(f) for f in VISUAL_FIELDS) or _span(a) != _span(b):
+            spans += list({_span(x) for x in (a, b) if x is not None})
+            # the renderers mute a clip unless the plan says `mute: false`
+            heard = heard or any(x.get("media_type") == "video" and x.get("mute") is False
+                                 for x in (a, b) if x is not None)
 
     changed_overlays: set[str] = set()
     old_o, new_o = _by_id(o_tracks.get("overlays")), _by_id(n_tracks.get("overlays"))
@@ -74,7 +78,7 @@ def changed_spans(old: dict[str, Any], new: dict[str, Any]) -> tuple[list[Span],
 
     o_audio, n_audio = o_tracks.get("audio") or {}, n_tracks.get("audio") or {}
     cued = {str(s.get("origin_id")) for s in (o_audio.get("sfx") or []) + (n_audio.get("sfx") or [])}
-    audio_changed = o_audio != n_audio or bool(changed_overlays & cued)
+    audio_changed = heard or o_audio != n_audio or bool(changed_overlays & cued)
     return sorted(spans), audio_changed
 
 
@@ -91,6 +95,27 @@ def retimed(old: dict[str, Any], new: dict[str, Any]) -> bool:
     return vo(old) != vo(new)
 
 
+PATCH_TIMEOUT_S = 1800
+
+
+def _run_engine(args: list[str], timeout: float) -> subprocess.CompletedProcess | None:
+    """The engine in its own process group, so a timeout stops Remotion's
+    browser with it; `subprocess.run(timeout=)` kills only the node process and
+    orphans Chrome. None when it had to be stopped."""
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            start_new_session=True)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+        return None
+    return subprocess.CompletedProcess(args, proc.returncode, out, err)
+
+
 def _sec(value: float) -> str:
     return f"{value:.4f}".rstrip("0").rstrip(".")
 
@@ -104,6 +129,13 @@ def patch_render(ctx: StageContext, old_plan: dict[str, Any], new_plan: dict[str
     if retimed(old_plan, new_plan):
         return False
     spans, audio_changed = changed_spans(old_plan, new_plan)
+    if audio_changed:
+        # Remotion draws sound by walking EVERY frame, so remixing costs a
+        # whole render — measured on the 60 s Centralia window: the audio
+        # alone took 905 s, a full render takes 8-9 minutes. A patch that has
+        # to remix is never cheaper; render whole instead. (The engine's
+        # `--audio remix` still works for a caller that wants it.)
+        return False
     ctx.write_json("edit_plan.json", new_plan)
     if not spans and not audio_changed:
         return True
@@ -120,7 +152,11 @@ def patch_render(ctx: StageContext, old_plan: dict[str, Any], new_plan: dict[str
     from .steps import render_slot  # a Remotion render sizes the machine either way
 
     with render_slot(ctx):
-        proc = subprocess.run(args, capture_output=True, text=True, timeout=1800)
+        proc = _run_engine(args, PATCH_TIMEOUT_S)
+    if proc is None:
+        ctx.write_json("edit_plan.json", old_plan)
+        raise StageError("render", f"patch gave no answer in {PATCH_TIMEOUT_S} s and was stopped — "
+                                   "the old plan is back; re-render the whole video")
     if proc.returncode != 0:
         ctx.write_json("edit_plan.json", old_plan)
         reason = (proc.stderr or proc.stdout).strip().splitlines()

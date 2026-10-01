@@ -8,6 +8,7 @@ deterministic fallbacks so the pipeline runs end to end at $0.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import math
@@ -1199,7 +1200,9 @@ def run_resolve_assets(ctx: StageContext) -> None:
     sources.begin_run()
     # What this video has already put on screen (D54). Rebuilt from the plan,
     # so a worker killed mid-stage resumes with the ledger it had.
-    ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg)
+    # D121: what the visual review banned stays banned for this video
+    banned = (ctx.read_json("visual_review.json").get("banned") or []) if ctx.has("visual_review.json") else []
+    ledger = sources.Ledger.from_plan(plan, ctx.folder, ctx.cfg, banned=banned)
     floor = degrade.source_score_floor(ctx.cfg)
     question = _shot_questions(ctx, plan, beats)
 
@@ -1258,7 +1261,8 @@ def run_resolve_assets(ctx: StageContext) -> None:
         if str(item["id"]) == opening_id and not honour:
             options = [c for c in options if c["source"] != "archive"]  # archive = photos
         for candidate in options:
-            if not honour and snapshot.blocked(str(candidate["source"]), candidate.get("provider"), str(candidate["id"])):
+            args = (str(candidate["source"]), candidate.get("provider"), str(candidate["id"]))
+            if (not honour and snapshot.blocked(*args)) or snapshot.is_banned(*args):
                 continue
             source_cfg = next((c for c in chain if str(c.get("source")) == candidate["source"]), None)
             adapter = sources.ADAPTERS.get(str(candidate["source"]))
@@ -1405,6 +1409,13 @@ def _place(
         ctx.db.event(ctx.video_id, "resolve_assets", "progress",
                      f"beat {item.get('beat_id')}: nothing found for {person} or for "
                      "the scene — showing their name on the plate")
+    elif (neighbour := degrade.to_neighbour(ctx, plan, item)) is not None:
+        # D121: never an empty frame — a repeat of the shot next door is a
+        # worse video than a new picture and a better one than none at all
+        ctx.db.event(ctx.video_id, "resolve_assets", "progress",
+                     f"beat {item.get('beat_id')}: nothing found (query {query!r}) — "
+                     f"showing {neighbour}'s picture again")
+        # falls through: the borrowed clip may be shorter than this shot
     else:
         raise StageError(
             "resolve_assets",
@@ -1652,6 +1663,81 @@ def run_render(ctx: StageContext) -> None:
         ctx.log(f"rendered via {info.get('renderer')} ({info.get('duration_s')}s)")
     except (json.JSONDecodeError, IndexError):
         ctx.log("rendered (engine reported no JSON summary)")
+
+
+# ---------------- visual_review (D121) ----------------
+
+
+def review_fresh(ctx: StageContext) -> bool:
+    """Reviewed since the file last changed. The review writes its record
+    AFTER its own patch, so its repair does not make it run again; a later
+    render of the video (an edit) does."""
+    if not ctx.has("visual_review.json") or not ctx.has("final.mp4"):
+        return False
+    return ctx.artifact("visual_review.json").stat().st_mtime >= ctx.artifact("final.mp4").stat().st_mtime
+
+
+def run_visual_review(ctx: StageContext, see_fn=None) -> None:
+    """Look at the finished video and repair the shots with a problem (D121,
+    Dark Palace's revisor). One round: find, repair the plan, resolve the
+    cleared shots again, and redraw only what changed (12a's patch render),
+    or the whole video when the patch cannot. Off unless
+    `source_policy.visual.review.enabled`."""
+    from ..agents import visual_review as review
+    from ..providers import llm as llm_provider
+    from . import patch
+
+    record: dict = {"version": "1.0", "video_id": ctx.video_id, "enabled": False}
+    if not review.settings(ctx.cfg)["enabled"]:
+        ctx.write_json("visual_review.json", record)
+        ctx.log("visual review is off for this channel")
+        return
+    plan = ctx.read_json("edit_plan.json")
+    times = review.sample_times(plan, render_window(ctx.cfg))
+    workdir = ctx.folder / "review"
+    frames = review.extract_frames(ctx.artifact("final.mp4"), times, workdir)
+    sheets = review.build_sheets(workdir, frames)
+    found, notes = [], []
+    for sheet, items in sheets:
+        kept, sheet_notes = review.judge(ctx, sheet, items, see_fn or llm_provider.see,
+                                         review.describe_graphics(plan, items))
+        found += kept
+        notes += sheet_notes
+    visual = plan["tracks"]["visual"]
+    record.update(enabled=True, sheets=len(sheets), items=len(frames),
+                  found=[{**f, "id": str(visual[f["item"]]["id"])} for f in found],
+                  notes=notes, done=[], banned=[], patched=[])
+    for note in notes:
+        ctx.db.event(ctx.video_id, "visual_review", "progress", note)
+    if not found:
+        ctx.write_json("visual_review.json", record)
+        ctx.log(f"visual review: {len(frames)} shots on {len(sheets)} sheet(s), nothing to repair")
+        return
+
+    old = copy.deepcopy(plan)
+    ctx.write_json("edit_plan.before_review.json", old)
+    outcome = review.repair(ctx, plan, found)
+    record.update(done=outcome["done"], banned=outcome["banned"])
+    # the bans must be on disk before resolve_assets reads them
+    ctx.write_json("visual_review.json", record)
+    ctx.write_json("edit_plan.json", plan)
+    if outcome["cleared"]:
+        run_resolve_assets(ctx)  # only the cleared shots are pending
+    new = ctx.read_json("edit_plan.json")
+    run_validate(ctx)
+    if patch.patch_render(ctx, old, new):
+        spans, audio = patch.changed_spans(old, new)
+        record["patched"] = [list(s) for s in spans]
+        record["audio_remixed"] = audio
+    else:
+        run_render(ctx)
+        record["patched"] = "whole video"
+    for line in outcome["done"]:
+        ctx.db.event(ctx.video_id, "visual_review", "progress", line)
+    # last, so it is newer than the final.mp4 it repaired (review_fresh)
+    ctx.write_json("visual_review.json", record)
+    ctx.log(f"visual review: {len(found)} problem(s) on {len(frames)} shots; "
+            f"{len(outcome['done'])} repair(s); redrawn {record['patched']}")
 
 
 # ---------------- qa (D57) ----------------

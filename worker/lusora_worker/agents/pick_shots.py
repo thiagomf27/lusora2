@@ -141,12 +141,16 @@ def _cell(src: Path | None, label: str, dest: Path) -> None:
 
 def build_sheet(
     workdir: Path, rows: list[list[dict]], first_row: int, cols: int, name: str,
-    numbers_only: bool = False,
+    numbers_only: bool = False, cell_labels: list[list[str]] | None = None,
 ) -> tuple[Path, list[tuple[int, dict]]]:
     """One numbered contact sheet: a row per shot, its candidates left to
     right, each labelled `#n  shot r`. A thumbnail that will not download
     leaves a blank cell and takes no number, so the judge is never asked about
-    a picture it cannot see. Returns the sheet and, per number, (row, candidate)."""
+    a picture it cannot see. Returns the sheet and, per number, (row, candidate).
+
+    `cell_labels` (D121) replaces the numbering with the caller's own label
+    per cell ("" = none): the visual review prints each shot's number over the
+    first of its two frames."""
     workdir.mkdir(parents=True, exist_ok=True)
     numbered: list[tuple[int, dict]] = []
     cells: list[Path] = []
@@ -157,7 +161,11 @@ def build_sheet(
             raw = workdir / f"_{name}_raw.jpg"
             if candidate is not None and _thumb(str(candidate["thumb"]), raw):
                 n = len(numbered)
-                _cell(raw, f"#{n}" if numbers_only else f"#{n}  shot {first_row + r + 1}", cell)
+                if cell_labels is not None:
+                    label = cell_labels[r][c] if c < len(cell_labels[r]) else ""
+                else:
+                    label = f"#{n}" if numbers_only else f"#{n}  shot {first_row + r + 1}"
+                _cell(raw, label, cell)
                 numbered.append((r, candidate))
             else:
                 _cell(None, "", cell)

@@ -531,6 +531,27 @@
           "source": "derived: how many numbered photos the sheet holds"
         }
       }
+    },
+    "visual_review": {
+      "description": "D121 — the finished video's frames, two per shot on numbered contact sheets -> the shots with a problem (`logo` with its corner, `foreign_text`, `cut_off`, `blank`). Dark Palace's revisor. It decides no content: code repairs the plan from the answer (a banned source, a corner crop, a dropped graphic, another picture) and re-renders only what changed.",
+      "welded": {
+        "system": true,
+        "user": true
+      },
+      "variables": {
+        "items": {
+          "required": true,
+          "source": "derived: the shot numbers on this sheet, e.g. `#0-#11`"
+        },
+        "graphics": {
+          "required": false,
+          "source": "derived: per shot, the plan's overlays on screen at its two frames (component and what it says), so the judge knows which text is ours"
+        },
+        "instructions": {
+          "required": false,
+          "source": "cfg.overrides.instructions"
+        }
+      }
     }
   }
 }

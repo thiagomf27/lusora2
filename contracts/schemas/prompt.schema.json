@@ -31,6 +31,7 @@
         "pick_videos",
         "hook_plan",
         "narrative_marks",
+        "visual_review",
         "match_cut"
       ],
       "description": "must match the containing directory; decides the variable set and the welded block"

@@ -90,6 +90,10 @@ STEP_REGISTRY: dict[str, Step] = {
     "resolve_audio": Step(steps.run_resolve_audio, steps.audio_resolved),
     "validate": Step(steps.run_validate),  # judges the plan — always runs
     "render": Step(steps.run_render, steps.render_fresh),
+    # D121 — the finished video looked at; the shots with a problem repaired
+    # and redrawn alone. Only documentary lists it; off unless the channel
+    # sets source_policy.visual.review.enabled.
+    "visual_review": Step(steps.run_visual_review, steps.review_fresh),
     # D57: between render and finalize, so a black or silent file never reaches
     # RENDERED — the orchestrator sets that status only after every stage
     # passes, and a StageError here stops the video with one reason. Always

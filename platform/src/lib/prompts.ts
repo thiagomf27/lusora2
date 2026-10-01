@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { repoRoot } from "./env.ts";
 import { validateAgainst } from "./validate.ts";
 
-export const PROMPT_ROLES = ["research", "script", "planner", "spine", "chat", "overlay", "beatcraft", "image", "subjects", "pick_shots", "pick_videos", "hook_plan", "match_cut", "narrative_marks"] as const;
+export const PROMPT_ROLES = ["research", "script", "planner", "spine", "chat", "overlay", "beatcraft", "image", "subjects", "pick_shots", "pick_videos", "hook_plan", "match_cut", "narrative_marks", "visual_review"] as const;
 export type PromptRole = (typeof PROMPT_ROLES)[number];
 
 export const PROMPT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;

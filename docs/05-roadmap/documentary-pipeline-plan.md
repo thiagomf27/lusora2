@@ -411,7 +411,7 @@ Split in four (see [the slice briefs](briefs/README.md)):
 - **11d:** `agy` (Antigravity CLI). Needs `agy` installed and logged in, plus
   one settings change.
 
-### Slice 12: `visual_review` (L) — 12a ✅ BUILT (D120)
+### Slice 12: `visual_review` (L) ✅ BUILT (12a D120, 12b D121)
 Per-segment render first (today LUSORA re-renders the whole video), then
 review 2 frames per block and repair only what failed. The empty-frame degrade
 lands here too.
@@ -420,7 +420,13 @@ lands here too.
   `pipeline/patch.py` works out those seconds from two plans. Swapping one
   Centralia shot took 174 s against 8–9 minutes for the whole 60 s window.
   Not built: patching an ffmpeg render (the caller re-renders it whole).
-- **12b:** the visual review, its first user.
+- **12b ✅ BUILT (D121):** the `visual_review` stage (documentary v1.7) — two
+  frames of every shot on contact sheets, the pick judge naming a corner logo,
+  foreign text, cut-off text or a blank frame, and code repairing each (a
+  banned source, a crop, a dropped graphic, another picture) before a patch
+  render, or a whole render when the sound changed. Plus never an empty frame:
+  a shot nothing was found for takes its neighbour's picture.
+  Not built: a second round (the review looks once).
 
 ### Slice 13: delivery (S) ✅ BUILT (D118)
 Subscribe CTA component and placement, and MP4 checks before the final name.

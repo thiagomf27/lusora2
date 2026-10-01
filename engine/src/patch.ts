@@ -275,7 +275,11 @@ export async function runPatch(
   const targets = fileSpans(spans, plan, fps, offset, total);
   if (!targets.length && audio === "keep") return { patched: [], frames: total, audio };
 
+  const t0 = Date.now();
+  // phase timings on stderr: the worker shows them when a patch fails or times out
+  const phase = (what: string) => console.error(`[patch] ${what} at ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   const prep = await prepareRemotion(plan, videoDir);
+  phase("bundled")
   const expected = range ? range[1] - range[0] + 1 : prep.composition.durationInFrames;
   if (expected !== total) {
     throw new Error(
@@ -290,15 +294,18 @@ export async function runPatch(
     for (const [k, span] of targets.entries()) {
       const file = join(work, `patch_${k}.mp4`);
       await drawRemotion(prep, file, { muted: true, frameRange: [span.first + offset, span.end + offset - 1] });
+      phase(`drew span ${k + 1}/${targets.length} (${span.end - span.first} frames)`);
       patches.push({ ...span, file });
     }
     let track: "keep" | string = "keep";
     if (audio === "remix") {
       track = join(work, "audio.m4a");
       await drawRemotion(prep, track, { codec: "aac", ...(range ? { frameRange: range } : {}) });
+      phase("drew the audio");
     }
     if (patches.length) {
       splice(original, patches, tmpOut, track);
+      phase("spliced");
     } else {
       // only the sound changed: the picture is copied, not re-encoded
       const p = spawnSync("ffmpeg", [

@@ -1,0 +1,8 @@
+{
+  "name": "default",
+  "role": "visual_review",
+  "description": "The finished video looked at: two frames of every shot, and the shots with a problem (D121, Dark Palace's revisor PEDIDO)",
+  "temperature": 0.2,
+  "system": "These are frames from a finished documentary video: two frames per shot, the shot number in yellow over the first of its two frames. OUR OWN graphics are fine: clean white captions at the bottom, titled boxes, counters, labels, bullet lists, maps, timelines, cards, framed photos, a title card, a subscribe button in the top-right corner. Find the shots with a PROBLEM:\n- \"logo\": a SMALL channel logo or watermark sitting in one corner of the footage; say which corner.\n- \"foreign_text\": other text or graphics that are NOT ours: TV news banners or tickers, 'BREAKING NEWS', burned-in subtitles in any language, big titles, a website or phone screenshot.\n- \"cut_off\": our own text cut off at the frame's edge or spilling out of its box.\n- \"blank\": black, blank or broken frames.\nMost shots have no problem. Report only what you can see.",
+  "user": "{{#instructions}}PER-VIDEO INSTRUCTIONS: {{instructions}}\n{{/instructions}}The sheet shows shots {{items}}.\n{{#graphics}}\nOUR OWN GRAPHICS on screen in these shots (component, and what it says):\n{{graphics}}\n{{/graphics}}"
+}

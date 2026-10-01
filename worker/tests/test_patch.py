@@ -129,7 +129,7 @@ def ctx(tmp_path):
 
 
 def test_a_retime_touches_nothing_and_asks_for_a_full_render(ctx, monkeypatch):
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("the engine must not run"))
+    monkeypatch.setattr(patch, "_run_engine", lambda *a, **k: pytest.fail("the engine must not run"))
     new = edited(lambda p: p["tracks"]["visual"][1].update(end_s=7.5))
     assert patch.patch_render(ctx, PLAN, new) is False
     assert ctx.read_json("edit_plan.json") == PLAN
@@ -138,11 +138,11 @@ def test_a_retime_touches_nothing_and_asks_for_a_full_render(ctx, monkeypatch):
 def test_a_content_change_calls_the_engine_with_its_spans(ctx, monkeypatch):
     calls = []
 
-    def run(args, **kw):
+    def run(args, timeout):
         calls.append(args)
         return subprocess.CompletedProcess(args, 0, json.dumps({"patched": [[3.5, 8.5]], "ok": True}), "")
 
-    monkeypatch.setattr(patch.subprocess, "run", run)
+    monkeypatch.setattr(patch, "_run_engine", run)
     new = edited(lambda p: p["tracks"]["visual"][1].update(asset={"path": "clips/z.mp4"}))
     assert patch.patch_render(ctx, PLAN, new) is True
     (args,) = calls
@@ -159,9 +159,44 @@ def test_long_video_seconds_keep_their_precision():
 
 
 def test_an_engine_failure_puts_the_old_plan_back(ctx, monkeypatch):
-    monkeypatch.setattr(patch.subprocess, "run",
-                        lambda args, **kw: subprocess.CompletedProcess(args, 1, "", "final.mp4 has 900 frames"))
-    new = edited(lambda p: p["tracks"]["overlays"][1]["props"].update(label="Iscriviti"))
+    monkeypatch.setattr(patch, "_run_engine",
+                        lambda args, timeout: subprocess.CompletedProcess(args, 1, "", "final.mp4 has 900 frames"))
+    new = edited(lambda p: p["tracks"]["overlays"][0]["props"].update(value=9))
     with pytest.raises(StageError, match="900 frames"):
         patch.patch_render(ctx, PLAN, new)
     assert ctx.read_json("edit_plan.json") == PLAN, "the folder still describes its final.mp4"
+
+
+def test_a_patch_that_times_out_puts_the_old_plan_back(ctx, monkeypatch):
+    monkeypatch.setattr(patch, "_run_engine", lambda args, timeout: None)
+    new = edited(lambda p: p["tracks"]["overlays"][0]["props"].update(value=9))
+    with pytest.raises(StageError, match="no answer"):
+        patch.patch_render(ctx, PLAN, new)
+    assert ctx.read_json("edit_plan.json") == PLAN
+
+
+def test_a_timed_out_engine_is_stopped_with_its_children():
+    """`subprocess.run(timeout=)` kills only the node process and orphans the
+    browser; the whole process group goes."""
+    import time as _time
+
+    started = _time.monotonic()
+    assert patch._run_engine(["bash", "-c", "sleep 30 & sleep 30; wait"], timeout=0.5) is None
+    assert _time.monotonic() - started < 10, "the child sleep did not keep it alive"
+
+
+def test_a_change_the_audio_hears_is_a_full_render(ctx, monkeypatch):
+    """Remixing costs a whole render (Remotion walks every frame for sound):
+    measured 905 s for the audio of a 60 s window."""
+    monkeypatch.setattr(patch, "_run_engine", lambda *a, **k: pytest.fail("no patch when the audio changes"))
+    new = edited(lambda p: p["tracks"]["overlays"][1]["props"].update(label="Iscriviti"))
+    assert patch.patch_render(ctx, PLAN, new) is False
+    assert ctx.read_json("edit_plan.json") == PLAN
+
+
+def test_a_changed_shot_that_plays_its_own_sound_changes_the_audio():
+    old = edited(lambda p: p["tracks"]["visual"][1].update(mute=False))
+    new = edited(lambda p: p["tracks"]["visual"][1].update(mute=False, asset={"path": "clips/z.mp4"}))
+    assert patch.changed_spans(old, new) == ([(4.0, 8.0)], True)
+    muted = edited(lambda p: p["tracks"]["visual"][1].update(asset={"path": "clips/z.mp4"}))
+    assert patch.changed_spans(PLAN, muted) == ([(4.0, 8.0)], False), "a muted clip is only picture"

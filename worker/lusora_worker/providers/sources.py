@@ -1181,10 +1181,17 @@ class Ledger:
         self.placed: list[tuple[str, str | None, float]] = []
         # the item being resolved: the per-source and seconds rules are relative to it
         self.item: dict[str, Any] | None = None
+        # D121: what the visual review banned from this video — an upload's
+        # parent id, or an asset key (`Ledger.key`) where there is no parent
+        self.banned: set[str] = set()
 
     @classmethod
-    def from_plan(cls, plan: dict[str, Any], folder: Any, cfg: dict[str, Any] | None = None) -> "Ledger":
+    def from_plan(
+        cls, plan: dict[str, Any], folder: Any, cfg: dict[str, Any] | None = None,
+        banned: Any = (),
+    ) -> "Ledger":
         ledger = cls(cfg)
+        ledger.banned = {str(b) for b in banned}
         for item in plan["tracks"]["visual"]:
             asset = item.get("asset") or {}
             path = str(asset.get("path") or "")
@@ -1203,7 +1210,17 @@ class Ledger:
         other.entries = list(self.entries)
         other.placed = list(self.placed)
         other.item = self.item
+        other.banned = set(self.banned)
         return other
+
+    def is_banned(self, source: str, provider: str | None, asset_id: str | None) -> bool:
+        """D121: the visual review saw foreign text in this upload, or this
+        exact asset came out blank. Refused whoever asks, a person's pick included."""
+        if not self.banned or not asset_id:
+            return False
+        parent = self.parent(source, asset_id)
+        return (parent is not None and parent in self.banned) or \
+            f"{source}:{provider or ''}:{asset_id}" in self.banned
 
     def at(self, item: dict[str, Any] | None) -> "Ledger":
         """Point the ledger at the item being resolved, and return it."""
@@ -1238,6 +1255,8 @@ class Ledger:
         or its source video has been shown too often, or by the beat before."""
         if not asset_id:
             return False  # a generated image has no id and is never a repeat
+        if self.is_banned(source, provider, asset_id):
+            return True
         key = f"{source}:{provider or ''}:{asset_id}"
         if any(k == key for k, _h in self._recent()):
             return True

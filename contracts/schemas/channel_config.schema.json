@@ -430,6 +430,15 @@
                 "crop_logos": { "type": "boolean", "default": false, "description": "crop the corner the judge reports a channel logo in (14% of the frame). Off by default: the user found a small corner logo acceptable and the crop costs resolution; letterbox bars are always removed." }
               }
             },
+            "review": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "D121 — the visual_review stage (Dark Palace's revisor): after the render, two frames of every shot on contact sheets are shown to the pick judge (source_policy.visual.pick.llm), and the shots with a problem are repaired and re-rendered alone (a source with foreign text banned from the video, a corner logo cropped, a cut-off graphic dropped, a blank shot given another picture). Only a pipeline that lists visual_review reads it; one round only.",
+              "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "never_empty": { "type": "boolean", "default": true, "description": "with review on: a shot the source chain found nothing for takes its neighbour's picture (the previous one first) instead of stopping the video. Dark Palace's imagem_de_reserva." }
+              }
+            },
             "identity": {
               "type": "object",
               "additionalProperties": false,
@@ -576,7 +585,8 @@
         "pick_videos": { "$ref": "#/$defs/resolvedPrompt" },
         "hook_plan": { "$ref": "#/$defs/resolvedPrompt" },
         "match_cut": { "$ref": "#/$defs/resolvedPrompt" },
-        "narrative_marks": { "$ref": "#/$defs/resolvedPrompt" }
+        "narrative_marks": { "$ref": "#/$defs/resolvedPrompt" },
+        "visual_review": { "$ref": "#/$defs/resolvedPrompt" }
       }
     }
   },
