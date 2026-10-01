@@ -15,6 +15,7 @@ import signal
 import subprocess
 from typing import Any
 
+from ..config import render_timeout_s
 from ..context import StageContext
 from ..errors import StageError
 
@@ -95,7 +96,6 @@ def retimed(old: dict[str, Any], new: dict[str, Any]) -> bool:
     return vo(old) != vo(new)
 
 
-PATCH_TIMEOUT_S = 1800
 
 
 def _run_engine(args: list[str], timeout: float) -> subprocess.CompletedProcess | None:
@@ -152,10 +152,11 @@ def patch_render(ctx: StageContext, old_plan: dict[str, Any], new_plan: dict[str
     from .steps import render_slot  # a Remotion render sizes the machine either way
 
     with render_slot(ctx):
-        proc = _run_engine(args, PATCH_TIMEOUT_S)
+        timeout = render_timeout_s()
+        proc = _run_engine(args, timeout)
     if proc is None:
         ctx.write_json("edit_plan.json", old_plan)
-        raise StageError("render", f"patch gave no answer in {PATCH_TIMEOUT_S} s and was stopped — "
+        raise StageError("render", f"patch gave no answer in {timeout:.0f} s and was stopped — "
                                    "the old plan is back; re-render the whole video")
     if proc.returncode != 0:
         ctx.write_json("edit_plan.json", old_plan)

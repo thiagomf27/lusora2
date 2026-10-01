@@ -12,6 +12,7 @@
     "db:seed": "node --experimental-strip-types src/db/seed.ts",
     "edit-pass-prompt": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/edit-pass-prompt.ts",
     "ab:fork": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/ab-fork.ts",
+    "enqueue:script": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/enqueue-script.ts",
     "bench:fork": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/bench-fork.ts"
   },
   "dependencies": {

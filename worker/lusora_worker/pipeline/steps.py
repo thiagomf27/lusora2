@@ -35,7 +35,7 @@ from ..agents import script as script_agent
 from ..agents import subjects as subjects_agent
 from ..compiler import compile_plan
 from ..compiler import sound as sound_rules
-from ..config import parallelism
+from ..config import parallelism, render_timeout_s
 from ..context import StageContext
 from ..errors import StageError
 from ..providers.llm import chain_of
@@ -1652,8 +1652,14 @@ def run_render(ctx: StageContext) -> None:
     if window:
         args += ["--window", f"{window[0]:g}-{window[1]:g}"]
         ctx.log(f"WINDOWED render {window[0]:g}-{window[1]:g}s — a test render, not a deliverable")
+    from .patch import _run_engine  # its own process group: a timeout stops Chrome too
+
+    timeout = render_timeout_s()
     with render_slot(ctx):
-        proc = subprocess.run(args, capture_output=True, text=True, timeout=1800)
+        proc = _run_engine(args, timeout)
+    if proc is None:
+        raise StageError("render", f"the engine gave no answer in {timeout:.0f} s and was stopped — "
+                                   "raise RENDER_TIMEOUT_S on a slow machine")
     if proc.returncode != 0:
         reason = (proc.stderr or proc.stdout).strip().splitlines()
         raise StageError("render", f"engine failed: {reason[-1] if reason else 'no output'}")

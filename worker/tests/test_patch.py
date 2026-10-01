@@ -200,3 +200,33 @@ def test_a_changed_shot_that_plays_its_own_sound_changes_the_audio():
     assert patch.changed_spans(old, new) == ([(4.0, 8.0)], True)
     muted = edited(lambda p: p["tracks"]["visual"][1].update(asset={"path": "clips/z.mp4"}))
     assert patch.changed_spans(PLAN, muted) == ([(4.0, 8.0)], False), "a muted clip is only picture"
+
+
+# ---------------- the render timeout (deployment config) ----------------
+
+
+@pytest.mark.parametrize("raw, expected", [(None, 1800.0), ("7200", 7200.0), ("nonsense", 1800.0), ("5", 1800.0)])
+def test_the_render_timeout_is_machine_config(monkeypatch, raw, expected):
+    from lusora_worker.config import render_timeout_s
+
+    if raw is None:
+        monkeypatch.delenv("RENDER_TIMEOUT_S", raising=False)
+    else:
+        monkeypatch.setenv("RENDER_TIMEOUT_S", raw)
+    assert render_timeout_s() == expected
+
+
+def test_a_whole_render_that_times_out_says_which_knob(ctx, monkeypatch):
+    from lusora_worker.pipeline import steps
+
+    seen = {}
+
+    def engine(args, timeout):
+        seen["timeout"] = timeout
+        return None
+
+    monkeypatch.setenv("RENDER_TIMEOUT_S", "7200")
+    monkeypatch.setattr(patch, "_run_engine", engine)
+    with pytest.raises(StageError, match="RENDER_TIMEOUT_S"):
+        steps.run_render(ctx)
+    assert seen["timeout"] == 7200.0

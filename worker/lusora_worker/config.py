@@ -34,6 +34,18 @@ def parallelism(name: str, default: int) -> int:
         return 1
 
 
+def render_timeout_s() -> float:
+    """How long one engine render or patch may run before it is stopped —
+    deployment config like `parallelism`: it depends on the machine, never on
+    the video. Default 30 minutes; a slow or throttled machine raises it with
+    RENDER_TIMEOUT_S. Anything unreadable or below a minute keeps the default."""
+    try:
+        value = float(os.environ.get("RENDER_TIMEOUT_S") or 1800)
+    except ValueError:
+        return 1800.0
+    return value if value >= 60 else 1800.0
+
+
 def videos_root() -> Path:
     root = Path(os.environ.get("VIDEOS_ROOT") or REPO_ROOT / "data/videos")
     return root if root.is_absolute() else REPO_ROOT / root
